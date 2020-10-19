@@ -778,7 +778,9 @@ int ResourceManager::init_audio()
                 /* TODO: Needs to extend for new targets */
                 if (strstr(snd_card_name, "kona") ||
                     strstr(snd_card_name, "sm8150")||
-                    strstr(snd_card_name, "lahaina") ) {
+                    strstr(snd_card_name, "lahaina")||
+                    strstr(snd_card_name, "sa8155")||
+                    strstr(snd_card_name, "sa6155")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_mixer = tmp_mixer;
