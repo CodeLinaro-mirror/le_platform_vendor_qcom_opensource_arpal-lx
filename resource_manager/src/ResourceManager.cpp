@@ -277,10 +277,13 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_RAW" },                      PAL_STREAM_RAW},
     {std::string{ "PAL_STREAM_VOICE_ACTIVATION" },         PAL_STREAM_VOICE_ACTIVATION},
     {std::string{ "PAL_STREAM_VOICE_CALL_RECORD" },        PAL_STREAM_VOICE_CALL_RECORD},
+    {std::string{ "PAL_STREAM_VOICE_CALL_TX" },            PAL_STREAM_VOICE_CALL_TX},
+    {std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" },         PAL_STREAM_VOICE_CALL_RX_TX},
     {std::string{ "PAL_STREAM_VOICE_CALL" },               PAL_STREAM_VOICE_CALL},
     {std::string{ "PAL_STREAM_LOOPBACK" },                 PAL_STREAM_LOOPBACK},
     {std::string{ "PAL_STREAM_TRANSCODE" },                PAL_STREAM_TRANSCODE},
     {std::string{ "PAL_STREAM_VOICE_UI" },                 PAL_STREAM_VOICE_UI},
+    {std::string{ "PAL_STREAM_PCM_OFFLOAD" },              PAL_STREAM_PCM_OFFLOAD},
     {std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" },        PAL_STREAM_ULTRA_LOW_LATENCY},
     {std::string{ "PAL_STREAM_PROXY" },                    PAL_STREAM_PROXY},
 };
@@ -495,6 +498,7 @@ ResourceManager::ResourceManager()
     listAllPcmVoice2TxFrontEnds.clear();
     listAllPcmInCallRecordFrontEnds.clear();
     listAllPcmInCallMusicFrontEnds.clear();
+    memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
 
     ret = ResourceManager::XmlParser(SNDPARSER);
     if (ret) {
@@ -4731,6 +4735,7 @@ setdevparam:
             struct pal_device dattr;
             Stream *stream = NULL;
             std::vector<Stream*> activestreams;
+            struct pal_stream_attributes sAttr;
             Session *session = NULL;
 
             pal_param_gain_lvl_cal_t *gain_lvl_cal = (pal_param_gain_lvl_cal_t *) param_payload;
@@ -4757,13 +4762,21 @@ setdevparam:
                        status = -EINVAL;
                        goto exit;
                     }
+
                     stream = static_cast<Stream *>(activestreams[0]);
-                    stream->setGainLevel(gain_lvl_cal->level);
-                    stream->getAssociatedSession(&session);
-                    status = session->setConfig(stream, CALIBRATION, TAG_DEVICE_PP_MBDRC);
-                    if (0 != status) {
-                        PAL_ERR(LOG_TAG, "session setConfig failed with status %d", status);
-                        goto exit;
+                    stream->getStreamAttributes(&sAttr);
+                    if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
+                        ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                        (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                        (sAttr.type == PAL_STREAM_COMPRESSED) ||
+                        (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
+                        stream->setGainLevel(gain_lvl_cal->level);
+                        stream->getAssociatedSession(&session);
+                        status = session->setConfig(stream, CALIBRATION, TAG_DEVICE_PP_MBDRC);
+                        if (0 != status) {
+                            PAL_ERR(LOG_TAG, "session setConfig failed with status %d", status);
+                            goto exit;
+                        }
                     }
                 }
             }
@@ -5053,14 +5066,21 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
     return status;
 }
 
+int ResourceManager::resetStreamInstanceID(Stream *s){
+    return s ? resetStreamInstanceID(s, s->getInstanceId()) : -EINVAL;
+}
+
 int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
     int status = 0;
-
     pal_stream_attributes StrAttr;
     KeyVect_t streamConfigModifierKV;
 
-    status = str->getStreamAttributes(&StrAttr);
+    if(sInstanceID < INSTANCE_1){
+        PAL_ERR(LOG_TAG,"Invalid Stream Instance ID\n");
+        return -EINVAL;
+    }
 
+    status = str->getStreamAttributes(&StrAttr);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
         return status;
@@ -5098,21 +5118,16 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
             }
             break;
         default:
-            PAL_ERR(LOG_TAG, "Invalid streamtype %d",
-                    StrAttr.type);
-            break;
+            stream_instances[StrAttr.type - 1] &= ~(1 << (sInstanceID - 1));
+            str->setInstanceId(0);
     }
-
 
     mResourceManagerMutex.unlock();
     return status;
-
 }
 
 int ResourceManager::getStreamInstanceID(Stream *str) {
-    int status = 0;
-    int i;
-    int listNodeIndex = -1;
+    int i, status = 0, listNodeIndex = -1;
     pal_stream_attributes StrAttr;
     KeyVect_t streamConfigModifierKV;
 
@@ -5174,15 +5189,25 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
             }
             break;
         default:
-            PAL_ERR(LOG_TAG, "Invalid streamtype %d",
-                    StrAttr.type);
-            break;
+            status = str->getInstanceId();
+            if (!status) {
+                if (stream_instances[StrAttr.type - 1] ==  -1) {
+                    PAL_ERR(LOG_TAG, "All stream instances taken");
+                    status = -EINVAL;
+                    break;
+                }
+                for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
+                    if (!(stream_instances[StrAttr.type - 1] & (1 << i))) {
+                        stream_instances[StrAttr.type - 1] |= (1 << i);
+                        status = i + 1;
+                        break;
+                    }
+                str->setInstanceId(status);
+            }
     }
-
 
     mResourceManagerMutex.unlock();
     return status;
-
 }
 
 bool ResourceManager::isDeviceAvailable(pal_device_id_t id)
