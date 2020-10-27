@@ -8396,10 +8396,8 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
     pal_stream_attributes StrAttr;
     std::string streamSelector;
 
-    if(sInstanceID < INSTANCE_1){
-        PAL_ERR(LOG_TAG,"Invalid Stream Instance ID\n");
-        return -EINVAL;
-    }
+    if (sInstanceID < INSTANCE_1)
+        return 0; //no stream instance assigned, return
 
     status = str->getStreamAttributes(&StrAttr);
     if (status != 0) {
