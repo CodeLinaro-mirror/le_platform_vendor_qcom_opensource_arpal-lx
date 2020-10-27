@@ -1133,6 +1133,16 @@ int PayloadBuilder::populateStreamKV(Stream* s,
         goto free_sattr;
     }
 
+    if (sattr->direction == PAL_AUDIO_OUTPUT) {
+        instance_id = rm->getStreamInstanceID(s);
+        if (instance_id < INSTANCE_1) {
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "Invalid instance id %d for stream type %d",
+                             instance_id, sattr->type);
+            goto free_sattr;
+        }
+    }
+
     //todo move the keys to a to an xml of stream type to key
     //something like stream_type=PAL_STREAM_LOW_LATENCY, key=PCM_LL_PLAYBACK
     //from there create a map and retrieve the right keys
@@ -1141,7 +1151,7 @@ int PayloadBuilder::populateStreamKV(Stream* s,
         case PAL_STREAM_LOW_LATENCY:
             if (sattr->direction == PAL_AUDIO_OUTPUT) {
                 keyVector.push_back(std::make_pair(STREAMRX,PCM_LL_PLAYBACK));
-                keyVector.push_back(std::make_pair(INSTANCE, INSTANCE_1));
+                keyVector.push_back(std::make_pair(INSTANCE, instance_id));
             } else if (sattr->direction == PAL_AUDIO_INPUT) {
                 keyVector.push_back(std::make_pair(STREAMTX,RAW_RECORD));
             } else if (sattr->direction == (PAL_AUDIO_OUTPUT | PAL_AUDIO_INPUT)) {
@@ -1182,14 +1192,8 @@ int PayloadBuilder::populateStreamKV(Stream* s,
             break;
         case PAL_STREAM_DEEP_BUFFER:
             if (sattr->direction == PAL_AUDIO_OUTPUT) {
-                keyVector.push_back(std::make_pair(STREAMRX,PCM_DEEP_BUFFER));
-                instance_id = rm->getStreamInstanceID(s);
-                if (instance_id < INSTANCE_1) {
-                    status = -EINVAL;
-                    PAL_ERR(LOG_TAG, "Invalid instance id %d for deep buffer stream", instance_id);
-                    goto free_sattr;
-                }
-                keyVector.push_back(std::make_pair(INSTANCE, instance_id));
+               keyVector.push_back(std::make_pair(STREAMRX,PCM_DEEP_BUFFER));
+               keyVector.push_back(std::make_pair(INSTANCE, instance_id));
             } else if (sattr->direction == PAL_AUDIO_INPUT) {
                 keyVector.push_back(std::make_pair(STREAMTX,PCM_RECORD));
             } else {
@@ -1201,7 +1205,7 @@ int PayloadBuilder::populateStreamKV(Stream* s,
         case PAL_STREAM_PCM_OFFLOAD:
             if (sattr->direction == PAL_AUDIO_OUTPUT) {
                 keyVector.push_back(std::make_pair(STREAMRX,PCM_OFFLOAD_PLAYBACK));
-                keyVector.push_back(std::make_pair(INSTANCE, INSTANCE_1));
+                keyVector.push_back(std::make_pair(INSTANCE, instance_id));
             } else {
                 status = -EINVAL;
                 PAL_ERR(LOG_TAG, "Invalid direction status %d", status);
@@ -1221,7 +1225,7 @@ int PayloadBuilder::populateStreamKV(Stream* s,
            if (sattr->direction == PAL_AUDIO_OUTPUT) {
                PAL_VERBOSE(LOG_TAG,"Stream compressed \n");
                keyVector.push_back(std::make_pair(STREAMRX, COMPRESSED_OFFLOAD_PLAYBACK));
-               keyVector.push_back(std::make_pair(INSTANCE, INSTANCE_1));
+               keyVector.push_back(std::make_pair(INSTANCE, instance_id));
            }
             break;
         case PAL_STREAM_VOIP_TX:
