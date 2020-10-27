@@ -474,10 +474,11 @@ exit:
 int32_t Stream::disconnectStreamDevice(Stream* streamHandle, pal_device_id_t dev_id)
 {
     int32_t status = -EINVAL;
+    PAL_DBG(LOG_TAG, "Enter");
     mStreamMutex.lock();
     status = disconnectStreamDevice_l(streamHandle, dev_id);
     mStreamMutex.unlock();
-
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
 
@@ -524,9 +525,11 @@ error_1:
 int32_t Stream::connectStreamDevice(Stream* streamHandle, struct pal_device *dattr)
 {
     int32_t status = -EINVAL;
+    PAL_DBG(LOG_TAG, "Enter");
     mStreamMutex.lock();
     status = connectStreamDevice_l(streamHandle, dattr);
     mStreamMutex.unlock();
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
 
     return status;
 }

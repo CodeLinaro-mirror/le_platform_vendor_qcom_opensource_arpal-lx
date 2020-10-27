@@ -112,6 +112,7 @@ int SessionAlsaVoice::open(Stream * s)
     struct pal_stream_attributes sAttr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
 
+    PAL_DBG(LOG_TAG,"Enter");
     status = s->getStreamAttributes(&sAttr);
     if(0 != status) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
@@ -153,6 +154,7 @@ int SessionAlsaVoice::open(Stream * s)
     }
 
 exit:
+    PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
 
@@ -300,6 +302,8 @@ int SessionAlsaVoice::start(Stream * s)
     size_t payloadSize = 0;
     struct pal_volume_data *volume = NULL;
 
+    PAL_DBG(LOG_TAG,"Enter");
+
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"stream get attributes failed");
@@ -325,12 +329,12 @@ int SessionAlsaVoice::start(Stream * s)
 
     pcmRx = pcm_open(rm->getSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
     if (!pcmRx) {
-        PAL_ERR(LOG_TAG, "pcm-rx open failed");
+        PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
         return -EINVAL;
     }
 
     if (!pcm_is_ready(pcmRx)) {
-        PAL_ERR(LOG_TAG, "pcm-rx open not ready");
+        PAL_ERR(LOG_TAG, "Exit pcm-rx open not ready");
         pcmRx = NULL;
         return -EINVAL;
     }
@@ -348,12 +352,12 @@ int SessionAlsaVoice::start(Stream * s)
 
     pcmTx = pcm_open(rm->getSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
     if (!pcmTx) {
-        PAL_ERR(LOG_TAG, "pcm-tx open failed");
+        PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
         return -EINVAL;
     }
 
     if (!pcm_is_ready(pcmTx)) {
-        PAL_ERR(LOG_TAG, "pcm-tx open not ready");
+        PAL_ERR(LOG_TAG, "Exit pcm-tx open not ready");
         pcmTx = NULL;
         return -EINVAL;
     }
@@ -403,7 +407,7 @@ int SessionAlsaVoice::start(Stream * s)
 
     status = populate_rx_mfc_payload(s, &payload, &payloadSize);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"Configuring RX MFC failed");
+        PAL_ERR(LOG_TAG,"Exit Configuring RX MFC failed");
         return status;
     }
     status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevRxIds.at(0),
@@ -430,6 +434,7 @@ exit:
         free(payload);
     if (volume)
         free(volume);
+    PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
 
@@ -438,6 +443,7 @@ int SessionAlsaVoice::stop(Stream * s __unused)
     int status = 0;
     int txDevId = PAL_DEVICE_NONE;
 
+    PAL_DBG(LOG_TAG,"Enter");
     /*disable sidetone*/
     status = getTXDeviceId(s, &txDevId);
     if (status){
@@ -461,7 +467,7 @@ int SessionAlsaVoice::stop(Stream * s __unused)
             PAL_ERR(LOG_TAG, "pcm_stop - tx failed %d", status);
         }
     }
-
+    PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
 
@@ -469,6 +475,7 @@ int SessionAlsaVoice::close(Stream * s)
 {
     int status = 0;
     struct pal_stream_attributes sAttr;
+    PAL_DBG(LOG_TAG,"Enter");
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"stream get attributes failed");
@@ -492,7 +499,7 @@ int SessionAlsaVoice::close(Stream * s)
     pcmRx = NULL;
     pcmTx = NULL;
 
-
+    PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
 int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __unused, void *payload)
@@ -505,7 +512,7 @@ int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __un
     uint32_t tty_mode;
     pal_param_payload *PalPayload = (pal_param_payload *)payload;
 
-    PAL_INFO(LOG_TAG,"setParam called with tag:%d ", tagId);
+    PAL_INFO(LOG_TAG,"Enter setParam called with tag: %d ", tagId);
 
     switch (static_cast<uint32_t>(tagId)) {
 
@@ -603,7 +610,7 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
     uint8_t* paramData = NULL;
     size_t paramSize = 0;
 
-    PAL_INFO(LOG_TAG,"setConfig called with tag:%d ", tag);
+    PAL_DBG(LOG_TAG,"Enter setConfig called with tag: %d ", tag);
 
     switch (static_cast<uint32_t>(tag)) {
         case TAG_STREAM_VOLUME:
@@ -645,7 +652,7 @@ exit:
 if (paramData) {
     free(paramData);
 }
-    PAL_DBG(LOG_TAG,"exit status:%d ", status);
+    PAL_DBG(LOG_TAG,"Exit status:%d ", status);
     return status;
 }
 
@@ -656,7 +663,7 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
     uint8_t* paramData = NULL;
     size_t paramSize = 0;
 
-    PAL_INFO(LOG_TAG,"setConfig called with tag:%d ", tag);
+    PAL_DBG(LOG_TAG,"Enter setConfig called with tag: %d ", tag);
 
     switch (static_cast<uint32_t>(tag)) {
 
@@ -721,7 +728,7 @@ exit:
 if (paramData) {
     free(paramData);
 }
-    PAL_DBG(LOG_TAG,"exit status:%d ", status);
+    PAL_DBG(LOG_TAG,"Exit status:%d ", status);
     return status;
 }
 
@@ -786,7 +793,6 @@ int SessionAlsaVoice::payloadTaged(Stream * s, configType type, int tag,
     }
 
 exit:
-    PAL_DBG(LOG_TAG,"exit status:%d ", status);
     return status;
 }
 
