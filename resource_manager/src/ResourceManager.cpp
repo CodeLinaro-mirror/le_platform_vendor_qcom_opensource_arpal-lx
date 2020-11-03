@@ -3662,11 +3662,7 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
            struct pal_device *inDevAttr, const pal_stream_attributes* inStrAttr __unused)
 {
     bool isDeviceSwitch = false;
-
     int status = 0;
-    std::vector <Stream *> activeStreams;
-    std::vector<std::shared_ptr<Device>> associatedDevices;
-    std::shared_ptr<Device> inDevice = nullptr;
     std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnect, sharedBEStreamDev;
     std::vector <std::tuple<Stream *, struct pal_device *>> StreamDevConnect;
 
@@ -3729,7 +3725,6 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
         }
     }
 
-error:
     //if device switch is needed, perform it
     if (streamDevDisconnect.size()) {
         status = streamDevSwitch(streamDevDisconnect, StreamDevConnect);
@@ -3738,6 +3733,8 @@ error:
         }
     }
     inDev->setDeviceAttributes(*inDevAttr);
+
+error:
     return isDeviceSwitch;
 }
 
