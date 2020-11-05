@@ -598,9 +598,10 @@ unsigned int USBCardConfig::readDefaultSampleRate(bool is_playback) {
 
     for (iter = usb_device_config_list_.begin();
          iter != usb_device_config_list_.end(); iter++) {
-             if ((*iter)->getType() == is_playback)
-                 sample_rate = (*iter)->getDefaultRate();
-            break;
+            if ((*iter)->getType() == is_playback) {
+                sample_rate = (*iter)->getDefaultRate();
+                break;
+            }
     }
 
     return sample_rate;
@@ -845,8 +846,10 @@ int USBDeviceConfig::getSampleRates(int type, char *rates_str) {
 int USBDeviceConfig::getServiceInterval(const char *interval_str_start)
 {
     unsigned long interval = 0;
-    char time_unit[8] = {0};
+    char time_unit[8];
     int multiplier = 0;
+
+    memset(time_unit, 0, sizeof(time_unit));
 
     const char *eol = strchr(interval_str_start, '\n');
     if (!eol) {
