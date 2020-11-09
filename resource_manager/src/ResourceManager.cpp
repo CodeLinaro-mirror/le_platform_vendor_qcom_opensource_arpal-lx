@@ -332,7 +332,8 @@ int ResourceManager::mixerEventRegisterCount = 0;
 int ResourceManager::concurrentRxStreamCount = 0;
 int ResourceManager::concurrentTxStreamCount = 0;
 static int max_session_num;
-bool ResourceManager::isSpeakerProtectionEnabled;
+bool ResourceManager::isSpeakerProtectionEnabled = false;
+bool ResourceManager::isCpsEnabled = false;
 bool ResourceManager::isRasEnabled = false;
 bool ResourceManager::isMainSpeakerRight;
 int ResourceManager::spQuickCalTime;
@@ -5618,6 +5619,9 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "speaker_protection_enabled")) {
             if (atoi(data->data_buf))
                 isSpeakerProtectionEnabled = true;
+        } else if (!strcmp(tag_name, "cps_enabled")) {
+            if (atoi(data->data_buf))
+                isCpsEnabled = true;
         } else if (!strcmp(tag_name, "speaker_mono_right")) {
             if (atoi(data->data_buf))
                 isMainSpeakerRight = true;
