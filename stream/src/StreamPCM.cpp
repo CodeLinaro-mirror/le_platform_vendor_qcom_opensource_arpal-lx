@@ -247,11 +247,9 @@ int32_t  StreamPCM::close()
 StreamPCM::~StreamPCM()
 {
     cachedState = STREAM_IDLE;
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        while (!ssrDone)
-            usleep(1000);
-        PAL_INFO(LOG_TAG, "ssr done, exitng");
-    }
+    while (!ssrDone)
+        usleep(1000);
+    PAL_INFO(LOG_TAG, "ssr done, exiting");
 
     mStreamMutex.lock();
     rm->resetStreamInstanceID(this);
@@ -1118,7 +1116,7 @@ int32_t StreamPCM::flush()
          goto exit;
     }
 
-    if (currentState == STREAM_STOPPED) {
+    if (currentState == STREAM_STOPPED || currentState == STREAM_IDLE) {
         PAL_ERR(LOG_TAG, "Already flushed, state %d", currentState);
         goto exit;
     }
