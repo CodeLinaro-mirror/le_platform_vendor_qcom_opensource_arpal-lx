@@ -713,6 +713,8 @@
             <param kw_start_tolerance="100" />
             <param kw_end_tolerance="100" />
             <param merge_first_stage_sound_models="false"/>
+            <param capture_keyword="2000" />
+            <param client_capture_read_delay="2000" />
             <!-- Profile specific data which the algorithm can support -->
             <param sample_rate="16000" />
             <param bit_width="16" />
@@ -729,11 +731,12 @@
                 <high_performance_and_charging capture_profile_handset="DUAL_MIC_16KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_NLPI"/>
             </operating_modes>
             <module_params>
-                <param load_sound_model_ids="0xC0000008, 0x00012C14" />
+                <param load_sound_model_ids="0xC0000008, 0x0800104C" />
                 <param unload_sound_model_ids="0xC0000008, 0x00012C15" />
                 <param custom_config_ids="0xC0000008, 0x00012C20" />
-                <param buffering_config_ids="0xC0000008, 0x000102C4" />
+                <param buffering_config_ids="0xC0000008, 0x08001044" />
                 <param version_ids="0xC0000008, 0x18000101" />
+                <param engine_reset_ids="0xC0000008, 0x08001051" />
             </module_params>
         </sound_model_config>
     </sound_trigger_platform_info>

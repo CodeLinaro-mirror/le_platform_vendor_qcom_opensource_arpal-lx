@@ -80,7 +80,9 @@ void SoundTriggerEngineGsl::EventProcessingThread(
             }
             StreamSoundTrigger *s =
                 dynamic_cast<StreamSoundTrigger *>(gsl_engine->stream_handle_);
+            lck.unlock();
             s->SetEngineDetectionState(GMM_DETECTED);
+            lck.lock();
         }
     }
     PAL_DBG(LOG_TAG, "Exit");
@@ -173,8 +175,9 @@ int32_t SoundTriggerEngineGsl::StartBuffering() {
             ATRACE_END();
 
             s = dynamic_cast<StreamSoundTrigger *>(stream_handle_);
+            mutex_.unlock();
             s->SetEngineDetectionState(GMM_DETECTED);
-
+            mutex_.lock();
             event_notified = true;
         }
     }
@@ -442,13 +445,6 @@ int32_t SoundTriggerEngineGsl::UnloadSoundModel(Stream *s) {
         PAL_INFO(LOG_TAG, "Thread joined");
     }
 
-    if (!is_qcva_uuid_ && !is_qcmd_uuid_) {
-        status = UpdateSessionPayload(UNLOAD_SOUND_MODEL);
-        if (status) {
-            PAL_ERR(LOG_TAG, "Failed to unload sound model");
-        }
-    }
-
     status = session_->close(s);
     if (status)
         PAL_ERR(LOG_TAG, "Failed to close session, status = %d", status);
@@ -475,9 +471,6 @@ int32_t SoundTriggerEngineGsl::StartRecognition(Stream *s __unused) {
 
     if (is_qcva_uuid_ || is_qcmd_uuid_) {
         status = UpdateSessionPayload(WAKEUP_CONFIG);
-    } else {
-        // update custom config for 3rd party wakeup module
-        status = UpdateSessionPayload(CUSTOM_CONFIG);
     }
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Failed to set wake up config, status = %d", status);
@@ -522,6 +515,7 @@ int32_t SoundTriggerEngineGsl::RestartRecognition(Stream *s __unused) {
         free(custom_detection_event);
         custom_detection_event_size = 0;
     }
+
     /*
      * TODO: This sequence RESET->STOP->START is currently required from spf
      * as ENGINE_RESET alone can't reset the graph (including DAM etc..) ready
@@ -532,6 +526,7 @@ int32_t SoundTriggerEngineGsl::RestartRecognition(Stream *s __unused) {
         PAL_ERR(LOG_TAG, "Failed to reset engine, status = %d",
                 status);
     }
+
     status = session_->stop(stream_handle_);
     if (!status) {
         exit_buffering_ = false;
@@ -557,6 +552,7 @@ int32_t SoundTriggerEngineGsl::StopRecognition(Stream *s __unused) {
     if (buffer_) {
         buffer_->reset();
     }
+
     /*
      * TODO: Currently spf requires ENGINE_RESET to close the DAM gate as stop
      * will not close the gate, rather just flushes the buffers, resulting in no
@@ -586,12 +582,22 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
     int32_t status = 0;
 
     std::lock_guard<std::mutex> lck(mutex_);
+    if (!is_qcva_uuid_ && !is_qcmd_uuid_) {
+        custom_data_size = config->data_size;
+        custom_data = (uint8_t *)calloc(1, custom_data_size);
+        if (!custom_data) {
+            PAL_ERR(LOG_TAG, "Failed to allocate memory for custom data");
+            return -ENOMEM;
+        }
+        ar_mem_cpy(custom_data, custom_data_size,
+            (uint8_t *)config + config->data_offset, custom_data_size);
+    }
+
     if (!config) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid config, status %d", status);
         return -EINVAL;
     }
-
     if (is_qcva_uuid_ || is_qcmd_uuid_) {
         PAL_VERBOSE(LOG_TAG, "Enter, config: %pK", config);
         wakeup_config_.mode = config->phrases[0].recognition_modes;
@@ -602,16 +608,8 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
             wakeup_config_.confidence_levels[i] = conf_levels[i];
             wakeup_config_.keyword_user_enables[i] = 1;
         }
-    } else {
-        custom_data_size = config->data_size;
-        custom_data = (uint8_t *)calloc(1, custom_data_size);
-        if (!custom_data) {
-            PAL_ERR(LOG_TAG, "Failed to allocate memory for custom data");
-            return -ENOMEM;
-        }
-        ar_mem_cpy(custom_data, custom_data_size,
-            (uint8_t *)config + config->data_offset, custom_data_size);
     }
+
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
     return status;
@@ -895,6 +893,7 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(st_param_id_type_t param) {
                 custom_data = nullptr;
                 custom_data_size = 0;
             }
+            break;
         default:
             PAL_ERR(LOG_TAG, "Invalid param id %u", param);
             return -EINVAL;
