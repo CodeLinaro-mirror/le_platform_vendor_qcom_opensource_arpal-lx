@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1185,6 +1185,9 @@ int PayloadBuilder::populateDeviceKV(Stream* s, int32_t beDevId,
             break;
         case PAL_DEVICE_IN_VI_FEEDBACK:
             keyVector.push_back(std::make_pair(DEVICETX, VI_TX));
+            break;
+        case PAL_DEVICE_IN_FM_TUNER:
+            keyVector.push_back(std::make_pair(DEVICETX, FM_TX));
             break;
         default:
             PAL_DBG(LOG_TAG,"Invalid device id %d\n",beDevId);
