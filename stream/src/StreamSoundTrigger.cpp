@@ -1494,7 +1494,7 @@ void StreamSoundTrigger::PackEventConfLevels(uint8_t *opaque_data,
         for (i = 0; i < conf_levels_v2->num_sound_models; i++) {
             if (conf_levels_v2->conf_levels[i].sm_id == ST_SM_ID_SVA_GMM) {
                 for (j = 0; j < det_ev_info->num_confidence_levels; j++) {
-                    conf_levels->conf_levels[i].kw_levels[j].kw_level =
+                    conf_levels_v2->conf_levels[i].kw_levels[j].kw_level =
                             det_ev_info->confidence_levels[j];
                 }
             } else if (conf_levels_v2->conf_levels[i].sm_id & ST_SM_ID_SVA_KWD ||
