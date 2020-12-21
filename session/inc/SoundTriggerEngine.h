@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,9 +41,9 @@
 #include "PalRingBuffer.h"
 #include "Device.h"
 
-// TODO: Move to sound trigger xml files
 #define BITS_PER_BYTE 8
 #define US_PER_SEC 1000000
+#define MS_PER_SEC 1000
 #define CNN_BUFFER_SIZE 15360
 #define CNN_FRAME_SIZE 320
 #define CUSTOM_CONFIG_OPAQUE_DATA_SIZE 12
