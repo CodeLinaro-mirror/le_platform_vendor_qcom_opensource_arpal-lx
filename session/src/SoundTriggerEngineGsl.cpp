@@ -713,6 +713,7 @@ int32_t SoundTriggerEngineGsl::GetParameters(uint32_t param_id,
                 PAL_ERR(LOG_TAG, "Failed to close session, status = %d", status);
                 return status;
             }
+            break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d",
