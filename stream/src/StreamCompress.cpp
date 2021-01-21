@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -215,6 +215,7 @@ int32_t StreamCompress::close()
     }
 
     currentState = STREAM_IDLE;
+    rm->deregisterStream(this);
     mStreamMutex.unlock();
     PAL_VERBOSE(LOG_TAG,"%d status - %d",__LINE__,status);
     return status;
@@ -224,7 +225,6 @@ StreamCompress::~StreamCompress()
 {
     mStreamMutex.lock();
     rm->resetStreamInstanceID(this);
-    rm->deregisterStream(this);
     if (mStreamAttr) {
         free(mStreamAttr);
         mStreamAttr = (struct pal_stream_attributes *)NULL;
