@@ -2985,6 +2985,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
             // fall through to stop
             [[fallthrough]];
         }
+        case ST_EV_UNLOAD_SOUND_MODEL:
         case ST_EV_STOP_RECOGNITION: {
             // Do not update capture profile when pausing stream
             if (ev_cfg->id_ == ST_EV_STOP_RECOGNITION) {
@@ -3025,6 +3026,13 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
             if (st_stream_.mDevices.size() > 0) {
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
+            }
+            if (ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL) {
+                status = st_stream_.ProcessInternalEvent(ev_cfg);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
+                            status);
+                }
             }
             break;
         }
@@ -3254,6 +3262,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
             // fall through to stop
             [[fallthrough]];
         }
+        case ST_EV_UNLOAD_SOUND_MODEL:
         case ST_EV_STOP_RECOGNITION: {
             st_stream_.CancelDelayedStop();
             for (auto& eng: st_stream_.engines_) {
@@ -3277,6 +3286,14 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
             if (st_stream_.mDevices.size() > 0) {
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
+            }
+
+            if (ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL) {
+                status = st_stream_.ProcessInternalEvent(ev_cfg);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
+                            status);
+                }
             }
             rm->releaseWakeLock();
             break;
@@ -3491,6 +3508,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             // fall through to stop
             [[fallthrough]];
         }
+        case ST_EV_UNLOAD_SOUND_MODEL:
         case ST_EV_STOP_RECOGNITION:  {
             // Possible with deffered stop if client doesn't start next recognition.
             st_stream_.CancelDelayedStop();
@@ -3519,6 +3537,14 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             if (st_stream_.mDevices.size() > 0) {
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
+            }
+
+            if (ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL) {
+                status = st_stream_.ProcessInternalEvent(ev_cfg);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
+                            status);
+                }
             }
             rm->releaseWakeLock();
             break;
