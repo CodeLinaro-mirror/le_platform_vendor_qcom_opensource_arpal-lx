@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -352,6 +352,9 @@ protected:
     static int mixerEventRegisterCount;
     static int concurrencyEnableCount;
     static int concurrencyDisableCount;
+    static int wake_lock_fd;
+    static int wake_unlock_fd;
+    static uint32_t wake_lock_cnt;
     std::map<int, std::pair<session_callback, void *>> mixerEventCallbackMap;
     static std::thread mixerEventTread;
     std::shared_ptr<CaptureProfile> SVACaptureProfile;
@@ -568,6 +571,10 @@ public:
     static void setGaplessMode(const XML_Char **attr);
     static void process_custom_config(const XML_Char **attr);
     static void process_usecase();
+    static int initWakeLocks(void);
+    static void deInitWakeLocks(void);
+    void acquireWakeLock();
+    void releaseWakeLock();
 };
 
 #endif

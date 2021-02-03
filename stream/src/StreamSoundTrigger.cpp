@@ -717,6 +717,7 @@ int32_t StreamSoundTrigger::SetEngineDetectionState(int32_t det_type) {
     // Lock stream when first stage detected
     if (det_type == GMM_DETECTED) {
         mStreamMutex.lock();
+        rm->acquireWakeLock();
         reader_->updateState(READER_ENABLED);
     }
 
@@ -3244,6 +3245,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
             } else {
                 TransitTo(ST_STATE_LOADED);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_PAUSE: {
@@ -3276,6 +3278,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_RECOGNITION_CONFIG: {
@@ -3312,6 +3315,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle recognition config, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             // START event will be handled in loaded state.
             break;
         }
@@ -3362,6 +3366,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle device connection, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_SSR_OFFLINE: {
@@ -3376,6 +3381,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 new StUnloadEventConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg2);
             TransitTo(ST_STATE_SSR);
+            rm->releaseWakeLock();
             break;
         }
         default: {
@@ -3434,6 +3440,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             } else {
                 TransitTo(ST_STATE_LOADED);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_RECOGNITION_CONFIG: {
@@ -3474,6 +3481,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle recognition config, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             // START event will be handled in loaded state.
             break;
         }
@@ -3512,6 +3520,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_DETECTED: {
@@ -3620,6 +3629,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle device connection, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             // device connection event will be handled in loaded state.
             break;
         }
@@ -3636,6 +3646,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 new StUnloadEventConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg3);
             TransitTo(ST_STATE_SSR);
+            rm->releaseWakeLock();
             break;
         }
         default: {
