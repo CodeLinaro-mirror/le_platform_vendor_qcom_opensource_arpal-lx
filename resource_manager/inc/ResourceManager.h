@@ -357,6 +357,7 @@ public:
     /* Variable to store the mode request for Speaker protection */
     pal_spkr_prot_payload mSpkrProtModeValue;
     pal_global_callback globalCb = NULL;
+    uint32_t num_proxy_channels = 0;
     /* Flag to store the state of VI record */
     static bool isVIRecordStarted;
     void *cookie;
