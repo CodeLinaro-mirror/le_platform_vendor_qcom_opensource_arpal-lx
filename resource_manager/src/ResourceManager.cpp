@@ -3587,7 +3587,12 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
         break;
     case PAL_DEVICE_OUT_USB_HEADSET:
     case PAL_DEVICE_OUT_USB_DEVICE:
-        if ((activeDevAttr->config.sample_rate == SAMPLINGRATE_44K) &&
+        if ((PAL_STREAM_VOICE_CALL == inStrAttr->type) && ((activeDevAttr->config.sample_rate != inDevAttr->config.sample_rate) ||
+            (activeDevAttr->config.bit_width != inDevAttr->config.bit_width) ||
+            (activeDevAttr->config.ch_info.channels != inDevAttr->config.ch_info.channels))) {
+            is_ds_required = true;
+        }
+        else if ((activeDevAttr->config.sample_rate == SAMPLINGRATE_44K) &&
             (inStrAttr->type == PAL_STREAM_LOW_LATENCY) ) {
             PAL_INFO(LOG_TAG, "active stream is at 44.1kHz.");
             is_ds_required = false;
