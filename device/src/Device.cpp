@@ -190,6 +190,7 @@ Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     mPALDeviceName.clear();
     customPayload = NULL;
     customPayloadSize = 0;
+    strlcpy(mSndDeviceName, "", DEVICE_NAME_MAX_SIZE);
     PAL_DBG(LOG_TAG,"device instance for id %d created", device->id);
 
 }
@@ -197,6 +198,7 @@ Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
 Device::Device()
 {
     initialized = false;
+    strlcpy(mSndDeviceName, "", DEVICE_NAME_MAX_SIZE);
     mPALDeviceName.clear();
 }
 

@@ -485,7 +485,6 @@ struct pal_stream_info {
     int32_t tx_proxy_type;   /** enums defined in enum pal_stream_proxy_tx_types */
     //pal_audio_attributes_t usage;       /** Not sure if we make use of this */
 };
-
 typedef enum {
     INCALL_RECORD_VOICE_UPLINK = 1,
     INCALL_RECORD_VOICE_DOWNLINK,
@@ -715,6 +714,7 @@ typedef enum {
     PAL_PARAM_ID_WAKEUP_CUSTOM_CONFIG = 34,
     PAL_PARAM_ID_UNLOAD_SOUND_MODEL = 35,
     PAL_PARAM_ID_PROXY_CHANNEL_CONFIG = 36,
+    PAL_PARAM_ID_CUSTOM_CONFIGURATION = 37,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -844,11 +844,21 @@ typedef struct pal_bt_tws_payload_s {
     uint32_t codecFormat;
 } pal_bt_tws_payload;
 
+/* Payload For Custom Config
+ * Description : Used by PAL client to customize
+ *               the device related information.
+*/
+#define PAL_MAX_CUSTOM_KEY_SIZE 128
+typedef struct pal_device_custom_config {
+    char custom_key[PAL_MAX_CUSTOM_KEY_SIZE];
+} pal_device_custom_config_t;
+
 /**< PAL device */
 struct pal_device {
-    pal_device_id_t id;                     /**<  device id */
-    struct pal_media_config config;         /**<  media config of the device */
+    pal_device_id_t id;                              /**<  device id */
+    struct pal_media_config config;                  /**<  media config of the device */
     struct pal_usb_device_address address;
+    pal_device_custom_config_t custom_config;        /**<  Optional */
 };
 
 #define PAL_SOUND_TRIGGER_MAX_STRING_LEN 64 /* max length of strings in properties or descriptor structs */
