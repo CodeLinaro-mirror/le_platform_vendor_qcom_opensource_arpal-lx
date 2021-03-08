@@ -1816,6 +1816,14 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
        tkv.push_back(std::make_pair(TAG_KEY_MUX_DEMUX_CONFIG, TAG_VALUE_MUX_DEMUX_CONFIG_UPLINK_DOWNLINK_STEREO));
        *gsltag = TAG_STREAM_MUX_DEMUX;
        break;
+   case DEVICE_MUTE:
+       tkv.push_back(std::make_pair(MUTE,ON));
+       *gsltag = TAG_DEV_MUTE;
+       break;
+    case DEVICE_UNMUTE:
+       tkv.push_back(std::make_pair(MUTE,OFF));
+       *gsltag = TAG_DEV_MUTE;
+       break;
     default:
        PAL_ERR(LOG_TAG,"Tag not supported \n");
        break;
