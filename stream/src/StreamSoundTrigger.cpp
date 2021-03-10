@@ -2825,7 +2825,6 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
                         dev->getSndDeviceId(), status);
                     goto connect_err;
                 }
-                st_stream_.rm->registerDevice(dev, &st_stream_);
             }
 
             status = st_stream_.gsl_engine_->ConnectSessionDevice(&st_stream_,
@@ -2839,6 +2838,9 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
             } else {
                 PAL_DBG(LOG_TAG, "Update capture profile after device switch");
                 st_stream_.cap_prof_ = st_stream_.GetCurrentCaptureProfile();
+                if (st_stream_.isActive()) {
+                    st_stream_.rm->registerDevice(dev, &st_stream_);
+                }
             }
 
         connect_err:
@@ -3094,7 +3096,6 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                     dev->getSndDeviceId(), status);
                 goto connect_err;
             }
-            st_stream_.rm->registerDevice(dev, &st_stream_);
 
             status = st_stream_.gsl_engine_->ConnectSessionDevice(&st_stream_,
                 st_stream_.mStreamAttr->type, dev);
@@ -3106,6 +3107,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
             } else {
                 PAL_DBG(LOG_TAG, "Update capture profile after device switch");
                 st_stream_.cap_prof_ = st_stream_.GetCurrentCaptureProfile();
+                st_stream_.rm->registerDevice(dev, &st_stream_);
             }
 
         connect_err:
