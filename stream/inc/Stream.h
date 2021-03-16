@@ -142,6 +142,8 @@ protected:
     stream_state_t currentState;
     stream_state_t cachedState;
     uint32_t mInstanceID = 0;
+    static std::condition_variable pauseCV;
+    static std::mutex pauseMutex;
 public:
     virtual ~Stream() {};
     pal_stream_callback streamCb;
@@ -212,6 +214,8 @@ public:
                                 pal_stream_type_t pal_stream_type);
     int32_t getEffectParameters(void *effect_query);
     bool isActive() { return currentState == STREAM_STARTED; }
+    static void handleSoftPauseCallBack(void *hdl, uint32_t event_id, void *data,
+                                                           uint32_t event_size);
 };
 
 #endif//STREAM_H_

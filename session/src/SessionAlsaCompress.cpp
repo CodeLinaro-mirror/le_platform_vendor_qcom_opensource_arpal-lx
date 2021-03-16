@@ -357,6 +357,14 @@ int SessionAlsaCompress::open(Stream * s)
     }
     audio_fmt = sAttr.out_media_config.aud_fmt_id;
     isGaplessFmt = isGaplessFormat(audio_fmt);
+
+    // Register for  mixer event callback
+    status = rm->registerMixerEventCallback(compressDevIds, sessionCb, cbCookie,
+                    true);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "Failed to register callback to rm");
+    }
+
     return status;
 }
 
@@ -878,6 +886,21 @@ int SessionAlsaCompress::start(Stream * s)
                     status = configureEarlyEOSDelay();
                 }
 
+                // Register for callback for Soft Pause
+                size_t payload_size = 0;
+                struct agm_event_reg_cfg *event_cfg;
+                payload_size = sizeof(struct agm_event_reg_cfg);
+                event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
+                if (!event_cfg) {
+                    status = -ENOMEM;
+                }
+                event_cfg->event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
+                event_cfg->event_config_payload_size = 0;
+                event_cfg->is_register = 1;
+                SessionAlsaUtils::registerMixerEvent(mixer, compressDevIds.at(0),
+                                rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)event_cfg,
+                                payload_size);
+
                 status = SessionAlsaUtils::setMixerParameter(mixer, compressDevIds.at(0),
                                                              customPayload, customPayloadSize);
                 if (customPayload) {
@@ -932,6 +955,21 @@ int SessionAlsaCompress::resume(Stream * s __unused)
 int SessionAlsaCompress::stop(Stream * s __unused)
 {
     int32_t status = 0;
+    size_t payload_size = 0;
+    struct agm_event_reg_cfg *event_cfg;
+
+    // Deregister for callback for Soft Pause
+    payload_size = sizeof(struct agm_event_reg_cfg);
+    event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
+    if (!event_cfg) {
+        status = -ENOMEM;
+    }
+    event_cfg->event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
+    event_cfg->event_config_payload_size = 0;
+    event_cfg->is_register = 0;
+    SessionAlsaUtils::registerMixerEvent(mixer, compressDevIds.at(0),
+                    rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)event_cfg,
+                    payload_size);
 
     if (compress && playback_started)
         status = compress_stop(compress);
@@ -941,6 +979,7 @@ int SessionAlsaCompress::stop(Stream * s __unused)
 int SessionAlsaCompress::close(Stream * s)
 {
     struct pal_stream_attributes sAttr;
+    int32_t status = 0;
     std::ostringstream disconnectCtrlName;
     s->getStreamAttributes(&sAttr);
     if (!compress) {
@@ -990,6 +1029,13 @@ int SessionAlsaCompress::close(Stream * s)
     /* empty the pending messages in queue */
     while (!msg_queue_.empty())
         msg_queue_.pop();
+
+    // Deregister for mixer event callback
+    status = rm->registerMixerEventCallback(compressDevIds, sessionCb, cbCookie,
+                    false);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "Failed to deregister callback to rm");
+    }
 
     return 0;
 }
