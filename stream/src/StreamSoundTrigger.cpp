@@ -145,7 +145,8 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         &disable_concurrency_count);
 
     // check if lpi should be used
-    if (rm->IsVoiceUILPISupported() && !enable_concurrency_count) {
+    if (rm->IsVoiceUILPISupported() &&
+        !(rm->isVoiceUINLPISwitchSupported() && enable_concurrency_count)) {
         use_lpi_ = true;
     } else {
         use_lpi_ = false;

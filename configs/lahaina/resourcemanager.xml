@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.       -->
+<!-- Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.       -->
 <!--                                                                           -->
 <!-- Redistribution and use in source and binary forms, with or without        -->
 <!-- modification, are permitted provided that the following conditions are    -->
@@ -491,6 +491,7 @@
             <param max_sessions="8" />
             <param enable_failure_detection="false" />
             <param support_device_switch="true" />
+            <param support_nlpi_switch="true" />
             <param transit_to_non_lpi_on_charging="false" />
             <!-- Param used to indicate if SVA has dedicated back end path and ports not conflicting with other audio paths  -->
             <param dedicated_sva_path="true" />

@@ -486,6 +486,8 @@ public:
     int32_t forceDeviceSwitch(std::shared_ptr<Device> inDev, struct pal_device *newDevAttr);
     const std::string getPALDeviceName(const pal_device_id_t id) const;
     bool isNonALSACodec(const struct pal_device *device) const;
+    bool isVoiceUIDeviceSwitchSupported();
+    bool isVoiceUINLPISwitchSupported();
     bool IsVoiceUILPISupported();
     bool IsAudioCaptureAndVoiceUIConcurrencySupported();
     bool IsVoiceCallAndVoiceUIConcurrencySupported();

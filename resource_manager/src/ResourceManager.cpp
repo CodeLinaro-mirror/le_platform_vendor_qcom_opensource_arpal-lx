@@ -2310,6 +2310,26 @@ exit:
     *disable_count = concurrencyDisableCount;
 }
 
+bool ResourceManager::isVoiceUIDeviceSwitchSupported() {
+    std::shared_ptr<SoundTriggerPlatformInfo> st_info =
+        SoundTriggerPlatformInfo::GetInstance();
+
+    if (st_info) {
+        return st_info->GetSupportDevSwitch();
+    }
+    return false;
+}
+
+bool ResourceManager::isVoiceUINLPISwitchSupported() {
+    std::shared_ptr<SoundTriggerPlatformInfo> st_info =
+        SoundTriggerPlatformInfo::GetInstance();
+
+    if (st_info) {
+        return st_info->GetSupportNLPISwitch();
+    }
+    return false;
+}
+
 bool ResourceManager::IsAudioCaptureAndVoiceUIConcurrencySupported() {
     std::shared_ptr<SoundTriggerPlatformInfo> st_info =
         SoundTriggerPlatformInfo::GetInstance();
@@ -2440,6 +2460,11 @@ int ResourceManager::SwitchSVADevices(bool connect_state,
     StreamSoundTrigger *st_str = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter");
+
+    if (!isVoiceUIDeviceSwitchSupported()) {
+        PAL_DBG(LOG_TAG, "Device switch not supported for SVA");
+        return status;
+    }
 
     // TODO: add support for other devices
     if (device_id == PAL_DEVICE_IN_HANDSET_MIC ||
@@ -2853,8 +2878,8 @@ void ResourceManager::ConcurrentStreamStatus(pal_stream_type_t type,
             }
         }
     } else if (tx_conc || rx_conc) {
-        if (!IsVoiceUILPISupported()) {
-            PAL_DBG(LOG_TAG, "LPI not enabled by platform, skip switch");
+        if (!IsVoiceUILPISupported() || !isVoiceUINLPISwitchSupported()) {
+            PAL_DBG(LOG_TAG, "Skip switch as LPI disabled/NLPI switch disabled");
         } else if (active) {
             if (++concurrencyEnableCount == 1) {
                 do_switch = true;
