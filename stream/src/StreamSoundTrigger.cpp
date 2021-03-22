@@ -591,7 +591,7 @@ std::shared_ptr<Device> StreamSoundTrigger::GetPalDevice(
     dev->config.bit_width = cap_prof->GetBitWidth();
     dev->config.ch_info.channels = cap_prof->GetChannels();
     dev->config.sample_rate = cap_prof->GetSampleRate();
-    dev->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+    dev->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
     device = Device::getInstance(dev, rm);
     if (!device) {
@@ -1592,7 +1592,7 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
         (*event)->media_config.sample_rate = SAMPLINGRATE_16K;
         (*event)->media_config.bit_width = BITWIDTH_16;
         (*event)->media_config.ch_info.channels = CHANNELS_1;
-        (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+        (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
         // Filling Opaque data
         opaque_data = (uint8_t *)phrase_event +
@@ -1668,7 +1668,7 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
         (*event)->media_config.sample_rate = SAMPLINGRATE_16K;
         (*event)->media_config.bit_width = BITWIDTH_16;
         (*event)->media_config.ch_info.channels = CHANNELS_1;
-        (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+        (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
         // Filling Opaque data
         opaque_data = (uint8_t *)generic_event +

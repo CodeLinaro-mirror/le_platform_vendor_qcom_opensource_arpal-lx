@@ -214,6 +214,8 @@ struct nativeAudioProp {
    int na_mode;
 };
 
+bool isPalPCMFormat(uint32_t fmt_id);
+
 typedef void (*session_callback)(void *hdl, uint32_t event_id, void *event_data,
                                    uint32_t event_size);
 
@@ -364,7 +366,7 @@ public:
     /* Variable to store whether Speaker protection is enabled or not */
     static bool isSpeakerProtectionEnabled;
     static bool isCpsEnabled;
-    static int bitWidthSupported;
+    static pal_audio_fmt_t bitFormatSupported;
     static bool isRasEnabled;
     static bool isGaplessEnabled;
     /* Variable to store which speaker side is being used for call audio.

@@ -140,6 +140,16 @@ static struct pal_st_properties qst_properties = {
         0  // power_consumption_mw
 };
 
+/*This table is get bit_width only Hence we have 24
+ *as the bitwidth for 24_LE, dont use this to get bits_per_sample,
+ *because in case of 24_LE that would be 32*/
+const uint32_t palFormatToBitwidthTable[] = {
+    [PAL_AUDIO_FMT_PCM_S8] = 8,
+    [PAL_AUDIO_FMT_PCM_S16_LE] = 16,
+    [PAL_AUDIO_FMT_PCM_S24_3LE] = 24,
+    [PAL_AUDIO_FMT_PCM_S24_LE] = 24,
+    [PAL_AUDIO_FMT_PCM_S32_LE] = 32,
+};
 /*
 pcm device id is directly related to device,
 using legacy design for alsa
@@ -294,6 +304,20 @@ const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
     {std::string{ "SW" },  SIDETONE_SW},
 };
 
+bool isPalPCMFormat(uint32_t fmt_id)
+{
+    switch (fmt_id) {
+        case PAL_AUDIO_FMT_PCM_S32_LE:
+        case PAL_AUDIO_FMT_PCM_S8:
+        case PAL_AUDIO_FMT_PCM_S24_3LE:
+        case PAL_AUDIO_FMT_PCM_S24_LE:
+        case PAL_AUDIO_FMT_PCM_S16_LE:
+            return true;
+        default:
+            return false;
+    }
+}
+
 std::shared_ptr<ResourceManager> ResourceManager::rm = nullptr;
 std::vector <int> ResourceManager::streamTag = {0};
 std::vector <int> ResourceManager::streamPpTag = {0};
@@ -334,7 +358,7 @@ int ResourceManager::concurrencyDisableCount = 0;
 static int max_session_num;
 bool ResourceManager::isSpeakerProtectionEnabled = false;
 bool ResourceManager::isCpsEnabled = false;
-int ResourceManager::bitWidthSupported = BITWIDTH_16;
+pal_audio_fmt_t ResourceManager::bitFormatSupported = PAL_AUDIO_FMT_PCM_S16_LE;
 bool ResourceManager::isRasEnabled = false;
 bool ResourceManager::isMainSpeakerRight;
 int ResourceManager::spQuickCalTime;
@@ -1168,7 +1192,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             PAL_DBG(LOG_TAG, "deviceattr->config.ch_info.channels %d", deviceattr->config.ch_info.channels);
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
             deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             break;
         case PAL_DEVICE_IN_HANDSET_MIC:
             dev_ch_info.channels = channel;
@@ -1177,7 +1201,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             PAL_DBG(LOG_TAG, "deviceattr->config.ch_info.channels %d", deviceattr->config.ch_info.channels);
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
             deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             break;
         case PAL_DEVICE_IN_WIRED_HEADSET:
             dev_ch_info.channels = channel;
@@ -1185,15 +1209,30 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             deviceattr->config.ch_info = dev_ch_info;
             PAL_DBG(LOG_TAG, "deviceattr->config.ch_info.channels %d", deviceattr->config.ch_info.channels);
             deviceattr->config.sample_rate = sAttr->in_media_config.sample_rate;
-            deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            if (isPalPCMFormat(sAttr->in_media_config.aud_fmt_id))
+                 deviceattr->config.bit_width =
+                           palFormatToBitwidthTable[sAttr->in_media_config.aud_fmt_id];
+            else
+                 deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
+
             status = (HeadsetMic::checkAndUpdateBitWidth(&deviceattr->config.bit_width) |
                 HeadsetMic::checkAndUpdateSampleRate(&deviceattr->config.sample_rate));
             if (status) {
                 PAL_ERR(LOG_TAG, "failed to update samplerate/bitwidth");
                 status = -EINVAL;
             }
-            PAL_DBG(LOG_TAG, "device samplerate %d, bitwidth %d", deviceattr->config.sample_rate, deviceattr->config.bit_width);
+            if (deviceattr->config.bit_width == 32) {
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+            } else if (deviceattr->config.bit_width == 24) {
+                if (sAttr->in_media_config.aud_fmt_id == PAL_AUDIO_FMT_PCM_S24_LE)
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
+                else
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_3LE;
+            } else {
+                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+            }
+            PAL_DBG(LOG_TAG, "device samplerate %d, bitwidth %d format %d", deviceattr->config.sample_rate,
+                             deviceattr->config.bit_width, deviceattr->config.aud_fmt_id);
             break;
         case PAL_DEVICE_OUT_HANDSET:
             dev_ch_info.channels = channel;
@@ -1202,15 +1241,15 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             PAL_DBG(LOG_TAG, "deviceattr->config.ch_info.channels %d", deviceattr->config.ch_info.channels);
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
             deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             break;
         case PAL_DEVICE_OUT_SPEAKER:
             dev_ch_info.channels = channel;
             getChannelMap(&(dev_ch_info.ch_map[0]), channel);
             deviceattr->config.ch_info = dev_ch_info;
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
-            deviceattr->config.bit_width = bitWidthSupported;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = bitFormatSupported;
+            deviceattr->config.bit_width = palFormatToBitwidthTable[bitFormatSupported];
             break;
         case PAL_DEVICE_IN_VI_FEEDBACK:
             dev_ch_info.channels = channel;
@@ -1218,7 +1257,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             deviceattr->config.ch_info = dev_ch_info;
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
             deviceattr->config.bit_width = BITWIDTH_32;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
             break;
         case PAL_DEVICE_OUT_WIRED_HEADPHONE:
         case PAL_DEVICE_OUT_WIRED_HEADSET:
@@ -1226,15 +1265,29 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             getChannelMap(&(dev_ch_info.ch_map[0]), channel);
             deviceattr->config.ch_info = dev_ch_info;
             deviceattr->config.sample_rate = sAttr->out_media_config.sample_rate;
-            deviceattr->config.bit_width = sAttr->out_media_config.bit_width;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            if (isPalPCMFormat(sAttr->out_media_config.aud_fmt_id))
+                deviceattr->config.bit_width =
+                        palFormatToBitwidthTable[sAttr->out_media_config.aud_fmt_id];
+            else
+                deviceattr->config.bit_width = sAttr->out_media_config.bit_width;
             status = (Headphone::checkAndUpdateBitWidth(&deviceattr->config.bit_width) |
                 Headphone::checkAndUpdateSampleRate(&deviceattr->config.sample_rate));
             if (status) {
                 PAL_ERR(LOG_TAG, "failed to update samplerate/bitwidth");
                 status = -EINVAL;
             }
-            PAL_DBG(LOG_TAG, "device samplerate %d, bitwidth %d", deviceattr->config.sample_rate, deviceattr->config.bit_width);
+            if (deviceattr->config.bit_width == 32) {
+                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+            } else if (deviceattr->config.bit_width == 24) {
+                if (sAttr->out_media_config.aud_fmt_id == PAL_AUDIO_FMT_PCM_S24_LE)
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
+                else
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_3LE;
+            } else {
+                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+            }
+            PAL_DBG(LOG_TAG, "device samplerate %d, bitwidth %d format %d", deviceattr->config.sample_rate,
+                      deviceattr->config.bit_width, deviceattr->config.aud_fmt_id);
             break;
         case PAL_DEVICE_IN_HANDSET_VA_MIC:
         case PAL_DEVICE_IN_HEADSET_VA_MIC:
@@ -1244,7 +1297,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             PAL_DBG(LOG_TAG, "deviceattr->config.ch_info.channels %d", deviceattr->config.ch_info.channels);
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
             deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             break;
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
@@ -1265,7 +1318,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             deviceattr->config.ch_info = dev_ch_info;
             deviceattr->config.sample_rate = SAMPLINGRATE_8K;  /* Updated when WBS set param is received */
             deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             scoDev = std::dynamic_pointer_cast<BtSco>(BtSco::getInstance(deviceattr, rm));
             if (!scoDev) {
                 PAL_ERR(LOG_TAG, "failed to get BtSco singleton object.");
@@ -1281,7 +1334,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             {
                 deviceattr->config.sample_rate = SAMPLINGRATE_44K;//SAMPLINGRATE_48K;
                 deviceattr->config.bit_width = BITWIDTH_16;
-                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
                 // config.ch_info memory is allocated in selectBestConfig below
                 std::shared_ptr<USB> USB_out_device;
                 USB_out_device = std::dynamic_pointer_cast<USB>(USB::getInstance(deviceattr, rm));
@@ -1290,7 +1343,8 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     return -EINVAL;
                 }
                 status = USB_out_device->selectBestConfig(deviceattr, sAttr, true);
-                PAL_ERR(LOG_TAG, "device samplerate %d, bitwidth %d, ch %d", deviceattr->config.sample_rate, deviceattr->config.bit_width,
+                PAL_DBG(LOG_TAG, "device samplerate %d, bitwidth %d, ch %d",
+                        deviceattr->config.sample_rate, deviceattr->config.bit_width,
                         deviceattr->config.ch_info.channels);
             }
             break;
@@ -1299,7 +1353,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             {
             deviceattr->config.sample_rate = SAMPLINGRATE_48K;
             deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             std::shared_ptr<USB> USB_in_device;
             USB_in_device = std::dynamic_pointer_cast<USB>(USB::getInstance(deviceattr, rm));
             if (!USB_in_device) {
@@ -1314,11 +1368,16 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             /* For PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
             deviceattr->config.ch_info =sAttr->in_media_config.ch_info;
             deviceattr->config.sample_rate = sAttr->in_media_config.sample_rate;
-            deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+            if (isPalPCMFormat(sAttr->in_media_config.aud_fmt_id))
+                deviceattr->config.bit_width =
+                          palFormatToBitwidthTable[sAttr->in_media_config.aud_fmt_id];
+            else
+                deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
+            deviceattr->config.aud_fmt_id = sAttr->in_media_config.aud_fmt_id;
 
-            PAL_DBG(LOG_TAG, "PAL_DEVICE_IN_PROXY sample rate %d bitwidth %d",
-                    deviceattr->config.sample_rate, deviceattr->config.bit_width);
+            PAL_DBG(LOG_TAG, "PAL_DEVICE_IN_PROXY sample rate %d bitwidth %d format %d",
+                    deviceattr->config.sample_rate, deviceattr->config.bit_width,
+                    deviceattr->config.aud_fmt_id);
             }
             break;
         case PAL_DEVICE_IN_FM_TUNER:
@@ -1326,10 +1385,15 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             /* For PAL_DEVICE_IN_FM_TUNER, copy all config from stream attributes */
             deviceattr->config.ch_info = sAttr->in_media_config.ch_info;
             deviceattr->config.sample_rate = sAttr->in_media_config.sample_rate;
-            deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
-            PAL_DBG(LOG_TAG, "PAL_DEVICE_IN_FM_TUNER sample rate %d bitwidth %d",
-                    deviceattr->config.sample_rate, deviceattr->config.bit_width);
+            if (isPalPCMFormat(sAttr->in_media_config.aud_fmt_id))
+                deviceattr->config.bit_width =
+                          palFormatToBitwidthTable[sAttr->in_media_config.aud_fmt_id];
+            else
+                deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
+            deviceattr->config.aud_fmt_id = sAttr->in_media_config.aud_fmt_id;
+            PAL_DBG(LOG_TAG, "PAL_DEVICE_IN_FM_TUNER sample rate %d bitwidth %d format %d",
+                    deviceattr->config.sample_rate, deviceattr->config.bit_width,
+                    deviceattr->config.aud_fmt_id);
             }
             break;
         case PAL_DEVICE_OUT_PROXY:
@@ -1357,15 +1421,19 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     }
                     deviceattr->config.ch_info = proxyIn_dattr.config.ch_info;
                     deviceattr->config.sample_rate = proxyIn_dattr.config.sample_rate;
-                    deviceattr->config.bit_width = proxyIn_dattr.config.bit_width;
-                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+                    if (isPalPCMFormat(proxyIn_dattr.config.aud_fmt_id))
+                        deviceattr->config.bit_width =
+                                  palFormatToBitwidthTable[proxyIn_dattr.config.aud_fmt_id];
+                    else
+                        deviceattr->config.bit_width = proxyIn_dattr.config.bit_width;
+                    deviceattr->config.aud_fmt_id = proxyIn_dattr.config.aud_fmt_id;
                 } else {
                     deviceattr->config.ch_info.channels = channel;
                     getChannelMap(&(deviceattr->config.ch_info.ch_map[0]),
                                     channel);
                     deviceattr->config.sample_rate = SAMPLINGRATE_48K;
                     deviceattr->config.bit_width = BITWIDTH_16;
-                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
                 }
             }
@@ -1380,7 +1448,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                         deviceattr->config.ch_info.channels);
                 deviceattr->config.sample_rate = SAMPLINGRATE_48K;
                 deviceattr->config.bit_width = BITWIDTH_16;
-                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
 
             }
             PAL_INFO(LOG_TAG, "PAL_DEVICE_OUT_PROXY sample rate %d bitwidth %d ch:%d",
@@ -1441,9 +1509,17 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     else
                         deviceattr->config.bit_width = BITWIDTH_16;
                 }
-                PAL_DBG(LOG_TAG, "Bit Width %d", deviceattr->config.bit_width);
-
-                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+                if (deviceattr->config.bit_width == 32) {
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+                } else if (deviceattr->config.bit_width == 24) {
+                    if (sAttr->out_media_config.aud_fmt_id == PAL_AUDIO_FMT_PCM_S24_LE)
+                        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
+                    else
+                        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_3LE;
+                } else {
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+                }
+                PAL_DBG(LOG_TAG, "Bit Width %d format %d", deviceattr->config.bit_width, deviceattr->config.aud_fmt_id);
             }
             break;
         default:
@@ -5926,9 +6002,15 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "cps_enabled")) {
             if (atoi(data->data_buf))
                 isCpsEnabled = true;
-        } else if (!strcmp(tag_name, "is_24_bit_supported")) {
-            if (atoi(data->data_buf))
-                bitWidthSupported = BITWIDTH_24;
+        } else if (!strcmp(tag_name, "supported_bit_format")) {
+            if(!strcmp(data->data_buf, "PAL_AUDIO_FMT_PCM_S24_3LE"))
+               bitFormatSupported = PAL_AUDIO_FMT_PCM_S24_3LE;
+            else if(!strcmp(data->data_buf, "PAL_AUDIO_FMT_PCM_S24_LE"))
+               bitFormatSupported = PAL_AUDIO_FMT_PCM_S24_LE;
+            else if(!strcmp(data->data_buf, "PAL_AUDIO_FMT_PCM_S32_LE"))
+               bitFormatSupported = PAL_AUDIO_FMT_PCM_S32_LE;
+            else
+               bitFormatSupported = PAL_AUDIO_FMT_PCM_S16_LE;
         } else if (!strcmp(tag_name, "speaker_mono_right")) {
             if (atoi(data->data_buf))
                 isMainSpeakerRight = true;
