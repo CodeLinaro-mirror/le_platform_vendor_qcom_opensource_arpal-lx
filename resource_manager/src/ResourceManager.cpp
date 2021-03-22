@@ -326,6 +326,7 @@ std::vector <int> ResourceManager::listAllPcmPlaybackFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmLoopbackRxFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmLoopbackTxFrontEnds = {0};
+std::vector <int> ResourceManager::listAllPcmExtEcTxFrontEnds = {0};
 std::vector <int> ResourceManager::listAllCompressPlaybackFrontEnds = {0};
 std::vector <int> ResourceManager::listAllCompressRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmVoice1RxFrontEnds = {0};
@@ -521,6 +522,7 @@ ResourceManager::ResourceManager()
     listAllPcmVoice2TxFrontEnds.clear();
     listAllPcmInCallRecordFrontEnds.clear();
     listAllPcmInCallMusicFrontEnds.clear();
+    listAllPcmExtEcTxFrontEnds.clear();
     memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
     memset(in_stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
 
@@ -563,6 +565,10 @@ ResourceManager::ResourceManager()
             if (devInfo[i].sess_mode == HOSTLESS && devInfo[i].record == 1) {
                 listAllPcmVoice2TxFrontEnds.push_back(devInfo[i].deviceId);
             }
+        } else if (devInfo[i].type == EXTEC) {
+            if (devInfo[i].sess_mode == HOSTLESS && devInfo[i].record == 1) {
+                listAllPcmExtEcTxFrontEnds.push_back(devInfo[i].deviceId);
+            }
         }
     }
     // Get AGM service handle
@@ -596,6 +602,7 @@ ResourceManager::~ResourceManager()
     listAllPcmVoice1TxFrontEnds.clear();
     listAllPcmVoice2RxFrontEnds.clear();
     listAllPcmVoice2TxFrontEnds.clear();
+    listAllPcmExtEcTxFrontEnds.clear();
     devInfo.clear();
     deviceInfo.clear();
     txEcInfo.clear();
@@ -998,6 +1005,7 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
         if (deviceId == deviceInfo[size1].deviceId) {
             devinfo->channels = deviceInfo[size1].channel;
             devinfo->max_channels = deviceInfo[size1].max_channel;
+            devinfo->isExternalECRefEnabledFlag = deviceInfo[size1].isExternalECRefEnabled;
             for (int32_t size2 = 0; size2 < deviceInfo[size1].usecase.size(); size2++) {
                 if (type == deviceInfo[size1].usecase[size2].type) {
                     /*set kv pairs*/
@@ -3566,6 +3574,39 @@ int ResourceManager::getNumFEs(const pal_stream_type_t sType) const
     return n;
 }
 
+const std::vector<int> ResourceManager::allocateFrontEndExtEcIds()
+{
+    std::vector<int> f;
+    f.clear();
+    const int howMany = 1;
+    int id = 0;
+    std::vector<int>::iterator it;
+    if (howMany > listAllPcmExtEcTxFrontEnds.size()) {
+        PAL_ERR(LOG_TAG, "allocateFrontEndExtEcIds: requested for %d external ec front ends, have only %zu error",
+                        howMany, listAllPcmExtEcTxFrontEnds.size());
+        return f;
+    }
+    id = (listAllPcmExtEcTxFrontEnds.size() - 1);
+    it =  (listAllPcmExtEcTxFrontEnds.begin() + id);
+    for (int i = 0; i < howMany; i++) {
+        f.push_back(listAllPcmExtEcTxFrontEnds.at(id));
+        listAllPcmExtEcTxFrontEnds.erase(it);
+        PAL_INFO(LOG_TAG, "allocateFrontEndExtEcIds: front end %d", f[i]);
+        it -= 1;
+        id -= 1;
+    }
+    return f;
+}
+void ResourceManager::freeFrontEndEcTxIds(const std::vector<int> frontend)
+{
+    PAL_INFO(LOG_TAG, "freeing ext ec dev %d\n", frontend.at(0));
+    for (int i = 0; i < frontend.size(); i++) {
+        listAllPcmExtEcTxFrontEnds.push_back(frontend.at(i));
+    }
+	return;
+}
+
+
 const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_stream_attributes sAttr, int lDirection)
 {
     //TODO: lock resource manager
@@ -6091,6 +6132,8 @@ void ResourceManager::processDeviceIdProp(struct xml_userdata *data, const XML_C
             devInfo[size].type = VOICE1;
         } else if (strstr(data->data_buf,"VOICEMMODE2")){
             devInfo[size].type = VOICE2;
+        } else if (strstr(data->data_buf,"EXTEC")){
+            devInfo[size].type = EXTEC;
         }
     }
 }
@@ -6324,6 +6367,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "speaker_protection_enabled")) {
             if (atoi(data->data_buf))
                 isSpeakerProtectionEnabled = true;
+        } else if (!strcmp(tag_name, "ext_ec_ref_enabled")) {
+            size = deviceInfo.size() - 1;
+            deviceInfo[size].isExternalECRefEnabled = atoi(data->data_buf);
+            PAL_DBG(LOG_TAG, "found ext ec ref enabled device is %d", deviceInfo[size].deviceId);
         } else if (!strcmp(tag_name, "cps_enabled")) {
             if (atoi(data->data_buf))
                 isCpsEnabled = true;

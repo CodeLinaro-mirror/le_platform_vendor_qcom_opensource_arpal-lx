@@ -1304,6 +1304,9 @@ int PayloadBuilder::populateDeviceKV(Stream* s, int32_t beDevId,
         case PAL_DEVICE_IN_FM_TUNER:
             keyVector.push_back(std::make_pair(DEVICETX, FM_TX));
             break;
+        case PAL_DEVICE_IN_EXT_EC_REF:
+            keyVector.push_back(std::make_pair(DEVICETX_EXT, EXT_EC_TX));
+            break;
         default:
             PAL_DBG(LOG_TAG,"Invalid device id %d\n",beDevId);
             break;

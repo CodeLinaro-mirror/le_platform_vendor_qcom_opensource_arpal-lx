@@ -49,6 +49,7 @@
 #include "DisplayPort.h"
 #include "RTProxy.h"
 #include "FMDevice.h"
+#include "ExtEC.h"
 
 #define MAX_CHANNEL_SUPPORTED 2
 
@@ -120,6 +121,9 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     case PAL_DEVICE_IN_FM_TUNER:
         PAL_VERBOSE(LOG_TAG, "FM device");
         return FMDevice::getInstance(device, Rm);
+    case PAL_DEVICE_IN_EXT_EC_REF:
+        PAL_VERBOSE(LOG_TAG, "ExtEC device");
+        return ExtEC::getInstance(device, Rm);
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",device->id);
         return nullptr;
@@ -176,6 +180,9 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_IN_FM_TUNER:
         PAL_VERBOSE(LOG_TAG, "FMDevice %d", dev_id);
         return FMDevice::getObject();
+    case PAL_DEVICE_IN_EXT_EC_REF:
+        PAL_VERBOSE(LOG_TAG, "ExtEC device %d", dev_id);
+        return ExtEC::getObject();
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",dev_id);
         return nullptr;
