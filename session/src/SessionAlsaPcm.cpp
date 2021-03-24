@@ -138,12 +138,22 @@ int SessionAlsaPcm::open(Stream * s)
                 PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                 rm->freeFrontEndIds(pcmDevIds, sAttr, 0);
             }
-            else {
-                status = rm->registerMixerEventCallback(pcmDevIds,
-                    sessionCb, cbCookie, true);
-                if (status != 0) {
-                    PAL_ERR(LOG_TAG, "Failed to register callback to rm");
-                }
+            else if ((sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+                     (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                     (sAttr.type == PAL_STREAM_LOW_LATENCY)) {
+                     // Register for SoftPause callback for
+                     // only playback related streams
+                     status = rm->registerMixerEventCallback(pcmDevIds,
+                         sessionCb, cbCookie, true);
+                     if (status != 0) {
+                         PAL_ERR(LOG_TAG, "Failed to register callback to rm");
+                         // If registration fails for this then pop noise
+                         // issue will come. It isn't fatal so not throwing error.
+                         status = 0;
+                         isPauseRegistrationDone = false;
+                     }
+                     else
+                         isPauseRegistrationDone = true;
             }
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
@@ -550,7 +560,7 @@ int SessionAlsaPcm::start(Stream * s)
     size_t payloadSize = 0;
     uint32_t miid;
     int payload_size = 0;
-    struct agm_event_reg_cfg *event_cfg;
+    struct agm_event_reg_cfg event_cfg;
     int tagId;
 
     PAL_DBG(LOG_TAG,"Enter");
@@ -682,15 +692,13 @@ int SessionAlsaPcm::start(Stream * s)
     if (sAttr.type == PAL_STREAM_VOICE_UI) {
         payload_size = sizeof(struct agm_event_reg_cfg);
 
-        event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
-        if (!event_cfg) {
-            status = -ENOMEM;
-        }
-        event_cfg->event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
-        event_cfg->event_config_payload_size = 0;
-        event_cfg->is_register = 1;
+        memset(&event_cfg, 0, sizeof(event_cfg));
+
+        event_cfg.event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 1;
         SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-                txAifBackEnds[0].second.data(), DEVICE_SVA, (void *)event_cfg,
+                txAifBackEnds[0].second.data(), DEVICE_SVA, (void *)&event_cfg,
                 payload_size);
     }
 
@@ -921,20 +929,27 @@ pcm_start:
             if (status) {
                 PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
             }
-            // Register for Soft pause callback
-            payload_size = sizeof(struct agm_event_reg_cfg);
+            if (!status && isPauseRegistrationDone) {
+                // Stream supports Soft Pause and registration with RM is
+                // successful. So register for Soft pause callback from adsp.
+                payload_size = sizeof(struct agm_event_reg_cfg);
+                memset(&event_cfg, 0, sizeof(event_cfg));
 
-            event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
-            if (!event_cfg) {
-                status = -ENOMEM;
+                event_cfg.event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 1;
+
+                status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                            rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)&event_cfg,
+                            payload_size);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Register for Pause failed %d", status);
+                    // If registration fails for this then pop issue will come.
+                    // It isn't fatal so not throwing error.
+                    status = 0;
+                    isPauseRegistrationDone = false;
+                }
             }
-            event_cfg->event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
-            event_cfg->event_config_payload_size = 0;
-            event_cfg->is_register = 1;
-
-            SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-                    rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)event_cfg,
-                    payload_size);
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
             status = s->getAssociatedDevices(associatedDevices);
@@ -1025,7 +1040,7 @@ int SessionAlsaPcm::stop(Stream * s)
 {
     int status = 0;
     struct pal_stream_attributes sAttr;
-    struct agm_event_reg_cfg *event_cfg;
+    struct agm_event_reg_cfg event_cfg;
     int payload_size = 0;
 
     PAL_DBG(LOG_TAG,"Enter");
@@ -1050,19 +1065,21 @@ int SessionAlsaPcm::stop(Stream * s)
                     PAL_ERR(LOG_TAG, "pcm_stop failed %d", status);
                 }
             }
-            // Deregister callback for Soft Pause
-            payload_size = sizeof(struct agm_event_reg_cfg);
 
-            event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
-            if (!event_cfg) {
-                status = -ENOMEM;
+            if (!status && isPauseRegistrationDone) {
+                // Stream supports Soft Pause and was registered with RM
+                // sucessfully. Thus Deregister callback for Soft Pause
+                payload_size = sizeof(struct agm_event_reg_cfg);
+
+                memset(&event_cfg, 0, sizeof(event_cfg));
+                event_cfg.event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 0;
+                SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                        rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)&event_cfg,
+                        payload_size);
+                isPauseRegistrationDone = false;
             }
-            event_cfg->event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
-            event_cfg->event_config_payload_size = 0;
-            event_cfg->is_register = 0;
-            SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-                    rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)event_cfg,
-                    payload_size);
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
             if (pcmRx && isActive()) {
@@ -1084,15 +1101,12 @@ int SessionAlsaPcm::stop(Stream * s)
     if (sAttr.type == PAL_STREAM_VOICE_UI) {
         payload_size = sizeof(struct agm_event_reg_cfg);
 
-        event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
-        if (!event_cfg) {
-            status = -ENOMEM;
-        }
-        event_cfg->event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
-        event_cfg->event_config_payload_size = 0;
-        event_cfg->is_register = 0;
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        event_cfg.event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 0;
         SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-            txAifBackEnds[0].second.data(), DEVICE_SVA, (void *) event_cfg,
+            txAifBackEnds[0].second.data(), DEVICE_SVA, (void *) &event_cfg,
             payload_size);
     }
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
@@ -1177,10 +1191,14 @@ int SessionAlsaPcm::close(Stream * s)
                 PAL_ERR(LOG_TAG, "pcm_close failed %d", status);
             }
             // Deregister callback for Soft Pause
-            status = rm->registerMixerEventCallback(pcmDevIds,
-                sessionCb, cbCookie, false);
-            if (status != 0) {
-                PAL_ERR(LOG_TAG, "Failed to deregister callback to rm");
+            if (!status && isPauseRegistrationDone) {
+                status = rm->registerMixerEventCallback(pcmDevIds,
+                    sessionCb, cbCookie, false);
+                if (status != 0) {
+                    PAL_DBG(LOG_TAG, "Failed to deregister callback to rm");
+                    status = 0;
+                }
+                isPauseRegistrationDone = false;
             }
             rm->freeFrontEndIds(pcmDevIds, sAttr, 0);
             pcm = NULL;
@@ -1802,7 +1820,6 @@ exit:
 
 int SessionAlsaPcm::registerCallBack(session_callback cb, void *cookie)
 {
-    PAL_DBG(LOG_TAG, "Registering Callback");
     sessionCb = cb;
     cbCookie = cookie;
     return 0;

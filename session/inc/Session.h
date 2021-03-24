@@ -80,6 +80,7 @@ protected:
     size_t customPayloadSize;
     int updateCustomPayload(void *payload, size_t size);
 public:
+    bool isPauseRegistrationDone;
     virtual ~Session();
     static Session* makeSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
     int handleDeviceRotation(Stream *s, pal_speaker_rotation_type rotation_type,
