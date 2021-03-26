@@ -2221,7 +2221,7 @@ uint32_t StreamSoundTrigger::GetKwStartTolerance() {
     uint32_t start_tolerance = 0;
 
     if (sm_info_) {
-        start_tolerance = sm_info_->GetKwStartTolerance() * 1000;
+        start_tolerance = sm_info_->GetKwStartTolerance();
     }
 
     PAL_DBG(LOG_TAG, "start tolerance %u us", start_tolerance);
@@ -2232,11 +2232,33 @@ uint32_t StreamSoundTrigger::GetKwEndTolerance() {
     uint32_t end_tolerance = 0;
 
     if (sm_info_) {
-        end_tolerance = sm_info_->GetKwEndTolerance() * 1000;
+        end_tolerance = sm_info_->GetKwEndTolerance();
     }
 
     PAL_DBG(LOG_TAG, "end tolerance %u us", end_tolerance);
     return end_tolerance;
+}
+
+uint32_t StreamSoundTrigger::GetDataBeforeKwStart() {
+    uint32_t data_before_kw_start = 0;
+
+    if (sm_info_) {
+        data_before_kw_start = sm_info_->GetDataBeforeKwStart();
+    }
+
+    PAL_DBG(LOG_TAG, "start tolerance %u us", data_before_kw_start);
+    return data_before_kw_start;
+}
+
+uint32_t StreamSoundTrigger::GetDataAfterKwEnd() {
+    uint32_t data_after_kw_end = 0;
+
+    if (sm_info_) {
+        data_after_kw_end = sm_info_->GetDataAfterKwEnd();
+    }
+
+    PAL_DBG(LOG_TAG, "end tolerance %u us", data_after_kw_end);
+    return data_after_kw_end;
 }
 
 int32_t StreamSoundTrigger::GetEngineConfig(uint32_t &sample_rate,

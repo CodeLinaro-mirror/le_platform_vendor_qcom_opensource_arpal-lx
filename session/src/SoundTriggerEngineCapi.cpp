@@ -144,7 +144,7 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
      */
     buffer_size_ -= buffer_size_ % (UsToBytes(10000));
 
-    buffer_end_ += UsToBytes(kw_end_tolerance_);
+    buffer_end_ += UsToBytes(kw_end_tolerance_ + data_after_kw_end_);
     PAL_DBG(LOG_TAG, "buffer_start_: %u, buffer_end_: %u",
         buffer_start_, buffer_end_);
 
@@ -315,8 +315,8 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
     }
 
     // calculate start and end index including tolerance
-    if (buffer_start_ > UsToBytes(kw_start_tolerance_)) {
-        buffer_start_ -= UsToBytes(kw_start_tolerance_);
+    if (buffer_start_ > UsToBytes(data_before_kw_start_)) {
+        buffer_start_ -= UsToBytes(data_before_kw_start_);
     } else {
         buffer_start_ = 0;
     }
@@ -516,6 +516,8 @@ SoundTriggerEngineCapi::SoundTriggerEngineCapi(
 
     kw_start_tolerance_ = st_str->GetKwStartTolerance();
     kw_end_tolerance_ = st_str->GetKwEndTolerance();
+    data_before_kw_start_ = st_str->GetDataBeforeKwStart();
+    data_after_kw_end_ = st_str->GetDataAfterKwEnd();
 
     // TODO: ST_SM_TYPE_CUSTOM_DETECTION
     if (detection_type_ == ST_SM_TYPE_KEYWORD_DETECTION) {

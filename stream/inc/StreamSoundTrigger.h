@@ -172,6 +172,8 @@ class StreamSoundTrigger : public Stream {
 
     uint32_t GetKwStartTolerance();
     uint32_t GetKwEndTolerance();
+    uint32_t GetDataBeforeKwStart();
+    uint32_t GetDataAfterKwEnd();
     int32_t GetEngineConfig(uint32_t &sample_rate, uint32_t &bit_width,
         uint32_t &channels, listen_model_indicator_enum type);
     int32_t GetSecondStageConfig(st_sound_model_type_t &detection_type,
