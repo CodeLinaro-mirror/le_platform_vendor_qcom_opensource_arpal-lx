@@ -117,11 +117,33 @@ int SessionAlsaPcm::open(Stream * s)
             return -EINVAL;
         }
     } else {
-        pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RXLOOPBACK);
-        pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TXLOOPBACK);
-        if (!pcmDevRxIds.size() || !pcmDevTxIds.size()) {
-            PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
-            return -EINVAL;
+        if ((sAttr.type == PAL_STREAM_LOOPBACK) &&
+            (sAttr.info.opt_stream_info.loopback_type ==
+             PAL_STREAM_LOOPBACK_PLAYBACK_ONLY)) {
+            // Loopback for RX path
+            pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RXLOOPBACK);
+            if (!pcmDevRxIds.size()) {
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds for RX loopback failed");
+                return -EINVAL;
+            }
+        }
+        else if ((sAttr.type == PAL_STREAM_LOOPBACK) &&
+                 (sAttr.info.opt_stream_info.loopback_type ==
+                  PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+            // Loopback for TX path
+            pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TXLOOPBACK);
+            if (!pcmDevTxIds.size()) {
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
+                return -EINVAL;
+            }
+        }
+        else {
+            pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RXLOOPBACK);
+            pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TXLOOPBACK);
+            if (!pcmDevRxIds.size() || !pcmDevTxIds.size()) {
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
+                return -EINVAL;
+            }
         }
     }
     switch (sAttr.direction) {
@@ -157,12 +179,30 @@ int SessionAlsaPcm::open(Stream * s)
             }
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
-            status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, pcmDevTxIds,
-                    rxAifBackEnds, txAifBackEnds);
-            if (status) {
-                PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
-                rm->freeFrontEndIds(pcmDevRxIds, sAttr, RXLOOPBACK);
-                rm->freeFrontEndIds(pcmDevTxIds, sAttr, TXLOOPBACK);
+            if (sAttr.info.opt_stream_info.loopback_type ==
+                    PAL_STREAM_LOOPBACK_CAPTURE_ONLY) {
+                status = SessionAlsaUtils::open(s, rm, pcmDevTxIds, txAifBackEnds);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
+                    rm->freeFrontEndIds(pcmDevIds, sAttr, TXLOOPBACK);
+                }
+            }
+            else if (sAttr.info.opt_stream_info.loopback_type ==
+                        PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) {
+                status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, rxAifBackEnds);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
+                    rm->freeFrontEndIds(pcmDevIds, sAttr, RXLOOPBACK);
+                }
+            }
+            else {
+                status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, pcmDevTxIds,
+                        rxAifBackEnds, txAifBackEnds);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
+                    rm->freeFrontEndIds(pcmDevRxIds, sAttr, RXLOOPBACK);
+                    rm->freeFrontEndIds(pcmDevTxIds, sAttr, TXLOOPBACK);
+                }
             }
             break;
         default:
@@ -374,7 +414,17 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 
             status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                calCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setCalibrationControl;
+                if ((sAttr.info.opt_stream_info.loopback_type ==
+                                PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
+                    (sAttr.info.opt_stream_info.loopback_type ==
+                                PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+                    // Currently Playback only and Capture only loopback don't
+                    // support volume
+                    PAL_DBG(LOG_TAG, "RX/TX only Loopback don't support volume");
+                    return -EINVAL;
+                }
+                else
+                    calCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setCalibrationControl;
             } else {
                 calCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setCalibrationControl;
             }
@@ -653,27 +703,34 @@ int SessionAlsaPcm::start(Stream * s)
                 }
                 break;
             case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
-                pcmRx = pcm_open(rm->getSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
-                if (!pcmRx) {
-                    PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
-                    return -EINVAL;
-                }
+                if (!pcmDevRxIds.empty()) {
+                    pcmRx = pcm_open(rm->getSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
+                    if (!pcmRx) {
+                        PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
+                        return -EINVAL;
+                    }
 
-                if (!pcm_is_ready(pcmRx)) {
-                    PAL_ERR(LOG_TAG, "Exit pcm-rx open not ready");
-                    return -EINVAL;
+                    if (!pcm_is_ready(pcmRx)) {
+                        PAL_ERR(LOG_TAG, "Exit pcm-rx open not ready");
+                        return -EINVAL;
+                    }
                 }
-                pcmTx = pcm_open(rm->getSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
-                if (!pcmTx) {
-                    PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
-                    return -EINVAL;
-                }
+                if (!pcmDevTxIds.empty()) {
+                    pcmTx = pcm_open(rm->getSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
+                    if (!pcmTx) {
+                        PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
+                        return -EINVAL;
+                    }
 
-                if (!pcm_is_ready(pcmTx)) {
-                    PAL_ERR(LOG_TAG, "Exit pcm-tx open not ready");
-                    return -EINVAL;
+                    if (!pcm_is_ready(pcmTx)) {
+                        PAL_ERR(LOG_TAG, "Exit pcm-tx open not ready");
+                        return -EINVAL;
+                    }
                 }
                 break;
+            default :
+                PAL_ERR(LOG_TAG, "Exit pcm open failed. Invalid direction");
+                return -EINVAL;
         }
         mState = SESSION_OPENED;
 
@@ -1011,19 +1068,28 @@ pcm_start:
                 }
             }
 pcm_start_loopback:
-            status = pcm_start(pcmRx);
-            if (status) {
-                PAL_ERR(LOG_TAG, "pcm_start rx failed %d", status);
+            if (pcmRx) {
+                status = pcm_start(pcmRx);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "pcm_start rx failed %d", status);
+                }
             }
-            status = pcm_start(pcmTx);
-            if (status) {
-                PAL_ERR(LOG_TAG, "pcm_start tx failed %d", status);
+            if (pcmTx) {
+                status = pcm_start(pcmTx);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "pcm_start tx failed %d", status);
+                }
             }
+            PAL_DBG(LOG_TAG,"PCM loopback start done");
            break;
     }
     // Setting the volume as in stream open, no default volume is set.
-    if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
-        PAL_ERR(LOG_TAG,"Setting volume failed");
+    if (sAttr.info.opt_stream_info.loopback_type !=
+                    PAL_STREAM_LOOPBACK_CAPTURE_ONLY) {
+        // Currently TX only loopback doesn't require setting volume
+        if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
+            PAL_ERR(LOG_TAG,"Setting volume failed");
+        }
     }
 
     mState = SESSION_STARTED;
@@ -1214,8 +1280,11 @@ int SessionAlsaPcm::close(Stream * s)
             if (status) {
                PAL_ERR(LOG_TAG, "pcm_close - tx failed %d", status);
             }
-            rm->freeFrontEndIds(pcmDevRxIds, sAttr, RXLOOPBACK);
-            rm->freeFrontEndIds(pcmDevTxIds, sAttr, TXLOOPBACK);
+
+            if (pcmDevRxIds.size())
+                rm->freeFrontEndIds(pcmDevRxIds, sAttr, RXLOOPBACK);
+            if (pcmDevTxIds.size())
+                rm->freeFrontEndIds(pcmDevTxIds, sAttr, TXLOOPBACK);
             pcmRx = NULL;
             pcmTx = NULL;
             break;

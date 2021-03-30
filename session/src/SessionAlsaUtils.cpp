@@ -334,6 +334,8 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     uint32_t streamDevicePropId[] = {0x08000010, 1, 0x3}; /** gsl_subgraph_platform_driver_props.xml */
     struct pal_device_info devinfo = {};
 
+    PAL_DBG(LOG_TAG,"Entry \n");
+
     status = streamHandle->getStreamAttributes(&sAttr);
     if(0 != status) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
@@ -354,14 +356,28 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         PAL_ERR(LOG_TAG, "get stream KV failed %d", status);
         goto exit;
     }
-    if (sAttr.type != PAL_STREAM_VOICE_UI) {
-        status = builder->populateStreamCkv(streamHandle, streamCKV, 0,
-                (struct pal_volume_data **)nullptr);
-        if (status) {
-            PAL_ERR(LOG_TAG, "get stream ckv failed %d", status);
-            goto exit;
-        }
+
+    switch (sAttr.type) {
+        case PAL_STREAM_VOICE_UI :
+            // No need to set CKV
+        break;
+        case PAL_STREAM_LOOPBACK:
+            if ((sAttr.info.opt_stream_info.loopback_type ==
+                            PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
+                (sAttr.info.opt_stream_info.loopback_type ==
+                            PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+                // No need to set CKV
+                break;
+            }
+        default :
+            status = builder->populateStreamCkv(streamHandle, streamCKV, 0,
+                    (struct pal_volume_data **)nullptr);
+            if (status) {
+                PAL_ERR(LOG_TAG, "get stream ckv failed %d", status);
+                goto exit;
+            }
     }
+
     if ((streamKV.size() > 0) || (streamCKV.size() > 0)) {
         getAgmMetaData(streamKV, streamCKV, (struct prop_data *)streamPropId,
                 streamMetaData);
@@ -496,8 +512,10 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
 
         deviceKV.clear();
         streamDeviceKV.clear();
-        free(streamDeviceMetaData.buf);
-        free(deviceMetaData.buf);
+        if (streamDeviceMetaData.buf)
+            free(streamDeviceMetaData.buf);
+        if (deviceMetaData.buf)
+            free(deviceMetaData.buf);
         streamDeviceMetaData.buf = nullptr;
         deviceMetaData.buf = nullptr;
     }
@@ -511,6 +529,8 @@ freeStreamMetaData:
         free(streamMetaData.buf);
 exit:
     delete builder;
+
+    PAL_DBG(LOG_TAG,"Exit \n");
     return status;
 }
 
