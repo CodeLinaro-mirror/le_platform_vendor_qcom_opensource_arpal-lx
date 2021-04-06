@@ -715,6 +715,7 @@ typedef enum {
     PAL_PARAM_ID_UNLOAD_SOUND_MODEL = 35,
     PAL_PARAM_ID_PROXY_CHANNEL_CONFIG = 36,
     PAL_PARAM_ID_CUSTOM_CONFIGURATION = 37,
+    PAL_PARAM_ID_DEVICE_MUTE = 38,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1058,6 +1059,11 @@ struct pal_compr_gapless_mdata {
        uint32_t encoderDelay;
        uint32_t encoderPadding;
 };
+
+typedef struct pal_device_mute_t {
+    pal_stream_direction_t dir;
+    bool mute;
+}pal_device_mute_t;
 
 /** @brief Callback function prototype to be given for
  *         pal_open_stream.
