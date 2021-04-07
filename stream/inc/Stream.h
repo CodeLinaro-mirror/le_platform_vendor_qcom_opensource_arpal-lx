@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -216,6 +216,8 @@ public:
     bool checkStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type);
     int32_t getEffectParameters(void *effect_query);
+    int32_t rwACDBParameters(void *payload, uint32_t sampleRate,
+                                bool isParamWrite);
     bool isActive() { return currentState == STREAM_STARTED; }
     static void handleSoftPauseCallBack(void *hdl, uint32_t event_id, void *data,
                                                            uint32_t event_size);

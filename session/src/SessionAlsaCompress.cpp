@@ -1006,7 +1006,8 @@ int SessionAlsaCompress::close(Stream * s)
             if (sessionCb)
                 sessionCb(cbCookie, PAL_STREAM_CBK_EVENT_ERROR, NULL, 0);
         }
-        return -EINVAL;
+        /** close unstarted session should return normal. */
+        return 0;
     }
     disconnectCtrlName << "COMPRESS" << compressDevIds.at(0) << " disconnect";
     disconnectCtrl = mixer_get_ctl_by_name(mixer, disconnectCtrlName.str().data());
