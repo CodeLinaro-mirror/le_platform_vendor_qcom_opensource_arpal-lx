@@ -1410,6 +1410,14 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                 if (channels > sAttr->out_media_config.ch_info.channels)
                     channels = sAttr->out_media_config.ch_info.channels;
 
+                /**
+                 * Assigning channles to 2 for mono channel clips usecases.
+                 * The configurations for mono channel are set accordingly
+                 * with 2 channels.
+                 */
+                if (channels == 1)
+                    channels = 2;
+
                 dev_ch_info.channels = channels;
 
                 getChannelMap(&(dev_ch_info.ch_map[0]), channels);
