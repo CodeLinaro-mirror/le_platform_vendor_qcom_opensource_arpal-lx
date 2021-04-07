@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -77,17 +77,21 @@ void SoundTriggerEngineCapi::BufferThreadLoop(
             if (capi_engine->detection_type_ ==
                 ST_SM_TYPE_KEYWORD_DETECTION) {
                 status = capi_engine->StartKeywordDetection();
+                lck.unlock();
                 if (status || !capi_engine->keyword_detected_)
                     s->SetEngineDetectionState(KEYWORD_DETECTION_REJECT);
                 else
                     s->SetEngineDetectionState(KEYWORD_DETECTION_SUCCESS);
+                lck.lock();
             } else if (capi_engine->detection_type_ ==
                 ST_SM_TYPE_USER_VERIFICATION) {
                 status = capi_engine->StartUserVerification();
+                lck.unlock();
                 if (status || !capi_engine->keyword_detected_)
                     s->SetEngineDetectionState(USER_VERIFICATION_REJECT);
                 else
                     s->SetEngineDetectionState(USER_VERIFICATION_SUCCESS);
+                lck.lock();
             }
             capi_engine->keyword_detected_ = false;
             capi_engine->processing_started_ = false;
@@ -140,7 +144,7 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
      */
     buffer_size_ -= buffer_size_ % (UsToBytes(10000));
 
-    buffer_end_ += UsToBytes(kw_end_tolerance_);
+    buffer_end_ += UsToBytes(kw_end_tolerance_ + data_after_kw_end_);
     PAL_DBG(LOG_TAG, "buffer_start_: %u, buffer_end_: %u",
         buffer_start_, buffer_end_);
 
@@ -311,8 +315,8 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
     }
 
     // calculate start and end index including tolerance
-    if (buffer_start_ > UsToBytes(kw_start_tolerance_)) {
-        buffer_start_ -= UsToBytes(kw_start_tolerance_);
+    if (buffer_start_ > UsToBytes(data_before_kw_start_)) {
+        buffer_start_ -= UsToBytes(data_before_kw_start_);
     } else {
         buffer_start_ = 0;
     }
@@ -493,6 +497,7 @@ SoundTriggerEngineCapi::SoundTriggerEngineCapi(
     reader_ = nullptr;
     buffer_ = nullptr;
     stream_handle_ = s;
+    confidence_threshold_ = 0;
 
     StreamSoundTrigger *st_str = dynamic_cast<StreamSoundTrigger *>(s);
     status = st_str->GetEngineConfig(sample_rate_,
@@ -511,6 +516,8 @@ SoundTriggerEngineCapi::SoundTriggerEngineCapi(
 
     kw_start_tolerance_ = st_str->GetKwStartTolerance();
     kw_end_tolerance_ = st_str->GetKwEndTolerance();
+    data_before_kw_start_ = st_str->GetDataBeforeKwStart();
+    data_after_kw_end_ = st_str->GetDataAfterKwEnd();
 
     // TODO: ST_SM_TYPE_CUSTOM_DETECTION
     if (detection_type_ == ST_SM_TYPE_KEYWORD_DETECTION) {
@@ -554,6 +561,21 @@ err_exit:
 SoundTriggerEngineCapi::~SoundTriggerEngineCapi()
 {
     PAL_DBG(LOG_TAG, "Enter");
+    /*
+     * join thread if it is not joined, sometimes
+     * stop/unload may fail before deconstruction.
+     */
+    if (buffer_thread_handler_.joinable()) {
+        processing_started_ = false;
+        std::unique_lock<std::mutex> lck(event_mutex_);
+        exit_thread_ = true;
+        exit_buffering_ = true;
+        cv_.notify_one();
+        lck.unlock();
+        buffer_thread_handler_.join();
+        lck.lock();
+        PAL_INFO(LOG_TAG, "Thread joined");
+    }
     if (buffer_) {
         delete buffer_;
     }
@@ -582,15 +604,6 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
     capi_v2_buf_t capi_buf;
 
     PAL_DBG(LOG_TAG, "Enter");
-    buffer_thread_handler_ =
-        std::thread(SoundTriggerEngineCapi::BufferThreadLoop, this);
-
-    if (!buffer_thread_handler_.joinable()) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "failed to create buffer thread = %d", status);
-        return status;
-    }
-
     if (detection_type_ == ST_SM_TYPE_KEYWORD_DETECTION) {
         sva_threshold_config_t *threshold_cfg = nullptr;
         threshold_cfg = (sva_threshold_config_t*)
@@ -604,8 +617,9 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
         capi_buf.actual_data_len = sizeof(sva_threshold_config_t);
         capi_buf.max_data_len = sizeof(sva_threshold_config_t);
         threshold_cfg->smm_threshold = confidence_threshold_;
-        PAL_VERBOSE(LOG_TAG, "Keyword detection (CNN) confidence level = %d",
-            confidence_threshold_);
+
+        PAL_DBG(LOG_TAG, "Keyword detection (CNN) confidence level = %d",
+            threshold_cfg->smm_threshold);
 
         status = capi_handle_->vtbl_ptr->set_param(capi_handle_,
             SVA_ID_THRESHOLD_CONFIG, nullptr, &capi_buf);
@@ -655,8 +669,8 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
         capi_buf.actual_data_len = sizeof(voiceprint2_threshold_config_t);
         capi_buf.max_data_len = sizeof(voiceprint2_threshold_config_t);
         threshold_cfg->user_verification_threshold = confidence_threshold_;
-        PAL_VERBOSE(LOG_TAG, "Keyword detection (VOP) confidence level = %d",
-                    confidence_threshold_);
+        PAL_DBG(LOG_TAG, "Keyword detection (VOP) confidence level = %f",
+                threshold_cfg->user_verification_threshold);
 
         rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
             VOICEPRINT2_ID_THRESHOLD_CONFIG, nullptr, &capi_buf);
@@ -669,6 +683,15 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
                 free(threshold_cfg);
             return status;
         }
+    }
+
+    buffer_thread_handler_ =
+        std::thread(SoundTriggerEngineCapi::BufferThreadLoop, this);
+
+    if (!buffer_thread_handler_.joinable()) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "failed to create buffer thread = %d", status);
+        return status;
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -757,6 +780,7 @@ int32_t SoundTriggerEngineCapi::UnloadSoundModel(Stream *s __unused)
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter, Issuing capi_end");
+    std::lock_guard<std::mutex> lck(mutex_);
     status = capi_handle_->vtbl_ptr->end(capi_handle_);
     if (status != CAPI_V2_EOK) {
         PAL_ERR(LOG_TAG, "Capi end function failed, status = %d",
@@ -849,7 +873,7 @@ int32_t SoundTriggerEngineCapi::UpdateConfLevels(
 
     std::lock_guard<std::mutex> lck(mutex_);
     confidence_threshold_ = *conf_levels;
-    PAL_VERBOSE(LOG_TAG, "confidence threshold: %d", confidence_threshold_);
+    PAL_DBG(LOG_TAG, "confidence threshold: %d", confidence_threshold_);
 
     return status;
 }

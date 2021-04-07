@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -185,6 +185,8 @@ class SoundModelConfig : public SoundTriggerXml {
     uint32_t GetCaptureReadDelay() const { return client_capture_read_delay_; }
     uint32_t GetKwStartTolerance() const { return kw_start_tolerance_; }
     uint32_t GetKwEndTolerance() const { return kw_end_tolerance_; }
+    uint32_t GetDataBeforeKwStart() const { return data_before_kw_start_; }
+    uint32_t GetDataAfterKwEnd() const { return data_after_kw_end_; }
     std::pair<uint32_t,uint32_t> GetStreamConfig() const { return stream_config_; }
     std::shared_ptr<CaptureProfile> GetCaptureProfile(
         std::pair<StOperatingModes, StInputModes> mode_pair) const {
@@ -216,6 +218,8 @@ class SoundModelConfig : public SoundTriggerXml {
     uint32_t client_capture_read_delay_;
     uint32_t kw_start_tolerance_;
     uint32_t kw_end_tolerance_;
+    uint32_t data_before_kw_start_;
+    uint32_t data_after_kw_end_;
     std::pair<uint32_t,uint32_t> stream_config_;
     const st_cap_profile_map_t& cap_profile_map_;
     std::map<std::pair<StOperatingModes, StInputModes>, std::shared_ptr<CaptureProfile>> op_modes_;
@@ -234,6 +238,7 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
     bool GetEnableFailureDetection() const {
         return enable_failure_detection_; }
     bool GetSupportDevSwitch() const { return support_device_switch_; }
+    bool GetSupportNLPISwitch() const { return support_nlpi_switch_; }
     bool GetTransitToNonLpiOnCharging() const {
         return transit_to_non_lpi_on_charging_;
     }
@@ -263,6 +268,7 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
     uint32_t version_;
     bool enable_failure_detection_;
     bool support_device_switch_;
+    bool support_nlpi_switch_;
     bool transit_to_non_lpi_on_charging_;
     bool dedicated_sva_path_;
     bool dedicated_headset_path_;

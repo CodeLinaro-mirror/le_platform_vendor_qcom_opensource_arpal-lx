@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,6 +31,7 @@
 
 #include "StreamSoundTrigger.h"
 
+#include <chrono>
 #include <unistd.h>
 
 #include "Session.h"
@@ -144,7 +145,8 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         &disable_concurrency_count);
 
     // check if lpi should be used
-    if (rm->IsVoiceUILPISupported() && !enable_concurrency_count) {
+    if (rm->IsVoiceUILPISupported() &&
+        !(rm->isVoiceUINLPISwitchSupported() && enable_concurrency_count)) {
         use_lpi_ = true;
     } else {
         use_lpi_ = false;
@@ -264,6 +266,7 @@ int32_t StreamSoundTrigger::stop() {
 
 int32_t StreamSoundTrigger::read(struct pal_buffer* buf) {
     int32_t size = 0;
+    uint32_t sleep_ms = 0;
 
     PAL_VERBOSE(LOG_TAG, "Enter");
 
@@ -271,6 +274,17 @@ int32_t StreamSoundTrigger::read(struct pal_buffer* buf) {
     std::shared_ptr<StEventConfig> ev_cfg(
         new StReadBufferEventConfig((void *)buf));
     size = cur_state_->ProcessEvent(ev_cfg);
+
+    /*
+     * st stream read pcm data from ringbuffer with no almost
+     * delay, sleep for some time after each read even if read
+     * fails.
+     */
+
+    sleep_ms = (buf->size * BITS_PER_BYTE * MS_PER_SEC) /
+        (sm_info_->GetSampleRate() * sm_info_->GetBitWidth() *
+         sm_info_->GetOutChannels());
+    std::this_thread::sleep_for(std::chrono::milliseconds(sleep_ms));
 
     PAL_VERBOSE(LOG_TAG, "Exit, read size %d", size);
 
@@ -307,8 +321,7 @@ int32_t StreamSoundTrigger::getParameters(uint32_t param_id, void **payload) {
             dev = GetPalDevice(dev_id, dattr, false);
             if (!dev) {
                 PAL_ERR(LOG_TAG, "Device creation is failed");
-                free(mStreamAttr);
-                throw std::runtime_error("failed to create device object");
+                return -EINVAL;
             }
             mDevices.push_back(dev);
             dev = nullptr;
@@ -697,17 +710,30 @@ int32_t StreamSoundTrigger::SetEngineDetectionState(int32_t det_type) {
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter, det_type %d", det_type);
-    if ((det_type < GMM_DETECTED) || (det_type > USER_VERIFICATION_REJECT)) {
+    if (!(det_type & DETECTION_TYPE_ALL)) {
         PAL_ERR(LOG_TAG, "Invalid detection type %d", det_type);
         return -EINVAL;
     }
 
-    std::unique_lock<std::mutex> lck(mStreamMutex);
-    if (det_type == GMM_DETECTED)
+    // Lock stream when first stage detected
+    if (det_type == GMM_DETECTED) {
+        mStreamMutex.lock();
+        rm->acquireWakeLock();
         reader_->updateState(READER_ENABLED);
+    }
+
     std::shared_ptr<StEventConfig> ev_cfg(
        new StDetectedEventConfig(det_type));
     status = cur_state_->ProcessEvent(ev_cfg);
+
+    /*
+     * Unlock stream when second stage detection result
+     * comes or no second stage detection required
+     */
+    if (engines_.size() == 1 ||
+        det_type & DETECTION_TYPE_SS) {
+        mStreamMutex.unlock();
+    }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
@@ -914,6 +940,10 @@ int32_t StreamSoundTrigger::LoadSoundModel(
 
                     AddEngine(engine_cfg);
                 } else if (big_sm->type != SML_ID_SVA_S_STAGE_UBM) {
+                    if (big_sm->type == ST_SM_ID_SVA_VOP &&
+                        !(phrase_sm->phrases[0].recognition_mode &
+                        PAL_RECOGNITION_MODE_USER_IDENTIFICATION))
+                        continue;
                     sm_size = big_sm->size;
                     ptr = (uint8_t *)sm_payload +
                         sizeof(SML_GlobalHeaderType) +
@@ -1304,9 +1334,9 @@ int32_t StreamSoundTrigger::SendRecognitionConfig(
     // create ring buffer for lab transfer in gsl_engine
     ring_buffer_len = hist_buffer_duration + pre_roll_duration +
         client_capture_read_delay;
-    ring_buffer_size = (ring_buffer_len / 1000) * sm_info_->GetSampleRate() *
+    ring_buffer_size = (ring_buffer_len / MS_PER_SEC) * sm_info_->GetSampleRate() *
                        sm_info_->GetBitWidth() *
-                       sm_info_->GetOutChannels() / 8;
+                       sm_info_->GetOutChannels() / BITS_PER_BYTE;
     status = gsl_engine_->CreateBuffer(ring_buffer_size,
                                        engines_.size(), reader_list);
     if (status) {
@@ -1728,7 +1758,9 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
                     sm_levels->kw_levels[0].user_levels[0].level;
                 PAL_DBG(LOG_TAG, "confidence level = %d", confidence_level);
                 for (auto& eng: engines_) {
-                    if (sm_levels->sm_id == eng->GetEngineId()) {
+                    if (sm_levels->sm_id & eng->GetEngineId() ||
+                        ((eng->GetEngineId() & ST_SM_ID_SVA_RNN) &&
+                        (sm_levels->sm_id & ST_SM_ID_SVA_CNN))) {
                         eng->GetEngine()->UpdateConfLevels(this, rec_config_,
                             &confidence_level, 1);
                     }
@@ -1767,7 +1799,9 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
                 for (auto& eng: engines_) {
                     PAL_VERBOSE(LOG_TAG, "sm id %d, engine id %d ",
                         sm_levels_v2->sm_id , eng->GetEngineId());
-                    if (sm_levels_v2->sm_id == eng->GetEngineId()) {
+                    if (sm_levels_v2->sm_id & eng->GetEngineId() ||
+                        ((eng->GetEngineId() & ST_SM_ID_SVA_RNN) &&
+                        (sm_levels_v2->sm_id & ST_SM_ID_SVA_CNN))) {
                         eng->GetEngine()->UpdateConfLevels(this, rec_config_,
                             &confidence_level_v2, 1);
                     }
@@ -2187,7 +2221,7 @@ uint32_t StreamSoundTrigger::GetKwStartTolerance() {
     uint32_t start_tolerance = 0;
 
     if (sm_info_) {
-        start_tolerance = sm_info_->GetKwStartTolerance() * 1000;
+        start_tolerance = sm_info_->GetKwStartTolerance();
     }
 
     PAL_DBG(LOG_TAG, "start tolerance %u us", start_tolerance);
@@ -2198,11 +2232,33 @@ uint32_t StreamSoundTrigger::GetKwEndTolerance() {
     uint32_t end_tolerance = 0;
 
     if (sm_info_) {
-        end_tolerance = sm_info_->GetKwEndTolerance() * 1000;
+        end_tolerance = sm_info_->GetKwEndTolerance();
     }
 
     PAL_DBG(LOG_TAG, "end tolerance %u us", end_tolerance);
     return end_tolerance;
+}
+
+uint32_t StreamSoundTrigger::GetDataBeforeKwStart() {
+    uint32_t data_before_kw_start = 0;
+
+    if (sm_info_) {
+        data_before_kw_start = sm_info_->GetDataBeforeKwStart();
+    }
+
+    PAL_DBG(LOG_TAG, "start tolerance %u us", data_before_kw_start);
+    return data_before_kw_start;
+}
+
+uint32_t StreamSoundTrigger::GetDataAfterKwEnd() {
+    uint32_t data_after_kw_end = 0;
+
+    if (sm_info_) {
+        data_after_kw_end = sm_info_->GetDataAfterKwEnd();
+    }
+
+    PAL_DBG(LOG_TAG, "end tolerance %u us", data_after_kw_end);
+    return data_after_kw_end;
 }
 
 int32_t StreamSoundTrigger::GetEngineConfig(uint32_t &sample_rate,
@@ -2381,7 +2437,8 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
 
             if (!st_stream_.sm_info_) {
                 PAL_ERR(LOG_TAG, "Failed to get sound model platform info");
-                throw std::runtime_error("Failed to get sound model platform info");
+                status = -EINVAL;
+                goto err_exit;
             }
 
             if (!st_stream_.mDevices.size()) {
@@ -2395,8 +2452,8 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                 dev = st_stream_.GetPalDevice(dev_id, dattr, false);
                 if (!dev) {
                     PAL_ERR(LOG_TAG, "Device creation is failed");
-                    free(st_stream_.mStreamAttr);
-                    throw std::runtime_error("failed to create device object");
+                    status = -EINVAL;
+                    goto err_exit;
                 }
                 st_stream_.mDevices.push_back(dev);
                 dev = nullptr;
@@ -2496,6 +2553,9 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
         }
         case ST_EV_CONCURRENT_STREAM:
         case ST_EV_CHARGING_STATE: {
+            // Avoid handling concurrency before sound model loaded
+            if (!st_stream_.sm_config_)
+                break;
             std::shared_ptr<CaptureProfile> new_cap_prof = nullptr;
             bool active = false;
 
@@ -2632,12 +2692,12 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
             break;
         }
         case ST_EV_RESUME: {
-            if (!st_stream_.paused_) {
+            st_stream_.paused_ = false;
+            if (!st_stream_.isActive()) {
                 // Possible if App has stopped recognition during active
                 // concurrency.
                 break;
             }
-            st_stream_.paused_ = false;
             // fall through to start
             [[fallthrough]];
         }
@@ -2737,12 +2797,6 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
         }
         case ST_EV_PAUSE: {
             st_stream_.paused_ = true;
-            break;
-        }
-        case ST_EV_STOP_RECOGNITION: {
-            // Possible if client is stopping during active concurrency.
-            // Reset puase flag to avoid restarting when concurrency inactive.
-            st_stream_.paused_ = false;
             break;
         }
         case ST_EV_READ_BUFFER: {
@@ -2954,6 +3008,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
             // fall through to stop
             [[fallthrough]];
         }
+        case ST_EV_UNLOAD_SOUND_MODEL:
         case ST_EV_STOP_RECOGNITION: {
             // Do not update capture profile when pausing stream
             if (ev_cfg->id_ == ST_EV_STOP_RECOGNITION) {
@@ -2994,6 +3049,13 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
             if (st_stream_.mDevices.size() > 0) {
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
+            }
+            if (ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL) {
+                status = st_stream_.ProcessInternalEvent(ev_cfg);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
+                            status);
+                }
             }
             break;
         }
@@ -3214,6 +3276,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
             } else {
                 TransitTo(ST_STATE_LOADED);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_PAUSE: {
@@ -3222,6 +3285,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
             // fall through to stop
             [[fallthrough]];
         }
+        case ST_EV_UNLOAD_SOUND_MODEL:
         case ST_EV_STOP_RECOGNITION: {
             st_stream_.CancelDelayedStop();
             for (auto& eng: st_stream_.engines_) {
@@ -3246,6 +3310,15 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
             }
+
+            if (ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL) {
+                status = st_stream_.ProcessInternalEvent(ev_cfg);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
+                            status);
+                }
+            }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_RECOGNITION_CONFIG: {
@@ -3282,6 +3355,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle recognition config, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             // START event will be handled in loaded state.
             break;
         }
@@ -3332,6 +3406,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle device connection, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_SSR_OFFLINE: {
@@ -3346,6 +3421,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 new StUnloadEventConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg2);
             TransitTo(ST_STATE_SSR);
+            rm->releaseWakeLock();
             break;
         }
         default: {
@@ -3404,6 +3480,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             } else {
                 TransitTo(ST_STATE_LOADED);
             }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_RECOGNITION_CONFIG: {
@@ -3444,6 +3521,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle recognition config, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             // START event will be handled in loaded state.
             break;
         }
@@ -3453,6 +3531,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             // fall through to stop
             [[fallthrough]];
         }
+        case ST_EV_UNLOAD_SOUND_MODEL:
         case ST_EV_STOP_RECOGNITION:  {
             // Possible with deffered stop if client doesn't start next recognition.
             st_stream_.CancelDelayedStop();
@@ -3482,6 +3561,15 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 auto& dev = st_stream_.mDevices[0];
                 st_stream_.rm->deregisterDevice(dev, &st_stream_);
             }
+
+            if (ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL) {
+                status = st_stream_.ProcessInternalEvent(ev_cfg);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
+                            status);
+                }
+            }
+            rm->releaseWakeLock();
             break;
         }
         case ST_EV_DETECTED: {
@@ -3590,6 +3678,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to handle device connection, status %d",
                         status);
             }
+            rm->releaseWakeLock();
             // device connection event will be handled in loaded state.
             break;
         }
@@ -3606,6 +3695,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 new StUnloadEventConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg3);
             TransitTo(ST_STATE_SSR);
+            rm->releaseWakeLock();
             break;
         }
         default: {

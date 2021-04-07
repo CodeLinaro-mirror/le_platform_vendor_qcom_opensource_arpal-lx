@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -54,6 +54,8 @@ enum {
     KEYWORD_DETECTION_REJECT = 0x4,
     USER_VERIFICATION_SUCCESS = 0x8,
     USER_VERIFICATION_REJECT = 0x10,
+    DETECTION_TYPE_SS = 0x1E,
+    DETECTION_TYPE_ALL = 0x1F,
 };
 
 typedef enum {
@@ -170,6 +172,8 @@ class StreamSoundTrigger : public Stream {
 
     uint32_t GetKwStartTolerance();
     uint32_t GetKwEndTolerance();
+    uint32_t GetDataBeforeKwStart();
+    uint32_t GetDataAfterKwEnd();
     int32_t GetEngineConfig(uint32_t &sample_rate, uint32_t &bit_width,
         uint32_t &channels, listen_model_indicator_enum type);
     int32_t GetSecondStageConfig(st_sound_model_type_t &detection_type,
