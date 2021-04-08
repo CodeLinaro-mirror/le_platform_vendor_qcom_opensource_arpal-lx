@@ -39,6 +39,7 @@
 #include "SessionAlsaVoice.h"
 #include "SessionAlsaUtils.h"
 
+#include <agm_api.h>
 #include <sstream>
 
 
