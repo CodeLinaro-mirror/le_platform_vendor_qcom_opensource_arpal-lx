@@ -718,7 +718,10 @@ int SessionAlsaPcm::start(Stream * s)
                     PAL_ERR(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
                 }
 
-                streamData.bitWidth = sAttr.in_media_config.bit_width;
+                if (isPalPCMFormat(sAttr.in_media_config.aud_fmt_id))
+                    streamData.bitWidth = palFormatToBitwidthTable[sAttr.in_media_config.aud_fmt_id];
+                else
+                    streamData.bitWidth = sAttr.in_media_config.bit_width;
                 streamData.sampleRate = sAttr.in_media_config.sample_rate;
                 streamData.numChannel = sAttr.in_media_config.ch_info.channels;
                 streamData.rotation_type = PAL_SPEAKER_ROTATION_LR;
