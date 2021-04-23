@@ -141,6 +141,12 @@ stream_create:
             case PAL_STREAM_LOOPBACK:
             case PAL_STREAM_ULTRA_LOW_LATENCY:
             case PAL_STREAM_PROXY:
+            case PAL_STREAM_PLAYBACK_MEDIA:
+            case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
+            case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
+            case PAL_STREAM_PLAYBACK_PHONE:
+            case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
+            case PAL_STREAM_PLAYBACK_REAR_SEAT:
                 //TODO:for now keeping PAL_STREAM_PLAYBACK_GENERIC for ULLA need to check
                 stream = new StreamPCM(sAttr, mPalDevice, count, modifiers,
                                    noOfModifiers, rm);

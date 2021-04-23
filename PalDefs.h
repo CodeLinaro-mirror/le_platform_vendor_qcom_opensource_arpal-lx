@@ -307,27 +307,33 @@ typedef enum {
 
 /** Audio stream types */
 typedef enum {
-    PAL_STREAM_LOW_LATENCY = 1,           /**< :low latency, higher power*/
-    PAL_STREAM_DEEP_BUFFER = 2,           /**< :low power, higher latency*/
-    PAL_STREAM_COMPRESSED = 3,            /**< :compresssed audio*/
-    PAL_STREAM_VOIP = 4,                  /**< :pcm voip audio*/
-    PAL_STREAM_VOIP_RX = 5,               /**< :pcm voip audio downlink*/
-    PAL_STREAM_VOIP_TX = 6,               /**< :pcm voip audio uplink*/
-    PAL_STREAM_VOICE_CALL_MUSIC = 7,      /**< :incall music */
-    PAL_STREAM_GENERIC = 8,               /**< :generic playback audio*/
-    PAL_STREAM_RAW = 9,                   /**< pcm no post processing*/
-    PAL_STREAM_VOICE_ACTIVATION = 10,     /**< voice activation*/
-    PAL_STREAM_VOICE_CALL_RECORD = 11,    /**< incall record */
-    PAL_STREAM_VOICE_CALL_TX = 12,        /**< incall record, uplink */
-    PAL_STREAM_VOICE_CALL_RX_TX = 13,     /**< incall record, uplink & Downlink */
-    PAL_STREAM_VOICE_CALL = 14,           /**< voice call */
-    PAL_STREAM_LOOPBACK = 15,             /**< loopback */
-    PAL_STREAM_TRANSCODE = 16,            /**< audio transcode */
-    PAL_STREAM_VOICE_UI = 17,             /**< voice ui */
-    PAL_STREAM_PCM_OFFLOAD = 18,          /**< pcm offload audio */
-    PAL_STREAM_ULTRA_LOW_LATENCY = 19,    /**< pcm ULL audio */
-    PAL_STREAM_PROXY = 20,                /**< pcm proxy audio */
-    PAL_STREAM_MAX                        /**< max stream types - add new ones above */
+    PAL_STREAM_LOW_LATENCY = 1,                  /**< :low latency, higher power*/
+    PAL_STREAM_DEEP_BUFFER = 2,                  /**< :low power, higher latency*/
+    PAL_STREAM_COMPRESSED = 3,                   /**< :compresssed audio*/
+    PAL_STREAM_VOIP = 4,                         /**< :pcm voip audio*/
+    PAL_STREAM_VOIP_RX = 5,                      /**< :pcm voip audio downlink*/
+    PAL_STREAM_VOIP_TX = 6,                      /**< :pcm voip audio uplink*/
+    PAL_STREAM_VOICE_CALL_MUSIC = 7,             /**< :incall music */
+    PAL_STREAM_GENERIC = 8,                      /**< :generic playback audio*/
+    PAL_STREAM_RAW = 9,                          /**< pcm no post processing*/
+    PAL_STREAM_VOICE_ACTIVATION = 10,            /**< voice activation*/
+    PAL_STREAM_VOICE_CALL_RECORD = 11,           /**< incall record */
+    PAL_STREAM_VOICE_CALL_TX = 12,               /**< incall record, uplink */
+    PAL_STREAM_VOICE_CALL_RX_TX = 13,            /**< incall record, uplink & Downlink */
+    PAL_STREAM_VOICE_CALL = 14,                  /**< voice call */
+    PAL_STREAM_LOOPBACK = 15,                    /**< loopback */
+    PAL_STREAM_TRANSCODE = 16,                   /**< audio transcode */
+    PAL_STREAM_VOICE_UI = 17,                    /**< voice ui */
+    PAL_STREAM_PCM_OFFLOAD = 18,                 /**< pcm offload audio */
+    PAL_STREAM_ULTRA_LOW_LATENCY = 19,           /**< pcm ULL audio */
+    PAL_STREAM_PROXY = 20,                       /**< pcm proxy audio */
+    PAL_STREAM_PLAYBACK_MEDIA = 21,              /**< BUS type media */
+    PAL_STREAM_PLAYBACK_SYS_NOTIFICATION = 22,   /**< BUS type system notification */
+    PAL_STREAM_PLAYBACK_NAV_GUIDANCE = 23,       /**< BUS type navigation guidance */
+    PAL_STREAM_PLAYBACK_PHONE = 24,              /**< BUS type voice command/recognition */
+    PAL_STREAM_PLAYBACK_FRONT_PASSENGER = 25,    /**< BUS type front passenger zone audio streams */
+    PAL_STREAM_PLAYBACK_REAR_SEAT = 26,          /**< BUS type rear passenger zone audio streams */
+    PAL_STREAM_MAX                               /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
 /** Audio devices available for enabling streams */
