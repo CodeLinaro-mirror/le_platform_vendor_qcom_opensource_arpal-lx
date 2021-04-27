@@ -356,6 +356,7 @@ int SessionAlsaVoice::start(Stream * s)
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
     struct pal_volume_data *volume = NULL;
+    size_t vol_size = 0;
 
     PAL_DBG(LOG_TAG,"Enter");
 
@@ -426,8 +427,8 @@ int SessionAlsaVoice::start(Stream * s)
         PAL_ERR(LOG_TAG, "volume malloc failed %s", strerror(errno));
         goto exit;
     }
-    /*if no volume is set set a default volume*/
-    if ((s->getVolumeData(volume))) {
+    /*if no volume is set, set a default volume*/
+    if (rm->controlPluginGet(s, PLUGIN_CONTROL_VOLUME, (void**)&volume, &vol_size)) {
         PAL_INFO(LOG_TAG, "no volume set, setting default vol to %f",
                  default_volume);
         volume->no_of_volpair = 1;
@@ -436,8 +437,6 @@ int SessionAlsaVoice::start(Stream * s)
         /*call will cache the volume but not apply it as stream has not moved to start state*/
         s->setVolume(volume);
     };
-    /*call to apply volume*/
-    setConfig(s, CALIBRATION, TAG_STREAM_VOLUME, RXDIR);
 
     /*set tty mode*/
     if (ttyMode) {
@@ -578,17 +577,11 @@ int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __un
         case VOICE_VOLUME_BOOST:
             device = pcmDevRxIds.at(0);
             volume_boost = *((bool *)PalPayload->payload);
-            status = payloadCalKeys(s, &paramData, &paramSize);
-            if (!paramData) {
-                status = -ENOMEM;
-                PAL_ERR(LOG_TAG, "failed to get payload status %d", status);
-                goto exit;
-            }
-            status = setVoiceMixerParameter(s, mixer, paramData, paramSize,
-                                            RXDIR);
+            status = rm->controlPluginSet(s,PLUGIN_CONTROL_VOLUME_BOOST,
+                                          payload, sizeof(bool));
             if (status) {
-                PAL_ERR(LOG_TAG, "Failed to set voice params status = %d",
-                        status);
+                 PAL_ERR(LOG_TAG,"could not set volume boost, plugin failed");
+                 goto exit;
             }
             break;
 
@@ -626,17 +619,11 @@ int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __un
         case VOICE_HD_VOICE:
             device = pcmDevRxIds.at(0);
             hd_voice = *((bool *)PalPayload->payload);
-            status = payloadCalKeys(s, &paramData, &paramSize);
-            if (!paramData) {
-                status = -ENOMEM;
-                PAL_ERR(LOG_TAG, "failed to get payload status %d", status);
-                goto exit;
-            }
-            status = setVoiceMixerParameter(s, mixer, paramData, paramSize,
-                                            RXDIR);
+            status = rm->controlPluginSet(s,PLUGIN_CONTROL_HD_VOICE, payload,
+                                          sizeof(bool));
             if (status) {
-                PAL_ERR(LOG_TAG, "Failed to set voice params status = %d",
-                        status);
+                 PAL_ERR(LOG_TAG,"could not set HD Voice, plugin failed");
+                 goto exit;
             }
             break;
       case DEVICE_MUTE:
@@ -677,6 +664,25 @@ if (paramData) {
 
 }
 
+int SessionAlsaVoice::getParameters(Stream *s __unused, int tagId,
+                                    uint32_t param_id __unused, void **payload)
+{
+    int status = 0;
+    ckv_data_t *data = (ckv_data_t *)*payload;
+    if (tagId == VOICE_CKV_DATA){
+        if (data) {
+            data->vsid = vsid;
+            data->ttyMode = ttyMode;
+            data->volume_boost = volume_boost;
+            data->slow_talk = slow_talk;
+            data->hd_voice = hd_voice;
+        } else {
+            status = -EINVAL;
+        }
+    }
+    return status;
+}
+
 int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
 {
     int status = 0;
@@ -687,23 +693,6 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
     PAL_DBG(LOG_TAG,"Enter setConfig called with tag: %d ", tag);
 
     switch (static_cast<uint32_t>(tag)) {
-        case TAG_STREAM_VOLUME:
-            device = pcmDevRxIds.at(0);
-            status = payloadCalKeys(s, &paramData, &paramSize);
-            status = SessionAlsaVoice::setVoiceMixerParameter(s, mixer,
-                                                              paramData,
-                                                              paramSize,
-                                                              RXDIR);
-            if (status) {
-                PAL_ERR(LOG_TAG, "Failed to set voice params status = %d",
-                        status);
-            }
-            if (!paramData) {
-                status = -ENOMEM;
-                PAL_ERR(LOG_TAG, "failed to get payload status %d", status);
-                goto exit;
-            }
-            break;
         case MUTE_TAG:
         case UNMUTE_TAG:
             device = pcmDevTxIds.at(0);
@@ -720,10 +709,9 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
         goto exit;
     }
 
-    PAL_VERBOSE(LOG_TAG, "%pK - payload and %zu size", paramData , paramSize);
-
 exit:
 if (paramData) {
+    PAL_DBG(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
     free(paramData);
 }
     PAL_DBG(LOG_TAG,"Exit status:%d ", status);
@@ -739,31 +727,13 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
 
     PAL_DBG(LOG_TAG,"Enter setConfig called with tag: %d ", tag);
 
+    if (!s) {
+        PAL_ERR(LOG_TAG,"invalid stream handle");
+        status = -EINVAL;
+        goto exit;
+    }
+
     switch (static_cast<uint32_t>(tag)) {
-
-       case TAG_STREAM_VOLUME:
-            device = pcmDevRxIds.at(0);
-            status = payloadCalKeys(s, &paramData, &paramSize);
-            if (status || !paramData) {
-                status = -ENOMEM;
-                PAL_ERR(LOG_TAG, "failed to get payload status %d", status);
-                goto exit;
-            }
-            status = SessionAlsaVoice::setVoiceMixerParameter(s, mixer,
-                                                              paramData,
-                                                              paramSize,
-                                                              dir);
-            if (status) {
-                PAL_ERR(LOG_TAG, "Failed to set voice params status = %d",
-                        status);
-            }
-            if (!paramData) {
-                status = -ENOMEM;
-                PAL_ERR(LOG_TAG, "failed to get payload status %d", status);
-                goto exit;
-            }
-            break;
-
         case MUTE_TAG:
         case UNMUTE_TAG:
             device = pcmDevTxIds.at(0);
@@ -801,10 +771,9 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
         goto exit;
     }
 
-    PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
-
 exit:
 if (paramData) {
+    PAL_DBG(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
     free(paramData);
 }
     PAL_DBG(LOG_TAG,"Exit status:%d ", status);
@@ -912,98 +881,6 @@ int SessionAlsaVoice::payloadSetVSID(uint8_t **payload, size_t *size){
     }
 
 
-    return status;
-}
-
-int SessionAlsaVoice::payloadCalKeys(Stream * s, uint8_t **payload, size_t *size)
-{
-    int status = 0;
-    apm_module_param_data_t* header;
-    uint8_t* payloadInfo = NULL;
-    size_t payloadSize = 0, padBytes = 0;
-    uint8_t *vol_pl;
-    vcpm_param_cal_keys_payload_t cal_keys;
-    vcpm_ckv_pair_t cal_key_pair[NUM_OF_CAL_KEYS];
-    float volume = 0.0;
-    int vol;
-    struct pal_volume_data *voldata = NULL;
-
-    voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
-    if (!voldata) {
-        status = -ENOMEM;
-        goto exit;
-    }
-    status = s->getVolumeData(voldata);
-    if(0 != status) {
-        PAL_ERR(LOG_TAG,"getVolumeData Failed");
-        goto exit;
-    }
-
-    PAL_VERBOSE(LOG_TAG,"volume sent:%f", (voldata->volume_pair[0].vol));
-    volume = (voldata->volume_pair[0].vol);
-
-    payloadSize = sizeof(apm_module_param_data_t) +
-                  sizeof(vcpm_param_cal_keys_payload_t) +
-                  sizeof(vcpm_ckv_pair_t)*NUM_OF_CAL_KEYS;
-    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
-
-    payloadInfo = new uint8_t[payloadSize + padBytes]();
-    if (!payloadInfo) {
-        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
-        return -EINVAL;
-    }
-    header = (apm_module_param_data_t*)payloadInfo;
-    header->module_instance_id = VCPM_MODULE_INSTANCE_ID;
-    header->param_id = VCPM_PARAM_ID_CAL_KEYS;
-    header->error_code = 0x0;
-    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
-    cal_keys.vsid = vsid;
-    cal_keys.num_ckv_pairs = NUM_OF_CAL_KEYS;
-    if (volume < 0.0) {
-            volume = 0.0;
-    } else if (volume > 1.0) {
-        volume = 1.0;
-    }
-
-    vol = lrint(volume * 100.0);
-
-    // Voice volume levels from android are mapped to driver volume levels as follows.
-    // 0 -> 5, 20 -> 4, 40 ->3, 60 -> 2, 80 -> 1, 100 -> 0
-    // So adjust the volume to get the correct volume index in driver
-    vol = 100 - vol;
-
-    /*volume key*/
-    cal_key_pair[0].cal_key_id = VCPM_CAL_KEY_ID_VOLUME_LEVEL;
-    cal_key_pair[0].value = percent_to_index(vol, MIN_VOL_INDEX, MAX_VOL_INDEX);
-
-    /*cal key for volume boost*/
-    cal_key_pair[1].cal_key_id = VCPM_CAL_KEY_ID_VOL_BOOST;
-    cal_key_pair[1].value = volume_boost;
-
-     /*cal key for BWE/HD_VOICE*/
-    cal_key_pair[2].cal_key_id = VCPM_CAL_KEY_ID_BWE;
-    cal_key_pair[2].value = hd_voice;
-
-    vol_pl = (uint8_t*)payloadInfo + sizeof(apm_module_param_data_t);
-    ar_mem_cpy(vol_pl, sizeof(vcpm_param_cal_keys_payload_t),
-                     &cal_keys, sizeof(vcpm_param_cal_keys_payload_t));
-
-    vol_pl += sizeof(vcpm_param_cal_keys_payload_t);
-    ar_mem_cpy(vol_pl, sizeof(vcpm_ckv_pair_t)*NUM_OF_CAL_KEYS,
-                     &cal_key_pair, sizeof(vcpm_ckv_pair_t)*NUM_OF_CAL_KEYS);
-
-
-    *size = payloadSize + padBytes;
-    *payload = payloadInfo;
-    PAL_DBG(LOG_TAG, "Volume level: %lf, volume boost: %d, HD voice: %d",
-            percent_to_index(vol, MIN_VOL_INDEX, MAX_VOL_INDEX),
-            volume_boost, hd_voice);
-
-exit:
-    if (voldata) {
-        free(voldata);
-    }
     return status;
 }
 
@@ -1446,6 +1323,32 @@ int SessionAlsaVoice::getTXDeviceId(Stream *s, int *id)
     if(i >= PAL_DEVICE_IN_MAX){
         status = -EINVAL;
     }
+    return status;
+}
+
+int SessionAlsaVoice::getPCMDeviceID(Stream *s, int *devId)
+{
+    int status = 0;
+    pal_stream_attributes sAttr;
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    if (sAttr.direction == PAL_AUDIO_OUTPUT || PAL_AUDIO_INPUT_OUTPUT) {
+        *devId = pcmDevRxIds.at(0);
+    }
+    else if (sAttr.direction == PAL_AUDIO_INPUT) {
+        *devId = pcmDevTxIds.at(0);
+    } else {
+        PAL_ERR(LOG_TAG, "invalid direction");
+        status = -EINVAL;
+    }
+
+exit:
     return status;
 }
 

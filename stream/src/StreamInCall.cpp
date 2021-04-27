@@ -405,61 +405,6 @@ exit:
     return status;
 }
 
-//TBD: move this to Stream, why duplicate code?
-int32_t  StreamInCall::setVolume(struct pal_volume_data *volume)
-{
-    int32_t status = 0;
-    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
-    if (!volume || volume->no_of_volpair == 0) {
-        PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
-        status = -EINVAL;
-        goto exit;
-    }
-
-    /*if already allocated free and reallocate */
-    if (mVolumeData) {
-        free(mVolumeData);
-    }
-
-    mVolumeData = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair))));
-    if (!mVolumeData) {
-        status = -ENOMEM;
-        PAL_ERR(LOG_TAG, "mVolumeData malloc failed %s", strerror(errno));
-        goto exit;
-    }
-
-    //mStreamMutex.lock();
-    ar_mem_cpy (mVolumeData, (sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) *
-                      (volume->no_of_volpair))), volume, (sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) *
-                      (volume->no_of_volpair))));
-    //mStreamMutex.unlock();
-    for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
-        PAL_ERR(LOG_TAG, "Volume payload mask:%x vol:%f",
-                      (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
-    }
-    /* Allow caching of stream volume as part of mVolumeData
-     * till the pcm_open is not done or if sound card is
-     * offline.
-     */
-    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
-        && currentState != STREAM_INIT) {
-        status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG, "session setConfig for VOLUME_TAG failed with status %d",
-                    status);
-            goto exit;
-        }
-    }
-    PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
-                      (volume->no_of_volpair), (volume->volume_pair->channel_mask),
-                      (volume->volume_pair->vol));
-exit:
-    return status;
-}
-
 int32_t  StreamInCall::read(struct pal_buffer* buf)
 {
     int32_t status = 0;

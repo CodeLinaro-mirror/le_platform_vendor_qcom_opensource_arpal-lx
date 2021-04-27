@@ -527,50 +527,6 @@ int32_t StreamCompress::setParameters(uint32_t param_id, void *payload)
     return status;
 }
 
-int32_t  StreamCompress::setVolume(struct pal_volume_data *volume)
-{
-    int32_t status = 0;
-
-    PAL_VERBOSE(LOG_TAG, "start, session handle - %p", session);
-    if (!volume|| volume->no_of_volpair == 0) {
-       PAL_ERR(LOG_TAG,"Invalid arguments");
-       status = -EINVAL;
-       goto exit;
-    }
-
-    if(mVolumeData) {
-        //if mVolumeDate is already allocated- free it before updating
-        free(mVolumeData);
-        mVolumeData = (struct pal_volume_data *)NULL;
-    }
-
-    mVolumeData = (struct pal_volume_data *)calloc(1, sizeof(struct pal_volume_data) +
-                 (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair)));
-
-    memcpy (mVolumeData, volume, (sizeof(struct pal_volume_data) +
-             (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair))));
-    for(int32_t i = 0; i < (mVolumeData->no_of_volpair); i++) {
-       PAL_VERBOSE(LOG_TAG,"Volume payload mask:%x vol:%f\n",
-               (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
-    }
-    /* Allow caching of stream volume as part of mVolumeData
-     * till the stream_start is not done or if sound card is
-     * offline.
-     */
-    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
-        && currentState != STREAM_INIT) {
-        status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
-        if (0 != status) {
-           PAL_ERR(LOG_TAG,"session setConfig for VOLUME_TAG failed with status %d",status);
-           goto exit;
-        }
-    }
-    PAL_VERBOSE(LOG_TAG,"Volume payload No.of vol pair:%d ch mask:%x gain:%f",
-             (volume->no_of_volpair), (volume->volume_pair->channel_mask),(volume->volume_pair->vol));
-exit:
-    return status;
-}
-
 int32_t StreamCompress::mute(bool state)
 {
     int32_t status = 0;

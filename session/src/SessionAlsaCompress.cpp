@@ -793,6 +793,8 @@ int SessionAlsaCompress::start(Stream * s)
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
     uint32_t miid;
+    struct pal_volume_data *voldata = NULL;
+    size_t vol_size = 0;
 
     /** create an offload thread for posting callbacks */
     worker_thread = std::make_unique<std::thread>(offloadThreadLoop, this);
@@ -937,8 +939,24 @@ int SessionAlsaCompress::start(Stream * s)
     }
 
     // Setting the volume as no default volume is set now in stream open
-    if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
-            PAL_ERR(LOG_TAG,"Setting volume failed");
+    voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
+                      (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
+    if (!voldata) {
+        status = -ENOMEM;
+        goto free_feIds ;
+    }
+    status = rm->controlPluginGet(s,PLUGIN_CONTROL_VOLUME, (void**)&voldata, &vol_size);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
+    } else {
+        status = rm->controlPluginSet(s,PLUGIN_CONTROL_VOLUME, (void*)voldata, vol_size);
+        if (status) {
+            PAL_ERR(LOG_TAG,"failed to set default volume data");
+        }
+    }
+
+    if (voldata) {
+        free(voldata);
     }
 
 free_feIds:
@@ -1593,5 +1611,27 @@ int SessionAlsaCompress::getTimestamp(struct pal_session_time *stime)
 int SessionAlsaCompress::setECRef(Stream *s __unused, std::shared_ptr<Device> rx_dev __unused, bool is_enable __unused)
 {
     return 0;
+}
+
+int SessionAlsaCompress::getPCMDeviceID(Stream *s, int *devId)
+{
+    int status = 0;
+    pal_stream_attributes sAttr;
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    if (sAttr.direction == PAL_AUDIO_OUTPUT) {
+        *devId = compressDevIds.at(0);
+    } else {
+        PAL_ERR(LOG_TAG, "invalid direction");
+        status = -EINVAL;
+    }
+exit:
+    return status;
 }
 

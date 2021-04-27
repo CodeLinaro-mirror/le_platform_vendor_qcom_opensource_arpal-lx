@@ -112,6 +112,7 @@ public:
     void deRegisterAdmStream(Stream *s);
     void requestAdmFocus(Stream *s, long ns);
     void releaseAdmFocus(Stream *s);
+    int getPCMDeviceID(Stream *s, int *devId) override;
 
 };
 

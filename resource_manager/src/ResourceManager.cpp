@@ -298,6 +298,12 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" },        PAL_STREAM_PLAYBACK_REAR_SEAT},
 };
 
+const std::map<std::string, plugin_control_name_t> controlNameMap {
+    {std::string{"PLUGIN_CONTROL_VOLUME"}, PLUGIN_CONTROL_VOLUME},
+    {std::string{"PLUGIN_CONTROL_VOLUME_BOOST"}, PLUGIN_CONTROL_VOLUME_BOOST},
+    {std::string{"PLUGIN_CONTROL_HD_VOICE"}, PLUGIN_CONTROL_HD_VOICE},
+};
+
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
     {std::string{ "OFF" }, SIDETONE_OFF},
     {std::string{ "HW" },  SIDETONE_HW},
@@ -387,6 +393,7 @@ std::vector<tx_ecinfo> ResourceManager::txEcInfo;
 struct vsid_info ResourceManager::vsidInfo;
 std::vector<struct pal_amp_db_and_gain_table> ResourceManager::gainLvlMap;
 std::map<std::pair<uint32_t, std::string>, std::string> ResourceManager::btCodecMap;
+std::vector<control_t> ResourceManager::ControlInfo;
 
 #define MAKE_STRING_FROM_ENUM(string) { {#string}, string }
 std::map<std::string, uint32_t> ResourceManager::btFmtTable = {
@@ -501,6 +508,7 @@ ResourceManager::ResourceManager()
     streamTag.clear();
     deviceTag.clear();
     btCodecMap.clear();
+    ControlInfo.clear();
 
     vsidInfo.loopback_delay = 0;
 
@@ -595,6 +603,7 @@ ResourceManager::~ResourceManager()
     mixerTag.clear();
     devicePpTag.clear();
     deviceTag.clear();
+    ControlInfo.clear();
 
     listAllFrontEndIds.clear();
     listAllPcmPlaybackFrontEnds.clear();
@@ -6441,6 +6450,64 @@ void ResourceManager::process_custom_config(const XML_Char **attr){
     PAL_DBG(LOG_TAG, "custom config key is %s", custom_config_data.key.c_str());
 }
 
+void ResourceManager::process_control(const XML_Char **attr){
+    struct control_t control = {};
+
+    if ((strcmp(attr[0], "name") != 0) ||
+        (strcmp(attr[2], "default") != 0) ||
+        (strcmp(attr[4], "loadOnInit") != 0)) {
+        PAL_ERR(LOG_TAG, "invalid attribute passed  %s %s %s expected name, default, loadOnBoot", attr[0], attr[2], attr[4]);
+        goto exit;
+    }
+
+    control.name = controlNameMap.at(attr[1]);
+    control.default_plugin.name = attr[3];
+    if(!strcmp(attr[5], "true")){
+            openControlPlugin(&control.default_plugin, control.name);
+    }
+    ControlInfo.push_back(control);
+    PAL_DBG(LOG_TAG, "creating control, name %d default plugin %s loadOnInit %s",
+            control.name, control.default_plugin.name.c_str(), attr[5]);
+exit:
+    return;
+}
+
+void ResourceManager::process_plugin(struct xml_userdata *data, const XML_Char **attr){
+    int size = 0;
+    plugin_t plugin = {};
+
+    if ((strcmp(attr[0], "name") != 0) ||
+        (strcmp(attr[2], "loadOnInit") != 0)){
+        PAL_ERR(LOG_TAG, "invalid attribute passed  %s %s expected name, loadOnInit", attr[0], attr[2]);
+        goto exit;
+    }
+    if (data->tag == TAG_CONTROL) {
+        std::string name(attr[1]);
+        std::string load(attr[3]);
+        size = ControlInfo.size() - 1;
+        plugin.name = name;
+        if(!load.compare("true")){
+            openControlPlugin(&plugin, ControlInfo[size].name);
+        }
+        ControlInfo[size].plugins.push_back(plugin);
+        PAL_DBG(LOG_TAG, "adding plugin %s load flag %s", plugin.name.c_str(), load.c_str());
+    }
+exit:
+    return;
+}
+
+void ResourceManager::process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr){
+    int size = 0, plugin_size = 0;
+
+    if (data->tag == TAG_CONTROL_PLUGIN) {
+        std::string type(attr[1]);
+        size = ControlInfo.size() - 1;
+        plugin_size = ControlInfo[size].plugins.size()-1;
+        ControlInfo[size].plugins[plugin_size].usecases.push_back(usecaseIdLUT.at(type));
+        PAL_DBG(LOG_TAG, "adding usecase %d for plugin %s",usecaseIdLUT.at(type), ControlInfo[size].plugins[plugin_size].name.c_str());
+    }
+}
+
 void ResourceManager::process_device_info(struct xml_userdata *data, const XML_Char *tag_name)
 {
 
@@ -6747,6 +6814,14 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         process_custom_config(attr);
         data->inCustomConfig = 1;
         data->tag = TAG_CUSTOMCONFIG;
+    } else if (!strcmp(tag_name, "control")) {
+        process_control(attr);
+        data->tag = TAG_CONTROL;
+    } else if (!strcmp(tag_name, "plugin")) {
+        process_plugin(data, attr);
+        data->tag = TAG_CONTROL_PLUGIN;
+    } else if (!strcmp(tag_name, "plugin_usecase")) {
+        process_plugin_usecase(data, attr);
     }
     if (!strcmp(tag_name, "card"))
         data->current_tag = TAG_CARD;
@@ -6786,6 +6861,10 @@ void ResourceManager::endTag(void *userdata, const XML_Char *tag_name)
     process_config_voice(data,tag_name);
     process_device_info(data,tag_name);
     process_input_streams(data,tag_name);
+
+    if (!strcmp(tag_name, "plugin")) {
+         data->tag = TAG_CONTROL;
+    }
 
     if (data->card_parsed)
         return;
@@ -6883,3 +6962,144 @@ closeFile:
 done:
     return ret;
 }
+
+int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t control)
+{
+    int status = 0;
+
+    PAL_DBG(LOG_TAG,"Enter");
+
+    if (!plugin) {
+        PAL_ERR(LOG_TAG,"Invalid plugin handle");
+        status = -EINVAL;
+        goto exit;
+    }
+    if (control < PLUGIN_CONTROL_MAX) {
+        plugin->handle = dlopen(plugin->name.c_str(), RTLD_NOW);
+        if (plugin->handle == NULL) {
+            PAL_ERR(LOG_TAG, "failed to dlopen lib %s", plugin->name.c_str());
+            status = -EINVAL;
+            goto exit;
+        } else {
+            dlerror();
+            plugin->ops.set_control = (plugin_set_control_fn_t)dlsym(plugin->handle, "plugin_set");
+            if (!plugin->ops.set_control) {
+                PAL_ERR(LOG_TAG, "dlsym to open fn failed for plugin %s, err = '%s'", plugin->name.c_str(), dlerror());
+                status = -EINVAL;
+                goto exit;
+            }
+            plugin->ops.get_control = (plugin_get_control_fn_t)dlsym(plugin->handle, "plugin_get");
+            if (!plugin->ops.get_control) {
+                PAL_ERR(LOG_TAG, "dlsym to open fn failed for plugin %s, err = '%s'", plugin->name.c_str(), dlerror());
+                status = -EINVAL;
+                goto exit;
+            }
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"unsupported pluggin Control %d for plugin %s", control,
+                plugin->name.c_str());
+        status = -EINVAL;
+        goto exit;
+    }
+
+exit:
+    if (status) {
+        dlclose(plugin->handle);
+        plugin->handle = NULL;
+    }
+    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    return status;
+}
+
+int ResourceManager::getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn)
+{
+    int status = 0;
+    int i;
+
+    if(!plugin_fn){
+        PAL_ERR(LOG_TAG, "Invaid plugin ptr passed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    for (i = 0; i < ControlInfo.size(); i++) {
+        if (control == ControlInfo[i].name) {
+            /*set plugin to default plugin*/
+            ar_mem_cpy(plugin_fn, sizeof(plugin_fn_ops_t),
+                       &(ControlInfo[i].default_plugin.ops),
+                       sizeof(plugin_fn_ops_t));
+            PAL_DBG(LOG_TAG, "setting default plugin %s for control %d",
+                    ControlInfo[i].default_plugin.name.c_str(), control);
+            /* if plugin is not already loaded, load it*/
+            if (ControlInfo[i].default_plugin.handle == NULL) {
+                PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
+                status = openControlPlugin(&(ControlInfo[i].default_plugin),ControlInfo[i].name);
+            }
+            for (int j = 0; j < ControlInfo[i].plugins.size(); j++) {
+                for ( int k = 0; k < ControlInfo[i].plugins[j].usecases.size(); k++) {
+                    if (ControlInfo[i].plugins[j].usecases[k] == usecase){
+                        PAL_DBG(LOG_TAG, "found control %s for usecase %d",ControlInfo[i].plugins[j].name.c_str(),ControlInfo[i].plugins[j].usecases[k]);
+                        ar_mem_cpy(plugin_fn, sizeof(plugin_fn_ops_t),
+                                   &(ControlInfo[i].plugins[j].ops), sizeof(plugin_fn_ops_t));
+                        /* if plugin is not already loaded, load it*/
+                        if (ControlInfo[i].plugins[j].handle == NULL) {
+                            PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
+                            status = openControlPlugin(&(ControlInfo[i].plugins[j]),ControlInfo[i].name);
+                        }
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    if (i == ControlInfo.size() ) {
+         PAL_ERR(LOG_TAG, "Control not found %d ", control);
+         status = -EINVAL;
+    }
+exit:
+    return status;
+}
+
+int ResourceManager::controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size){
+    int status = 0;
+    pal_stream_type_t stream_type;
+    plugin_fn_ops_t plugin_ops;
+
+    if (!s) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle recieved");
+        goto exit;
+    }
+    s->getStreamType(&stream_type);
+    if (!getControlPluginOps(control, stream_type, &plugin_ops)) {
+        status = plugin_ops.set_control(s, control, payload, playload_size);
+    } else {
+        PAL_ERR(LOG_TAG,"control plugin failed to load");
+        status = -EINVAL;
+    }
+exit:
+    return status;
+}
+
+int ResourceManager::controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *payload_size){
+    int status = 0;
+    pal_stream_type_t stream_type;
+    plugin_fn_ops_t plugin_ops;
+
+    if (!s) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle recieved");
+        goto exit;
+    }
+    s->getStreamType(&stream_type);
+    if (!getControlPluginOps(control, stream_type, &plugin_ops)) {
+        status = plugin_ops.get_control(s, control, payload, payload_size);
+    } else {
+        PAL_ERR(LOG_TAG,"control plugin failed to load");
+        status = -EINVAL;
+    }
+exit:
+    return status;
+}
+

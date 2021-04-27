@@ -1672,78 +1672,7 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
         return status;
     }
 
-    float voldB = 0.0f;
-    struct pal_volume_data *voldata = NULL;
-    voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
-    if (!voldata) {
-        status = -ENOMEM;
-        goto exit;
-    }
-
-    status = s->getVolumeData(voldata);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
-        goto error_1;
-    }
-
-    PAL_VERBOSE(LOG_TAG,"volume sent:%f \n",(voldata->volume_pair[0].vol));
-    voldB = (voldata->volume_pair[0].vol);
-
     switch (static_cast<uint32_t>(tag)) {
-    case TAG_STREAM_VOLUME:
-        if (voldB == 0.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
-        }
-        else if (voldB < 0.002172f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
-        }
-        else if (voldB < 0.004660f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
-        }
-        else if (voldB < 0.01f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
-        }
-        else if (voldB < 0.014877f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
-        }
-        else if (voldB < 0.023646f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
-        }
-        else if (voldB < 0.037584f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
-        }
-        else if (voldB < 0.055912f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
-        }
-        else if (voldB < 0.088869f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
-        }
-        else if (voldB < 0.141254f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
-        }
-        else if (voldB < 0.189453f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
-        }
-        else if (voldB < 0.266840f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
-        }
-        else if (voldB < 0.375838f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
-        }
-        else if (voldB < 0.504081f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
-        }
-        else if (voldB < 0.709987f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
-        }
-        else if (voldB < 0.9f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
-        }
-        else if (voldB <= 1.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
-        }
-        break;
     case TAG_DEVICE_PP_MBDRC:
         level = s->getGainLevel();
         if (level != -1)
@@ -1831,9 +1760,6 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
     }
 
     PAL_VERBOSE(LOG_TAG,"exit status- %d", status);
-error_1:
-    free(voldata);
-exit:
     return status;
 }
 

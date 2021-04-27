@@ -313,7 +313,7 @@ exit:
     return status;
 }
 
-int32_t Stream::getVolumeData(struct pal_volume_data *vData)
+int32_t Stream::getVolumeData(struct pal_volume_data *vData, size_t *size)
 {
     int32_t status = 0;
 
@@ -324,10 +324,9 @@ int32_t Stream::getVolumeData(struct pal_volume_data *vData)
     }
 
     if (mVolumeData != NULL) {
-        ar_mem_cpy(vData, sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)),
-                      mVolumeData, sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)));
+        *size = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
+                (mVolumeData->no_of_volpair));
+        ar_mem_cpy(vData,*size , mVolumeData, *size);
 
         PAL_DBG(LOG_TAG, "num config %x", (mVolumeData->no_of_volpair));
         for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
@@ -970,5 +969,58 @@ bool Stream::checkStreamMatch(pal_device_id_t pal_device_id,
     }
 
     return match;
+}
+
+int32_t Stream::setVolume(struct pal_volume_data *volume){
+    int32_t status = 0;
+    size_t vol_size = 0;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+    if (!volume || volume->no_of_volpair == 0) {
+        PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
+        status = -EINVAL;
+        goto exit;
+    }
+
+    /*if already allocated free and reallocate */
+    if (mVolumeData) {
+        free(mVolumeData);
+    }
+
+    vol_size = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
+               (volume->no_of_volpair));
+
+    mVolumeData = (struct pal_volume_data *)calloc(1, vol_size);
+    if (!mVolumeData) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "mVolumeData malloc failed %s", strerror(errno));
+        goto exit;
+    }
+
+    //mStreamMutex.lock();
+    ar_mem_cpy (mVolumeData, vol_size, volume, vol_size);
+    //mStreamMutex.unlock();
+    for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
+        PAL_INFO(LOG_TAG, "Volume payload mask:%x vol:%f",
+                      (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
+    }
+    /* Allow caching of stream volume as part of mVolumeData
+     * till the pcm_open is not done or if sound card is
+     * offline.
+     */
+    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
+        && currentState != STREAM_INIT) {
+        status = rm->controlPluginSet(this, PLUGIN_CONTROL_VOLUME,
+                                      (void*)mVolumeData, vol_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Plugin Control Volume failed %d",
+                    status);
+            goto exit;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
+                      (volume->no_of_volpair), (volume->volume_pair->channel_mask),
+                      (volume->volume_pair->vol));
+exit:
+    return status;
 }
 
