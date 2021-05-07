@@ -1440,21 +1440,39 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     return -EINVAL;
                 }
                 status = USB_out_device->selectBestConfig(deviceattr, sAttr, true);
+                /*Update aud_fmt_id based on the selected bitwidth*/
+                if (deviceattr->config.bit_width == 32)
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+                else if (deviceattr->config.bit_width == 24) {
+                    if (bitFormatSupported == PAL_AUDIO_FMT_PCM_S24_LE)
+                        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
+                    else
+                        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_3LE;
+                }
             }
             break;
         case PAL_DEVICE_IN_USB_DEVICE:
         case PAL_DEVICE_IN_USB_HEADSET:
             {
-            deviceattr->config.sample_rate = SAMPLINGRATE_48K;
-            deviceattr->config.bit_width = BITWIDTH_16;
-            deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
-            std::shared_ptr<USB> USB_in_device;
-            USB_in_device = std::dynamic_pointer_cast<USB>(USB::getInstance(deviceattr, rm));
-            if (!USB_in_device) {
-                PAL_ERR(LOG_TAG, "failed to get USB singleton object.");
-                return -EINVAL;
-            }
-            USB_in_device->selectBestConfig(deviceattr, sAttr, false);
+                deviceattr->config.sample_rate = SAMPLINGRATE_48K;
+                deviceattr->config.bit_width = BITWIDTH_16;
+                deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+                std::shared_ptr<USB> USB_in_device;
+                USB_in_device = std::dynamic_pointer_cast<USB>(USB::getInstance(deviceattr, rm));
+                if (!USB_in_device) {
+                    PAL_ERR(LOG_TAG, "failed to get USB singleton object.");
+                    return -EINVAL;
+                }
+                USB_in_device->selectBestConfig(deviceattr, sAttr, false);
+                /*Update aud_fmt_id based on the selected bitwidth*/
+                if (deviceattr->config.bit_width == 32)
+                    deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+                else if (deviceattr->config.bit_width == 24) {
+                    if (bitFormatSupported == PAL_AUDIO_FMT_PCM_S24_LE)
+                        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
+                    else
+                        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_3LE;
+                }
             }
             break;
         case PAL_DEVICE_IN_PROXY:
