@@ -4225,6 +4225,15 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
             curDev->getDeviceAttributes(&curDevAttr);
             sharedStream->getStreamAttributes(&sAttr);
 
+            /*update device info based on custom key if needed*/
+            if (strlen(inDevAttr->custom_config.custom_key)) {
+                PAL_DBG(LOG_TAG, "custom key is %s",inDevAttr->custom_config.custom_key);
+                rm->setDeviceInfo(inDevAttr->id, inStrAttr->type, ck);
+                /* if sound device is overwritten in the usecase need to set it*/
+            } else {
+                rm->setDeviceInfo(inDevAttr->id, inStrAttr->type);
+            }
+
             if ((PAL_STREAM_VOICE_CALL == sAttr.type)) {
                 PAL_INFO(LOG_TAG, "Active voice stream running on %d, Force switch",
                                   curDevAttr.id);
@@ -4246,14 +4255,6 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
                 }
             }
             isDeviceSwitch = true;
-            /*update device info based on custom key if dev switch is needed*/
-            if (strlen(inDevAttr->custom_config.custom_key)) {
-                PAL_DBG(LOG_TAG, "custom key is %s",inDevAttr->custom_config.custom_key);
-                rm->setDeviceInfo(inDevAttr->id, inStrAttr->type, ck);
-                /* if sound device is overwritten in the usecase need to set it*/
-            } else {
-                rm->setDeviceInfo(inDevAttr->id, inStrAttr->type);
-            }
             streamDevDisconnect.push_back(elem);
             StreamDevConnect.push_back({std::get<0>(elem), inDevAttr});
         }
