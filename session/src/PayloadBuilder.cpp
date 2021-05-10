@@ -1169,6 +1169,9 @@ int PayloadBuilder::populateStreamKV(Stream* s,
         case PAL_STREAM_VOICE_CALL_MUSIC:
             keyVector.push_back(std::make_pair(STREAMRX,INCALL_MUSIC));
             break;
+        case PAL_STREAM_LOOPBACK:
+            //No stream KV required for Loopback
+            break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG,"unsupported stream type %d", sattr->type);
