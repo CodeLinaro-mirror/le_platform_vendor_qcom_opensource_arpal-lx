@@ -1109,6 +1109,42 @@ int PayloadBuilder::populateStreamKV(Stream* s,
             }
             keyVector.push_back(std::make_pair(INSTANCE, instance_id));
             break;
+        case PAL_STREAM_PLAYBACK_MEDIA:
+            if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                keyVector.push_back(std::make_pair(STREAMRX,BUS00_MEDIA));
+            } else {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Invalid direction status %d", status);
+                goto free_sattr;
+            }
+            break;
+        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
+            if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                keyVector.push_back(std::make_pair(STREAMRX,BUS01_SYS_NOTIFICATION));
+            } else {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Invalid direction status %d", status);
+                goto free_sattr;
+            }
+            break;
+        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
+            if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                keyVector.push_back(std::make_pair(STREAMRX,BUS02_NAV_GUIDANCE));
+            } else {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Invalid direction status %d", status);
+                goto free_sattr;
+            }
+            break;
+        case PAL_STREAM_PLAYBACK_PHONE:
+            if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                keyVector.push_back(std::make_pair(STREAMRX,BUS03_PHONE));
+            } else {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Invalid direction status %d", status);
+                goto free_sattr;
+            }
+            break;
         case PAL_STREAM_PCM_OFFLOAD:
             if (sattr->direction == PAL_AUDIO_OUTPUT) {
                 keyVector.push_back(std::make_pair(STREAMRX,PCM_OFFLOAD_PLAYBACK));
@@ -1418,6 +1454,50 @@ int PayloadBuilder::populateDevicePPKV(Stream* s, int32_t rxBeDevId,
                     }
                 }
                 break;
+            case PAL_STREAM_PLAYBACK_MEDIA:
+                if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                  if(dAttr.id == PAL_DEVICE_OUT_PROXY) {
+                    PAL_DBG(LOG_TAG,"Device PP for Proxy is Rx Default");
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_DEFAULT));
+                  }
+                  else {
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_BUS00_MEDIA));
+                  }
+                }
+                break;
+            case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
+                if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                  if(dAttr.id == PAL_DEVICE_OUT_PROXY) {
+                    PAL_DBG(LOG_TAG,"Device PP for Proxy is Rx Default");
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_DEFAULT));
+                  }
+                  else {
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_BUS00_MEDIA));
+                  }
+                }
+                break;
+            case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
+                if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                  if(dAttr.id == PAL_DEVICE_OUT_PROXY) {
+                    PAL_DBG(LOG_TAG,"Device PP for Proxy is Rx Default");
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_DEFAULT));
+                  }
+                  else {
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_BUS02_NAV_GUIDANCE));
+                  }
+                }
+                break;
+            case PAL_STREAM_PLAYBACK_PHONE:
+                if (sattr->direction == PAL_AUDIO_OUTPUT) {
+                  if(dAttr.id == PAL_DEVICE_OUT_PROXY) {
+                    PAL_DBG(LOG_TAG,"Device PP for Proxy is Rx Default");
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_DEFAULT));
+                  }
+                  else {
+                    keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_BUS03_PHONE));
+                  }
+                }
+                break;
             case PAL_STREAM_VOIP_RX:
                 keyVectorRx.push_back(std::make_pair(DEVICEPP_RX, DEVICEPP_RX_VOIP_MBDRC));
                 break;
@@ -1530,6 +1610,10 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
             case PAL_STREAM_DEEP_BUFFER:
             case PAL_STREAM_PCM_OFFLOAD:
             case PAL_STREAM_COMPRESSED:
+            case PAL_STREAM_PLAYBACK_MEDIA:
+            case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
+            case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
+            case PAL_STREAM_PLAYBACK_PHONE:
                 if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
                     PAL_INFO(LOG_TAG,"SpeakerProt Status[%d], RAS Status[%d]\n",
                             rm->isSpeakerProtectionEnabled, rm->isRasEnabled);

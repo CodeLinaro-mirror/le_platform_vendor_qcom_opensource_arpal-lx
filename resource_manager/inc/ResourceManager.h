@@ -325,6 +325,12 @@ protected:
     std::vector <StreamPCM*> active_streams_db;
     std::vector <StreamPCM*> active_streams_po;
     std::vector <StreamPCM*> active_streams_proxy;
+    std::vector <StreamPCM*> active_streams_media_playback;
+    std::vector <StreamPCM*> active_streams_sys_notf;
+    std::vector <StreamPCM*> active_streams_nav_guid;
+    std::vector <StreamPCM*> active_streams_phone;
+    std::vector <StreamPCM*> active_streams_front_psg;
+    std::vector <StreamPCM*> active_streams_rear_seat;
     std::vector <StreamInCall*> active_streams_incall_record;
     std::vector <StreamInCall*> active_streams_incall_music;
     std::vector <StreamCompress*> active_streams_comp;
