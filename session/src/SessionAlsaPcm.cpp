@@ -56,6 +56,7 @@ SessionAlsaPcm::SessionAlsaPcm(std::shared_ptr<ResourceManager> Rm)
    pcm = NULL;
    pcmRx = NULL;
    pcmTx = NULL;
+   pcmEcTx = NULL;
    mState = SESSION_IDLE;
    ecRefDevId = PAL_DEVICE_OUT_MIN;
 }

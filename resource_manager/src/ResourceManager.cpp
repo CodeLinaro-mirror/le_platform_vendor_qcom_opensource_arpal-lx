@@ -1012,6 +1012,7 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
             devinfo->max_channels = deviceInfo[i].max_channel;
             devinfo->channels = deviceInfo[i].channel;
             devinfo->sndDevName = deviceInfo[i].sndDevName;
+            devinfo->isExternalECRefEnabledFlag = deviceInfo[i].isExternalECRefEnabled;
             for (int32_t j = 0; j < deviceInfo[i].usecase.size(); j++) {
                 if (type == deviceInfo[i].usecase[j].type) {
                     if (deviceInfo[i].usecase[j].channel) {
@@ -2175,6 +2176,23 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
                 }
             }
         }
+    } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
+            PAL_DBG(LOG_TAG, "Enter enable EC Ref");
+            status = s->setECRef_l(d, true);
+            s->getAssociatedDevices(tx_devices);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to enable EC Ref");
+            } else {
+                for(auto dev: tx_devices) {
+                    if (dev->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
+                       dev->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
+                        updateECDeviceMap(d, dev, s, 1, false);
+                    }
+                }
+            }
+        }
     }
     mResourceManagerMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. ret: %d", status);
@@ -2226,6 +2244,23 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
             PAL_ERR(LOG_TAG, "Failed to disable EC Ref");
         } else if (dev) {
             updateECDeviceMap(dev, d, s, 0, true);
+        }
+    }  else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
+            PAL_DBG(LOG_TAG, "Enter disable EC Ref");
+            status = s->setECRef_l(d, false);
+            s->getAssociatedDevices(tx_devices);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to disable EC Ref");
+            } else {
+                for(auto dev: tx_devices) {
+                    if (dev->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
+                       dev->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
+                        updateECDeviceMap(d, dev, s, 0, false);
+                    }
+                }
+            }
         }
     } else if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT_OUTPUT) {
         status = s->getAssociatedDevices(associatedDevices);
@@ -6450,7 +6485,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "ext_ec_ref_enabled")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].isExternalECRefEnabled = atoi(data->data_buf);
-            PAL_DBG(LOG_TAG, "found ext ec ref enabled device is %d", deviceInfo[size].deviceId);
+            if (deviceInfo[size].isExternalECRefEnabled) {
+                PAL_DBG(LOG_TAG, "found ext ec ref enabled device is %d",
+                    deviceInfo[size].deviceId);
+            }
         } else if (!strcmp(tag_name, "cps_enabled")) {
             if (atoi(data->data_buf))
                 isCpsEnabled = true;
