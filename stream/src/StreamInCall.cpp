@@ -118,8 +118,8 @@ StreamInCall::StreamInCall(const struct pal_stream_attributes *sattr, struct pal
 
     PAL_VERBOSE(LOG_TAG, "Create new Devices with no_of_devices - %d", no_of_devices);
 
-    rm->registerStream(this);
     mStreamMutex.unlock();
+    rm->registerStream(this);
     PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
     return;
 }
@@ -922,12 +922,6 @@ exit :
 StreamInCall::~StreamInCall(){
 
     cachedState = STREAM_IDLE;
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        while (!ssrDone)
-            usleep(1000);
-        PAL_INFO(LOG_TAG, "ssr done, exitng");
-    }
-    mStreamMutex.lock();
     rm->resetStreamInstanceID(this);
     rm->deregisterStream(this);
     if (mStreamAttr) {
@@ -943,5 +937,4 @@ StreamInCall::~StreamInCall(){
     mDevices.clear();
     delete session;
     session = nullptr;
-    mStreamMutex.unlock();
 }
