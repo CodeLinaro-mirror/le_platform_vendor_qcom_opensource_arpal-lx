@@ -367,8 +367,8 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 (sAttr.info.opt_stream_info.loopback_type ==
                             PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
                 // No need to set CKV
-                break;
             }
+            break;
         default :
             status = builder->populateStreamCkv(streamHandle, streamCKV, 0,
                     (struct pal_volume_data **)nullptr);
