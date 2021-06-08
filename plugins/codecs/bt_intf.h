@@ -42,19 +42,43 @@
  * and audio_hal as these are intended only for handshake
  * between IPC lib and Audio HAL.
  */
-typedef enum {
-    CODEC_TYPE_INVALID = AUDIO_FORMAT_INVALID, // 0xFFFFFFFFUL
-    CODEC_TYPE_AAC = AUDIO_FORMAT_AAC,         // 0x04000000UL
-    CODEC_TYPE_SBC = AUDIO_FORMAT_SBC,         // 0x1F000000UL
-    CODEC_TYPE_APTX = AUDIO_FORMAT_APTX,       // 0x20000000UL
-    CODEC_TYPE_APTX_HD = AUDIO_FORMAT_APTX_HD, // 0x21000000UL
-    CODEC_TYPE_APTX_DUAL_MONO = 570425344u,    // 0x22000000UL
-    CODEC_TYPE_LDAC = AUDIO_FORMAT_LDAC,       // 0x23000000UL
-    CODEC_TYPE_CELT = 603979776u,              // 0x24000000UL
-    CODEC_TYPE_APTX_AD = 620756992u,           // 0x25000000UL
-    CODEC_TYPE_APTX_AD_SPEECH = 637534208u,    // 0x26000000UL
-    CODEC_TYPE_PCM = AUDIO_FORMAT_PCM_16_BIT,  // 0x1u
-} codec_format_t;
+  typedef enum {
+      CODEC_TYPE_INVALID        = 0xFFFFFFFFu,
+      CODEC_TYPE_AAC            = 0x04000000u,
+      CODEC_TYPE_SBC            = 0x1F000000u,
+      CODEC_TYPE_APTX           = 0x20000000u,
+      CODEC_TYPE_APTX_HD        = 0x21000000u,
+      CODEC_TYPE_APTX_DUAL_MONO = 0x22000000u,
+      CODEC_TYPE_LDAC           = 0x23000000u,
+      CODEC_TYPE_CELT           = 0x24000000u,
+      CODEC_TYPE_APTX_AD        = 0x25000000u,
+      CODEC_TYPE_APTX_AD_SPEECH = 0x26000000u,
+      CODEC_TYPE_LC3            = 0x2B000000u,
+      CODEC_TYPE_PCM            = 0x1u,
+  } codec_format_t;
+
+/*
+ * Update the below lookup table as well when new codec formats get added
+ * This will be used by Payload Builder to popualte the Graph KVs
+ */
+#ifdef __cplusplus
+#include <map>
+#include <string>
+const std::map<uint32_t, std::string> btCodecFormatLUT {
+    {CODEC_TYPE_INVALID,          std::string{ "CODEC_TYPE_INVALID"} },
+    {CODEC_TYPE_AAC,              std::string{ "CODEC_TYPE_AAC"} },
+    {CODEC_TYPE_SBC,              std::string{ "CODEC_TYPE_SBC"} },
+    {CODEC_TYPE_APTX,             std::string{ "CODEC_TYPE_APTX"} },
+    {CODEC_TYPE_APTX_HD,          std::string{ "CODEC_TYPE_APTX_HD"} },
+    {CODEC_TYPE_APTX_DUAL_MONO,   std::string{ "CODEC_TYPE_APTX_DUAL_MONO"} },
+    {CODEC_TYPE_LDAC,             std::string{ "CODEC_TYPE_LDAC"} },
+    {CODEC_TYPE_CELT,             std::string{ "CODEC_TYPE_CELT"} },
+    {CODEC_TYPE_APTX_AD,          std::string{ "CODEC_TYPE_APTX_AD"} },
+    {CODEC_TYPE_APTX_AD_SPEECH,   std::string{ "CODEC_TYPE_APTX_AD_SPEECH"} },
+    {CODEC_TYPE_LC3,              std::string{ "CODEC_TYPE_LC3"} },
+    {CODEC_TYPE_PCM,              std::string{ "CODEC_TYPE_PCM"} },
+};
+#endif
 
 typedef enum {
     ENC = 1,
