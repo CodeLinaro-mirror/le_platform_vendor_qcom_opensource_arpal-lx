@@ -176,6 +176,7 @@ struct pal_device_info {
      int max_channels;
      std::vector<kvpair_info> kvpair;
      bool isExternalECRefEnabledFlag;
+     std::string sndDevName;
 };
 
 struct vsid_modepair {
@@ -267,6 +268,7 @@ struct deviceIn {
     std::map<int, std::vector<std::pair<Stream *, int>>> ec_ref_count_map;
     std::vector<kvpair_info> kvpair;
     bool isExternalECRefEnabled;
+    std::string sndDevName;
 };
 
 class ResourceManager
@@ -445,12 +447,7 @@ public:
                             struct pal_stream_attributes *attributes, int32_t channel);
     /*getDeviceInfo - updates channels, fluence info of the device*/
     void getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
-                       struct pal_device_info *devinfo);
-    void getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
                        std::string key, struct pal_device_info *devinfo);
-    void setDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
-                       std::string key);
-    void setDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type);
     bool getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_type_t rx_streamtype);
     int32_t getVsidInfo(struct vsid_info  *info);
     void getChannelMap(uint8_t *channel_map, int channels);

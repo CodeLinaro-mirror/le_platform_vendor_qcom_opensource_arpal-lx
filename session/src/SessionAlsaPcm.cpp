@@ -1757,7 +1757,8 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
     if (rx_dev) {
         rx_dev->getDeviceAttributes(&rxDevAttr);
         PAL_DBG(LOG_TAG, "rx_dev id is %d", rxDevAttr.id);
-        rm->getDeviceInfo(rxDevAttr.id, sAttr.type, &rxDevInfo);
+        rm->getDeviceInfo(rxDevAttr.id, sAttr.type,
+                          rxDevAttr.custom_config.custom_key, &rxDevInfo);
     }
 
 

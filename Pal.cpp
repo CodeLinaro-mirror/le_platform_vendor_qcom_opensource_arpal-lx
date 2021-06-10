@@ -582,12 +582,13 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     for (int i = 0; i < no_of_devices; i++) {
         if (strlen(pDevices[i].custom_config.custom_key)) {
              PAL_DBG(LOG_TAG, "Device has custom key %s",
-                               pDevices[i].custom_config.custom_key);
-             rm->getDeviceInfo(pDevices[i].id, sattr.type,
-                               pDevices[i].custom_config.custom_key, &devinfo);
+                     devices[i].custom_config.custom_key);
         } else {
-             rm->getDeviceInfo(pDevices[i].id, sattr.type, &devinfo);
+            PAL_DBG(LOG_TAG, "Device has no custom key");
+            strlcpy(pDevices[i].custom_config.custom_key, "", PAL_MAX_CUSTOM_KEY_SIZE);
         }
+        rm->getDeviceInfo(pDevices[i].id, sattr.type,
+                          pDevices[i].custom_config.custom_key, &devinfo);
         if (devinfo.channels == 0 || devinfo.channels > devinfo.max_channels) {
             PAL_ERR(LOG_TAG, "Num channels[%d] is invalid", devinfo.channels);
             status = -EINVAL;

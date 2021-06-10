@@ -420,7 +420,9 @@ int SessionAlsaVoice::start(Stream * s)
     }
 
     rxDevInfo.isExternalECRefEnabledFlag = 0;
-    rm->getDeviceInfo(rxDevAttr.id, sAttr.type, &rxDevInfo);
+    rm->getDeviceInfo(rxDevAttr.id, sAttr.type,
+                      rxDevAttr.custom_config.custom_key,
+                      &rxDevInfo);
 
     if (rxDevInfo.isExternalECRefEnabledFlag) {
         PAL_DBG(LOG_TAG, "Ext EC Ref flag is enabled");

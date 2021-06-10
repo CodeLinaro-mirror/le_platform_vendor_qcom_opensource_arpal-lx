@@ -283,6 +283,10 @@ int Device::getSndDeviceId()
     return deviceAttr.id;
 }
 
+void Device::getCurrentSndDevName(char *name){
+    strlcpy(name, mSndDeviceName, DEVICE_NAME_MAX_SIZE);
+}
+
 std::string Device::getPALDeviceName()
 {
     PAL_VERBOSE(LOG_TAG, "Device name %s acquired", mPALDeviceName.c_str());
@@ -358,7 +362,7 @@ int Device::start()
             strlcpy(mSndDeviceName, UpdatedSndName.c_str(), DEVICE_NAME_MAX_SIZE);
         }
 
-        PAL_VERBOSE(LOG_TAG, "audio_route %pK SND device name %s", audioRoute, mSndDeviceName);
+        PAL_DBG(LOG_TAG, "audio_route %pK SND device name %s", audioRoute, mSndDeviceName);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Failed to obtain the device name from ResourceManager status %d", status);
             goto exit;
@@ -403,6 +407,7 @@ int Device::stop()
     PAL_DBG(LOG_TAG, "Enter. device id %d, device name %s, count %d", deviceAttr.id, mPALDeviceName.c_str(), deviceCount);
     if(deviceCount > 0){
        if (deviceCount == 1 && initialized) {
+           PAL_DBG(LOG_TAG, "Disabling device %d with snd dev %s", deviceAttr.id, mSndDeviceName);
            disableDevice(audioRoute, mSndDeviceName);
        }
        deviceCount -= 1;
