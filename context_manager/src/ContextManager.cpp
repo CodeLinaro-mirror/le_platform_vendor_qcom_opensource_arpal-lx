@@ -30,7 +30,11 @@
 #include <iostream>
 #include <chrono>
 #include "ContextManager.h"
+#ifdef LINUX_ENABLED
+#include <spf/asps_acm_api.h>
+#else
 #include <asps/asps_acm_api.h>
+#endif
 #include "apm_api.h"
 
 #define LOG_TAG "PAL: ContextManager"

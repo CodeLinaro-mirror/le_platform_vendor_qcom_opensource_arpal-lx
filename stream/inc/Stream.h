@@ -41,6 +41,9 @@
 #include <exception>
 #include <errno.h>
 #include "PalCommon.h"
+#ifdef LINUX_ENABLED
+#include <condition_variable>
+#endif
 
 typedef enum {
     DATA_MODE_SHMEM = 0,

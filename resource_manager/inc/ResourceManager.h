@@ -250,6 +250,9 @@ bool isPalPCMFormat(uint32_t fmt_id);
 /*This table gets bit_width only Hence we have 24
  *as the bitwidth for 24_LE, dont use this to get bits_per_sample,
  *because in case of 24_LE that would be 32*/
+#if LINUX_ENABLED
+const uint32_t palFormatToBitwidthTable[23] = {0,16,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,8,24,24,32,0,0};
+#else
 const uint32_t palFormatToBitwidthTable[] = {
     [PAL_AUDIO_FMT_PCM_S8] = 8,
     [PAL_AUDIO_FMT_PCM_S16_LE] = 16,
@@ -257,6 +260,7 @@ const uint32_t palFormatToBitwidthTable[] = {
     [PAL_AUDIO_FMT_PCM_S24_LE] = 24,
     [PAL_AUDIO_FMT_PCM_S32_LE] = 32,
 };
+#endif
 
 typedef void* (*adm_init_t)();
 typedef void (*adm_deinit_t)(void *);

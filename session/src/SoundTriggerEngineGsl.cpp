@@ -32,6 +32,10 @@
 
 #include "SoundTriggerEngineGsl.h"
 
+#ifdef LINUX_ENABLED
+#include <cstring>
+#endif
+
 #include <cutils/trace.h>
 
 #include "Session.h"

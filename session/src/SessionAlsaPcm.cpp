@@ -36,7 +36,11 @@
 #include "detection_cmn_api.h"
 #include "acd_api.h"
 #include <agm/agm_api.h>
+#ifdef LINUX_ENABLED
+#include <spf/asps_acm_api.h>
+#else
 #include <asps/asps_acm_api.h>
+#endif
 #include <sstream>
 #include <string>
 #include "detection_cmn_api.h"

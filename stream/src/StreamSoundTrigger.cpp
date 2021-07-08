@@ -31,6 +31,10 @@
 
 #include "StreamSoundTrigger.h"
 
+#ifdef LINUX_ENABLED
+#include <cstring>
+#endif
+
 #include <chrono>
 #include <unistd.h>
 

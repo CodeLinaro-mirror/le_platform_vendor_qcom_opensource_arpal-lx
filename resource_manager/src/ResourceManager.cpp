@@ -60,6 +60,9 @@
 #include <mutex>
 #include "kvh2xml.h"
 #include <sys/ioctl.h>
+#ifdef LINUX_ENABLED
+#include <fcntl.h>
+#endif
 
 #ifndef FEATURE_IPQ_OPENWRT
 #include <cutils/str_parms.h>
@@ -726,7 +729,6 @@ ResourceManager::~ResourceManager()
             admDeInitFn(admData);
         dlclose(admLibHdl);
     }
-
     ResourceManager::deInitWakeLocks();
     if (ctxMgr) {
         delete ctxMgr;
