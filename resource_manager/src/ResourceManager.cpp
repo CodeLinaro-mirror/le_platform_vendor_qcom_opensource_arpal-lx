@@ -1122,7 +1122,8 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
                     strstr(snd_card_name, "sa8155")||
-                    strstr(snd_card_name, "sa6155")) {
+                    strstr(snd_card_name, "sa6155")||
+                    strstr(snd_card_name, "gvmauto")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
