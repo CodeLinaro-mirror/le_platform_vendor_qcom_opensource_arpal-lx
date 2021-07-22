@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -132,8 +132,9 @@ class DisplayPort : public Device
     uint32_t dp_controller;
     uint32_t dp_stream;
 protected:
-    static std::shared_ptr<Device> obj;
     int configureDpEndpoint();
+    static std::shared_ptr<Device> objRx;
+    static std::shared_ptr<Device> objTx;
     DisplayPort(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
 public:
     int start();
@@ -141,7 +142,7 @@ public:
     int deinit(pal_param_device_connection_t device_conn);
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
-    static std::shared_ptr<Device> getObject();
+    static std::shared_ptr<Device> getObject(pal_device_id_t id);
     static int32_t isSampleRateSupported(uint32_t sampleRate);
     static int32_t isChannelSupported(uint32_t numChannels);
     static int32_t isBitWidthSupported(uint32_t bitWidth);
@@ -173,7 +174,7 @@ public:
     bool isSupportedBps(edidAudioInfo* info, int bps);
     int getHighestSupportedSR();
     int getHighestSupportedBps();
-    ssize_t updateSysfsNode(const char *path, const char *data, size_t len);
+    int updateSysfsNode(const char *path, const char *data, size_t len);
     int getExtDispSysfsNodeIndex(int ext_disp_type);
     int updateExtDispSysfsNode(int node_value, int controller, int stream);
     int updateAudioAckState(int node_value, int controller, int stream);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -62,6 +62,8 @@ typedef enum {
     SESSION_STOPPED,
 }sessionState;
 
+#define EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE 0x0800103F
+
 class Stream;
 class ResourceManager;
 class Session
@@ -77,7 +79,12 @@ protected:
     void *customPayload;
     size_t customPayloadSize;
     int updateCustomPayload(void *payload, size_t size);
+    uint32_t eventId;
+    void *eventPayload;
+    size_t eventPayloadSize;
+    bool RegisterForEvents = false;
 public:
+    bool isPauseRegistrationDone;
     virtual ~Session();
     static Session* makeSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
     int handleDeviceRotation(Stream *s, pal_speaker_rotation_type rotation_type,
@@ -105,6 +112,7 @@ public:
     virtual int registerCallBack(session_callback cb __unused, uint64_t cookie __unused) {return 0;};
     virtual int drain(pal_drain_type_t type __unused) {return 0;};
     virtual int flush() {return 0;};
+    virtual void setEventPayload(uint32_t event_id __unused, void *payload __unused, size_t payload_size __unused) {  };
     virtual int getTimestamp(struct pal_session_time *stime __unused) {return 0;};
     /*TODO need to implement connect/disconnect in basecase*/
     virtual int setupSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
@@ -118,6 +126,7 @@ public:
         uint32_t &sr_tag, uint32_t &ch_tag, uint32_t &bitwidth_tag);
     virtual uint32_t getMIID(const char *backendName __unused, uint32_t tagId __unused, uint32_t *miid __unused) { return -EINVAL; }
     int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
+    int rwACDBParameters(void *payload, uint32_t sampleRate, bool isParamWrite);
     virtual struct mixer_ctl* getFEMixerCtl(const char *controlName __unused, int *device __unused) {return nullptr;}
     virtual int createMmapBuffer(Stream *s __unused, int32_t min_size_frames __unused,
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}

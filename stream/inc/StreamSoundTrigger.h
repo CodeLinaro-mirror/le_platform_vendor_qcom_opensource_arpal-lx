@@ -47,6 +47,8 @@ enum {
     KEYWORD_DETECTION_REJECT = 0x4,
     USER_VERIFICATION_SUCCESS = 0x8,
     USER_VERIFICATION_REJECT = 0x10,
+    KEYWORD_DETECTION_PENDING = 0x20,
+    USER_VERIFICATION_PENDING = 0x40,
     DETECTION_TYPE_SS = 0x1E,
     DETECTION_TYPE_ALL = 0x1F,
 };
@@ -121,6 +123,7 @@ class StreamSoundTrigger : public Stream {
 
     int32_t setVolume(struct pal_volume_data * volume __unused) { return 0; }
     int32_t mute(bool state __unused) override { return 0; }
+    int32_t mute_l(bool state __unused) override { return 0; }
     int32_t pause() override { return 0; }
     int32_t resume() override { return 0; }
 
@@ -142,7 +145,7 @@ class StreamSoundTrigger : public Stream {
     int32_t ParseDetectionPayload(uint32_t *event_data);
     void SetDetectedToEngines(bool detected);
     int32_t SetEngineDetectionState(int32_t state);
-    int32_t notifyClient();
+    int32_t notifyClient(bool detection);
 
     static int32_t isSampleRateSupported(uint32_t sampleRate);
     static int32_t isChannelSupported(uint32_t numChannels);
@@ -153,11 +156,11 @@ class StreamSoundTrigger : public Stream {
     std::shared_ptr<Device> GetPalDevice(pal_device_id_t dev_id,
                                          struct pal_device *dev,
                                          bool use_rm_profile);
-    int32_t DisconnectDevice(pal_device_id_t device_id);
-    int32_t ConnectDevice(pal_device_id_t device_id);
-    int32_t HandleChargingStateUpdate(bool state, bool active);
-    int32_t Resume();
-    int32_t Pause();
+    int32_t DisconnectDevice(pal_device_id_t device_id) override;
+    int32_t ConnectDevice(pal_device_id_t device_id) override;
+    int32_t HandleChargingStateUpdate(bool state, bool active) override;
+    int32_t Resume() override;
+    int32_t Pause() override;
     int32_t GetCurrentStateId();
     int32_t HandleConcurrentStream(bool active);
     int32_t EnableLPI(bool is_enable);
@@ -505,6 +508,7 @@ class StreamSoundTrigger : public Stream {
                          int32_t sm_size, listen_model_indicator_enum type,
                          st_module_type_t module_type);
     void AddEngine(std::shared_ptr<EngineCfg> engine_cfg);
+    void updateStreamAttributes();
     int32_t LoadSoundModel(struct pal_st_sound_model *sm_data);
     int32_t UpdateSoundModel(struct pal_st_sound_model *sm_data);
     int32_t SendRecognitionConfig(struct pal_st_recognition_config *config);
@@ -525,8 +529,10 @@ class StreamSoundTrigger : public Stream {
                                  uint32_t *out_payload_size,
                                  uint32_t version);
     void PackEventConfLevels(uint8_t *opaque_data);
+    void FillCallbackConfLevels(uint8_t *opaque_data, uint32_t det_keyword_id,
+                             uint32_t best_conf_level);
     int32_t GenerateCallbackEvent(struct pal_st_recognition_event **event,
-                                  uint32_t *event_size);
+                                  uint32_t *event_size, bool detection);
     static int32_t HandleDetectionEvent(pal_stream_handle_t *stream_handle,
                                         uint32_t event_id,
                                         uint32_t *event_data,
@@ -589,5 +595,10 @@ class StreamSoundTrigger : public Stream {
     bool use_lpi_;
     uint32_t model_id_;
     FILE *lab_fd_;
+    bool rejection_notified_;
+    ChronoSteadyClock_t transit_start_time_;
+    ChronoSteadyClock_t transit_end_time_;
+    // set to true only when mutex is not locked after callback
+    bool mutex_unlocked_after_cb_;
 };
 #endif // STREAMSOUNDTRIGGER_H_

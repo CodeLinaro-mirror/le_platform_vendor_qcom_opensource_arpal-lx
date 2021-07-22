@@ -56,7 +56,11 @@ void SessionAlsaCompress::updateCodecOptions(pal_param_payload *param_payload)
         case PAL_AUDIO_FMT_EVRC:
         case PAL_AUDIO_FMT_G711:
         break;
-        case PAL_AUDIO_FMT_DEFAULT_PCM:
+        case PAL_AUDIO_FMT_PCM_S16_LE:
+        case PAL_AUDIO_FMT_PCM_S8:
+        case PAL_AUDIO_FMT_PCM_S24_LE:
+        case PAL_AUDIO_FMT_PCM_S24_3LE:
+        case PAL_AUDIO_FMT_PCM_S32_LE:
         break;
         case PAL_AUDIO_FMT_COMPRESSED_RANGE_BEGIN:
         case PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_BEGIN:
@@ -140,6 +144,17 @@ void SessionAlsaCompress::updateCodecOptions(pal_param_payload *param_payload)
         case PAL_AUDIO_FMT_WMA_PRO:
         {
             codec.format = pal_snd_dec->wma_dec.fmt_tag;
+            if (pal_snd_dec->wma_dec.fmt_tag == 0x161)
+                codec.profile = SND_AUDIOPROFILE_WMA9;
+            else if (pal_snd_dec->wma_dec.fmt_tag == 0x162)
+                codec.profile = PAL_SND_PROFILE_WMA9_PRO;
+            else if (pal_snd_dec->wma_dec.fmt_tag == 0x163)
+                codec.profile = PAL_SND_PROFILE_WMA9_LOSSLESS;
+            else if (pal_snd_dec->wma_dec.fmt_tag == 0x166)
+                codec.profile = SND_AUDIOPROFILE_WMA10;
+            else if (pal_snd_dec->wma_dec.fmt_tag == 0x167)
+                codec.profile = PAL_SND_PROFILE_WMA10_LOSSLESS;
+
             codec.options.generic.reserved[0] =
                                     pal_snd_dec->wma_dec.avg_bit_rate/8;
             codec.options.generic.reserved[1] =
@@ -334,7 +349,11 @@ int SessionAlsaCompress::getSndCodecId(pal_audio_fmt_t fmt)
         case PAL_AUDIO_FMT_WMA_STD:
             id = SND_AUDIOCODEC_WMA;
             break;
-        case PAL_AUDIO_FMT_DEFAULT_PCM:
+        case PAL_AUDIO_FMT_PCM_S8:
+        case PAL_AUDIO_FMT_PCM_S16_LE:
+        case PAL_AUDIO_FMT_PCM_S24_3LE:
+        case PAL_AUDIO_FMT_PCM_S24_LE:
+        case PAL_AUDIO_FMT_PCM_S32_LE:
             id = SND_AUDIOCODEC_PCM;
             break;
         case PAL_AUDIO_FMT_ALAC:
@@ -343,11 +362,9 @@ int SessionAlsaCompress::getSndCodecId(pal_audio_fmt_t fmt)
         case PAL_AUDIO_FMT_APE:
             id = SND_AUDIOCODEC_APE;
             break;
-#ifdef SND_COMPRESS_DEC_HDR
         case PAL_AUDIO_FMT_WMA_PRO:
-            id = SND_AUDIOCODEC_WMA_PRO;
+            id = SND_AUDIOCODEC_WMA;
             break;
-#endif
         case PAL_AUDIO_FMT_FLAC:
         case PAL_AUDIO_FMT_FLAC_OGG:
             id = SND_AUDIOCODEC_FLAC;
@@ -384,7 +401,11 @@ bool SessionAlsaCompress::isGaplessFormat(pal_audio_fmt_t fmt)
             break;
         case PAL_AUDIO_FMT_WMA_STD:
             break;
-        case PAL_AUDIO_FMT_DEFAULT_PCM:
+        case PAL_AUDIO_FMT_PCM_S8:
+        case PAL_AUDIO_FMT_PCM_S16_LE:
+        case PAL_AUDIO_FMT_PCM_S24_3LE:
+        case PAL_AUDIO_FMT_PCM_S24_LE:
+        case PAL_AUDIO_FMT_PCM_S32_LE:
             break;
         case PAL_AUDIO_FMT_ALAC:
             break;
@@ -464,7 +485,7 @@ int SessionAlsaCompress::setCustomFormatParam(pal_audio_fmt_t audio_fmt)
 void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
 {
     std::shared_ptr<offload_msg> msg;
-    uint32_t event_id;
+    uint32_t event_id = 0;
     int ret = 0;
     bool is_drain_called = false;
     std::unique_lock<std::mutex> lock(compressObj->cv_mutex_);
@@ -478,17 +499,17 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
             compressObj->msg_queue_.pop();
             lock.unlock();
 
-            if (msg->cmd == OFFLOAD_CMD_EXIT)
+            if (msg && msg->cmd == OFFLOAD_CMD_EXIT)
                 break; // exit the thread
 
-            if (msg->cmd == OFFLOAD_CMD_WAIT_FOR_BUFFER) {
+            if (msg && msg->cmd == OFFLOAD_CMD_WAIT_FOR_BUFFER) {
                 if (compressObj->rm->cardState == CARD_STATUS_ONLINE) {
                     PAL_VERBOSE(LOG_TAG, "calling compress_wait");
                     ret = compress_wait(compressObj->compress, -1);
                     PAL_VERBOSE(LOG_TAG, "out of compress_wait, ret %d", ret);
                     event_id = PAL_STREAM_CBK_EVENT_WRITE_READY;
                 }
-            } else if (msg->cmd == OFFLOAD_CMD_DRAIN) {
+            } else if (msg && msg->cmd == OFFLOAD_CMD_DRAIN) {
                 if (!is_drain_called && compressObj->playback_started) {
                     PAL_INFO(LOG_TAG, "calling compress_drain");
                     if (compressObj->rm->cardState == CARD_STATUS_ONLINE) {
@@ -503,7 +524,7 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                 }
                 is_drain_called = false;
                 event_id = PAL_STREAM_CBK_EVENT_DRAIN_READY;
-            } else if (msg->cmd == OFFLOAD_CMD_PARTIAL_DRAIN) {
+            } else if (msg && msg->cmd == OFFLOAD_CMD_PARTIAL_DRAIN) {
                 if (compressObj->playback_started) {
                     if (compressObj->rm->cardState == CARD_STATUS_ONLINE) {
                         if (compressObj->isGaplessFmt) {
@@ -533,7 +554,7 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                     lock.lock();
                     continue;
                 }
-            }  else if (msg->cmd == OFFLOAD_CMD_ERROR) {
+            }  else if (msg && msg->cmd == OFFLOAD_CMD_ERROR) {
                 PAL_ERR(LOG_TAG, "Sending error to PAL client");
                 event_id = PAL_STREAM_CBK_EVENT_ERROR;
             }
@@ -553,7 +574,7 @@ SessionAlsaCompress::SessionAlsaCompress(std::shared_ptr<ResourceManager> Rm)
     builder = new PayloadBuilder();
 
     /** set default snd codec params */
-    codec.id = getSndCodecId(PAL_AUDIO_FMT_DEFAULT_PCM);
+    codec.id = getSndCodecId(PAL_AUDIO_FMT_PCM_S16_LE);
     codec.ch_in = 2;
     codec.ch_out = codec.ch_in;
     codec.sample_rate = 48000;
@@ -620,6 +641,19 @@ int SessionAlsaCompress::open(Stream * s)
     }
     audio_fmt = sAttr.out_media_config.aud_fmt_id;
     isGaplessFmt = isGaplessFormat(audio_fmt);
+
+    // Register for  mixer event callback
+    status = rm->registerMixerEventCallback(compressDevIds, sessionCb, cbCookie,
+                    true);
+    if (status != 0) {
+        // Not a fatal error. Only pop noise will come for Soft pause use case
+        PAL_ERR(LOG_TAG, "Failed to register callback to rm");
+        status = 0;
+        isPauseRegistrationDone = false;
+    }
+    else
+        isPauseRegistrationDone = true;
+
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
@@ -714,7 +748,6 @@ int SessionAlsaCompress::connectSessionDevice(Stream* streamHandle, pal_stream_t
     if (!rxAifBackEndsToConnect.empty()) {
         status = SessionAlsaUtils::connectSessionDevice(NULL, streamHandle, streamType, rm,
             dAttr, compressDevIds, rxAifBackEndsToConnect);
-
         for (const auto &elem : rxAifBackEndsToConnect)
             rxAifBackEnds.push_back(elem);
     }
@@ -724,6 +757,7 @@ int SessionAlsaCompress::connectSessionDevice(Stream* streamHandle, pal_stream_t
             dAttr, compressDevIds, txAifBackEndsToConnect);
         for (const auto &elem : txAifBackEndsToConnect)
             txAifBackEnds.push_back(elem);
+
     }
 
     return status;
@@ -1018,7 +1052,8 @@ int SessionAlsaCompress::configureEarlyEOSDelay(void)
     }
     if (payloadSize) {
         status = updateCustomPayload(payload, payloadSize);
-        delete payload;
+        if (payload)
+            free(payload);
         if(0 != status) {
             PAL_ERR(LOG_TAG,"%s: updateCustomPayload Failed\n", __func__);
             return status;
@@ -1108,7 +1143,8 @@ int SessionAlsaCompress::start(Stream * s)
                     goto exit;
                 }
 
-                if (dAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) {
+                if (dAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+                        dAttr.id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
                     status = associatedDevices[i]->getCodecConfig(&codecConfig);
                     if(0 != status) {
                         PAL_ERR(LOG_TAG,"getCodecConfig Failed \n");
@@ -1145,6 +1181,25 @@ int SessionAlsaCompress::start(Stream * s)
                 }
                 if (isGaplessFmt) {
                     status = configureEarlyEOSDelay();
+                }
+
+                if (!status && isPauseRegistrationDone) {
+                    // Register for callback for Soft Pause
+                    size_t payload_size = 0;
+                    struct agm_event_reg_cfg event_cfg;
+                    payload_size = sizeof(struct agm_event_reg_cfg);
+                    memset(&event_cfg, 0, sizeof(event_cfg));
+                    event_cfg.event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
+                    event_cfg.event_config_payload_size = 0;
+                    event_cfg.is_register = 1;
+                    status = SessionAlsaUtils::registerMixerEvent(mixer,
+                                    compressDevIds.at(0), rxAifBackEnds[0].second.data(),
+                                    TAG_PAUSE, (void *)&event_cfg, payload_size);
+                    if (status != 0) {
+                        PAL_DBG(LOG_TAG,"Unable to register callback for pause\n");
+                        status = 0;
+                        isPauseRegistrationDone = false;
+                    }
                 }
 
                 status = SessionAlsaUtils::setMixerParameter(mixer, compressDevIds.at(0),
@@ -1208,6 +1263,21 @@ int SessionAlsaCompress::resume(Stream * s __unused)
 int SessionAlsaCompress::stop(Stream * s __unused)
 {
     int32_t status = 0;
+    size_t payload_size = 0;
+    struct agm_event_reg_cfg event_cfg;
+
+    // Deregister for callback for Soft Pause
+    if (isPauseRegistrationDone) {
+        payload_size = sizeof(struct agm_event_reg_cfg);
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        event_cfg.event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 0;
+        SessionAlsaUtils::registerMixerEvent(mixer, compressDevIds.at(0),
+                    rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)&event_cfg,
+                    payload_size);
+        isPauseRegistrationDone = false;
+    }
 
     PAL_DBG(LOG_TAG,"Enter");
     if (compress && playback_started)
@@ -1220,8 +1290,8 @@ int SessionAlsaCompress::stop(Stream * s __unused)
 int SessionAlsaCompress::close(Stream * s)
 {
     struct pal_stream_attributes sAttr;
-    std::ostringstream disconnectCtrlName;
     int32_t status = 0;
+    std::ostringstream disconnectCtrlName;
 
     PAL_DBG(LOG_TAG,"Enter");
 
@@ -1233,8 +1303,8 @@ int SessionAlsaCompress::close(Stream * s)
             if (sessionCb)
                 sessionCb(cbCookie, PAL_STREAM_CBK_EVENT_ERROR, NULL, 0);
         }
-        status = -EINVAL;
         goto exit;
+        /** close unstarted session should return normal. */
     }
     disconnectCtrlName << "COMPRESS" << compressDevIds.at(0) << " disconnect";
     disconnectCtrl = mixer_get_ctl_by_name(mixer, disconnectCtrlName.str().data());
@@ -1275,6 +1345,14 @@ int SessionAlsaCompress::close(Stream * s)
     /* empty the pending messages in queue */
     while (!msg_queue_.empty())
         msg_queue_.pop();
+
+    // Deregister for mixer event callback
+    status = rm->registerMixerEventCallback(compressDevIds, sessionCb, cbCookie,
+                    false);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "Failed to deregister callback to rm");
+        status = 0;
+    }
 
  exit:
     PAL_DBG(LOG_TAG,"Exit status: %d", status);

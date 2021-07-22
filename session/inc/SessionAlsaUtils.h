@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019, 2021 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -87,6 +87,8 @@ public:
     static int getTagMetadata(int32_t tagsent, std::vector <std::pair<int, int>> &tkv, struct agm_tag_config *tagConfig);
     static int getCalMetadata(std::vector <std::pair<int, int>> &ckv, struct agm_cal_config* calConfig);
     static unsigned int bitsToAlsaFormat(unsigned int bits);
+    static int openDev(std::shared_ptr<ResourceManager> rmHandle,
+            const std::vector<int> &DevIds, int32_t backEndId, std::string backEndName);
     static int open(Stream * s, std::shared_ptr<ResourceManager> rm, const std::vector<int> &DevIds,
             const std::vector<std::pair<int32_t, std::string>> &BackEnds);
     static int open(Stream * s, std::shared_ptr<ResourceManager> rm,
@@ -101,10 +103,13 @@ public:
                     const std::vector<std::pair<int32_t, std::string>> &txBackEnds);
     static int getModuleInstanceId(struct mixer *mixer, int device, const char *intf_name,
                        int tag_id, uint32_t *miid);
+    static int getTagsWithModuleInfo(struct mixer *mixer, int device, const char *intf_name,
+                       uint8_t *payload);
     static int setMixerParameter(struct mixer *mixer, int device,
                                  void *payload, int size);
     static int setStreamMetadataType(struct mixer *mixer, int device, const char *val);
     static int registerMixerEvent(struct mixer *mixer, int device, const char *intf_name, int tag_id, void *payload, int payload_size);
+    static int registerMixerEvent(struct mixer *mixer, int device, void *payload, int payload_size);
     static int setECRefPath(struct mixer *mixer, int device, const char *intf_name);
 
     static int getTimestamp(struct mixer *mixer, const std::vector<int> &DevIds, uint32_t spr_miid, struct pal_session_time *stime);
@@ -122,6 +127,7 @@ public:
         const std::vector<std::pair<int32_t, std::string>> &aifBackEndsToConnect);
     static std::shared_ptr<Device> getDeviceObj(int32_t beDevId,
         std::vector<std::shared_ptr<Device>> &associatedDevices);
+    static pcm_format palToAlsaFormat(uint32_t fmt_id);
     static int setDeviceMetadata(std::shared_ptr<ResourceManager> rmHandle,
                                 std::string backEndName,
                                 std::vector <std::pair<int, int>> &deviceKV);
@@ -136,6 +142,10 @@ public:
                         const std::vector <std::pair<int, int>> &ckv,
                         struct prop_data *propData,
                         struct agmMetaData &md);
+    static int rwParameterACDB(Stream * streamHandle, struct mixer *mixer,
+                        void *inParamPayload, size_t inPayloadSize,
+                        pal_device_id_t palDeviceId, uint32_t sampleRate,
+                        uint32_t instanceId, bool isParamWrite);
 };
 
 #endif //SESSION_ALSA_UTILS

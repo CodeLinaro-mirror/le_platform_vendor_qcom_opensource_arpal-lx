@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -52,6 +52,18 @@
  * This data is used between audio HAL module and
  * BT IPC library to configure DSP encoder
  */
+
+#define MAX_ABR_QUALITY_LEVELS 5
+typedef struct bit_rate_level_map_s {
+    uint32_t link_quality_level;
+    uint32_t bitrate;
+} bit_rate_level_map_t;
+
+struct quality_level_to_bitrate_info {
+    uint32_t num_levels;
+    bit_rate_level_map_t bit_rate_level_map[MAX_ABR_QUALITY_LEVELS];
+};
+
 /* Structure to control frame size of AAC encoded frames. */
 enum {
     MTU_SIZE = 0,
@@ -70,6 +82,11 @@ struct aac_frame_size_control_t {
     uint32_t ctl_value;
 };
 
+struct aac_abr_control_t {
+    bool is_abr_enabled;
+    struct quality_level_to_bitrate_info level_to_bitrate_map;
+};
+
 typedef struct audio_aac_encoder_config_s {
     uint32_t enc_mode;       /* LC, SBR, PS */
     uint16_t format_flag;    /* RAW, ADTS */
@@ -80,6 +97,8 @@ typedef struct audio_aac_encoder_config_s {
     struct aac_frame_size_control_t frame_ctl;
     uint8_t size_control_struct;
     struct aac_frame_size_control_t* frame_ctl_ptr;
+    uint8_t abr_size_control_struct;
+    struct aac_abr_control_t* abr_ctl_ptr;
 } audio_aac_encoder_config_t;
 
 /* Information about BT SBC encoder configuration
@@ -117,17 +136,6 @@ typedef struct audio_celt_encoder_config_s {
  * This data is used between audio HAL module and
  * BT IPC library to configure DSP encoder
  */
-#define MAX_ABR_QUALITY_LEVELS 5
-typedef struct bit_rate_level_map_s {
-    uint32_t link_quality_level;
-    uint32_t bitrate;
-} bit_rate_level_map_t;
-
-struct quality_level_to_bitrate_info {
-    uint32_t num_levels;
-    bit_rate_level_map_t bit_rate_level_map[MAX_ABR_QUALITY_LEVELS];
-};
-
 typedef struct audio_ldac_encoder_config_s {
     uint32_t sampling_rate;  /* 44100,48000,88200,96000 */
     uint32_t bit_rate;       /* 303000,606000,909000(in bits per second) */

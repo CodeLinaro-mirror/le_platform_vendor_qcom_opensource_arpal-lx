@@ -50,6 +50,8 @@
 #include "RTProxy.h"
 #include "FMDevice.h"
 #include "HapticsDev.h"
+#include "UltrasoundDevice.h"
+#include "ExtEC.h"
 
 #define MAX_CHANNEL_SUPPORTED 2
 
@@ -65,6 +67,9 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
 
     //TBD: decide on supported devices from XML and not in code
     switch (device->id) {
+    case PAL_DEVICE_NONE:
+        PAL_DBG(LOG_TAG,"device none");
+        return nullptr;
     case PAL_DEVICE_OUT_HANDSET:
         PAL_VERBOSE(LOG_TAG, "handset device");
         return Handset::getInstance(device, Rm);
@@ -130,6 +135,13 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     case PAL_DEVICE_IN_FM_TUNER:
         PAL_VERBOSE(LOG_TAG, "FM device");
         return FMDevice::getInstance(device, Rm);
+    case PAL_DEVICE_IN_ULTRASOUND_MIC:
+    case PAL_DEVICE_OUT_ULTRASOUND:
+        PAL_VERBOSE(LOG_TAG, "Ultrasound device");
+        return UltrasoundDevice::getInstance(device, Rm);
+    case PAL_DEVICE_IN_EXT_EC_REF:
+        PAL_VERBOSE(LOG_TAG, "ExtEC device");
+        return ExtEC::getInstance(device, Rm);
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",device->id);
         return nullptr;
@@ -140,6 +152,9 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
 {
 
     switch(dev_id) {
+    case PAL_DEVICE_NONE:
+        PAL_DBG(LOG_TAG,"device none");
+        return nullptr;
     case PAL_DEVICE_OUT_HANDSET:
         PAL_VERBOSE(LOG_TAG, "handset device");
         return Handset::getObject();
@@ -158,7 +173,7 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_OUT_AUX_DIGITAL_1:
     case PAL_DEVICE_OUT_HDMI:
         PAL_VERBOSE(LOG_TAG, "Display Port device");
-        return DisplayPort::getObject();
+        return DisplayPort::getObject(dev_id);
     case PAL_DEVICE_IN_HANDSET_MIC:
         PAL_VERBOSE(LOG_TAG, "handset mic device");
         return HandsetMic::getObject();
@@ -185,6 +200,13 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_IN_FM_TUNER:
         PAL_VERBOSE(LOG_TAG, "FMDevice %d", dev_id);
         return FMDevice::getObject();
+    case PAL_DEVICE_IN_ULTRASOUND_MIC:
+    case PAL_DEVICE_OUT_ULTRASOUND:
+        PAL_VERBOSE(LOG_TAG, "Ultrasound device %d", dev_id);
+        return UltrasoundDevice::getObject(dev_id);
+    case PAL_DEVICE_IN_EXT_EC_REF:
+        PAL_VERBOSE(LOG_TAG, "ExtEC device %d", dev_id);
+        return ExtEC::getObject();
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",dev_id);
         return nullptr;
@@ -202,13 +224,14 @@ Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     mPALDeviceName.clear();
     customPayload = NULL;
     customPayloadSize = 0;
+    strlcpy(mSndDeviceName, "", DEVICE_NAME_MAX_SIZE);
     PAL_DBG(LOG_TAG,"device instance for id %d created", device->id);
 
 }
 
 Device::Device()
 {
-    initialized = false;
+    strlcpy(mSndDeviceName, "", DEVICE_NAME_MAX_SIZE);
     mPALDeviceName.clear();
 }
 
@@ -250,11 +273,12 @@ int Device::setDeviceAttributes(struct pal_device dattr)
 {
     int status = 0;
 
+    mDeviceMutex.lock();
     PAL_INFO(LOG_TAG,"DeviceAttributes for Device Id %d updated", dattr.id);
-
     ar_mem_cpy(&deviceAttr, sizeof(struct pal_device), &dattr,
                      sizeof(struct pal_device));
 
+    mDeviceMutex.unlock();
     return status;
 }
 
@@ -293,24 +317,14 @@ int Device::getSndDeviceId()
     return deviceAttr.id;
 }
 
+void Device::getCurrentSndDevName(char *name){
+    strlcpy(name, mSndDeviceName, DEVICE_NAME_MAX_SIZE);
+}
+
 std::string Device::getPALDeviceName()
 {
     PAL_VERBOSE(LOG_TAG, "Device name %s acquired", mPALDeviceName.c_str());
     return mPALDeviceName;
-}
-
-void Device::setEcRefDevCount(bool is_enable, bool is_txstop)
-{
-    PAL_DBG(LOG_TAG, "rxEcDevice count %d is_enable %d", rxEcDevCount, is_enable);
-    if (is_enable) {
-       rxEcDevCount++;
-    } else {
-       rxEcDevCount--;
-       if (is_txstop) {
-           rxEcDevCount = 0;
-       }
-    }
-    PAL_DBG(LOG_TAG, "rxEcDevice Count %d", rxEcDevCount);
 }
 
 int Device::init(pal_param_device_connection_t device_conn __unused)
@@ -326,49 +340,21 @@ int Device::deinit(pal_param_device_connection_t device_conn __unused)
 int Device::open()
 {
     int status = 0;
-    mDeviceMutex.lock();
-    PAL_DBG(LOG_TAG, "Enter. device count %d for device id %d, initialized %d",
-        deviceCount, this->deviceAttr.id, initialized);
 
-    if (!initialized) {
-        mPALDeviceName = rm->getPALDeviceName(this->deviceAttr.id);
-        initialized = true;
-        PAL_DBG(LOG_TAG, "Device name %s, device id %d initialized %d", mPALDeviceName.c_str(), this->deviceAttr.id, initialized);
-        {
-            std::string backEndName;
-            rm->getBackendName(this->deviceAttr.id, backEndName);
-            if (strlen(backEndName.c_str())) {
-                SessionAlsaUtils::setDeviceMediaConfig(rm, backEndName, &(this->deviceAttr));
-            }
-        }
-    }
+    mDeviceMutex.lock();
+    mPALDeviceName = rm->getPALDeviceName(this->deviceAttr.id);
+    PAL_INFO(LOG_TAG, "Enter. deviceCount %d for device id %d (%s)", deviceCount,
+            this->deviceAttr.id, mPALDeviceName.c_str());
 
     devObj = Device::getInstance(&deviceAttr, rm);
 
-    PAL_DBG(LOG_TAG, "Exit. device count %d", deviceCount);
-    mDeviceMutex.unlock();
-    return status;
-}
+    if (deviceCount == 0) {
+        std::string backEndName;
+        rm->getBackendName(this->deviceAttr.id, backEndName);
+        if (strlen(backEndName.c_str())) {
+            SessionAlsaUtils::setDeviceMediaConfig(rm, backEndName, &(this->deviceAttr));
+        }
 
-int Device::close()
-{
-    return 0;
-}
-
-int Device::prepare()
-{
-    return 0;
-}
-
-int Device::start()
-{
-    int status = 0;
-    std::string backEndName;
-
-    mDeviceMutex.lock();
-
-    PAL_DBG(LOG_TAG, "Enter %d count, initialized %d", deviceCount, initialized);
-    if (deviceCount == 0 && initialized) {
         status = rm->getAudioRoute(&audioRoute);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Failed to get the audio_route address status %d", status);
@@ -382,19 +368,71 @@ int Device::start()
             strlcpy(mSndDeviceName, UpdatedSndName.c_str(), DEVICE_NAME_MAX_SIZE);
         }
 
-        PAL_VERBOSE(LOG_TAG, "audio_route %pK SND device name %s", audioRoute, mSndDeviceName);
+        PAL_DBG(LOG_TAG, "audio_route %pK SND device name %s", audioRoute, mSndDeviceName);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Failed to obtain the device name from ResourceManager status %d", status);
             goto exit;
         }
-
         enableDevice(audioRoute, mSndDeviceName);
+    }
+    ++deviceCount;
 
+exit:
+    PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s)", deviceCount,
+            this->deviceAttr.id, mPALDeviceName.c_str());
+    mDeviceMutex.unlock();
+    return status;
+}
+
+int Device::close()
+{
+    mDeviceMutex.lock();
+    PAL_INFO(LOG_TAG, "Enter. deviceCount %d for device id %d (%s)", deviceCount,
+            this->deviceAttr.id, mPALDeviceName.c_str());
+    if (deviceCount > 0) {
+        --deviceCount;
+
+       if (deviceCount == 0) {
+           PAL_DBG(LOG_TAG, "Disabling device %d with snd dev %s", deviceAttr.id, mSndDeviceName);
+           disableDevice(audioRoute, mSndDeviceName);
+       }
+    }
+    PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s)", deviceCount,
+            this->deviceAttr.id, mPALDeviceName.c_str());
+    mDeviceMutex.unlock();
+    return 0;
+}
+
+int Device::prepare()
+{
+    return 0;
+}
+
+int Device::start()
+{
+    int status = 0;
+
+    mDeviceMutex.lock();
+    status = start_l();
+    mDeviceMutex.unlock();
+
+    return status;
+}
+
+// must be called with mDeviceMutex held
+int Device::start_l()
+{
+    int status = 0;
+    std::string backEndName;
+
+    PAL_INFO(LOG_TAG, "Enter. deviceCount %d for device id %d (%s)", deviceCount,
+            this->deviceAttr.id, mPALDeviceName.c_str());
+    if (deviceCount == 1) {
         rm->getBackendName(deviceAttr.id, backEndName);
         if (!strlen(backEndName.c_str())) {
             PAL_ERR(LOG_TAG, "Error: Backend name not defined for %d in xml file\n", deviceAttr.id);
             status = -EINVAL;
-            goto disable_dev;
+            goto exit;
         }
 
         SessionAlsaUtils::setDeviceMediaConfig(rm, backEndName, &deviceAttr);
@@ -402,39 +440,30 @@ int Device::start()
         if (customPayloadSize) {
             status = SessionAlsaUtils::setDeviceCustomPayload(rm, backEndName,
                                         customPayload, customPayloadSize);
-            if (status) {
+            if (status)
                  PAL_ERR(LOG_TAG, "Error: Dev setParam failed for %d\n",
                                    deviceAttr.id);
-                 goto disable_dev;
-            }
         }
     }
-    deviceCount += 1;
-    PAL_DBG(LOG_TAG, "Exit. device count %d", deviceCount);
-    goto exit;
-
-disable_dev:
-    disableDevice(audioRoute, mSndDeviceName);
 exit :
-    mDeviceMutex.unlock();
     return status;
 }
 
 int Device::stop()
 {
     int status = 0;
+
     mDeviceMutex.lock();
-    PAL_DBG(LOG_TAG, "Enter. device id %d, device name %s, count %d", deviceAttr.id, mPALDeviceName.c_str(), deviceCount);
-    if(deviceCount > 0){
-       if (deviceCount == 1 && initialized) {
-           disableDevice(audioRoute, mSndDeviceName);
-           rxEcDevCount = 0;
-       }
-       deviceCount -= 1;
-    }
-    PAL_DBG(LOG_TAG, "Exit. device count %d", deviceCount);
+    status = stop_l();
     mDeviceMutex.unlock();
+
     return status;
+}
+
+// must be called with mDeviceMutex held
+int Device::stop_l()
+{
+    return 0;
 }
 
 int32_t Device::setDeviceParameter(uint32_t param_id __unused, void *param __unused)

@@ -35,6 +35,8 @@
 
 #define NUM_CODEC          2
 #define AUDIO_LOCATION_MAX 28
+#define TO_AIR             0
+#define FROM_AIR           1
 
 /* Information about BT LC3 encoder configuration
  * This data is used between audio HAL module and
@@ -76,7 +78,7 @@ typedef struct audio_lc3_codec_cfg_s {
     lc3_decoder_cfg_t dec_cfg;
 } audio_lc3_codec_cfg_t;
 
-uint32_t audio_location_map_array[] = {
+static uint32_t audio_location_map_array[] = {
     AUDIO_LOCATION_FRONT_LEFT,
     AUDIO_LOCATION_FRONT_RIGHT,
     AUDIO_LOCATION_FRONT_CENTER,
@@ -107,7 +109,7 @@ uint32_t audio_location_map_array[] = {
     AUDIO_LOCATION_RIGHT_SURROUND
 };
 
-int channel_map_array[] = {
+static int channel_map_array[] = {
     PCM_CHANNEL_L,
     PCM_CHANNEL_R,
     PCM_CHANNEL_C,
@@ -155,5 +157,22 @@ static uint64_t convert_channel_map(uint32_t audio_location)
 
     return channel_mask;
 }
+
+struct codec_specific_config {
+    uint32_t sampling_freq;
+    uint32_t frame_duration;
+    uint32_t max_octets_per_frame;
+    uint32_t bit_depth;
+};
+
+#define LC3_CSC_TBL_SIZE 6
+static struct codec_specific_config LC3_CSC[LC3_CSC_TBL_SIZE] = {
+    {8000,  7500,  26, 24},
+    {8000,  10000, 30, 24},
+    {16000, 7500,  30, 24},
+    {16000, 10000, 40, 24},
+    {32000, 7500,  60, 24},
+    {32000, 10000, 80, 24},
+};
 
 #endif /* _BT_BLE_H_ */

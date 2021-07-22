@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,8 +33,10 @@
 #include "Device.h"
 #include <tinyalsa/asoundlib.h>
 #include <bt_intf.h>
+#include <bt_ble.h>
 #include <vector>
 #include <mutex>
+#include <system/audio.h>
 
 #define DISALLOW_COPY_AND_ASSIGN(name) \
     name(const name &); \
@@ -63,12 +65,12 @@ typedef int (*audio_source_suspend_t)(void);
 typedef void (*audio_source_handoff_triggered_t)(void);
 typedef void (*clear_source_a2dpsuspend_flag_t)(void);
 typedef void * (*audio_get_enc_config_t)(uint8_t *multicast_status,
-                                        uint8_t *num_dev, codec_format_t *codec_format);
+                                        uint8_t *num_dev, audio_format_t *codec_format);
 typedef int (*audio_source_check_a2dp_ready_t)(void);
 typedef bool (*audio_is_tws_mono_mode_enable_t)(void);
 typedef int (*audio_sink_start_t)(void);
 typedef int (*audio_sink_stop_t)(void);
-typedef void * (*audio_get_dec_config_t)(codec_format_t *codec_format);
+typedef void * (*audio_get_dec_config_t)(audio_format_t *codec_format);
 typedef void * (*audio_sink_session_setup_complete_t)(uint64_t system_latency);
 typedef int (*audio_sink_check_a2dp_ready_t)(void);
 typedef uint16_t (*audio_sink_get_a2dp_latency_t)(void);
@@ -87,7 +89,6 @@ protected:
     bt_codec_t                 *pluginCodec;
     bool                       isAbrEnabled;
     bool                       isConfigured;
-    bool                       isHandoffInProgress;
     bool                       isLC3MonoModeOn;
     bool                       isTwsMonoModeOn;
     bool                       isDummySink;
@@ -95,9 +96,8 @@ protected:
     std::vector<int>           fbpcmDevIds;
     std::shared_ptr<Bluetooth> fbDev;
     int                        abrRefCnt;
-    int                        swbSpeechMode;
-    static bool                isCaptureEnabled;
     std::mutex                 mAbrMutex;
+    int                        totalActiveSessionRequests;
 
     int getPluginPayload(void **handle, bt_codec_t **btCodec,
                          bt_enc_payload_t **out_buf,
@@ -149,7 +149,6 @@ private:
     uint8_t         a2dpRole;  // source or sink
     enum A2DP_STATE a2dpState;
     bool            isA2dpOffloadSupported;
-    int             totalActiveSessionRequests;
 
     int startPlayback();
     int stopPlayback();
@@ -188,6 +187,9 @@ protected:
     BtSco(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     bool isScoOn;
     bool isWbSpeechEnabled;
+    int  swbSpeechMode;
+    bool isSwbLc3Enabled;
+    audio_lc3_codec_cfg_t lc3CodecInfo;
     int startSwb();
 
 public:
@@ -195,6 +197,7 @@ public:
     int stop();
     bool isDeviceReady() override;
     int32_t setDeviceParameter(uint32_t param_id, void *param) override;
+    void convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo, btsco_lc3_cfg_t &lc3Cfg);
     void updateSampleRate(uint32_t *sampleRate);
 
     static std::shared_ptr<Device> getObject(pal_device_id_t id);

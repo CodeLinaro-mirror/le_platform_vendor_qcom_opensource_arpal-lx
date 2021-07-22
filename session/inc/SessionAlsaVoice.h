@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,9 +37,6 @@
 #include <tinyalsa/asoundlib.h>
 #include <thread>
 
-#define RXDIR 0
-#define TXDIR 1
-
 class Stream;
 class Session;
 
@@ -51,9 +48,12 @@ private:
     PayloadBuilder* builder;
     struct pcm *pcmRx;
     struct pcm *pcmTx;
+    struct pcm *pcmEcTx;
     size_t in_buf_size, in_buf_count, out_buf_size, out_buf_count;
     std::vector<int> pcmDevRxIds;
     std::vector<int> pcmDevTxIds;
+    std::vector<int> pcmDevEcTxIds;
+    std::shared_ptr<Device> dev = nullptr;
     std::vector <std::pair<int, int>> gkv;
     std::vector <std::pair<int, int>> ckv;
     std::vector <std::pair<int, int>> tkv;
@@ -64,6 +64,7 @@ private:
     bool volume_boost = vol_boost_disable;
     bool slow_talk = false;
     bool hd_voice = false;
+    pal_device_mute_t dev_mute = {};
 
 public:
 
@@ -92,6 +93,7 @@ private:
     int payloadCalKeys(Stream * s, uint8_t **payload, size_t *size);
     int payloadTaged(Stream * s, configType type, int tag, int device, int dir);
     int payloadSetVSID(uint8_t **payload, size_t *size);
+    int payloadSetChannelInfo(Stream * s, uint8_t **payload, size_t *size);
     int payloadSetTTYMode(uint8_t **payload, size_t *size, uint32_t mode);
     int setVoiceMixerParameter(Stream * s, struct mixer *mixer, void *payload,
                           int size, int dir);
@@ -102,7 +104,9 @@ private:
     int getTXDeviceId(Stream *s, int *id);
     int populate_rx_mfc_payload(Stream *s, uint8_t **payload, size_t *payloadSize);
     int populate_vsid_payload(Stream *s, uint8_t **payload, size_t *payloadSize);
+    int populate_ch_info_payload(Stream *s, uint8_t **payload, size_t *payloadSize);
     int populateVSIDLoopbackPayload(uint8_t **payload, size_t *payloadSize);
+    int getDeviceChannelInfo(Stream *s, uint16_t *channels);
 };
 
 #endif //SESSION_ALSAVOICE_H

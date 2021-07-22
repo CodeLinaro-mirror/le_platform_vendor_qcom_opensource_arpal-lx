@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -52,11 +52,9 @@ protected:
     struct pal_device deviceAttr;
     std::shared_ptr<ResourceManager> rm;
     int deviceCount = 0;
-    int rxEcDevCount = 0;
     struct audio_route *audioRoute = NULL;   //getAudioRoute() from RM and store
     struct audio_mixer *audioMixer = NULL;   //getAudioMixer() from RM and store
     char mSndDeviceName[DEVICE_NAME_MAX_SIZE] = {0};
-    bool initialized = false;
     void *customPayload;
     size_t customPayloadSize;
     std::string UpdatedSndName;
@@ -70,14 +68,14 @@ public:
     int open();
     int close();
     virtual int start();
+    int start_l();
     virtual int stop();
+    int stop_l();
     int prepare();
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     int getSndDeviceId();
     int getDeviceCount() { return deviceCount; }
-    void setEcRefDevCount(bool is_enable, bool is_txstop);
-    int getEcRefDevCount() { return rxEcDevCount; }
     std::string getPALDeviceName();
     int setDeviceAttributes(struct pal_device dattr);
     virtual int getDeviceAttributes(struct pal_device *dattr);
@@ -93,6 +91,7 @@ public:
     virtual bool isDeviceReady() { return true;}
     void setSndName (std::string snd_name) { UpdatedSndName = snd_name;}
     virtual ~Device();
+    void getCurrentSndDevName(char *name);
 };
 
 

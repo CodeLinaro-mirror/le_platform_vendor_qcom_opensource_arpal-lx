@@ -40,189 +40,11 @@
 
 #define LOG_TAG "PAL: SoundTriggerPlatformInf"
 
-const std::map<std::string, uint32_t> devicePPKeyLUT {
-    {std::string{ "DEVICEPP_TX" }, DEVICEPP_TX},
-};
-
-const std::map<std::string, uint32_t> devicePPValueLUT {
-    {std::string{ "DEVICEPP_TX_FLUENCE_FFNS" }, DEVICEPP_TX_FLUENCE_FFNS},
-    {std::string{ "DEVICEPP_TX_FLUENCE_FFECNS" }, DEVICEPP_TX_FLUENCE_FFECNS},
-    {std::string{ "DEVICEPP_TX_RAW_LPI" }, DEVICEPP_TX_RAW_LPI},
-    {std::string{ "DEVICEPP_TX_RAW_NLPI" }, DEVICEPP_TX_RAW_NLPI},
-};
-
 static const struct st_uuid qcva_uuid =
     { 0x68ab2d40, 0xe860, 0x11e3, 0x95ef, { 0x00, 0x02, 0xa5, 0xd5, 0xc5, 0x1b } };
 
 static const struct st_uuid qcmd_uuid =
     { 0x876c1b46, 0x9d4d, 0x40cc, 0xa4fd, { 0x4d, 0x5e, 0xc7, 0xa8, 0x0e, 0x47 } };
-
-SoundTriggerUUID::SoundTriggerUUID() :
-    timeLow(0),
-    timeMid(0),
-    timeHiAndVersion(0),
-    clockSeq(0) {
-}
-
-bool SoundTriggerUUID::operator<(const SoundTriggerUUID& rhs) const {
-    if (timeLow > rhs.timeLow)
-        return false;
-    else if (timeLow < rhs.timeLow)
-        return true;
-    /* timeLow is equal */
-
-    if (timeMid > rhs.timeMid)
-        return false;
-    else if (timeMid < rhs.timeMid)
-        return true;
-    /* timeLow and timeMid are equal */
-
-    if (timeHiAndVersion > rhs.timeHiAndVersion)
-        return false;
-    else if (timeHiAndVersion < rhs.timeHiAndVersion)
-        return true;
-    /* timeLow, timeMid and timeHiAndVersion are equal */
-
-    if (clockSeq > rhs.clockSeq)
-        return false;
-    else if (clockSeq < rhs.clockSeq)
-        return true;
-    /* everything is equal */
-
-    return false;
-}
-
-SoundTriggerUUID& SoundTriggerUUID::operator = (SoundTriggerUUID& rhs) {
-    this->clockSeq = rhs.clockSeq;
-    this->timeLow = rhs.timeLow;
-    this->timeMid = rhs.timeMid;
-    this->timeHiAndVersion = rhs.timeHiAndVersion;
-    memcpy(node, rhs.node, sizeof(node));
-
-    return *this;
-}
-
-bool SoundTriggerUUID::CompareUUID(const struct st_uuid uuid) const {
-    if (uuid.timeLow != timeLow ||
-        uuid.timeMid != timeMid ||
-        uuid.timeHiAndVersion != timeHiAndVersion ||
-        uuid.clockSeq != clockSeq)
-        return false;
-
-    for (int i = 0; i < 6; i++) {
-        if (uuid.node[i] != node[i]) {
-            return false;
-        }
-    }
-
-    return true;
-}
-
-CaptureProfile::CaptureProfile(const std::string name) :
-    name_(name),
-    device_id_(PAL_DEVICE_IN_MIN),
-    sample_rate_(16000),
-    channels_(1),
-    bitwidth_(16),
-    device_pp_kv_(std::make_pair(DEVICEPP_TX,
-        DEVICEPP_TX_FLUENCE_FFNS)),
-    snd_name_("va-mic")
-{
-
-}
-
-void CaptureProfile::HandleCharData(const char* data __unused) {
-}
-
-void CaptureProfile::HandleEndTag(const char* tag) {
-    PAL_DBG(LOG_TAG, "Got end tag %s", tag);
-    return;
-}
-
-void CaptureProfile::HandleStartTag(const char* tag, const char** attribs) {
-
-    PAL_DBG(LOG_TAG, "Got start tag %s", tag);
-    if (!strcmp(tag, "param")) {
-        uint32_t i = 0;
-        while (attribs[i]) {
-            if (!strcmp(attribs[i], "device_id")) {
-                auto itr = deviceIdLUT.find(attribs[++i]);
-                if (itr == deviceIdLUT.end()) {
-                    PAL_ERR(LOG_TAG, "could not find key %s in lookup table",
-                        attribs[i]);
-                } else {
-                    device_id_ = itr->second;
-                }
-            } else if (!strcmp(attribs[i], "sample_rate")) {
-                sample_rate_ = std::stoi(attribs[++i]);
-            } else if (!strcmp(attribs[i], "bit_width")) {
-                bitwidth_ = std::stoi(attribs[++i]);
-            } else if (!strcmp(attribs[i], "channels")) {
-                channels_ = std::stoi(attribs[++i]);
-            } else if (!strcmp(attribs[i], "snd_name")) {
-                snd_name_ = attribs[++i];
-            } else {
-                PAL_INFO(LOG_TAG, "Invalid attribute %s", attribs[i++]);
-            }
-            ++i; /* move to next attribute */
-        }
-    } else if (!strcmp(tag, "kvpair")) {
-        uint32_t i = 0;
-        uint32_t key = 0, value = 0;
-        while (attribs[i]) {
-            if (!strcmp(attribs[i], "key")) {
-                auto keyItr = devicePPKeyLUT.find(attribs[++i]);
-                if (keyItr == devicePPKeyLUT.end()) {
-                    PAL_ERR(LOG_TAG, "could not find key %s in lookup table",
-                        attribs[i]);
-                } else {
-                    key = keyItr->second;
-                }
-            } else if(!strcmp(attribs[i], "value")) {
-                auto valItr = devicePPValueLUT.find(attribs[++i]);
-                if (valItr == devicePPValueLUT.end()) {
-                    PAL_ERR(LOG_TAG, "could not find value %s in lookup table",
-                        attribs[i]);
-                } else {
-                    value = valItr->second;
-                }
-
-                device_pp_kv_ = std::make_pair(key, value);
-            }
-            ++i; /* move to next attribute */
-        }
-    } else {
-        PAL_INFO(LOG_TAG, "Invalid tag %s", (char *)tag);
-    }
-}
-
-/*
- * Priority compare result indicated by return value as below:
- * 1. CAPTURE_PROFILE_PRIORITY_HIGH
- *     current capture profile has higher priority than cap_prof
- * 2. CAPTURE_PROFILE_PRIORITY_LOW
- *     current capture profile has lower priority than cap_prof
- * 3. CAPTURE_PROFILE_PRIORITY_SAME
- *     current capture profile has same priority than cap_prof
- */
-int32_t CaptureProfile::ComparePriority(std::shared_ptr<CaptureProfile> cap_prof) {
-    int32_t priority_check = 0;
-
-    if (!cap_prof) {
-        priority_check = CAPTURE_PROFILE_PRIORITY_HIGH;
-    } else {
-        // only compare channels for priority for now
-        if (channels_ < cap_prof->GetChannels()) {
-            priority_check = CAPTURE_PROFILE_PRIORITY_LOW;
-        } else if (channels_ > cap_prof->GetChannels()) {
-            priority_check = CAPTURE_PROFILE_PRIORITY_HIGH;
-        } else {
-            priority_check = CAPTURE_PROFILE_PRIORITY_SAME;
-        }
-    }
-
-    return priority_check;
-}
 
 SecondStageConfig::SecondStageConfig() :
     detection_type_(ST_SM_TYPE_NONE),
@@ -267,14 +89,9 @@ void SecondStageConfig::HandleStartTag(const char *tag, const char **attribs) {
     }
 }
 
-void SecondStageConfig::HandleEndTag(const char *tag __unused) {
-}
-
-void SecondStageConfig::HandleCharData(const char *data __unused) {
-}
-
 SoundTriggerModuleInfo::SoundTriggerModuleInfo() :
-    model_type_(ST_MODULE_TYPE_GMM)
+    module_type_(ST_MODULE_TYPE_GMM),
+    module_name_("GMM")
 {
     for (int i = 0; i < MAX_PARAM_IDS; i++) {
         module_tag_ids_[i] = 0;
@@ -290,13 +107,20 @@ void SoundTriggerModuleInfo::HandleStartTag(const char *tag, const char **attrib
         while (attribs[i]) {
             if (!strcmp(attribs[i], "module_type")) {
                 i++;
+                module_name_ = attribs[i];
                 if (!strcmp(attribs[i], "GMM")) {
-                    model_type_ = ST_MODULE_TYPE_GMM;
-                    PAL_DBG(LOG_TAG, "GMM module");
+                    module_type_ = ST_MODULE_TYPE_GMM;
                 } else if (!strcmp(attribs[i], "PDK")) {
-                    model_type_ = ST_MODULE_TYPE_PDK;
-                    PAL_DBG(LOG_TAG, "PDK module");
+                    module_type_ = ST_MODULE_TYPE_PDK;
+                } else if (!strcmp(attribs[i], "HOTWORD")) {
+                    module_type_ = ST_MODULE_TYPE_HW;
+                } else if (!strcmp(attribs[i], "CUSTOM1")) {
+                    module_type_ = ST_MODULE_TYPE_CUSTOM_1;
+                } else if (!strcmp(attribs[i], "CUSTOM2")) {
+                    module_type_ = ST_MODULE_TYPE_CUSTOM_2;
                 }
+                PAL_DBG(LOG_TAG, "Module name:%s, type:%d",
+                    module_name_.c_str(), module_type_);
             } else {
                 uint32_t index = 0;
                 if (!strcmp(attribs[i], "load_sound_model_ids")) {
@@ -337,12 +161,6 @@ void SoundTriggerModuleInfo::HandleStartTag(const char *tag, const char **attrib
     }
 }
 
-void SoundTriggerModuleInfo::HandleEndTag(const char *tag __unused) {
-}
-
-void SoundTriggerModuleInfo::HandleCharData(const char *data __unused) {
-}
-
 SoundModelConfig::SoundModelConfig(const st_cap_profile_map_t& cap_prof_map) :
     is_qcva_uuid_(false),
     is_qcmd_uuid_(false),
@@ -357,9 +175,26 @@ SoundModelConfig::SoundModelConfig(const st_cap_profile_map_t& cap_prof_map) :
 {
 }
 
-std::pair<uint32_t, uint32_t> SoundModelConfig::GetStreamConfig(
-    uint32_t type) {
-    return GetSoundTriggerModuleInfo(type)->getStreamConfigKV();
+/*
+ * Below functions GetSoundTriggerModuleInfo(), GetModuleType(), and GetModuleName()
+ * are to be used only for getting module info and module type/name for
+ * third party or custom sound model engines.
+ * It assumes only one module type per vendor UUID.
+ */
+std::shared_ptr<SoundTriggerModuleInfo> SoundModelConfig::GetSoundTriggerModuleInfo() {
+    auto smCfg = sm_list_uuid_mod_info_.find(vendor_uuid_);
+    if(smCfg != sm_list_uuid_mod_info_.end())
+         return smCfg->second;
+    else
+        return nullptr;
+}
+
+st_module_type_t SoundModelConfig::GetModuleType() {
+     return GetSoundTriggerModuleInfo()->GetModuleType();
+}
+
+std::string SoundModelConfig::GetModuleName() {
+     return GetSoundTriggerModuleInfo()->GetModuleName();
 }
 
 void SoundModelConfig::ReadCapProfileNames(StOperatingModes mode,
@@ -407,7 +242,8 @@ std::shared_ptr<SoundTriggerModuleInfo> SoundModelConfig::GetSoundTriggerModuleI
         return nullptr;
 }
 
-void SoundModelConfig::HandleCharData(const char* data __unused) {
+std::string SoundModelConfig::GetModuleName(st_module_type_t type) {
+     return GetSoundTriggerModuleInfo(type)->GetModuleName();
 }
 
 void SoundModelConfig::HandleStartTag(const char* tag, const char** attribs) {
@@ -424,8 +260,9 @@ void SoundModelConfig::HandleStartTag(const char* tag, const char** attribs) {
             std::make_shared<SecondStageConfig>());
         return;
     } if (!strcmp(tag, "module_params")) {
-        curr_child_ = std::static_pointer_cast<SoundTriggerXml>(
-            std::make_shared<SoundTriggerModuleInfo>());
+        auto st_module_info_ =  std::make_shared<SoundTriggerModuleInfo>();
+        sm_list_uuid_mod_info_.insert(std::make_pair(vendor_uuid_, st_module_info_));
+        curr_child_ = std::static_pointer_cast<SoundTriggerXml>(st_module_info_);
         return;
     }
 
@@ -433,7 +270,7 @@ void SoundModelConfig::HandleStartTag(const char* tag, const char** attribs) {
         uint32_t i = 0;
         while (attribs[i]) {
             if (!strcmp(attribs[i], "vendor_uuid")) {
-                SoundTriggerPlatformInfo::StringToUUID(attribs[++i],
+                SoundTriggerUUID::StringToUUID(attribs[++i],
                     vendor_uuid_);
                 if (vendor_uuid_.CompareUUID(qcva_uuid)) {
                     is_qcva_uuid_ = true;
@@ -451,7 +288,7 @@ void SoundModelConfig::HandleStartTag(const char* tag, const char** attribs) {
             } else if (!strcmp(attribs[i], "bit_width")) {
                 bit_width_ = std::stoi(attribs[++i]);
             } else if (!strcmp(attribs[i], "out_channels")) {
-                out_channels_ = std::stoi(attribs[++i]);
+                SetOutChannels(std::stoi(attribs[++i]));
             } else if (!strcmp(attribs[i], "client_capture_read_delay")) {
                 client_capture_read_delay_ = std::stoi(attribs[++i]);
             } else if (!strcmp(attribs[i], "capture_keyword")) {
@@ -480,7 +317,7 @@ void SoundModelConfig::HandleStartTag(const char* tag, const char** attribs) {
     }
 }
 
-void SoundModelConfig::HandleEndTag(const char* tag __unused) {
+void SoundModelConfig::HandleEndTag(struct xml_userdata *data, const char* tag) {
     PAL_DBG(LOG_TAG, "Got end tag %s", tag);
 
     if (!strcmp(tag, "arm_ss_usecase")) {
@@ -495,14 +332,14 @@ void SoundModelConfig::HandleEndTag(const char* tag __unused) {
         std::shared_ptr<SoundTriggerModuleInfo> st_module_info(
             std::static_pointer_cast<SoundTriggerModuleInfo>(curr_child_));
         const auto res = st_module_info_list_.insert(
-            std::make_pair(st_module_info->GetModelType(), st_module_info));
+            std::make_pair(st_module_info->GetModuleType(), st_module_info));
         if (!res.second)
             PAL_ERR(LOG_TAG, "Failed to insert to map");
         curr_child_ = nullptr;
     }
 
     if (curr_child_)
-        curr_child_->HandleEndTag(tag);
+        curr_child_->HandleEndTag(data, tag);
 
     return;
 }
@@ -513,6 +350,7 @@ std::shared_ptr<SoundTriggerPlatformInfo> SoundTriggerPlatformInfo::me_ =
 SoundTriggerPlatformInfo::SoundTriggerPlatformInfo() :
     enable_failure_detection_(false),
     support_device_switch_(false),
+    support_nlpi_switch_(true),
     transit_to_non_lpi_on_charging_(false),
     dedicated_sva_path_(true),
     dedicated_headset_path_(false),
@@ -525,6 +363,8 @@ SoundTriggerPlatformInfo::SoundTriggerPlatformInfo() :
     low_latency_bargein_enable_(false),
     mmap_enable_(false),
     mmap_buffer_duration_(0),
+    mmap_frame_length_(0),
+    sound_model_lib_("liblistensoundmodel2vendor.so"),
     curr_child_(nullptr)
 {
 }
@@ -615,6 +455,9 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag,
             } else if (!strcmp(attribs[i], "support_device_switch")) {
                 support_device_switch_ =
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "support_nlpi_switch")) {
+                support_nlpi_switch_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "transit_to_non_lpi_on_charging")) {
                 transit_to_non_lpi_on_charging_ =
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
@@ -653,6 +496,10 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag,
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "mmap_buffer_duration")) {
                 mmap_buffer_duration_ = std::stoi(attribs[++i]);
+            } else if (!strcmp(attribs[i], "mmap_frame_length")) {
+                mmap_frame_length_ = std::stoi(attribs[++i]);
+            } else if (!strcmp(attribs[i], "sound_model_lib")) {
+                sound_model_lib_ = std::string(attribs[++i]);
             } else {
                 PAL_INFO(LOG_TAG, "Invalid attribute %s", attribs[i++]);
             }
@@ -663,7 +510,7 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag,
     }
 }
 
-void SoundTriggerPlatformInfo::HandleEndTag(const char* tag) {
+void SoundTriggerPlatformInfo::HandleEndTag(struct xml_userdata *data, const char* tag) {
     PAL_DBG(LOG_TAG, "Got end tag %s", tag);
 
     if (!strcmp(tag, "sound_model_config")) {
@@ -684,39 +531,8 @@ void SoundTriggerPlatformInfo::HandleEndTag(const char* tag) {
         curr_child_ = nullptr;
     }
 
-
     if (curr_child_)
-        curr_child_->HandleEndTag(tag);
+        curr_child_->HandleEndTag(data, tag);
 
     return;
-}
-
-void SoundTriggerPlatformInfo::HandleCharData(const char* data __unused) {
-}
-
-int SoundTriggerPlatformInfo::StringToUUID(const char* str,
-                                           SoundTriggerUUID& UUID) {
-    int tmp[10];
-
-    if (str == NULL) {
-        return -EINVAL;
-    }
-
-    if (sscanf(str, "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
-               tmp, tmp + 1, tmp + 2, tmp + 3, tmp + 4, tmp + 5, tmp + 6,
-               tmp + 7, tmp + 8, tmp + 9) < 10) {
-        return -EINVAL;
-    }
-    UUID.timeLow = (uint32_t)tmp[0];
-    UUID.timeMid = (uint16_t)tmp[1];
-    UUID.timeHiAndVersion = (uint16_t)tmp[2];
-    UUID.clockSeq = (uint16_t)tmp[3];
-    UUID.node[0] = (uint8_t)tmp[4];
-    UUID.node[1] = (uint8_t)tmp[5];
-    UUID.node[2] = (uint8_t)tmp[6];
-    UUID.node[3] = (uint8_t)tmp[7];
-    UUID.node[4] = (uint8_t)tmp[8];
-    UUID.node[5] = (uint8_t)tmp[9];
-
-    return 0;
 }

@@ -37,82 +37,12 @@
 #include <string>
 #include "PalDefs.h"
 #include "SoundTriggerUtils.h"
+#include "SoundTriggerXmlParser.h"
 
 #define IS_MODULE_TYPE_PDK(type) (type == ST_MODULE_TYPE_PDK5 || type == ST_MODULE_TYPE_PDK6)
+#define MAX_MODULE_CHANNELS 4
 
-#define CAPTURE_PROFILE_PRIORITY_HIGH 1
-#define CAPTURE_PROFILE_PRIORITY_LOW -1
-#define CAPTURE_PROFILE_PRIORITY_SAME 0
-
-enum StOperatingModes {
-    ST_OPERATING_MODE_LOW_POWER,
-    ST_OPERATING_MODE_HIGH_PERF,
-    ST_OPERATING_MODE_HIGH_PERF_AND_CHARGING
-};
-
-enum StInputModes {
-    ST_INPUT_MODE_HANDSET,
-    ST_INPUT_MODE_HEADSET
-};
-
-class SoundTriggerUUID {
- public:
-    SoundTriggerUUID();
-    SoundTriggerUUID & operator=(SoundTriggerUUID &rhs);
-    bool operator<(const SoundTriggerUUID &rhs) const;
-    bool CompareUUID(const struct st_uuid uuid) const;
-
-    uint32_t timeLow;
-    uint16_t timeMid;
-    uint16_t timeHiAndVersion;
-    uint16_t clockSeq;
-    uint8_t  node[6];
-
-};
 using UUID = SoundTriggerUUID;
-
-class SoundTriggerXml {
- public:
-    virtual void HandleStartTag(const char *tag, const char **attribs) = 0;
-    virtual void HandleEndTag(const char *tag) = 0;
-    virtual void HandleCharData(const char *data) = 0;
-    virtual ~SoundTriggerXml() {};
-};
-
-class CaptureProfile : public SoundTriggerXml {
- public:
-    CaptureProfile(std::string name);
-    CaptureProfile() = delete;
-    CaptureProfile(CaptureProfile &rhs) = delete;
-    CaptureProfile & operator=(CaptureProfile &rhs) = delete;
-
-    void HandleStartTag(const char* tag, const char* * attribs) override;
-    void HandleEndTag(const char* tag) override;
-    void HandleCharData(const char* data) override;
-
-    std::string GetName() const { return name_; }
-    pal_device_id_t GetDevId() const { return device_id_; }
-    uint32_t GetSampleRate() const { return sample_rate_; }
-    uint32_t GetBitWidth() const { return bitwidth_; }
-    uint32_t GetChannels() const { return channels_; }
-    std::string GetSndName() const { return snd_name_; }
-    void SetSampleRate(uint32_t sample_rate) { sample_rate_ = sample_rate; }
-    void SetBitWidth(uint32_t bit_width) { bitwidth_ = bit_width; }
-    void SetChannels(uint32_t channels) { channels_ = channels; }
-    void SetSndName(std::string snd_name) { snd_name_ = snd_name; }
-    std::pair<uint32_t,uint32_t> GetDevicePpKv() const { return device_pp_kv_; }
-
-    int32_t ComparePriority(std::shared_ptr<CaptureProfile> cap_prof);
-
- private:
-    std::string name_;
-    pal_device_id_t device_id_;
-    uint32_t sample_rate_;
-    uint32_t channels_;
-    uint32_t bitwidth_;
-    std::pair<uint32_t,uint32_t> device_pp_kv_;
-    std::string snd_name_;
-};
 
 using st_cap_profile_map_t =
     std::map<std::string, std::shared_ptr<CaptureProfile>>;
@@ -122,8 +52,6 @@ class SecondStageConfig : public SoundTriggerXml {
     SecondStageConfig();
 
     void HandleStartTag(const char *tag, const char **attribs) override;
-    void HandleEndTag(const char *tag) override;
-    void HandleCharData(const char *data) override;
 
     st_sound_model_type_t GetDetectionType() const { return detection_type_; }
     uint32_t GetSoundModelID() const { return sm_id_; }
@@ -146,10 +74,9 @@ class SoundTriggerModuleInfo : public SoundTriggerXml {
     SoundTriggerModuleInfo();
 
     void HandleStartTag(const char *tag, const char **attribs) override;
-    void HandleEndTag(const char *tag) override;
-    void HandleCharData(const char *data) override;
 
-    uint32_t GetModelType() const { return model_type_; }
+    st_module_type_t GetModuleType() const { return module_type_; }
+    std::string GetModuleName() const { return module_name_; }
     uint32_t GetModuleTagId(st_param_id_type_t param_id) const {
         return module_tag_ids_[param_id];
     }
@@ -161,7 +88,8 @@ class SoundTriggerModuleInfo : public SoundTriggerXml {
     }
 
  private:
-    uint32_t model_type_;
+    st_module_type_t module_type_;
+    std::string module_name_;
     uint32_t module_tag_ids_[MAX_PARAM_IDS];
     uint32_t param_ids_[MAX_PARAM_IDS];
     std::pair<uint32_t, uint32_t> stream_config_;
@@ -188,12 +116,17 @@ class SoundModelConfig : public SoundTriggerXml {
     uint32_t GetSampleRate() const { return sample_rate_; }
     uint32_t GetBitWidth() const { return bit_width_; }
     uint32_t GetOutChannels() const { return out_channels_; }
+    void SetOutChannels(uint32_t channels) {
+        if (channels <= MAX_MODULE_CHANNELS)
+            out_channels_ = channels;
+    }
     uint32_t GetKwDuration() const { return capture_keyword_; }
     uint32_t GetCaptureReadDelay() const { return client_capture_read_delay_; }
     uint32_t GetKwStartTolerance() const { return kw_start_tolerance_; }
     uint32_t GetKwEndTolerance() const { return kw_end_tolerance_; }
     uint32_t GetDataBeforeKwStart() const { return data_before_kw_start_; }
     uint32_t GetDataAfterKwEnd() const { return data_after_kw_end_; }
+    st_module_type_t GetModuleType();
     std::shared_ptr<CaptureProfile> GetCaptureProfile(
         std::pair<StOperatingModes, StInputModes> mode_pair) const {
         return op_modes_.at(mode_pair);
@@ -202,12 +135,12 @@ class SoundModelConfig : public SoundTriggerXml {
         const listen_model_indicator_enum& sm_type) const;
     std::shared_ptr<SoundTriggerModuleInfo> GetSoundTriggerModuleInfo(
         const uint32_t type) const;
-
+    std::shared_ptr<SoundTriggerModuleInfo> GetSoundTriggerModuleInfo();
+    std::string GetModuleName();
+    std::string GetModuleName(st_module_type_t type);
     void HandleStartTag(const char *tag, const char **attribs)
         override;
-    void HandleEndTag(const char *tag) override;
-    void HandleCharData(const char *data) override;
-    std::pair<uint32_t,uint32_t> GetStreamConfig(uint32_t stream_type);
+    void HandleEndTag(struct xml_userdata *data, const char *tag) override;
  private:
     /* reads capture profile names into member variables */
     void ReadCapProfileNames(StOperatingModes mode, const char* * attribs);
@@ -231,6 +164,7 @@ class SoundModelConfig : public SoundTriggerXml {
     std::shared_ptr<SoundTriggerXml> curr_child_;
     std::map<uint32_t, std::shared_ptr<SecondStageConfig>> ss_config_list_;
     std::map<uint32_t, std::shared_ptr<SoundTriggerModuleInfo>> st_module_info_list_;
+    std::map<UUID, std::shared_ptr<SoundTriggerModuleInfo>> sm_list_uuid_mod_info_;
 };
 
 class SoundTriggerPlatformInfo : public SoundTriggerXml {
@@ -240,9 +174,11 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
          delete;
 
     static std::shared_ptr<SoundTriggerPlatformInfo> GetInstance();
+    std::string GetSoundModelLib() const { return sound_model_lib_; }
     bool GetEnableFailureDetection() const {
         return enable_failure_detection_; }
     bool GetSupportDevSwitch() const { return support_device_switch_; }
+    bool GetSupportNLPISwitch() const { return support_nlpi_switch_; }
     bool GetTransitToNonLpiOnCharging() const {
         return transit_to_non_lpi_on_charging_;
     }
@@ -259,6 +195,7 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
     }
     bool GetMmapEnable() const { return mmap_enable_; }
     uint32_t GetMmapBufferDuration() const { return mmap_buffer_duration_; }
+    uint32_t GetMmapFrameLength() const { return mmap_frame_length_; }
     std::shared_ptr<SoundModelConfig> GetSmConfig(const UUID& uuid) const;
     std::shared_ptr<CaptureProfile> GetCapProfile(const std::string& name) const;
     void GetSmConfigForVersionQuery(
@@ -266,10 +203,7 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
 
     void HandleStartTag(const char *tag, const char **attribs)
         override;
-    void HandleEndTag(const char *tag) override;
-    void HandleCharData(const char *data) override;
-
-    static int StringToUUID(const char* str, SoundTriggerUUID& UUID);
+    void HandleEndTag(struct xml_userdata *data, const char *tag) override;
 
  private:
     SoundTriggerPlatformInfo();
@@ -277,6 +211,7 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
     uint32_t version_;
     bool enable_failure_detection_;
     bool support_device_switch_;
+    bool support_nlpi_switch_;
     bool transit_to_non_lpi_on_charging_;
     bool dedicated_sva_path_;
     bool dedicated_headset_path_;
@@ -289,6 +224,8 @@ class SoundTriggerPlatformInfo : public SoundTriggerXml {
     bool low_latency_bargein_enable_;
     bool mmap_enable_;
     uint32_t mmap_buffer_duration_;
+    uint32_t mmap_frame_length_;
+    std::string sound_model_lib_;
     std::map<UUID, std::shared_ptr<SoundModelConfig>> sound_model_cfg_list_;
     st_cap_profile_map_t capture_profile_map_;
     std::shared_ptr<SoundTriggerXml> curr_child_;

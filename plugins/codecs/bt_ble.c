@@ -61,7 +61,7 @@ static int ble_pack_enc_config(bt_codec_t *codec, void *src, void **dst)
         return -ENOMEM;
     }
 
-    enc_payload->bit_format     = ENCODER_BIT_FORMAT_PCM_24;
+    enc_payload->bit_format     = ble_bt_cfg->enc_cfg.toAirConfig.bit_depth;
     enc_payload->sample_rate    = ble_bt_cfg->enc_cfg.toAirConfig.sampling_freq;
     enc_payload->num_blks       = num_blks;
     if (ble_bt_cfg->enc_cfg.stream_map_size) {
@@ -112,7 +112,7 @@ static int ble_pack_enc_config(bt_codec_t *codec, void *src, void **dst)
     }
 
     ret = bt_base_populate_enc_cmn_param(blk[0], PARAM_ID_LC3_ENC_INIT,
-            enc_init, sizeof(struct param_id_lc3_encoder_config_payload_t));
+            enc_init, payload_sz);
     free(enc_init);
     if (ret)
         goto free_payload;
@@ -158,17 +158,11 @@ static int ble_pack_dec_config(bt_codec_t *codec, void *src, void **dst)
         return -ENOMEM;
     }
 
-    enc_payload->bit_format     = ENCODER_BIT_FORMAT_PCM_24;
+    enc_payload->bit_format     = ble_bt_cfg->dec_cfg.fromAirConfig.bit_depth;
     enc_payload->sample_rate    = ble_bt_cfg->dec_cfg.fromAirConfig.sampling_freq;
+    enc_payload->channel_count  = ble_bt_cfg->dec_cfg.decoder_output_channel;
     enc_payload->num_blks       = num_blks;
-    if (ble_bt_cfg->dec_cfg.stream_map_size) {
-        if (!ble_bt_cfg->dec_cfg.streamMapIn[0].audio_location)
-            enc_payload->channel_count = CH_MONO;
-        else
-            enc_payload->channel_count = CH_STEREO;
-    }
-
-    enc_payload->is_abr_enabled = false;
+    enc_payload->is_abr_enabled = true;
 
     for (i = 0; i < num_blks; i++) {
         blk[i] = (custom_block_t *)calloc(1, sizeof(custom_block_t));
@@ -188,6 +182,7 @@ static int ble_pack_dec_config(bt_codec_t *codec, void *src, void **dst)
         goto free_payload;
     }
 
+    dec_init->decoder_output_channel             = ble_bt_cfg->dec_cfg.decoder_output_channel;
     dec_init->stream_map_size                    = ble_bt_cfg->dec_cfg.stream_map_size;
     dec_init->fromAirConfig.api_version          = ble_bt_cfg->dec_cfg.fromAirConfig.api_version;
     dec_init->fromAirConfig.sampling_Frequency   = ble_bt_cfg->dec_cfg.fromAirConfig.sampling_freq;
@@ -209,7 +204,7 @@ static int ble_pack_dec_config(bt_codec_t *codec, void *src, void **dst)
     }
 
     ret = bt_base_populate_enc_cmn_param(blk[0], PARAM_ID_LC3_DEC_INIT,
-            dec_init, sizeof(struct param_id_lc3_decoder_config_payload_t));
+            dec_init, payload_sz);
     free(dec_init);
     if (ret)
         goto free_payload;
@@ -256,12 +251,14 @@ static int bt_ble_populate_payload(bt_codec_t *codec, void *src, void **dst)
 }
 
 static uint64_t bt_ble_get_decoder_latency(bt_codec_t *codec,
-                                       uint32_t slatency __unused)
+                                       uint32_t slatency)
 {
     uint32_t latency = 0;
 
     switch (codec->codecFmt) {
         case CODEC_TYPE_LC3:
+            latency = slatency;
+            break;
         default:
             latency = 200;
             ALOGD("No valid decoder defined, setting latency to %dms", latency);

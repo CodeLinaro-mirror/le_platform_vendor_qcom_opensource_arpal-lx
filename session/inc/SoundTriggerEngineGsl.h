@@ -53,6 +53,7 @@ typedef enum {
     ENG_LOADED,
     ENG_ACTIVE,
     ENG_BUFFERING,
+    ENG_DETECTED,
 } eng_state_t;
 
 class Session;
@@ -107,6 +108,11 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
         bool is_enable) override;
     int32_t GetCustomDetectionEvent(uint8_t **event, size_t *size) override;
     int32_t GetDetectedConfScore() { return 0; }
+    int32_t GetDetectionState() { return 0; }
+    ChronoSteadyClock_t GetDetectedTime() {
+        return detection_time_;
+    }
+    void UpdateState(eng_state_t state);
 
  private:
     uint32_t AddModelID(Stream *s);
@@ -116,6 +122,8 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
     int32_t UpdateSessionPayload(st_param_id_type_t param);
     int32_t ParseDetectionPayloadPDK(void *event_data);
     int32_t ParseDetectionPayload(void *event_data);
+    void UpdateKeywordIndex(uint64_t kwd_start_timestamp,
+        uint64_t kwd_end_timestamp, uint64_t ftrt_start_timestamp);
     void HandleSessionEvent(uint32_t event_id __unused, void *data, uint32_t size);
     void ResetEngine();
 
@@ -183,5 +191,8 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
     struct pal_mmap_buffer mmap_buffer_;
     size_t mmap_buffer_size_;
     uint32_t mmap_write_position_;
+    uint64_t kw_transfer_latency_;
+    ChronoSteadyClock_t detection_time_;
+    std::mutex state_mutex_;
 };
 #endif  // SOUNDTRIGGERENGINEGSL_H

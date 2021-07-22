@@ -118,7 +118,8 @@ int RTProxy::start() {
     status = rm->getActiveStream_l(dev, activestreams);
     if ((0 != status) || (activestreams.size() == 0)) {
         PAL_ERR(LOG_TAG, "no active stream available");
-        return -EINVAL;
+        status = -EINVAL;
+        goto error;
     }
     stream = static_cast<Stream *>(activestreams[0]);
     stream->getAssociatedSession(&session);
@@ -134,9 +135,10 @@ int RTProxy::start() {
     }
 
     builder->payloadRATConfig(&paramData, &paramSize, ratMiid, &mDeviceAttr.config);
-    if (paramSize) {
+    if (dev && paramSize) {
         dev->updateCustomPayload(paramData, paramSize);
-        free(paramData);
+        if (paramData)
+            free(paramData);
         paramData = NULL;
         paramSize = 0;
     } else {
@@ -147,7 +149,10 @@ int RTProxy::start() {
 start:
     status = Device::start();
 error:
-    delete builder;
+    if(builder) {
+       delete builder;
+       builder = NULL;
+    }
     return status;
 }
 

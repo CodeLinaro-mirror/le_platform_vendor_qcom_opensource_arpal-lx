@@ -30,9 +30,9 @@
 #ifndef SOUND_TRIGGER_UTILS_H
 #define SOUND_TRIGGER_UTILS_H
 
+#include "PalDefs.h"
 #include "ListenSoundModelLib.h"
 
-#define SML_LIB "liblistensoundmodel2.so"
 #define MAX_KW_USERS_NAME_LEN (2 * MAX_STRING_LEN)
 #define MAX_CONF_LEVEL_VALUE 100
 
@@ -87,19 +87,23 @@ typedef enum {
     ST_SM_ID_SVA_S_STAGE_RNN  = 0x0008,
     ST_SM_ID_SVA_S_STAGE_KWD  = 0x000A, // S_STAGE_PDK | S_STAGE_RNN
     SML_ID_SVA_S_STAGE_UBM    = 0x0010,
+    SML_ID_SVA_F_STAGE_INTERNAL = 0x0020,
     ST_SM_ID_SVA_END          = 0x00F0,
     ST_SM_ID_CUSTOM_START     = 0x0100,
     ST_SM_ID_CUSTOM_END       = 0xF000,
 } listen_model_indicator_enum;
 
 typedef enum {
-    ST_MODULE_TYPE_CUSTOM = 1,
-    ST_MODULE_TYPE_GMM    = 3,
-    ST_MODULE_TYPE_PDK5   = 5,
-    ST_MODULE_TYPE_PDK6   = 6,
-    ST_MODULE_TYPE_PDK    = 100, // Internal constant for local use indicating
-                                 // both PDK5 and PDK6
-}st_module_type_t;
+    ST_MODULE_TYPE_NONE     = 0,   // Internal Constant for initialization
+    ST_MODULE_TYPE_GMM      = 3,
+    ST_MODULE_TYPE_PDK5     = 5,
+    ST_MODULE_TYPE_PDK6     = 6,
+    ST_MODULE_TYPE_PDK      = 100, // Internal constant for local use indicating
+                                   // both PDK5 and PDK6
+    ST_MODULE_TYPE_HW       = 101, // Internal constant to identify hotword module
+    ST_MODULE_TYPE_CUSTOM_1 = 102, // Reserved for Custom Engine 1
+    ST_MODULE_TYPE_CUSTOM_2 = 103, // Reserved for Custom Engine 2
+} st_module_type_t;
 
 typedef struct _SML_GlobalHeaderType {
     uint32_t    magicNumber;                    // Magic number
@@ -173,33 +177,6 @@ struct __attribute__((__packed__)) st_param_header
 };
 
 typedef enum {
-    AUDIO_CONTEXT_ENV_HOME = 0x8001307,
-    AUDIO_CONTEXT_ENV_OFFICE = 0x8001308,
-    AUDIO_CONTEXT_ENV_RESTAURANT = 0x8001309,
-    AUDIO_CONTEXT_ENV_INDOOR = 0x800130a,
-    AUDIO_CONTEXT_ENV_INSTREET = 0x800130b,
-    AUDIO_CONTEXT_ENV_OUTDOOR = 0x800130c,
-    AUDIO_CONTEXT_ENV_INCAR = 0x800130d,
-    AUDIO_CONTEXT_ENV_INTRAIN = 0x800130e,
-    AUDIO_CONTEXT_ENV_UNKNOWN = 0x800130f,
-    AUDIO_CONTEXT_EVENT_ALARM = 0x8001310,
-    AUDIO_CONTEXT_EVENT_BABYCRYING = 0x8001311,
-    AUDIO_CONTEXT_EVENT_DOGBARKING = 0x8001312,
-    AUDIO_CONTEXT_EVENT_DOORBELL = 0x8001313,
-    AUDIO_CONTEXT_EVENT_DOORCLOSE = 0x8001314,
-    AUDIO_CONTEXT_EVENT_DOOROPEN = 0x8001315,
-    AUDIO_CONTEXT_EVENT_GLASSBREAKING = 0x8001316,
-    AUDIO_CONTEXT_EVENT_SIREN = 0x8001317,
-    AUDIO_CONTEXT_AMBIENCE_SPEECH = 0x8001318,
-    AUDIO_CONTEXT_AMBIENCE_MUSIC = 0x8001319,
-    AUDIO_CONTEXT_AMBIENCE_NOISY_SPL = 0x800131a,
-    AUDIO_CONTEXT_AMBIENCE_SILENT_SPL = 0x800131b,
-    AUDIO_CONTEXT_AMBIENCE_NOISY_SFLUX = 0x800131c,
-    AUDIO_CONTEXT_AMBIENCE_SILENT_SFLUX = 0x800131d,
-    AUDIO_CONTEXT_MAX
-} AUDIO_CONTEXT_ENUM;
-
-typedef enum {
     AUDIO_CONTEXT_EVENT_STOPPED,
     AUDIO_CONTEXT_EVENT_STARTED,
     AUDIO_CONTEXT_EVENT_DETECTED
@@ -234,12 +211,12 @@ struct __attribute__((__packed__)) acd_context_event {
 struct __attribute__((__packed__)) st_user_levels
 {
     uint32_t user_id;
-    uint32_t level;
+    uint8_t level;
 };
 
 struct __attribute__((__packed__)) st_keyword_levels
 {
-    uint32_t kw_level;
+    uint8_t kw_level;
     uint32_t num_user_levels;
     struct st_user_levels user_levels[ST_MAX_USERS];
 };
@@ -417,6 +394,21 @@ typedef listen_status_enum (*smlib_deleteFromModel_t)
     userId_t          userId,
     listen_model_type *pResultModel
 );
+
+class SoundTriggerUUID {
+ public:
+    SoundTriggerUUID();
+    SoundTriggerUUID & operator=(SoundTriggerUUID &rhs);
+    bool operator<(const SoundTriggerUUID &rhs) const;
+    bool CompareUUID(const struct st_uuid uuid) const;
+    static int StringToUUID(const char* str, SoundTriggerUUID& UUID);
+    uint32_t timeLow;
+    uint16_t timeMid;
+    uint16_t timeHiAndVersion;
+    uint16_t clockSeq;
+    uint8_t  node[6];
+
+};
 
 class SoundModelLib {
  public:

@@ -45,6 +45,7 @@ void SoundTriggerEngineCapi::BufferThreadLoop(
 {
     StreamSoundTrigger *s = nullptr;
     int32_t status = 0;
+    int32_t detection_state = ENGINE_IDLE;
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!capi_engine) {
@@ -78,25 +79,45 @@ void SoundTriggerEngineCapi::BufferThreadLoop(
 
         if (capi_engine->processing_started_) {
             s = dynamic_cast<StreamSoundTrigger *>(capi_engine->stream_handle_);
+            capi_engine->bytes_processed_ = 0;
             if (capi_engine->detection_type_ ==
                 ST_SM_TYPE_KEYWORD_DETECTION) {
                 status = capi_engine->StartKeywordDetection();
-                lck.unlock();
-                if (status || !capi_engine->keyword_detected_)
-                    s->SetEngineDetectionState(KEYWORD_DETECTION_REJECT);
-                else
-                    s->SetEngineDetectionState(KEYWORD_DETECTION_SUCCESS);
-                lck.lock();
+                /*
+                 * StreamSoundTrigger may call stop recognition to second stage
+                 * engines when one of the second stage engine reject detection.
+                 * So check processing_started_ before notify stream in case
+                 * stream has already stopped recognition.
+                 */
+                if (capi_engine->processing_started_) {
+                    if (status)
+                        detection_state = KEYWORD_DETECTION_REJECT;
+                    else
+                        detection_state = capi_engine->detection_state_;
+                    lck.unlock();
+                    s->SetEngineDetectionState(detection_state);
+                    lck.lock();
+                }
             } else if (capi_engine->detection_type_ ==
                 ST_SM_TYPE_USER_VERIFICATION) {
                 status = capi_engine->StartUserVerification();
-                lck.unlock();
-                if (status || !capi_engine->keyword_detected_)
-                    s->SetEngineDetectionState(USER_VERIFICATION_REJECT);
-                else
-                    s->SetEngineDetectionState(USER_VERIFICATION_SUCCESS);
-                lck.lock();
+                /*
+                 * StreamSoundTrigger may call stop recognition to second stage
+                 * engines when one of the second stage engine reject detection.
+                 * So check processing_started_ before notify stream in case
+                 * stream has already stopped recognition.
+                 */
+                if (capi_engine->processing_started_) {
+                    if (status)
+                        detection_state = USER_VERIFICATION_REJECT;
+                    else
+                        detection_state = capi_engine->detection_state_;
+                    lck.unlock();
+                    s->SetEngineDetectionState(detection_state);
+                    lck.lock();
+                }
             }
+            capi_engine->detection_state_ = ENGINE_IDLE;
             capi_engine->keyword_detected_ = false;
             capi_engine->processing_started_ = false;
         }
@@ -119,6 +140,13 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
     size_t lab_buffer_size = 0;
     bool first_buffer_processed = false;
     FILE *keyword_detection_fd = nullptr;
+    ChronoSteadyClock_t process_start;
+    ChronoSteadyClock_t process_end;
+    ChronoSteadyClock_t capi_call_start;
+    ChronoSteadyClock_t capi_call_end;
+    uint64_t process_duration = 0;
+    uint64_t total_capi_process_duration = 0;
+    uint64_t total_capi_get_param_duration = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!reader_) {
@@ -192,8 +220,7 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
         goto exit;
     }
 
-    bytes_processed_ = 0;
-
+    process_start = std::chrono::steady_clock::now();
     while (!exit_buffering_ &&
         (bytes_processed_ < buffer_end_ - buffer_start_)) {
         /* Original code had some time of wait will need to revisit*/
@@ -228,10 +255,13 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
         }
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi Process");
-
+        capi_call_start = std::chrono::steady_clock::now();
         rc = capi_handle_->vtbl_ptr->process(capi_handle_,
             &stream_input, nullptr);
-
+        capi_call_end = std::chrono::steady_clock::now();
+        total_capi_process_duration +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                capi_call_end - capi_call_start).count();
         if (CAPI_V2_EFAILED == rc) {
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "capi process failed, status %d", status);
@@ -245,10 +275,13 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
         capi_result.max_data_len = sizeof(sva_result_t);
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi get param for status");
-
+        capi_call_start = std::chrono::steady_clock::now();
         rc = capi_handle_->vtbl_ptr->get_param(capi_handle_,
             SVA_ID_RESULT, nullptr, &capi_result);
-
+        capi_call_end = std::chrono::steady_clock::now();
+        total_capi_get_param_duration +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                capi_call_end - capi_call_start).count();
         if (CAPI_V2_EFAILED == rc) {
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "capi get param failed, status %d", status);
@@ -257,13 +290,16 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
 
         if (result_cfg_ptr->is_detected) {
             exit_buffering_ = true;
-            keyword_detected_ = true;
-            start_idx = (result_cfg_ptr->start_position * CNN_FRAME_SIZE) +
-                buffer_start_;
-            end_idx = (result_cfg_ptr->end_position * CNN_FRAME_SIZE) +
-                buffer_start_;
+            detection_state_ = KEYWORD_DETECTION_SUCCESS;
+            __builtin_add_overflow(result_cfg_ptr->start_position * CNN_FRAME_SIZE,
+                                   buffer_start_, &start_idx);
+            __builtin_add_overflow(result_cfg_ptr->end_position * CNN_FRAME_SIZE,
+                                   buffer_start_, &end_idx);
             PAL_INFO(LOG_TAG, "KW Second Stage Detected, start index %zu, end index %zu",
                 start_idx, end_idx);
+        } else if (bytes_processed_ >= buffer_end_ - buffer_start_) {
+            detection_state_ = KEYWORD_DETECTION_REJECT;
+            PAL_INFO(LOG_TAG, "KW Second Stage rejected");
         }
         det_conf_score_ = result_cfg_ptr->best_confidence;
         PAL_INFO(LOG_TAG, "KW second stage conf level %d", det_conf_score_);
@@ -275,6 +311,14 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
     }
 
 exit:
+    process_end = std::chrono::steady_clock::now();
+    process_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        process_end - process_start).count();
+    PAL_INFO(LOG_TAG, "KW processing time: Bytes processed %u, Total processing "
+        "time %llums, Algo process time %llums, get result time %llums",
+        bytes_processed_, (long long)process_duration,
+        (long long)total_capi_process_duration,
+        (long long)total_capi_get_param_duration);
     if (st_info_->GetEnableDebugDumps()) {
         ST_DBG_FILE_CLOSE(keyword_detection_fd);
     }
@@ -304,14 +348,21 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
     capi_v2_err_t rc = CAPI_V2_EOK;
     capi_v2_stream_data_t *stream_input = nullptr;
     capi_v2_buf_t capi_uv_ptr;
-    voiceprint2_result_t *result_cfg_ptr = nullptr;
-    voiceprint2_sva_uv_score_t *uv_cfg_ptr = nullptr;
+    stage2_uv_wrapper_result *result_cfg_ptr = nullptr;
+    stage2_uv_wrapper_stage1_uv_score_t *uv_cfg_ptr = nullptr;
     int32_t read_size = 0;
     capi_v2_buf_t capi_result;
     bool buffer_advanced = false;
     StreamSoundTrigger *str = nullptr;
     struct detection_event_info *info = nullptr;
     FILE *user_verification_fd = nullptr;
+    ChronoSteadyClock_t process_start;
+    ChronoSteadyClock_t process_end;
+    ChronoSteadyClock_t capi_call_start;
+    ChronoSteadyClock_t capi_call_end;
+    uint64_t process_duration = 0;
+    uint64_t total_capi_process_duration = 0;
+    uint64_t total_capi_get_param_duration = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!reader_) {
@@ -319,15 +370,6 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
         PAL_ERR(LOG_TAG, "Invalid ring buffer reader");
         goto exit;
     }
-
-    str = dynamic_cast<StreamSoundTrigger *>(stream_handle_);
-    info = str->GetDetectionEventInfo();
-    if (!info) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Failed to get detection event info");
-        goto exit;;
-    }
-    confidence_score_ = info->confidence_levels[1];
 
     reader_->getIndices(&buffer_start_, &buffer_end_);
     if (buffer_start_ >= buffer_end_) {
@@ -379,36 +421,47 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
         goto exit;
     }
 
-    result_cfg_ptr = (voiceprint2_result_t*)
-                     calloc(1, sizeof(voiceprint2_result_t));
+    result_cfg_ptr = (stage2_uv_wrapper_result*)
+                     calloc(1, sizeof(stage2_uv_wrapper_result));
     if (!result_cfg_ptr) {
         PAL_ERR(LOG_TAG, "failed to allocate result cfg ptr");
         status = -ENOMEM;
         goto exit;
     }
 
-    uv_cfg_ptr = (voiceprint2_sva_uv_score_t *)
-                 calloc(1, sizeof(voiceprint2_sva_uv_score_t));
+    uv_cfg_ptr = (stage2_uv_wrapper_stage1_uv_score_t *)
+                 calloc(1, sizeof(stage2_uv_wrapper_stage1_uv_score_t));
     if (!uv_cfg_ptr) {
         PAL_ERR(LOG_TAG, "failed to allocate uv cfg ptr");
         status = -ENOMEM;
         goto exit;
     }
 
-    uv_cfg_ptr->sva_uv_confidence_score = confidence_score_;
-    capi_uv_ptr.data_ptr = (int8_t *)uv_cfg_ptr;
-    capi_uv_ptr.actual_data_len = sizeof(voiceprint2_sva_uv_score_t);
-    capi_uv_ptr.max_data_len = sizeof(voiceprint2_sva_uv_score_t);
+    str = dynamic_cast<StreamSoundTrigger *>(stream_handle_);
+    if (str->GetModelType() == ST_MODULE_TYPE_GMM) {
+        info = str->GetDetectionEventInfo();
+        if (!info) {
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "Failed to get detection event info");
+            goto exit;
+        }
+        confidence_score_ = info->confidence_levels[1];
 
-    PAL_VERBOSE(LOG_TAG, "Issuing capi_set_param for param %d",
-                VOICEPRINT2_ID_SVA_UV_SCORE);
-    rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
-        VOICEPRINT2_ID_SVA_UV_SCORE, nullptr, &capi_uv_ptr);
-    if (CAPI_V2_EOK != rc) {
-        PAL_ERR(LOG_TAG, "set param VOICEPRINT2_ID_SVA_UV_SCORE failed with %d",
-                rc);
-        status = -EINVAL;
-        goto exit;
+        uv_cfg_ptr->stage1_uv_score = confidence_score_;
+        capi_uv_ptr.data_ptr = (int8_t *)uv_cfg_ptr;
+        capi_uv_ptr.actual_data_len = sizeof(stage2_uv_wrapper_stage1_uv_score_t);
+        capi_uv_ptr.max_data_len = sizeof(stage2_uv_wrapper_stage1_uv_score_t);
+
+        PAL_VERBOSE(LOG_TAG, "Issuing capi_set_param for param %d",
+                    STAGE2_UV_WRAPPER_ID_SVA_UV_SCORE);
+        rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
+            STAGE2_UV_WRAPPER_ID_SVA_UV_SCORE, nullptr, &capi_uv_ptr);
+        if (CAPI_V2_EOK != rc) {
+            PAL_ERR(LOG_TAG, "set param STAGE2_UV_WRAPPER_ID_SVA_UV_SCORE failed with %d",
+                    rc);
+            status = -EINVAL;
+            goto exit;
+        }
     }
 
     if (kw_end_timestamp_ > 0)
@@ -417,8 +470,7 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
     if (kw_start_timestamp_ > 0)
         buffer_start_ = UsToBytes(kw_start_timestamp_);
 
-    bytes_processed_ = 0;
-
+    process_start = std::chrono::steady_clock::now();
     while (!exit_buffering_ &&
         (bytes_processed_ < buffer_end_ - buffer_start_)) {
         /* Original code had some time of wait will need to revisit*/
@@ -452,10 +504,13 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
         }
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi Process\n");
-
+        capi_call_start = std::chrono::steady_clock::now();
         rc = capi_handle_->vtbl_ptr->process(capi_handle_,
             &stream_input, nullptr);
-
+        capi_call_end = std::chrono::steady_clock::now();
+        total_capi_process_duration +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                capi_call_end - capi_call_start).count();
         if (CAPI_V2_EFAILED == rc) {
             PAL_ERR(LOG_TAG, "capi process failed\n");
             status = -EINVAL;
@@ -465,14 +520,17 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
         bytes_processed_ += read_size;
 
         capi_result.data_ptr = (int8_t*)result_cfg_ptr;
-        capi_result.actual_data_len = sizeof(voiceprint2_result_t);
-        capi_result.max_data_len = sizeof(voiceprint2_result_t);
+        capi_result.actual_data_len = sizeof(stage2_uv_wrapper_result);
+        capi_result.max_data_len = sizeof(stage2_uv_wrapper_result);
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi get param for result\n");
-
+        capi_call_start = std::chrono::steady_clock::now();
         rc = capi_handle_->vtbl_ptr->get_param(capi_handle_,
-            VOICEPRINT2_ID_RESULT, nullptr, &capi_result);
-
+            STAGE2_UV_WRAPPER_ID_RESULT, nullptr, &capi_result);
+        capi_call_end = std::chrono::steady_clock::now();
+        total_capi_get_param_duration +=
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                capi_call_end - capi_call_start).count();
         if (CAPI_V2_EFAILED == rc) {
             PAL_ERR(LOG_TAG, "capi get param failed\n");
             status = -EINVAL;
@@ -481,13 +539,25 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
 
         if (result_cfg_ptr->is_detected) {
             exit_buffering_ = true;
-            keyword_detected_ = true;
-            PAL_INFO(LOG_TAG, "KW Second Stage Detected");
+            detection_state_ = USER_VERIFICATION_SUCCESS;
+            PAL_INFO(LOG_TAG, "UV Second Stage Detected");
+        } else if (bytes_processed_ >= buffer_end_ - buffer_start_) {
+            detection_state_ = USER_VERIFICATION_REJECT;
+            PAL_INFO(LOG_TAG, "UV Second Stage Rejected");
         }
-        det_conf_score_ = (int32_t)result_cfg_ptr->combined_user_score;
+        det_conf_score_ = (int32_t)result_cfg_ptr->final_user_score;
+        PAL_INFO(LOG_TAG, "UV second stage conf level %d", det_conf_score_);
     }
 
 exit:
+    process_end = std::chrono::steady_clock::now();
+    process_duration = std::chrono::duration_cast<std::chrono::milliseconds>(
+        process_end - process_start).count();
+    PAL_INFO(LOG_TAG, "UV processing time: Bytes processed %u, Total processing "
+        "time %llums, Algo process time %llums, get result time %llums",
+        bytes_processed_, (long long)process_duration,
+        (long long)total_capi_process_duration,
+        (long long)total_capi_get_param_duration);
     if (st_info_->GetEnableDebugDumps()) {
         ST_DBG_FILE_CLOSE(user_verification_fd);
     }
@@ -523,7 +593,6 @@ SoundTriggerEngineCapi::SoundTriggerEngineCapi(
     engine_type_ = type;
     sm_cfg_ = sm_cfg;
     processing_started_ = false;
-    keyword_detected_ = false;
     sm_data_ = nullptr;
     exit_thread_ = false;
     exit_buffering_ = false;
@@ -537,6 +606,10 @@ SoundTriggerEngineCapi::SoundTriggerEngineCapi(
     buffer_ = nullptr;
     stream_handle_ = s;
     confidence_threshold_ = 0;
+    detection_state_ = ENGINE_IDLE;
+    capi_handle_ = nullptr;
+    capi_lib_handle_ = nullptr;
+    capi_init_ = nullptr;
 
     st_info_ = SoundTriggerPlatformInfo::GetInstance();
     if (!st_info_) {
@@ -567,7 +640,7 @@ SoundTriggerEngineCapi::SoundTriggerEngineCapi(
             sizeof(capi_v2_t) + sizeof(char *));
     } else if (detection_type_ == ST_SM_TYPE_USER_VERIFICATION) {
         capi_handle_ = (capi_v2_t *)calloc(1,
-            sizeof(capi_v2_t) + (3 * sizeof(char *)));
+            sizeof(capi_v2_t) + (2 * sizeof(char *)));
     }
 
     if (!capi_handle_) {
@@ -688,19 +761,20 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
                 free(threshold_cfg);
             return status;
         }
+        detection_state_ = KEYWORD_DETECTION_PENDING;
     } else if (detection_type_ == ST_SM_TYPE_USER_VERIFICATION) {
-        voiceprint2_threshold_config_t *threshold_cfg = nullptr;
+        stage2_uv_wrapper_threshold_config_t *threshold_cfg = nullptr;
         rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
-            VOICEPRINT2_ID_REINIT, nullptr, nullptr);
+            STAGE2_UV_WRAPPER_ID_REINIT, nullptr, nullptr);
         if (CAPI_V2_EOK != rc) {
             status = -EINVAL;
-            PAL_ERR(LOG_TAG, "set_param VOICEPRINT2_ID_REINIT failed, status = %d",
+            PAL_ERR(LOG_TAG, "set_param STAGE2_UV_WRAPPER_ID_REINIT failed, status = %d",
                     status);
             return status;
         }
 
-        threshold_cfg = (voiceprint2_threshold_config_t *)
-            calloc(1, sizeof(voiceprint2_threshold_config_t));
+        threshold_cfg = (stage2_uv_wrapper_threshold_config_t *)
+            calloc(1, sizeof(stage2_uv_wrapper_threshold_config_t));
         if (!threshold_cfg) {
             PAL_ERR(LOG_TAG, "failed to allocate threshold cfg");
             status = -ENOMEM;
@@ -708,32 +782,27 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
         }
 
         capi_buf.data_ptr = (int8_t *)threshold_cfg;
-        capi_buf.actual_data_len = sizeof(voiceprint2_threshold_config_t);
-        capi_buf.max_data_len = sizeof(voiceprint2_threshold_config_t);
-        threshold_cfg->user_verification_threshold = confidence_threshold_;
-        PAL_DBG(LOG_TAG, "Keyword detection (VOP) confidence level = %f",
-                threshold_cfg->user_verification_threshold);
+        capi_buf.actual_data_len = sizeof(stage2_uv_wrapper_threshold_config_t);
+        capi_buf.max_data_len = sizeof(stage2_uv_wrapper_threshold_config_t);
+        threshold_cfg->threshold = confidence_threshold_;
+        threshold_cfg->anti_spoofing_enabled = 0;
+        threshold_cfg->anti_spoofing_threshold = 0;
+
+        PAL_DBG(LOG_TAG, "Keyword detection (UV) confidence level = %d",
+                threshold_cfg->threshold);
 
         rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
-            VOICEPRINT2_ID_THRESHOLD_CONFIG, nullptr, &capi_buf);
+            STAGE2_UV_WRAPPER_ID_THRESHOLD, nullptr, &capi_buf);
 
         if (CAPI_V2_EOK != rc) {
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "set param %d failed with %d",
-                    VOICEPRINT2_ID_THRESHOLD_CONFIG, rc);
+                    STAGE2_UV_WRAPPER_ID_THRESHOLD, rc);
             if (threshold_cfg)
                 free(threshold_cfg);
             return status;
         }
-    }
-
-    buffer_thread_handler_ =
-        std::thread(SoundTriggerEngineCapi::BufferThreadLoop, this);
-
-    if (!buffer_thread_handler_.joinable()) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "failed to create buffer thread = %d", status);
-        return status;
+        detection_state_ =  USER_VERIFICATION_PENDING;
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -755,6 +824,7 @@ int32_t SoundTriggerEngineCapi::StopSoundEngine()
         cv_.notify_one();
     }
     if (buffer_thread_handler_.joinable()) {
+        PAL_DBG(LOG_TAG, "Thread joined");
         buffer_thread_handler_.join();
     }
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -769,6 +839,7 @@ int32_t SoundTriggerEngineCapi::LoadSoundModel(Stream *s __unused,
     capi_v2_err_t rc = CAPI_V2_EOK;
     capi_v2_proplist_t init_set_proplist;
     capi_v2_prop_t sm_prop_ptr;
+    capi_v2_buf_t capi_uv_ptr;
 
     PAL_DBG(LOG_TAG, "Enter");
     std::lock_guard<std::mutex> lck(mutex_);
@@ -787,6 +858,10 @@ int32_t SoundTriggerEngineCapi::LoadSoundModel(Stream *s __unused,
     sm_prop_ptr.payload.max_data_len = sm_data_size_;
     init_set_proplist.props_num = 1;
     init_set_proplist.prop_ptr = &sm_prop_ptr;
+
+    memset(&capi_uv_ptr, 0, sizeof(capi_uv_ptr));
+    memset(&in_model_buffer_param_, 0, sizeof(in_model_buffer_param_));
+    memset(&scratch_param_, 0, sizeof(scratch_param_));
 
     PAL_VERBOSE(LOG_TAG, "Issuing capi_init");
     rc = capi_init_(capi_handle_, &init_set_proplist);
@@ -811,6 +886,76 @@ int32_t SoundTriggerEngineCapi::LoadSoundModel(Stream *s __unused,
         goto exit;
     }
 
+    buffer_thread_handler_ =
+        std::thread(SoundTriggerEngineCapi::BufferThreadLoop, this);
+
+    if (!buffer_thread_handler_.joinable()) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "failed to create buffer thread = %d", status);
+        goto exit;
+    }
+
+    if (detection_type_ == ST_SM_TYPE_USER_VERIFICATION) {
+        PAL_VERBOSE(LOG_TAG, "Issuing capi_get STAGE2_UV_WRAPPER_ID_INMODEL_BUFFER_SIZE");
+
+        capi_uv_ptr.data_ptr = (int8_t *)&in_model_buffer_param_;
+        capi_uv_ptr.actual_data_len = sizeof(in_model_buffer_param_);
+        capi_uv_ptr.max_data_len = sizeof(in_model_buffer_param_);
+
+        rc = capi_handle_->vtbl_ptr->get_param(capi_handle_,
+                           STAGE2_UV_WRAPPER_ID_INMODEL_BUFFER_SIZE,
+                           NULL,
+                           &capi_uv_ptr);
+
+        if (CAPI_V2_EFAILED == rc) {
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "capi_get STAGE2_UV_WRAPPER_ID_INMODEL_BUFFER_SIZE param failed, %d",
+                    rc);
+            goto exit;
+        }
+
+        if (in_model_buffer_param_.scratch_size == 0) {
+            capi_uv_ptr.data_ptr = (int8_t *)&scratch_param_;
+            capi_uv_ptr.actual_data_len = sizeof(scratch_param_);
+            capi_uv_ptr.max_data_len = sizeof(scratch_param_);
+
+            PAL_VERBOSE(LOG_TAG, "Issuing capi_get STAGE2_UV_WRAPPER_ID_SCRATCH_PARAM");
+            rc = capi_handle_->vtbl_ptr->get_param(capi_handle_,
+                               STAGE2_UV_WRAPPER_ID_SCRATCH_PARAM,
+                               NULL,
+                               &capi_uv_ptr);
+
+            if (CAPI_V2_EFAILED == rc) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "capi get param STAGE2_UV_WRAPPER_ID_SCRATCH_PARAM failed, %d",
+                        rc);
+                goto exit;
+            }
+
+            capi_uv_ptr.data_ptr = (int8_t *)&scratch_param_;
+            capi_uv_ptr.actual_data_len = sizeof(scratch_param_);
+            capi_uv_ptr.max_data_len = sizeof(scratch_param_);
+            scratch_param_.scratch_ptr = (int8_t *)calloc(1, scratch_param_.scratch_size);
+
+            if (scratch_param_.scratch_ptr == NULL) {
+                PAL_ERR(LOG_TAG, "failed to allocate the scratch memory");
+                return -ENOMEM;
+            }
+
+            PAL_VERBOSE(LOG_TAG, "Issuing capi_set STAGE2_UV_WRAPPER_ID_SCRATCH_PARAM");
+            rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
+                               STAGE2_UV_WRAPPER_ID_SCRATCH_PARAM,
+                               NULL,
+                               &capi_uv_ptr);
+
+            if (CAPI_V2_EFAILED == rc) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "capi set param STAGE2_UV_WRAPPER_ID_SCRATCH_PARAM failed, status %d", status);
+                free(scratch_param_.scratch_ptr);
+                scratch_param_.scratch_ptr = NULL;
+            }
+        }
+    }
 exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
@@ -823,13 +968,25 @@ int32_t SoundTriggerEngineCapi::UnloadSoundModel(Stream *s __unused)
 
     PAL_DBG(LOG_TAG, "Enter, Issuing capi_end");
     std::lock_guard<std::mutex> lck(mutex_);
+    status = StopSoundEngine();
+    if (status) {
+        PAL_ERR(LOG_TAG, "Failed to stop sound engine, status = %d", status);
+    }
+
     status = capi_handle_->vtbl_ptr->end(capi_handle_);
     if (status != CAPI_V2_EOK) {
         PAL_ERR(LOG_TAG, "Capi end function failed, status = %d",
             status);
         status = -EINVAL;
+        goto exit;
     }
 
+exit:
+    if (scratch_param_.scratch_ptr) {
+        free(scratch_param_.scratch_ptr);
+        scratch_param_.scratch_ptr = NULL;
+    }
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
 
@@ -884,11 +1041,6 @@ int32_t SoundTriggerEngineCapi::StopRecognition(Stream *s __unused)
         reader_->reset();
     } else {
         status = -EINVAL;
-        goto exit;
-    }
-    status = StopSoundEngine();
-    if (status) {
-        PAL_ERR(LOG_TAG, "Failed to stop sound engine, status = %d", status);
         goto exit;
     }
 

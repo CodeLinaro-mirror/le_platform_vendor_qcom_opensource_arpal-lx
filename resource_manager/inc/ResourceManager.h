@@ -47,15 +47,26 @@
 #include "PalDefs.h"
 #include "SndCardMonitor.h"
 #include "SoundTriggerPlatformInfo.h"
-#define RXLOOPBACK 0
-#define TXLOOPBACK 1
+#include "ACDPlatformInfo.h"
+#include "ContextManager.h"
+
+typedef enum {
+    RX_HOSTLESS = 1,
+    TX_HOSTLESS,
+} hostless_dir_t;
+
 #define audio_mixer mixer
 
+#define VENDOR_CONFIG_PATH_MAX_LENGTH 128
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO "audio.nat.codec.enabled"
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
 #define AUDIO_PARAMETER_KEY_MAX_SESSIONS "max_sessions"
 #define AUDIO_PARAMETER_KEY_MAX_NT_SESSIONS "max_nonTunnel_sessions"
 #define AUDIO_PARAMETER_KEY_LOG_LEVEL "logging_level"
+#define AUDIO_PARAMETER_KEY_CONTEXT_MANAGER_ENABLE "context_manager_enable"
+#define AUDIO_PARAMETER_KEY_HIFI_FILTER "hifi_filter"
+#define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
+#define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #if LINUX_ENABLED
@@ -65,7 +76,11 @@
 #define ADM_LIBRARY_PATH "/usr/lib/libadm.so"
 #endif
 #else
+#ifdef __LP64__
+#define ADM_LIBRARY_PATH "/vendor/lib64/libadm.so"
+#else
 #define ADM_LIBRARY_PATH "/vendor/lib/libadm.so"
+#endif
 #endif
 
 using InstanceListNode_t = std::vector<std::pair<int32_t, bool>> ;
@@ -87,8 +102,6 @@ typedef enum {
     TAG_IN_DEVICE,
     TAG_OUT_DEVICE,
     TAG_USECASE,
-    TAG_DEVICEPP,
-    TAG_KVPAIR,
     TAG_CONFIG_VOICE,
     TAG_CONFIG_MODE_MAP,
     TAG_CONFIG_MODE_PAIR,
@@ -98,6 +111,7 @@ typedef enum {
     TAG_INSTREAM,
     TAG_POLICIES,
     TAG_ECREF,
+    TAG_CUSTOMCONFIG,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -105,7 +119,18 @@ typedef enum {
     COMPRESS,
     VOICE1,
     VOICE2,
+    ExtEC,
 } stream_supported_type;
+
+typedef enum {
+    ST_PAUSE = 1,
+    ST_RESUME,
+    ST_ENABLE_LPI,
+    ST_HANDLE_CONCURRENT_STREAM,
+    ST_HANDLE_CONNECT_DEVICE,
+    ST_HANDLE_DISCONNECT_DEVICE,
+    ST_HANDLE_CHARGING_STATE,
+} st_action;
 
 struct xml_userdata {
     char data_buf[1024];
@@ -119,13 +144,16 @@ struct xml_userdata {
     bool gain_lvl_parsed;
     snd_card_defs_xml_tags_t current_tag;
     bool is_parsing_sound_trigger;
+    bool is_parsing_acd;
     resource_xml_tags_t tag;
+    bool inCustomConfig;
 };
 
 typedef enum {
     DEFAULT = 0,
     HOSTLESS,
     NON_TUNNEL,
+    NO_CONFIG,
 } sess_mode_t;
 
 struct deviceCap {
@@ -137,35 +165,38 @@ struct deviceCap {
     sess_mode_t sess_mode;
 };
 
-struct kvpair_info {
-    unsigned int key;
-    unsigned int value;
-};
-
 typedef enum {
     SIDETONE_OFF,
     SIDETONE_HW,
     SIDETONE_SW,
 } sidetone_mode_t;
 
-struct usecase_info {
-    int type;
-    std::vector<kvpair_info> kvpair;
+
+struct usecase_custom_config_info
+{
+    std::string key;
+    std::string sndDevName;
+    int channel;
     sidetone_mode_t sidetoneMode;
+    int samplerate;
 };
 
-struct deviceIn {
-    int deviceId;
-    int max_channel;
+struct usecase_info {
+    int type;
+    int samplerate;
+    sidetone_mode_t sidetoneMode;
+    std::string sndDevName;
     int channel;
-    std::vector<usecase_info> usecase;
-    std::vector<pal_device_id_t> rx_dev_ids;
+    std::vector<usecase_custom_config_info> config;
+
 };
 
 struct pal_device_info {
      int channels;
      int max_channels;
-     std::vector<kvpair_info> kvpair;
+     int samplerate;
+     std::string sndDevName;
+     bool isExternalECRefEnabledFlag;
 };
 
 struct vsid_modepair {
@@ -199,7 +230,19 @@ struct nativeAudioProp {
 };
 
 typedef void (*session_callback)(uint64_t hdl, uint32_t event_id, void *event_data,
-                                   uint32_t event_size);
+                uint32_t event_size);
+bool isPalPCMFormat(uint32_t fmt_id);
+
+/*This table gets bit_width only Hence we have 24
+ *as the bitwidth for 24_LE, dont use this to get bits_per_sample,
+ *because in case of 24_LE that would be 32*/
+const uint32_t palFormatToBitwidthTable[] = {
+    [PAL_AUDIO_FMT_PCM_S8] = 8,
+    [PAL_AUDIO_FMT_PCM_S16_LE] = 16,
+    [PAL_AUDIO_FMT_PCM_S24_3LE] = 24,
+    [PAL_AUDIO_FMT_PCM_S24_LE] = 24,
+    [PAL_AUDIO_FMT_PCM_S32_LE] = 32,
+};
 
 typedef void* (*adm_init_t)();
 typedef void (*adm_deinit_t)(void *);
@@ -219,10 +262,38 @@ class Stream;
 class StreamPCM;
 class StreamCompress;
 class StreamSoundTrigger;
+class StreamACD;
 class StreamInCall;
 class StreamNonTunnel;
 class SoundTriggerEngine;
 class SndCardMonitor;
+class StreamUltraSound;
+class ContextManager;
+class StreamSensorPCMData;
+
+struct deviceIn {
+    int deviceId;
+    int max_channel;
+    int channel;
+    int samplerate;
+    std::vector<usecase_info> usecase;
+    // dev ids supporting ec ref
+    std::vector<pal_device_id_t> rx_dev_ids;
+    /*
+     * map dynamically maintain ec ref count, key for this map
+     * is rx device id, which is present in rx_dev_ids, and value
+     * for this map is a vector of all active tx streams using
+     * this rx device as ec ref. For each Tx stream, we have a
+     * EC ref count, indicating number of Rx streams which uses
+     * this rx device as output device and also not disabled stream
+     * type to the Tx stream. E.g., for SVA and Recording stream,
+     * LL playback with speaker may only count for Recording stream
+     * when ll barge-in is not enabled.
+     */
+    std::map<int, std::vector<std::pair<Stream *, int>>> ec_ref_count_map;
+    std::string sndDevName;
+    bool isExternalECRefEnabled;
+};
 
 class ResourceManager
 {
@@ -268,6 +339,9 @@ private:
     int32_t streamDevDisconnect(std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnectList);
     int32_t streamDevConnect(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList);
     void ssrHandlingLoop(std::shared_ptr<ResourceManager> rm);
+    int updateECDeviceMap(std::shared_ptr<Device> rx_dev,
+                        std::shared_ptr<Device> tx_dev,
+                        Stream *tx_str, int count, bool is_txstop);
 
 protected:
     std::vector <Stream*> mActiveStreams;
@@ -278,11 +352,15 @@ protected:
     std::vector <StreamPCM*> active_streams_po;
     std::vector <StreamPCM*> active_streams_proxy;
     std::vector <StreamPCM*> active_streams_haptics;
+    std::vector <StreamPCM*> active_streams_raw;
     std::vector <StreamInCall*> active_streams_incall_record;
     std::vector <StreamNonTunnel*> active_streams_non_tunnel;
     std::vector <StreamInCall*> active_streams_incall_music;
     std::vector <StreamCompress*> active_streams_comp;
     std::vector <StreamSoundTrigger*> active_streams_st;
+    std::vector <StreamACD*> active_streams_acd;
+    std::vector <StreamUltraSound*> active_streams_ultrasound;
+    std::vector <StreamSensorPCMData*> active_streams_sensor_pcm_data;
     std::vector <SoundTriggerEngine*> active_engines_st;
     std::vector <std::pair<std::shared_ptr<Device>, Stream*>> active_devices;
     std::vector <std::shared_ptr<Device>> plugin_devices_;
@@ -293,6 +371,7 @@ protected:
     pal_speaker_rotation_type rotation_type_;
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
+    static std::mutex mActiveStreamMutex;
     static int snd_card;
     static std::shared_ptr<ResourceManager> rm;
     static struct audio_route* audio_route;
@@ -307,9 +386,9 @@ protected:
     static std::vector<int> listAllFrontEndIds;
     static std::vector<int> listAllPcmPlaybackFrontEnds;
     static std::vector<int> listAllPcmRecordFrontEnds;
-    static std::vector<int> listAllPcmLoopbackRxFrontEnds;
+    static std::vector<int> listAllPcmHostlessRxFrontEnds;
     static std::vector<int> listAllNonTunnelSessionIds;
-    static std::vector<int> listAllPcmLoopbackTxFrontEnds;
+    static std::vector<int> listAllPcmHostlessTxFrontEnds;
     static std::vector<int> listAllCompressPlaybackFrontEnds;
     static std::vector<int> listAllCompressRecordFrontEnds;
     static std::vector<int> listFreeFrontEndIds;
@@ -317,8 +396,10 @@ protected:
     static std::vector<int> listAllPcmVoice1TxFrontEnds;
     static std::vector<int> listAllPcmVoice2RxFrontEnds;
     static std::vector<int> listAllPcmVoice2TxFrontEnds;
+    static std::vector<int> listAllPcmExtEcTxFrontEnds;
     static std::vector<int> listAllPcmInCallRecordFrontEnds;
     static std::vector<int> listAllPcmInCallMusicFrontEnds;
+    static std::vector<int> listAllPcmContextProxyFrontEnds;
     static std::vector<std::pair<int32_t, std::string>> listAllBackEndIds;
     static std::vector<std::pair<int32_t, std::string>> sndDeviceNameLUT;
     static std::vector<deviceCap> devInfo;
@@ -334,19 +415,25 @@ protected:
     static std::mutex cvMutex;
     static std::queue<card_status_t> msgQ;
     static std::thread workerThread;
-    std::vector<std::pair<int32_t, InstanceListNode_t>> STInstancesLists;
+    std::vector<std::pair<std::string, InstanceListNode_t>> STInstancesLists;
     uint64_t stream_instances[PAL_STREAM_MAX];
     uint64_t in_stream_instances[PAL_STREAM_MAX];
     static int mixerEventRegisterCount;
     static int concurrencyEnableCount;
     static int concurrencyDisableCount;
+    static int ACDConcurrencyEnableCount;
+    static int ACDConcurrencyDisableCount;
+    static int SNSPCMDataConcurrencyEnableCount;
+    static int SNSPCMDataConcurrencyDisableCount;
     static int wake_lock_fd;
     static int wake_unlock_fd;
     static uint32_t wake_lock_cnt;
+    static bool lpi_logging_;
     std::map<int, std::pair<session_callback, uint64_t>> mixerEventCallbackMap;
     static std::thread mixerEventTread;
-    std::shared_ptr<CaptureProfile> SVACaptureProfile;
+    std::shared_ptr<CaptureProfile> SoundTriggerCaptureProfile;
     ResourceManager();
+    ContextManager *ctxMgr;
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -355,9 +442,10 @@ public:
     /* Variable to store whether Speaker protection is enabled or not */
     static bool isSpeakerProtectionEnabled;
     static bool isCpsEnabled;
-    static int bitWidthSupported;
+    static pal_audio_fmt_t bitFormatSupported;
     static bool isRasEnabled;
     static bool isGaplessEnabled;
+    static bool isContextManagerEnabled;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
@@ -370,8 +458,12 @@ public:
     uint32_t num_proxy_channels = 0;
     /* Flag to store the state of VI record */
     static bool isVIRecordStarted;
+    /* Flag to indicate if shared backend is enabled for UPD */
+    static bool isUpdDedicatedBeEnabled;
     uint64_t cookie;
     int initSndMonitor();
+    int initContextManager();
+    void deInitContextManager();
     adm_init_t admInitFn = NULL;
     adm_deinit_t admDeInitFn = NULL;
     adm_register_output_stream_t admRegisterOutputStreamFn = NULL;
@@ -392,8 +484,8 @@ public:
     int32_t getDeviceConfig(struct pal_device *deviceattr,
                             struct pal_stream_attributes *attributes, int32_t channel);
     /*getDeviceInfo - updates channels, fluence info of the device*/
-    void  getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
-                       struct pal_device_info *devinfo);
+    void getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
+                       std::string key, struct pal_device_info *devinfo);
     bool getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_type_t rx_streamtype);
     int32_t getVsidInfo(struct vsid_info  *info);
     void getChannelMap(uint8_t *channel_map, int channels);
@@ -434,6 +526,10 @@ public:
     int setParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
                      pal_stream_type_t pal_stream_type);
+    int rwParameterACDB(uint32_t param_id, void *param_payload,
+                     size_t payload_size, pal_device_id_t pal_device_id,
+                     pal_stream_type_t pal_stream_type, uint32_t sample_rate,
+                     uint32_t instance_id, bool is_param_write, bool is_play);
     int getParameter(uint32_t param_id, void **param_payload,
                      size_t *payload_size, void *query = nullptr);
     int getParameter(uint32_t param_id, void *param_payload,
@@ -445,6 +541,8 @@ public:
     int getAudioMixer(struct audio_mixer **am);
     int getActiveStream(std::shared_ptr<Device> d, std::vector<Stream*> &activestreams);
     int getActiveStream_l(std::shared_ptr<Device> d, std::vector<Stream*> &activestreams);
+    int getOrphanStream(std::vector<Stream*> &orphanstreams);
+    int getOrphanStream_l(std::vector<Stream*> &orphanstreams);
     int getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
     int getSndDeviceName(int deviceId, char *device_name);
     int getDeviceEpName(int deviceId, std::string &epName);
@@ -454,8 +552,11 @@ public:
     int getMixerTag(std::vector <int> &tag);
     int getStreamPpTag(std::vector <int> &tag);
     int getDevicePpTag(std::vector <int> &tag);
+    int getDeviceDirection(uint32_t beDevId);
     const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes,
                                                 int lDirection);
+    const std::vector<int> allocateFrontEndExtEcIds ();
+    void freeFrontEndEcTxIds (const std::vector<int> f);
     void freeFrontEndIds (const std::vector<int> f,
                           const struct pal_stream_attributes,
                           int lDirection);
@@ -469,26 +570,38 @@ public:
     int32_t forceDeviceSwitch(std::shared_ptr<Device> inDev, struct pal_device *newDevAttr);
     const std::string getPALDeviceName(const pal_device_id_t id) const;
     bool isNonALSACodec(const struct pal_device *device) const;
-    bool IsVoiceUILPISupported();
-    bool IsLowLatencyBargeinSupported();
-    bool IsAudioCaptureAndVoiceUIConcurrencySupported();
-    bool IsVoiceCallAndVoiceUIConcurrencySupported();
-    bool IsVoipAndVoiceUIConcurrencySupported();
+    bool isNLPISwitchSupported(pal_stream_type_t type);
+    bool IsLPISupported(pal_stream_type_t type);
+    bool IsLowLatencyBargeinSupported(pal_stream_type_t type);
+    bool IsAudioCaptureConcurrencySupported(pal_stream_type_t type);
+    bool IsVoiceCallConcurrencySupported(pal_stream_type_t type);
+    bool IsVoipConcurrencySupported(pal_stream_type_t type);
     bool IsTransitToNonLPIOnChargingSupported();
-    void GetSVAConcurrencyCount(int32_t *enable_count, int32_t *disable_count);
+    bool IsDedicatedBEForUPDEnabled();
+    void GetSoundTriggerConcurrencyCount(pal_stream_type_t type, int32_t *enable_count, int32_t *disable_count);
     bool GetChargingState() const { return charging_state_; }
     bool CheckForForcedTransitToNonLPI();
     void GetVoiceUIProperties(struct pal_st_properties *qstp);
-    std::shared_ptr<CaptureProfile> GetCaptureProfileByPriority(
-        StreamSoundTrigger *s);
-    bool UpdateSVACaptureProfile(StreamSoundTrigger *s, bool is_active);
-    std::shared_ptr<CaptureProfile> GetSVACaptureProfile();
-    int SwitchSVADevices(bool connect_state, pal_device_id_t device_id);
+    int HandleDetectionStreamAction(pal_stream_type_t type, int32_t action, void *data);
+    void HandleStreamPauseResume(pal_stream_type_t st_type, bool active);
+    std::shared_ptr<CaptureProfile> GetACDCaptureProfileByPriority(
+        StreamACD *s, std::shared_ptr<CaptureProfile> cap_prof_priority);
+    std::shared_ptr<CaptureProfile> GetSVACaptureProfileByPriority(
+        StreamSoundTrigger *s, std::shared_ptr<CaptureProfile> cap_prof_priority);
+    std::shared_ptr<CaptureProfile> GetSPDCaptureProfileByPriority(
+        StreamSensorPCMData *s, std::shared_ptr<CaptureProfile> cap_prof_priority);
+    std::shared_ptr<CaptureProfile> GetCaptureProfileByPriority(Stream *s);
+    bool UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active);
+    std::shared_ptr<CaptureProfile> GetSoundTriggerCaptureProfile();
+    int SwitchSoundTriggerDevices(bool connect_state, pal_device_id_t device_id);
     static void mixerEventWaitThreadLoop(std::shared_ptr<ResourceManager> rm);
     bool isCallbackRegistered() { return (mixerEventRegisterCount > 0); }
     int handleMixerEvent(struct mixer *mixer, char *mixer_str);
-    int StopOtherSVAStreams(StreamSoundTrigger *st);
-    int StartOtherSVAStreams(StreamSoundTrigger *st);
+    int StopOtherDetectionStreams(void *st);
+    int StartOtherDetectionStreams(void *st);
+    void GetConcurrencyInfo(pal_stream_type_t st_type,
+                         pal_stream_type_t in_type, pal_stream_direction_t dir,
+                         bool *rx_conc, bool *tx_conc, bool *conc_en);
     void ConcurrentStreamStatus(pal_stream_type_t type,
                                 pal_stream_direction_t dir,
                                 bool active);
@@ -507,7 +620,6 @@ public:
     static void process_device_info(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_input_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_voice(struct xml_userdata *data, const XML_Char *tag_name);
-    static void process_kvinfo(const XML_Char **attr);
     static void process_voicemode_info(const XML_Char **attr);
     static void process_gain_db_to_level_map(struct xml_userdata *data, const XML_Char **attr);
     static void processCardInfo(struct xml_userdata *data, const XML_Char *tag_name);
@@ -522,11 +634,18 @@ public:
     static int setConfigParams(struct str_parms *parms);
     static int setNativeAudioParams(struct str_parms *parms,char *value, int len);
     static int setLoggingLevelParams(struct str_parms *parms,char *value, int len);
+    static int setContextManagerEnableParam(struct str_parms *parms,char *value, int len);
+    static int setLpiLoggingParams(struct str_parms *parms, char *value, int len);
+    static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
+    static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);
     static bool isOutputDevId(int deviceId);
     static bool isInputDevId(int deviceId);
     static bool matchDevDir(int devId1, int devId2);
+    static int convertCharToHex(std::string num);
+    static pal_stream_type_t getStreamType(std::string stream_name);
+    static pal_device_id_t getDeviceId(std::string device_name);
     bool getScreenState();
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);
@@ -557,6 +676,9 @@ public:
     static void deInitWakeLocks(void);
     void acquireWakeLock();
     void releaseWakeLock();
+    static void process_custom_config(const XML_Char **attr);
+    static void process_usecase();
+    void getVendorConfigPath(char* config_file_path, int path_size);
 };
 
 #endif
