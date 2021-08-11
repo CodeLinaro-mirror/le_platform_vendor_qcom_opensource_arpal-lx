@@ -8206,8 +8206,7 @@ int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
 
     if (!incomingDev || !currentStrAttr) {
         PAL_ERR(LOG_TAG, "invalid dev or stream cannot get device attr");
-        status = -EINVAL;
-        goto exit;
+        return -EINVAL;
     }
 
     /*get the incoming stream dev info*/
@@ -8268,6 +8267,10 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
     char activeSndDeviceName[DEVICE_NAME_MAX_SIZE] = {0};
 
     dev = Device::getInstance(curDevAttr, rm);
+    if (!dev) {
+        PAL_ERR(LOG_TAG, "No device instance found");
+        goto exit;
+    }
     getSndDeviceName(dev->getSndDeviceId(),activeSndDeviceName);
 
     if (inDevAttr->config.sample_rate != curDevAttr->config.sample_rate) {
@@ -8290,5 +8293,7 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
                 activeSndDeviceName);
         ret = true;
     }
+
+exit:
     return ret;
 }
