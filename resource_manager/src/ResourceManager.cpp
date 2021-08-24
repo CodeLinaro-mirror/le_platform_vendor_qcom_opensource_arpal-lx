@@ -298,6 +298,12 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" },        PAL_STREAM_PLAYBACK_REAR_SEAT},
 };
 
+const std::map<std::string, plugin_control_name_t> controlNameMap {
+    {std::string{"PLUGIN_CONTROL_VOLUME"}, PLUGIN_CONTROL_VOLUME},
+    {std::string{"PLUGIN_CONTROL_VOLUME_BOOST"}, PLUGIN_CONTROL_VOLUME_BOOST},
+    {std::string{"PLUGIN_CONTROL_HD_VOICE"}, PLUGIN_CONTROL_HD_VOICE},
+};
+
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
     {std::string{ "OFF" }, SIDETONE_OFF},
     {std::string{ "HW" },  SIDETONE_HW},
@@ -387,6 +393,7 @@ std::vector<tx_ecinfo> ResourceManager::txEcInfo;
 struct vsid_info ResourceManager::vsidInfo;
 std::vector<struct pal_amp_db_and_gain_table> ResourceManager::gainLvlMap;
 std::map<std::pair<uint32_t, std::string>, std::string> ResourceManager::btCodecMap;
+std::vector<control_t> ResourceManager::ControlInfo;
 
 #define MAKE_STRING_FROM_ENUM(string) { {#string}, string }
 std::map<std::string, uint32_t> ResourceManager::btFmtTable = {
@@ -501,6 +508,7 @@ ResourceManager::ResourceManager()
     streamTag.clear();
     deviceTag.clear();
     btCodecMap.clear();
+    ControlInfo.clear();
 
     vsidInfo.loopback_delay = 0;
 
@@ -595,6 +603,7 @@ ResourceManager::~ResourceManager()
     mixerTag.clear();
     devicePpTag.clear();
     deviceTag.clear();
+    ControlInfo.clear();
 
     listAllFrontEndIds.clear();
     listAllPcmPlaybackFrontEnds.clear();
@@ -899,8 +908,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "lahaina")||
                     strstr(snd_card_name, "sa8155")||
                     strstr(snd_card_name, "sa6155")||
-                    strstr(snd_card_name, "gvm-auto"))
-		{
+                    strstr(snd_card_name, "gvmauto")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_mixer = tmp_mixer;
@@ -939,6 +947,10 @@ int ResourceManager::init_audio()
             strlcat(mixer_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
             strlcat(mixer_xml_file, cur_snd_card_split.form_factor, XML_PATH_MAX_LENGTH);
 
+            strlcat(rmngr_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
+            strlcat(rmngr_xml_file, cur_snd_card_split.form_factor, XML_PATH_MAX_LENGTH);
+    } else if (!strncmp(cur_snd_card_split.form_factor, "8155", sizeof ("8155"))||
+               !strncmp(cur_snd_card_split.form_factor, "6155", sizeof ("6155"))) {
             strlcat(rmngr_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
             strlcat(rmngr_xml_file, cur_snd_card_split.form_factor, XML_PATH_MAX_LENGTH);
     }
@@ -1004,135 +1016,6 @@ bool ResourceManager::getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_
     return ecref_status;
 }
 
-void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
-                                         struct pal_device_info *devinfo)
-{
-    struct kvpair_info kv = {};
-
-    for (int32_t size1 = 0; size1 < deviceInfo.size(); size1++) {
-        if (deviceId == deviceInfo[size1].deviceId) {
-            devinfo->channels = deviceInfo[size1].channel;
-            devinfo->max_channels = deviceInfo[size1].max_channel;
-            devinfo->isExternalECRefEnabledFlag = deviceInfo[size1].isExternalECRefEnabled;
-            for (int32_t size2 = 0; size2 < deviceInfo[size1].usecase.size(); size2++) {
-                if (type == deviceInfo[size1].usecase[size2].type) {
-                    /*set kv pairs*/
-                    for (int32_t kvsize = 0;
-                    kvsize < deviceInfo[size1].kvpair.size(); kvsize++) {
-                       kv.key =  deviceInfo[size1].kvpair[kvsize].key;
-                       kv.value =  deviceInfo[size1].kvpair[kvsize].value;
-                       devinfo->kvpair.push_back(kv);
-                    }
-                    if (deviceInfo[size1].usecase[size2].channel) {
-                        PAL_DBG(LOG_TAG, "channels overwitten to %d", deviceInfo[size1].usecase[size2].channel);
-                        devinfo->channels = deviceInfo[size1].usecase[size2].channel;
-                    }
-                    return;
-               }
-            }
-        }
-     }
-}
-
-void ResourceManager::setDeviceInfo(pal_device_id_t deviceId,
-                                    pal_stream_type_t type)
-{
-    bool found = false;
-    struct kvpair_info kv = {};
-
-    for (int32_t i = 0; i < deviceInfo.size(); i++) {
-        if (deviceId == deviceInfo[i].deviceId) {
-            for (int32_t j = 0; j < deviceInfo[i].usecase.size(); j++) {
-                if (type == deviceInfo[i].usecase[j].type) {
-                    /*overwrite the channels if needed*/
-                    if (deviceInfo[i].usecase[j].channel) {
-                        deviceInfo[i].channel = deviceInfo[i].usecase[j].channel;
-                        PAL_DBG(LOG_TAG, "channels overwitten to %d", deviceInfo[i].channel);
-                    }
-                    /*overwrite the kv pairs if needed*/
-                    if (deviceInfo[i].usecase[j].kvpair.size()) {
-                        deviceInfo[i].kvpair.clear();
-                        for (int32_t kvsize = 0; kvsize < deviceInfo[i].usecase[j].kvpair.size(); kvsize++) {
-                              kv.key =  deviceInfo[i].usecase[j].kvpair[kvsize].key;
-                              kv.value =  deviceInfo[i].usecase[j].kvpair[kvsize].value;
-                              PAL_DBG(LOG_TAG, "kv overwitten to key 0X%x value 0X%x", kv.key, kv.value);
-                              deviceInfo[i].kvpair.push_back(kv);
-                        }
-                    }
-
-                    if (!(deviceInfo[i].usecase[j].sndDevName).empty()) {
-                        PAL_DBG(LOG_TAG, "snd device name overwritten %s",
-                                deviceInfo[i].usecase[j].sndDevName.c_str());
-                                updateSndName(deviceId, deviceInfo[i].usecase[j].sndDevName);
-                    }
-                    found = true;
-                    break;
-                }
-            }
-        }
-        if (found) {
-            break;
-        }
-    }
-}
-
-void ResourceManager::setDeviceInfo(pal_device_id_t deviceId,
-                                    pal_stream_type_t type,
-                                    std::string key)
-{
-    struct kvpair_info kv = {};
-    bool found = false;
-
-    for (int32_t i = 0; i < deviceInfo.size(); i++) {
-        if (deviceId == deviceInfo[i].deviceId) {
-            for (int32_t j = 0; j < deviceInfo[i].usecase.size(); j++) {
-                if (type == deviceInfo[i].usecase[j].type) {
-                    for (int32_t k = 0; k < deviceInfo[i].usecase[j].config.size(); k++) {
-                        if (!deviceInfo[i].usecase[j].config[k].key.compare(key)) {
-                            PAL_DBG(LOG_TAG, "found device info to overwrite");
-                            /*overwrite the channels if needed*/
-                            if (deviceInfo[i].usecase[j].config[k].channel) {
-                                deviceInfo[i].channel = deviceInfo[i].usecase[j].config[k].channel;
-                                PAL_DBG(LOG_TAG, "channels overwitten to %d", deviceInfo[i].channel);
-                            }
-                            /*overwrite the kv pairs if needed*/
-                            if (deviceInfo[i].usecase[j].config[k].kvpair.size()) {
-                                deviceInfo[i].kvpair.clear();
-                                for (int32_t kvsize = 0; kvsize < deviceInfo[i].usecase[j].config[k].kvpair.size(); kvsize++) {
-                                    kv.key =  deviceInfo[i].usecase[j].config[k].kvpair[kvsize].key;
-                                    kv.value =  deviceInfo[i].usecase[j].config[k].kvpair[kvsize].value;
-                                    PAL_DBG(LOG_TAG, "kv overwitten to key 0X%x value 0X%x", kv.key, kv.value);
-                                    deviceInfo[i].kvpair.push_back(kv);
-                                }
-                            }
-                            if (!(deviceInfo[i].usecase[j].config[k].sndDevName).empty()) {
-                                PAL_DBG(LOG_TAG, "snd device name overwritten %s",
-                                        deviceInfo[i].usecase[j].config[k].sndDevName.c_str());
-                                updateSndName(deviceId, deviceInfo[i].usecase[j].config[k].sndDevName);
-                            } else {
-                                if (!(deviceInfo[i].usecase[j].sndDevName).empty()) {
-                                        PAL_DBG(LOG_TAG, "snd device name overwritten %s",
-                                        deviceInfo[i].usecase[j].sndDevName.c_str());
-                                        updateSndName(deviceId, deviceInfo[i].usecase[j].sndDevName);
-
-                                }
-                            }
-                            found = true;
-                            break;
-                        }
-                    }
-                }
-                if (found) {
-                    break;
-                }
-            }
-        }
-        if (found) {
-            break;
-        }
-    }
-}
-
 void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type, std::string key, struct pal_device_info *devinfo)
 {
     struct kvpair_info kv = {};
@@ -1140,23 +1023,69 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
 
     for (int32_t i = 0; i < deviceInfo.size(); i++) {
         if (deviceId == deviceInfo[i].deviceId) {
-            devinfo->channels = deviceInfo[i].channel;
             devinfo->max_channels = deviceInfo[i].max_channel;
+            devinfo->channels = deviceInfo[i].channel;
+            devinfo->sndDevName = deviceInfo[i].sndDevName;
+            devinfo->isExternalECRefEnabledFlag = deviceInfo[i].isExternalECRefEnabled;
             for (int32_t j = 0; j < deviceInfo[i].usecase.size(); j++) {
                 if (type == deviceInfo[i].usecase[j].type) {
+                    if (deviceInfo[i].usecase[j].channel) {
+                        devinfo->channels = deviceInfo[i].usecase[j].channel;
+                        PAL_DBG(LOG_TAG, "getting overwritten channels %d for usecase %d for dev %s",
+                                devinfo->channels,
+                                type,
+                                deviceNameLUT.at(deviceId).c_str());
+                    }
+                    if (!(deviceInfo[i].usecase[j].sndDevName).empty()) {
+                        devinfo->sndDevName = deviceInfo[i].usecase[j].sndDevName;
+                        PAL_DBG(LOG_TAG, "getting overwritten snd device name %s for usecase %d for dev %s",
+                                devinfo->sndDevName.c_str(),
+                                type,
+                                deviceNameLUT.at(deviceId).c_str());
+                    }
+                    /*get kv pairs*/
+                    if (deviceInfo[i].usecase[j].kvpair.size()) {
+                        for (int32_t kvsize = 0; kvsize < deviceInfo[i].usecase[j].kvpair.size(); kvsize++) {
+                            kv.key =  deviceInfo[i].usecase[j].kvpair[kvsize].key;
+                            kv.value =  deviceInfo[i].usecase[j].kvpair[kvsize].value;
+                            PAL_DBG(LOG_TAG, "kv overwitten to key 0X%x value 0X%x for usecase %d for dev %s",
+                                    kv.key, kv.value,
+                                    type,
+                                    deviceNameLUT.at(deviceId).c_str());
+                            devinfo->kvpair.push_back(kv);
+                        }
+                    }
+                    /*parse custom config if there*/
                     for (int32_t k = 0; k < deviceInfo[i].usecase[j].config.size(); k++) {
                         if (!deviceInfo[i].usecase[j].config[k].key.compare(key)) {
-                            PAL_DBG(LOG_TAG, "found device info to overwrite");
+                            /*overwrite the channels if needed*/
                             if (deviceInfo[i].usecase[j].config[k].channel) {
                                 devinfo->channels = deviceInfo[i].usecase[j].config[k].channel;
-                                PAL_DBG(LOG_TAG, "channels overwitten to %d", devinfo->channels);
+                                PAL_DBG(LOG_TAG, "got overwritten channels %d for custom key %s usecase %d for dev %s",
+                                        devinfo->channels,
+                                        key.c_str(),
+                                        type,
+                                        deviceNameLUT.at(deviceId).c_str());
                             }
-                            /*get kv pairs*/
+                            if (!(deviceInfo[i].usecase[j].config[k].sndDevName).empty()) {
+                                devinfo->sndDevName = deviceInfo[i].usecase[j].config[k].sndDevName;
+                                PAL_DBG(LOG_TAG, "got overwitten snd dev %s for custom key %s usecase %d for dev %s",
+                                        devinfo->sndDevName.c_str(),
+                                        key.c_str(),
+                                        type,
+                                        deviceNameLUT.at(deviceId).c_str());
+                            }
+                            /*overwrite the kv pairs if needed*/
                             if (deviceInfo[i].usecase[j].config[k].kvpair.size()) {
-                                for (int32_t kvsize = 0; kvsize < deviceInfo[i].kvpair.size(); kvsize++) {
-                                    kv.key =  deviceInfo[i].kvpair[kvsize].key;
-                                    kv.value =  deviceInfo[i].kvpair[kvsize].value;
-                                    PAL_DBG(LOG_TAG, "kv overwitten to key 0X%x value 0X%x", kv.key, kv.value);
+                                devinfo->kvpair.clear();
+                                for (int32_t kvsize = 0; kvsize < deviceInfo[i].usecase[j].config[k].kvpair.size(); kvsize++) {
+                                    kv.key =  deviceInfo[i].usecase[j].config[k].kvpair[kvsize].key;
+                                    kv.value =  deviceInfo[i].usecase[j].config[k].kvpair[kvsize].value;
+                                    PAL_DBG(LOG_TAG, "got overwitten kv key 0X%x value 0X%x for custom key %s usecase %d for dev %s",
+                                            kv.key, kv.value,
+                                            key.c_str(),
+                                            type,
+                                            deviceNameLUT.at(deviceId).c_str());
                                     devinfo->kvpair.push_back(kv);
                                 }
                             }
@@ -1165,13 +1094,8 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
                         }
                     }
                 }
-                if (found) {
-                    break;
-                }
             }
-        }
-        if (found) {
-            break;
+            updateSndName(deviceId, devinfo->sndDevName);
         }
     }
 }
@@ -2266,6 +2190,23 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
                 }
             }
         }
+    } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
+            PAL_DBG(LOG_TAG, "Enter enable EC Ref");
+            status = s->setECRef_l(d, true);
+            s->getAssociatedDevices(tx_devices);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to enable EC Ref");
+            } else {
+                for(auto dev: tx_devices) {
+                    if (dev->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
+                       dev->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
+                        updateECDeviceMap(d, dev, s, 1, false);
+                    }
+                }
+            }
+        }
     }
     mResourceManagerMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. ret: %d", status);
@@ -2317,6 +2258,23 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
             PAL_ERR(LOG_TAG, "Failed to disable EC Ref");
         } else if (dev) {
             updateECDeviceMap(dev, d, s, 0, true);
+        }
+    }  else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
+            PAL_DBG(LOG_TAG, "Enter disable EC Ref");
+            status = s->setECRef_l(d, false);
+            s->getAssociatedDevices(tx_devices);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to disable EC Ref");
+            } else {
+                for(auto dev: tx_devices) {
+                    if (dev->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
+                       dev->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
+                        updateECDeviceMap(d, dev, s, 0, false);
+                    }
+                }
+            }
         }
     } else if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT_OUTPUT) {
         status = s->getAssociatedDevices(associatedDevices);
@@ -4193,7 +4151,12 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
     switch (inDevAttr->id) {
     /* speaker is always at 48k, 16 bit, 2 ch */
     case PAL_DEVICE_OUT_SPEAKER:
-        is_ds_required = false;
+    case PAL_DEVICE_OUT_HANDSET:
+        if (strcmp(activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key) != 0) {
+            PAL_DBG(LOG_TAG, "activedev custom key is %s and inDev custom key is %s", activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key);
+            is_ds_required = true;
+        } else
+            is_ds_required = false;
         break;
     case PAL_DEVICE_OUT_USB_HEADSET:
     case PAL_DEVICE_OUT_USB_DEVICE:
@@ -4211,6 +4174,9 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
             //Native Audio usecase
             PAL_ERR(LOG_TAG, "1 inDevAttr->config.sample_rate = %d  ", inDevAttr->config.sample_rate);
             is_ds_required = true;
+        } else if (strcmp(activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key) != 0) {
+            PAL_DBG(LOG_TAG, "activedev custom key is %s and inDev custom key is %s", activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key);
+            is_ds_required = true;
         } else if ((activeDevAttr->config.sample_rate < inDevAttr->config.sample_rate) ||
             (activeDevAttr->config.bit_width < inDevAttr->config.bit_width) ||
             (activeDevAttr->config.ch_info.channels < inDevAttr->config.ch_info.channels)) {
@@ -4219,7 +4185,8 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
         break;
     case PAL_DEVICE_OUT_WIRED_HEADSET:
     case PAL_DEVICE_OUT_WIRED_HEADPHONE:
-        if ((PAL_STREAM_VOICE_CALL == inStrAttr->type) && ((activeDevAttr->config.sample_rate != inDevAttr->config.sample_rate) ||
+        if ((PAL_STREAM_VOICE_CALL == inStrAttr->type || PAL_STREAM_VOIP == inStrAttr->type ||
+            PAL_STREAM_VOIP_RX == inStrAttr->type) && ((activeDevAttr->config.sample_rate != inDevAttr->config.sample_rate) ||
             (activeDevAttr->config.bit_width != inDevAttr->config.bit_width) ||
             (activeDevAttr->config.ch_info.channels != inDevAttr->config.ch_info.channels))) {
             is_ds_required = true;
@@ -4233,6 +4200,9 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
                 inDevAttr->config.sample_rate = inStrAttr->out_media_config.sample_rate;
                 is_ds_required = true;
             }
+        } else if (strcmp(activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key) != 0) {
+            PAL_DBG(LOG_TAG, "activedev custom key is %s and inDev custom key is %s", activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key);
+            is_ds_required = true;
         } else if ((activeDevAttr->config.sample_rate < inDevAttr->config.sample_rate) ||
             (activeDevAttr->config.bit_width < inDevAttr->config.bit_width) ||
             (activeDevAttr->config.ch_info.channels < inDevAttr->config.ch_info.channels)) {
@@ -4249,6 +4219,9 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
         else if ((activeDevAttr->config.sample_rate < inDevAttr->config.sample_rate) ||
                 (activeDevAttr->config.bit_width < inDevAttr->config.bit_width)) {
             is_ds_required = true;
+        } else if (strcmp(activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key) != 0) {
+            PAL_DBG(LOG_TAG, "activedev custom key is %s and inDev custom key is %s", activeDevAttr->custom_config.custom_key, inDevAttr->custom_config.custom_key);
+            is_ds_required = true;
         } else if ((PAL_STREAM_COMPRESSED == inStrAttr->type ||
                     PAL_STREAM_PCM_OFFLOAD == inStrAttr->type) &&
             (PAL_AUDIO_OUTPUT == inStrAttr->direction) &&
@@ -4264,6 +4237,28 @@ bool ResourceManager::isDeviceSwitchRequired(struct pal_device *activeDevAttr,
     default:
         is_ds_required = false;
         break;
+    }
+
+    /*sound device update workaround*/
+    if ((PAL_STREAM_VOICE_CALL == inStrAttr->type || PAL_STREAM_VOIP == inStrAttr->type ||
+         PAL_STREAM_VOIP_RX == inStrAttr->type)) {
+        char SndDeviceName[DEVICE_NAME_MAX_SIZE] = {0};
+        char CurrentSndDeviceName[DEVICE_NAME_MAX_SIZE] = {0};
+        std::shared_ptr<Device> dev = nullptr;
+
+        getSndDeviceName(inDevAttr->id, SndDeviceName);
+        dev = Device::getInstance(activeDevAttr, rm);
+        dev->getCurrentSndDevName(CurrentSndDeviceName);
+
+        if(strcmp(SndDeviceName, CurrentSndDeviceName) != 0){
+            PAL_DBG(LOG_TAG, "found new snd device, device switch needed");
+            is_ds_required = true;
+        }
+        if ((activeDevAttr->config.sample_rate != inDevAttr->config.sample_rate) ||
+            (activeDevAttr->config.bit_width != inDevAttr->config.bit_width) ||
+            (activeDevAttr->config.ch_info.channels != inDevAttr->config.ch_info.channels)) {
+                is_ds_required = true;
+        }
     }
 
     return is_ds_required;
@@ -4394,17 +4389,11 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
             curDev->getDeviceAttributes(&curDevAttr);
             sharedStream->getStreamAttributes(&sAttr);
 
-            /*update device info based on custom key if needed*/
-            if (strlen(inDevAttr->custom_config.custom_key)) {
-                PAL_DBG(LOG_TAG, "custom key is %s",inDevAttr->custom_config.custom_key);
-                rm->setDeviceInfo(inDevAttr->id, inStrAttr->type, ck);
-                /* if sound device is overwritten in the usecase need to set it*/
-            } else {
-                rm->setDeviceInfo(inDevAttr->id, inStrAttr->type);
-            }
 
-            if ((PAL_STREAM_VOICE_CALL == sAttr.type)) {
-                PAL_INFO(LOG_TAG, "Active voice stream running on %d, Force switch",
+            if ((PAL_STREAM_VOICE_CALL == sAttr.type ||
+                 PAL_STREAM_VOIP_RX == sAttr.type ||
+                 PAL_STREAM_VOIP == sAttr.type)) {
+                PAL_INFO(LOG_TAG, "Active voice/voip stream running on %d, Force switch",
                                   curDevAttr.id);
                 curDev->getDeviceAttributes(inDevAttr);
                 continue;
@@ -4426,14 +4415,6 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
             isDeviceSwitch = true;
             streamDevDisconnect.push_back(elem);
             StreamDevConnect.push_back({std::get<0>(elem), inDevAttr});
-        }
-    } else {
-        /*update device info based on custom key if there are no other concurrencies on this device*/
-        if (strlen(inDevAttr->custom_config.custom_key)){
-            PAL_DBG(LOG_TAG, "custom key is %s", ck.c_str());
-            rm->setDeviceInfo(inDevAttr->id, inStrAttr->type, ck);
-        } else {
-            rm->setDeviceInfo(inDevAttr->id, inStrAttr->type);
         }
     }
 
@@ -4794,6 +4775,7 @@ void ResourceManager::updateSndName(int32_t deviceId, std::string sndName)
 {
     if (isValidDevId(deviceId)) {
         sndDeviceNameLUT[deviceId].second = sndName;
+        PAL_DBG(LOG_TAG, "Updated snd device to %s", sndName.c_str());
     } else {
         PAL_ERR(LOG_TAG, "Invalid device id %d", deviceId);
     }
@@ -4869,7 +4851,8 @@ int32_t ResourceManager::a2dpSuspend()
                 // force switch to speaker
                 speakerDattr.id = PAL_DEVICE_OUT_SPEAKER;
 
-                getDeviceInfo(speakerDattr.id, sAttr.type, &devinfo);
+                getDeviceInfo(speakerDattr.id, sAttr.type,
+                              speakerDattr.custom_config.custom_key, &devinfo);
                 if ((devinfo.channels == 0) ||
                        (devinfo.channels > devinfo.max_channels)) {
                     status = -EINVAL;
@@ -4935,7 +4918,8 @@ int32_t ResourceManager::a2dpResume()
             a2dpDattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
             PAL_DBG(LOG_TAG, "restoring A2dp and unmuting stream");
 
-            getDeviceInfo(a2dpDattr.id, sAttr.type, &devinfo);
+            getDeviceInfo(a2dpDattr.id, sAttr.type,
+                          a2dpDattr.custom_config.custom_key, &devinfo);
             if ((devinfo.channels == 0) ||
                    (devinfo.channels > devinfo.max_channels)) {
                 status = -EINVAL;
@@ -5073,7 +5057,6 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
     int status = -EINVAL;
 
     PAL_INFO(LOG_TAG, "param_id=%d", param_id);
-    mResourceManagerMutex.lock();
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
         {
@@ -5093,8 +5076,6 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
     }
-
-    mResourceManagerMutex.unlock();
 
     return status;
 }
@@ -5334,7 +5315,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
                     /* Num channels for Rx devices is same for all usecases,
                        stream type is irrelevant here. */
-                    getDeviceInfo(spkrDattr.id, PAL_STREAM_LOW_LATENCY, &devinfo);
+                    getDeviceInfo(spkrDattr.id, PAL_STREAM_LOW_LATENCY,
+                                  spkrDattr.custom_config.custom_key, &devinfo);
                     if ((devinfo.channels == 0) ||
                           (devinfo.channels > devinfo.max_channels)) {
                         status = -EINVAL;
@@ -5343,7 +5325,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     }
 
                     getDeviceConfig(&spkrDattr, NULL, devinfo.channels);
-                    getDeviceInfo(dattr.id, PAL_STREAM_LOW_LATENCY, &devinfo);
+                    getDeviceInfo(dattr.id, PAL_STREAM_LOW_LATENCY,
+                                  dattr.custom_config.custom_key, &devinfo);
                     if ((devinfo.channels == 0) ||
                           (devinfo.channels > devinfo.max_channels)) {
                         status = -EINVAL;
@@ -5408,7 +5391,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     }
                     stream = static_cast<Stream *>(activestreams[0]);
                     stream->getStreamAttributes(&sAttr);
-                    getDeviceInfo(handset_tx_dattr.id, sAttr.type, &devinfo);
+                    getDeviceInfo(handset_tx_dattr.id, sAttr.type,
+                                  handset_tx_dattr.custom_config.custom_key,
+                                  &devinfo);
                     PAL_DBG(LOG_TAG, "devinfo.channels %d sAttr.type %d \n", devinfo.channels, sAttr.type);
                     getDeviceConfig(&handset_tx_dattr, &sAttr, devinfo.channels);
                     mResourceManagerMutex.unlock();
@@ -5547,7 +5532,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
 
-    mResourceManagerMutex.lock();
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
         {
@@ -5572,7 +5556,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             break;
     }
 
-    mResourceManagerMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit status: %d",status);
     return status;
 }
@@ -5850,7 +5833,8 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
             dAttr.id = device_id;
             /* Stream type is irrelevant here as we need device num channels
                which is independent of stype for BT devices */
-            rm->getDeviceInfo(dAttr.id, PAL_STREAM_LOW_LATENCY, &devinfo);
+            rm->getDeviceInfo(dAttr.id, PAL_STREAM_LOW_LATENCY,
+                              dAttr.custom_config.custom_key, &devinfo);
             if ((devinfo.channels == 0) ||
                    (devinfo.channels > devinfo.max_channels)) {
                 PAL_ERR(LOG_TAG, "Invalid num channels [%d], exiting", devinfo.channels);
@@ -5870,7 +5854,8 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
             dAttr.id = device_id;
             /* Stream type is irrelevant here as we need device num channels
                which is independent of stype for BT devices */
-            rm->getDeviceInfo(dAttr.id, PAL_STREAM_LOW_LATENCY, &devinfo);
+            rm->getDeviceInfo(dAttr.id, PAL_STREAM_LOW_LATENCY,
+                              dAttr.custom_config.custom_key, &devinfo);
             if ((devinfo.channels == 0) ||
                    (devinfo.channels > devinfo.max_channels)) {
                 PAL_ERR(LOG_TAG, "Invalid num channels [%d], exiting", devinfo.channels);
@@ -6470,6 +6455,64 @@ void ResourceManager::process_custom_config(const XML_Char **attr){
     PAL_DBG(LOG_TAG, "custom config key is %s", custom_config_data.key.c_str());
 }
 
+void ResourceManager::process_control(const XML_Char **attr){
+    struct control_t control = {};
+
+    if ((strcmp(attr[0], "name") != 0) ||
+        (strcmp(attr[2], "default") != 0) ||
+        (strcmp(attr[4], "loadOnInit") != 0)) {
+        PAL_ERR(LOG_TAG, "invalid attribute passed  %s %s %s expected name, default, loadOnBoot", attr[0], attr[2], attr[4]);
+        goto exit;
+    }
+
+    control.name = controlNameMap.at(attr[1]);
+    control.default_plugin.name = attr[3];
+    if(!strcmp(attr[5], "true")){
+            openControlPlugin(&control.default_plugin, control.name);
+    }
+    ControlInfo.push_back(control);
+    PAL_DBG(LOG_TAG, "creating control, name %d default plugin %s loadOnInit %s",
+            control.name, control.default_plugin.name.c_str(), attr[5]);
+exit:
+    return;
+}
+
+void ResourceManager::process_plugin(struct xml_userdata *data, const XML_Char **attr){
+    int size = 0;
+    plugin_t plugin = {};
+
+    if ((strcmp(attr[0], "name") != 0) ||
+        (strcmp(attr[2], "loadOnInit") != 0)){
+        PAL_ERR(LOG_TAG, "invalid attribute passed  %s %s expected name, loadOnInit", attr[0], attr[2]);
+        goto exit;
+    }
+    if (data->tag == TAG_CONTROL) {
+        std::string name(attr[1]);
+        std::string load(attr[3]);
+        size = ControlInfo.size() - 1;
+        plugin.name = name;
+        if(!load.compare("true")){
+            openControlPlugin(&plugin, ControlInfo[size].name);
+        }
+        ControlInfo[size].plugins.push_back(plugin);
+        PAL_DBG(LOG_TAG, "adding plugin %s load flag %s", plugin.name.c_str(), load.c_str());
+    }
+exit:
+    return;
+}
+
+void ResourceManager::process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr){
+    int size = 0, plugin_size = 0;
+
+    if (data->tag == TAG_CONTROL_PLUGIN) {
+        std::string type(attr[1]);
+        size = ControlInfo.size() - 1;
+        plugin_size = ControlInfo[size].plugins.size()-1;
+        ControlInfo[size].plugins[plugin_size].usecases.push_back(usecaseIdLUT.at(type));
+        PAL_DBG(LOG_TAG, "adding usecase %d for plugin %s",usecaseIdLUT.at(type), ControlInfo[size].plugins[plugin_size].name.c_str());
+    }
+}
+
 void ResourceManager::process_device_info(struct xml_userdata *data, const XML_Char *tag_name)
 {
 
@@ -6501,6 +6544,7 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "snd_device_name")) {
             size = deviceInfo.size() - 1;
             std::string snddevname(data->data_buf);
+            deviceInfo[size].sndDevName = snddevname;
             updateSndName(deviceInfo[size].deviceId, snddevname);
         } else if (!strcmp(tag_name, "speaker_protection_enabled")) {
             if (atoi(data->data_buf))
@@ -6508,7 +6552,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "ext_ec_ref_enabled")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].isExternalECRefEnabled = atoi(data->data_buf);
-            PAL_DBG(LOG_TAG, "found ext ec ref enabled device is %d", deviceInfo[size].deviceId);
+            if (deviceInfo[size].isExternalECRefEnabled) {
+                PAL_DBG(LOG_TAG, "found ext ec ref enabled device is %d",
+                    deviceInfo[size].deviceId);
+            }
         } else if (!strcmp(tag_name, "cps_enabled")) {
             if (atoi(data->data_buf))
                 isCpsEnabled = true;
@@ -6772,6 +6819,14 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         process_custom_config(attr);
         data->inCustomConfig = 1;
         data->tag = TAG_CUSTOMCONFIG;
+    } else if (!strcmp(tag_name, "control")) {
+        process_control(attr);
+        data->tag = TAG_CONTROL;
+    } else if (!strcmp(tag_name, "plugin")) {
+        process_plugin(data, attr);
+        data->tag = TAG_CONTROL_PLUGIN;
+    } else if (!strcmp(tag_name, "plugin_usecase")) {
+        process_plugin_usecase(data, attr);
     }
     if (!strcmp(tag_name, "card"))
         data->current_tag = TAG_CARD;
@@ -6811,6 +6866,10 @@ void ResourceManager::endTag(void *userdata, const XML_Char *tag_name)
     process_config_voice(data,tag_name);
     process_device_info(data,tag_name);
     process_input_streams(data,tag_name);
+
+    if (!strcmp(tag_name, "plugin")) {
+         data->tag = TAG_CONTROL;
+    }
 
     if (data->card_parsed)
         return;
@@ -6908,3 +6967,144 @@ closeFile:
 done:
     return ret;
 }
+
+int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t control)
+{
+    int status = 0;
+
+    PAL_DBG(LOG_TAG,"Enter");
+
+    if (!plugin) {
+        PAL_ERR(LOG_TAG,"Invalid plugin handle");
+        status = -EINVAL;
+        goto exit;
+    }
+    if (control < PLUGIN_CONTROL_MAX) {
+        plugin->handle = dlopen(plugin->name.c_str(), RTLD_NOW);
+        if (plugin->handle == NULL) {
+            PAL_ERR(LOG_TAG, "failed to dlopen lib %s", plugin->name.c_str());
+            status = -EINVAL;
+            goto exit;
+        } else {
+            dlerror();
+            plugin->ops.set_control = (plugin_set_control_fn_t)dlsym(plugin->handle, "plugin_set");
+            if (!plugin->ops.set_control) {
+                PAL_ERR(LOG_TAG, "dlsym to open fn failed for plugin %s, err = '%s'", plugin->name.c_str(), dlerror());
+                status = -EINVAL;
+                goto exit;
+            }
+            plugin->ops.get_control = (plugin_get_control_fn_t)dlsym(plugin->handle, "plugin_get");
+            if (!plugin->ops.get_control) {
+                PAL_ERR(LOG_TAG, "dlsym to open fn failed for plugin %s, err = '%s'", plugin->name.c_str(), dlerror());
+                status = -EINVAL;
+                goto exit;
+            }
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"unsupported pluggin Control %d for plugin %s", control,
+                plugin->name.c_str());
+        status = -EINVAL;
+        goto exit;
+    }
+
+exit:
+    if (status) {
+        dlclose(plugin->handle);
+        plugin->handle = NULL;
+    }
+    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    return status;
+}
+
+int ResourceManager::getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn)
+{
+    int status = 0;
+    int i;
+
+    if(!plugin_fn){
+        PAL_ERR(LOG_TAG, "Invaid plugin ptr passed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    for (i = 0; i < ControlInfo.size(); i++) {
+        if (control == ControlInfo[i].name) {
+            /*set plugin to default plugin*/
+            ar_mem_cpy(plugin_fn, sizeof(plugin_fn_ops_t),
+                       &(ControlInfo[i].default_plugin.ops),
+                       sizeof(plugin_fn_ops_t));
+            PAL_DBG(LOG_TAG, "setting default plugin %s for control %d",
+                    ControlInfo[i].default_plugin.name.c_str(), control);
+            /* if plugin is not already loaded, load it*/
+            if (ControlInfo[i].default_plugin.handle == NULL) {
+                PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
+                status = openControlPlugin(&(ControlInfo[i].default_plugin),ControlInfo[i].name);
+            }
+            for (int j = 0; j < ControlInfo[i].plugins.size(); j++) {
+                for ( int k = 0; k < ControlInfo[i].plugins[j].usecases.size(); k++) {
+                    if (ControlInfo[i].plugins[j].usecases[k] == usecase){
+                        PAL_DBG(LOG_TAG, "found control %s for usecase %d",ControlInfo[i].plugins[j].name.c_str(),ControlInfo[i].plugins[j].usecases[k]);
+                        ar_mem_cpy(plugin_fn, sizeof(plugin_fn_ops_t),
+                                   &(ControlInfo[i].plugins[j].ops), sizeof(plugin_fn_ops_t));
+                        /* if plugin is not already loaded, load it*/
+                        if (ControlInfo[i].plugins[j].handle == NULL) {
+                            PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
+                            status = openControlPlugin(&(ControlInfo[i].plugins[j]),ControlInfo[i].name);
+                        }
+                        break;
+                    }
+                }
+            }
+            break;
+        }
+    }
+    if (i == ControlInfo.size() ) {
+         PAL_ERR(LOG_TAG, "Control not found %d ", control);
+         status = -EINVAL;
+    }
+exit:
+    return status;
+}
+
+int ResourceManager::controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size){
+    int status = 0;
+    pal_stream_type_t stream_type;
+    plugin_fn_ops_t plugin_ops;
+
+    if (!s) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle recieved");
+        goto exit;
+    }
+    s->getStreamType(&stream_type);
+    if (!getControlPluginOps(control, stream_type, &plugin_ops)) {
+        status = plugin_ops.set_control(s, control, payload, playload_size);
+    } else {
+        PAL_ERR(LOG_TAG,"control plugin failed to load");
+        status = -EINVAL;
+    }
+exit:
+    return status;
+}
+
+int ResourceManager::controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *payload_size){
+    int status = 0;
+    pal_stream_type_t stream_type;
+    plugin_fn_ops_t plugin_ops;
+
+    if (!s) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle recieved");
+        goto exit;
+    }
+    s->getStreamType(&stream_type);
+    if (!getControlPluginOps(control, stream_type, &plugin_ops)) {
+        status = plugin_ops.get_control(s, control, payload, payload_size);
+    } else {
+        PAL_ERR(LOG_TAG,"control plugin failed to load");
+        status = -EINVAL;
+    }
+exit:
+    return status;
+}
+

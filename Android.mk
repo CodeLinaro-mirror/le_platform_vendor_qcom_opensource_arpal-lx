@@ -1,4 +1,4 @@
-ifeq ($(call is-board-platform-in-list, sdm845 msmnile kona lahaina),true)
+ifeq ($(call is-board-platform-in-list, sdm845 msmnile kona lahaina sm6150),true)
 
 ifneq ($(BUILD_TINY_ANDROID),true)
 
@@ -26,7 +26,8 @@ LOCAL_C_INCLUDES := $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/session/inc                \
     $(LOCAL_PATH)/resource_manager/inc       \
     $(LOCAL_PATH)/utils/inc                  \
-    $(LOCAL_PATH)/plugins/codecs
+    $(LOCAL_PATH)/plugins/codecs             \
+    $(LOCAL_PATH)/plugins/controls
 
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/ar_osal
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/gsl

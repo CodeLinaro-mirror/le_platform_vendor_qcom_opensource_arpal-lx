@@ -106,14 +106,17 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
 
         if (strlen(dAttr[i].custom_config.custom_key)) {
             strlcpy(mPalDevice[count].custom_config.custom_key, dAttr[i].custom_config.custom_key, PAL_MAX_CUSTOM_KEY_SIZE);
-            rm->getDeviceInfo(mPalDevice[count].id, sAttr->type, dAttr[i].custom_config.custom_key, &devinfo);
+            PAL_DBG(LOG_TAG, "found custom key %s", dAttr[i].custom_config.custom_key);
+
         } else {
             strlcpy(mPalDevice[count].custom_config.custom_key, "", PAL_MAX_CUSTOM_KEY_SIZE);
-            rm->getDeviceInfo(mPalDevice[count].id, sAttr->type, &devinfo);
+            PAL_DBG(LOG_TAG, "no custom key found");
         }
-         if (devinfo.channels == 0 || devinfo.channels > devinfo.max_channels) {
-            PAL_ERR(LOG_TAG, "Invalid num channels[%d], failed to create stream",
-                    devinfo.channels);
+        rm->getDeviceInfo(mPalDevice[count].id, sAttr->type, dAttr[i].custom_config.custom_key, &devinfo);
+        if (devinfo.channels == 0 || devinfo.channels > devinfo.max_channels) {
+            PAL_ERR(LOG_TAG, "Invalid num channels[%d], max channels[%d] failed to create stream",
+                    devinfo.channels,
+                    devinfo.max_channels);
             goto exit;
         }
         status = rm->getDeviceConfig((struct pal_device *)&mPalDevice[count], sAttr, devinfo.channels);
@@ -310,7 +313,7 @@ exit:
     return status;
 }
 
-int32_t Stream::getVolumeData(struct pal_volume_data *vData)
+int32_t Stream::getVolumeData(struct pal_volume_data *vData, size_t *size)
 {
     int32_t status = 0;
 
@@ -321,10 +324,9 @@ int32_t Stream::getVolumeData(struct pal_volume_data *vData)
     }
 
     if (mVolumeData != NULL) {
-        ar_mem_cpy(vData, sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)),
-                      mVolumeData, sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)));
+        *size = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
+                (mVolumeData->no_of_volpair));
+        ar_mem_cpy(vData,*size , mVolumeData, *size);
 
         PAL_DBG(LOG_TAG, "num config %x", (mVolumeData->no_of_volpair));
         for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
@@ -764,7 +766,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             (isCurDeviceA2dp == true) && !rm->isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {
             newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
 
-            rm->getDeviceInfo(newDevices[i].id, mStreamAttr->type, &devinfo);
+            rm->getDeviceInfo(newDevices[i].id, mStreamAttr->type,
+                              newDevices[i].custom_config.custom_key, &devinfo);
             if (devinfo.channels == 0 || devinfo.channels > devinfo.max_channels) {
                 PAL_ERR(LOG_TAG, "Invalid num channels[%d], failed to create stream",
                         devinfo.channels);
@@ -850,34 +853,29 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                  */
                 if (curDevAttr.id == newDevices[newDeviceSlots[i]].id) {
                     if (!rm->isDeviceSwitchRequired(&curDevAttr,
-                                &newDevices[newDeviceSlots[i]], mStreamAttr))
+                                &newDevices[newDeviceSlots[i]], mStreamAttr)) {
+                        PAL_DBG(LOG_TAG, "DS not required, updating new device attributes");
+                        curDev->getDeviceAttributes(&newDevices[newDeviceSlots[i]]);
                         continue;
+                    }
                 }
 
                 sharedStream->getStreamAttributes(&sAttr);
                 /* Check here for stream handle too along with stream type.
-                 * In case of voice call switch from speaker to handset,
+                 * In case of voice call or VOIP switch from speaker to handset,
                  * spkr needs to be disconnected and hanset needs to be
                  * connected and not just update its attributes.
                  */
-                if ((PAL_STREAM_VOICE_CALL == sAttr.type) &&
+                if ((PAL_STREAM_VOICE_CALL == sAttr.type ||
+                     PAL_STREAM_VOIP_RX == sAttr.type ||
+                     PAL_STREAM_VOIP == sAttr.type) &&
                                  (sharedStream != streamHandle)) {
-                    PAL_INFO(LOG_TAG, "Active voice stream running on %d, Force switch",
+                    PAL_INFO(LOG_TAG, "Active voice or voip stream running on %d, Force switch",
                                       curDevAttr.id);
                     curDev->getDeviceAttributes(&newDevices[newDeviceSlots[i]]);
                 } else {
                     streamDevDisconnect.push_back(elem);
                     StreamDevConnect.push_back({std::get<0>(elem), &newDevices[newDeviceSlots[i]]});
-                    if (strlen(newDevices[newDeviceSlots[i]].custom_config.custom_key)) {
-                        PAL_DBG(LOG_TAG, "new device has custom key %s",
-                                          newDevices[newDeviceSlots[i]].custom_config.custom_key);
-                        rm->setDeviceInfo(newDevices[newDeviceSlots[i]].id, mStreamAttr->type,
-                                          newDevices[newDeviceSlots[i]].custom_config.custom_key);
-                    } else {
-                        PAL_DBG(LOG_TAG, "Setting device info for device %d",
-                                          newDevices[newDeviceSlots[i]].id);
-                        rm->setDeviceInfo(newDevices[newDeviceSlots[i]].id, mStreamAttr->type);
-                    }
                 }
             }
         }
@@ -887,17 +885,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             if (rm->matchDevDir(mDevices[curDeviceSlots[j]]->getSndDeviceId(), newDevices[newDeviceSlots[i]].id))
                 streamDevDisconnect.push_back({streamHandle, mDevices[curDeviceSlots[j]]->getSndDeviceId()});
         }
-        if (strlen(newDevices[newDeviceSlots[i]].custom_config.custom_key)) {
-            PAL_DBG(LOG_TAG, "new device has custom key %s",
-                             newDevices[newDeviceSlots[i]].custom_config.custom_key);
-            rm->setDeviceInfo(newDevices[newDeviceSlots[i]].id, mStreamAttr->type,
-                              newDevices[newDeviceSlots[i]].custom_config.custom_key);
-        } else {
-            PAL_DBG(LOG_TAG, "Setting device info for device %d",
-                              newDevices[newDeviceSlots[i]].id);
-            rm->setDeviceInfo(newDevices[newDeviceSlots[i]].id, mStreamAttr->type);
-        }
-
         StreamDevConnect.push_back({streamHandle, &newDevices[newDeviceSlots[i]]});
     }
 
@@ -982,5 +969,58 @@ bool Stream::checkStreamMatch(pal_device_id_t pal_device_id,
     }
 
     return match;
+}
+
+int32_t Stream::setVolume(struct pal_volume_data *volume){
+    int32_t status = 0;
+    size_t vol_size = 0;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+    if (!volume || volume->no_of_volpair == 0) {
+        PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
+        status = -EINVAL;
+        goto exit;
+    }
+
+    /*if already allocated free and reallocate */
+    if (mVolumeData) {
+        free(mVolumeData);
+    }
+
+    vol_size = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
+               (volume->no_of_volpair));
+
+    mVolumeData = (struct pal_volume_data *)calloc(1, vol_size);
+    if (!mVolumeData) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "mVolumeData malloc failed %s", strerror(errno));
+        goto exit;
+    }
+
+    //mStreamMutex.lock();
+    ar_mem_cpy (mVolumeData, vol_size, volume, vol_size);
+    //mStreamMutex.unlock();
+    for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
+        PAL_INFO(LOG_TAG, "Volume payload mask:%x vol:%f",
+                      (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
+    }
+    /* Allow caching of stream volume as part of mVolumeData
+     * till the pcm_open is not done or if sound card is
+     * offline.
+     */
+    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
+        && currentState != STREAM_INIT) {
+        status = rm->controlPluginSet(this, PLUGIN_CONTROL_VOLUME,
+                                      (void*)mVolumeData, vol_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Plugin Control Volume failed %d",
+                    status);
+            goto exit;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
+                      (volume->no_of_volpair), (volume->volume_pair->channel_mask),
+                      (volume->volume_pair->vol));
+exit:
+    return status;
 }
 

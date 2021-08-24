@@ -56,6 +56,7 @@ SessionAlsaPcm::SessionAlsaPcm(std::shared_ptr<ResourceManager> Rm)
    pcm = NULL;
    pcmRx = NULL;
    pcmTx = NULL;
+   pcmEcTx = NULL;
    mState = SESSION_IDLE;
    ecRefDevId = PAL_DEVICE_OUT_MIN;
 }
@@ -392,60 +393,49 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
             tkv.clear();
             break;
             //todo calibration
-        case CALIBRATION:
-            status = builder->populateCalKeyVector(s, ckv, tag);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG,"Failed to set the calibration data\n");
-                goto exit;
-            }
+      case CALIBRATION:
+          status = builder->populateCalKeyVector(s, ckv, tag);
+          if (0 != status) {
+              PAL_ERR(LOG_TAG,"Failed to set the calibration data\n");
+              goto exit;
+          }
 
-            if (ckv.size() == 0) {
-                status = -EINVAL;
-                goto exit;
-            }
+          if (ckv.size() == 0) {
+              status = -EINVAL;
+              goto exit;
+          }
 
-            calConfig = (struct agm_cal_config*)malloc(sizeof(struct agm_cal_config) +
+          calConfig = (struct agm_cal_config*)malloc(sizeof(struct agm_cal_config) +
                             (ckv.size() * sizeof(agm_key_value)));
+          if (!calConfig) {
+              status = -EINVAL;
+              goto exit;
+          }
 
-            if (!calConfig) {
-                status = -EINVAL;
-                goto exit;
-            }
+          status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
+          if (PAL_STREAM_LOOPBACK == sAttr.type) {
+              calCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setCalibrationControl;
+          } else {
+              calCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setCalibrationControl;
+          }
 
-            status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
-            if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                if ((sAttr.info.opt_stream_info.loopback_type ==
-                                PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
-                    (sAttr.info.opt_stream_info.loopback_type ==
-                                PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
-                    // Currently Playback only and Capture only loopback don't
-                    // support volume
-                    PAL_DBG(LOG_TAG, "RX/TX only Loopback don't support volume");
-                    return -EINVAL;
-                }
-                else
-                    calCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setCalibrationControl;
-            } else {
-                calCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setCalibrationControl;
-            }
+          ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
+          if (!ctl) {
+              PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
+              return -ENOENT;
+          }
 
-            ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
-            if (!ctl) {
-                PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
-                return -ENOENT;
-            }
-
-            ckv_size = ckv.size()*sizeof(struct agm_key_value);
-            status = mixer_ctl_set_array(ctl, calConfig, sizeof(struct agm_cal_config) + ckv_size);
-            if (status != 0) {
-                PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
-                goto exit;
-            }
-            ctl = NULL;
-            if (calConfig)
-                free(calConfig);
-            ckv.clear();
-            break;
+          ckv_size = ckv.size()*sizeof(struct agm_key_value);
+          status = mixer_ctl_set_array(ctl, calConfig, sizeof(struct agm_cal_config) + ckv_size);
+          if (status != 0) {
+              PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+              goto exit;
+          }
+          ctl = NULL;
+          if (calConfig)
+              free(calConfig);
+          ckv.clear();
+          break;
         default:
             PAL_ERR(LOG_TAG,"invalid type ");
             status = -EINVAL;
@@ -612,6 +602,8 @@ int SessionAlsaPcm::start(Stream * s)
     int payload_size = 0;
     struct agm_event_reg_cfg event_cfg;
     int tagId;
+    struct pal_volume_data *voldata = NULL;
+    size_t vol_size = 0;
 
     PAL_DBG(LOG_TAG,"Enter");
 
@@ -1085,11 +1077,29 @@ pcm_start_loopback:
     }
     // Setting the volume as in stream open, no default volume is set.
     if (sAttr.info.opt_stream_info.loopback_type !=
-                    PAL_STREAM_LOOPBACK_CAPTURE_ONLY) {
+        PAL_STREAM_LOOPBACK_CAPTURE_ONLY) {
         // Currently TX only loopback doesn't require setting volume
-        if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
-            PAL_ERR(LOG_TAG,"Setting volume failed");
+        // Setting the volume as no default volume is set now in stream open
+        voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
+                          (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
+        if (!voldata) {
+            status = -ENOMEM;
+            goto exit;
         }
+        status = rm->controlPluginGet(s,PLUGIN_CONTROL_VOLUME, (void**)&voldata,
+                                      &vol_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
+        } else {
+            if(rm->controlPluginSet(s, PLUGIN_CONTROL_VOLUME, (void*)voldata,
+                                    vol_size)) {
+                PAL_ERR(LOG_TAG,"failed to set default volume data");
+            }
+        }
+    }
+exit:
+    if (voldata) {
+        free(voldata);
     }
 
     mState = SESSION_STARTED;
@@ -1757,7 +1767,8 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
     if (rx_dev) {
         rx_dev->getDeviceAttributes(&rxDevAttr);
         PAL_DBG(LOG_TAG, "rx_dev id is %d", rxDevAttr.id);
-        rm->getDeviceInfo(rxDevAttr.id, sAttr.type, &rxDevInfo);
+        rm->getDeviceInfo(rxDevAttr.id, sAttr.type,
+                          rxDevAttr.custom_config.custom_key, &rxDevInfo);
     }
 
 
@@ -2341,5 +2352,26 @@ int SessionAlsaPcm::openGraph(Stream *s) {
         return -EINVAL;
     }
 
+    return status;
+}
+
+int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
+{
+    int status = 0;
+    pal_stream_attributes sAttr;
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT) {
+        *devId = pcmDevIds.at(0);
+    } else {
+        *devId = pcmDevRxIds.at(0);
+    }
+exit:
     return status;
 }

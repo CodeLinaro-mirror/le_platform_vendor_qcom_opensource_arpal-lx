@@ -47,6 +47,8 @@
 #include "PalDefs.h"
 #include "SndCardMonitor.h"
 #include "SoundTriggerPlatformInfo.h"
+#include "PluginControlIntf.h"
+
 #define RXLOOPBACK 0
 #define TXLOOPBACK 1
 #define audio_mixer mixer
@@ -98,6 +100,8 @@ typedef enum {
     TAG_POLICIES,
     TAG_ECREF,
     TAG_CUSTOMCONFIG,
+    TAG_CONTROL,
+    TAG_CONTROL_PLUGIN,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -176,6 +180,7 @@ struct pal_device_info {
      int max_channels;
      std::vector<kvpair_info> kvpair;
      bool isExternalECRefEnabledFlag;
+     std::string sndDevName;
 };
 
 struct vsid_modepair {
@@ -192,6 +197,24 @@ struct vsid_info {
 struct tx_ecinfo {
     int tx_stream_type;
     std::vector<int> disabled_rx_streams;
+};
+
+struct plugin_fn_ops{
+    plugin_set_control_fn_t set_control;
+    plugin_get_control_fn_t get_control;
+}typedef plugin_fn_ops_t;
+
+struct plugin_t {
+    std::string name;
+    void* handle;
+    plugin_fn_ops_t ops;
+    std::vector<uint32_t> usecases;
+}typedef plugin_t;
+
+struct control_t {
+    plugin_control_name_t name;
+    plugin_t default_plugin;
+    std::vector<plugin_t> plugins;
 };
 
 enum {
@@ -267,6 +290,7 @@ struct deviceIn {
     std::map<int, std::vector<std::pair<Stream *, int>>> ec_ref_count_map;
     std::vector<kvpair_info> kvpair;
     bool isExternalECRefEnabled;
+    std::string sndDevName;
 };
 
 class ResourceManager
@@ -316,6 +340,8 @@ private:
     int updateECDeviceMap(std::shared_ptr<Device> rx_dev,
                         std::shared_ptr<Device> tx_dev,
                         Stream *tx_str, int count, bool is_txstop);
+    static int openControlPlugin(plugin_t *plugin, plugin_control_name_t control);
+    int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
 
 protected:
     std::vector <Stream*> mActiveStreams;
@@ -378,6 +404,7 @@ protected:
     static std::map<std::string, uint32_t> btFmtTable;
     static std::vector<deviceIn> deviceInfo;
     static std::vector<tx_ecinfo> txEcInfo;
+    static std::vector<control_t> ControlInfo;
     static struct vsid_info vsidInfo;
     static std::vector<struct pal_amp_db_and_gain_table> gainLvlMap;
     static SndCardMonitor *sndmon;
@@ -445,12 +472,7 @@ public:
                             struct pal_stream_attributes *attributes, int32_t channel);
     /*getDeviceInfo - updates channels, fluence info of the device*/
     void getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
-                       struct pal_device_info *devinfo);
-    void getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
                        std::string key, struct pal_device_info *devinfo);
-    void setDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type,
-                       std::string key);
-    void setDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type);
     bool getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_type_t rx_streamtype);
     int32_t getVsidInfo(struct vsid_info  *info);
     void getChannelMap(uint8_t *channel_map, int channels);
@@ -624,6 +646,11 @@ public:
     static void deInitWakeLocks(void);
     void acquireWakeLock();
     void releaseWakeLock();
+    static void process_control(const XML_Char **attr);
+    static void process_plugin(struct xml_userdata *data, const XML_Char **attr);
+    static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
+    int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
+    int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
 };
 
 #endif
