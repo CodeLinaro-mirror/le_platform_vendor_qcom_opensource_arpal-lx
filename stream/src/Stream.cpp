@@ -87,7 +87,8 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
     if (sAttr->type == PAL_STREAM_NON_TUNNEL || sAttr->type == PAL_STREAM_CONTEXT_PROXY)
         goto stream_create;
 
-    palDevsAttr = new pal_device [noOfDevices];
+    palDevsAttr = (pal_device *)calloc(noOfDevices, sizeof(struct pal_device));
+
     if (!palDevsAttr) {
         PAL_ERR(LOG_TAG, "palDevsAttr not created");
         goto exit;
@@ -232,7 +233,7 @@ stream_create:
     }
 exit:
     if (palDevsAttr) {
-        delete [] palDevsAttr;
+        free(palDevsAttr);
     }
     if (stream) {
         PAL_DBG(LOG_TAG, "Exit. stream creation success");
