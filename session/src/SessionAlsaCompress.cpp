@@ -629,7 +629,7 @@ int SessionAlsaCompress::open(Stream * s)
         PAL_DBG(LOG_TAG, "devid size %zu, compressDevIds[%d] %d", compressDevIds.size(), i, compressDevIds[i]);
     }
     rm->getBackEndNames(associatedDevices, rxAifBackEnds, emptyBackEnds);
-    status = rm->getAudioMixer(&mixer);
+    status = rm->getVirtualAudioMixer(&mixer);
     if (status) {
         PAL_ERR(LOG_TAG,"mixer error");
         goto exit;
@@ -682,8 +682,11 @@ int SessionAlsaCompress::disconnectSessionDevice(Stream* streamHandle, pal_strea
         for (const auto &elem : rxAifBackEnds) {
             cnt++;
             for (const auto &disConnectElem : rxAifBackEndsToDisconnect) {
-                if (std::get<0>(elem) == std::get<0>(disConnectElem))
+                if (std::get<0>(elem) == std::get<0>(disConnectElem)) {
                     rxAifBackEnds.erase(rxAifBackEnds.begin() + cnt - 1, rxAifBackEnds.begin() + cnt);
+                    cnt--;
+                    break;
+                }
             }
         }
     }
@@ -697,8 +700,11 @@ int SessionAlsaCompress::disconnectSessionDevice(Stream* streamHandle, pal_strea
         for (const auto &elem : txAifBackEnds) {
             cnt++;
             for (const auto &disConnectElem : txAifBackEndsToDisconnect) {
-                if (std::get<0>(elem) == std::get<0>(disConnectElem))
+                if (std::get<0>(elem) == std::get<0>(disConnectElem)) {
                     txAifBackEnds.erase(txAifBackEnds.begin() + cnt - 1, txAifBackEnds.begin() + cnt);
+                    cnt--;
+                    break;
+                }
             }
         }
     }
@@ -1080,6 +1086,7 @@ int SessionAlsaCompress::start(Stream * s)
     /** create an offload thread for posting callbacks */
     worker_thread = std::make_unique<std::thread>(offloadThreadLoop, this);
 
+    rm->voteSleepMonitor(s, true);
     s->getStreamAttributes(&sAttr);
     getSndCodecParam(codec, sAttr);
     s->getBufInfo(&in_buf_size,&in_buf_count,&out_buf_size,&out_buf_count);
@@ -1087,7 +1094,7 @@ int SessionAlsaCompress::start(Stream * s)
     compress_config.fragments = out_buf_count;
     compress_config.codec = &codec;
     // compress_open
-    compress = compress_open(rm->getSndCard(), compressDevIds.at(0), COMPRESS_IN, &compress_config);
+    compress = compress_open(rm->getVirtualSndCard(), compressDevIds.at(0), COMPRESS_IN, &compress_config);
     if (!compress) {
         PAL_ERR(LOG_TAG, "compress open failed");
         status = -EINVAL;
@@ -1219,13 +1226,14 @@ int SessionAlsaCompress::start(Stream * s)
         default:
             break;
     }
-
     // Setting the volume as no default volume is set now in stream open
     if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
             PAL_ERR(LOG_TAG,"Setting volume failed");
     }
 
 exit:
+    if (status != 0)
+        rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
 }
@@ -1280,9 +1288,10 @@ int SessionAlsaCompress::stop(Stream * s __unused)
     }
 
     PAL_DBG(LOG_TAG,"Enter");
-    if (compress && playback_started)
+    if (compress && playback_started) {
         status = compress_stop(compress);
-
+    }
+    rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
 }

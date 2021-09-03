@@ -82,8 +82,11 @@ std::mutex SpeakerProtection::cvMutex;
 std::mutex SpeakerProtection::calibrationMutex;
 
 bool SpeakerProtection::isSpkrInUse;
+bool SpeakerProtection::calThrdCreated;
+bool SpeakerProtection::isDynamicCalTriggered = false;
 struct timespec SpeakerProtection::spkrLastTimeUsed;
-struct mixer *SpeakerProtection::mixer;
+struct mixer *SpeakerProtection::virtMixer;
+struct mixer *SpeakerProtection::hwMixer;
 speaker_prot_cal_state SpeakerProtection::spkrCalState;
 struct pcm * SpeakerProtection::rxPcm;
 struct pcm * SpeakerProtection::txPcm;
@@ -245,9 +248,9 @@ int SpeakerProtection::getCpsDevNumber(std::string mixer_name)
     int status = 0;
 
     PAL_DBG(LOG_TAG, "Mixer control %s", mixer_name.c_str());
-    PAL_DBG(LOG_TAG, "audio_mixer %pK", mixer);
+    PAL_DBG(LOG_TAG, "audio_hw_mixer %pK", hwMixer);
 
-    ctl = mixer_get_ctl_by_name(mixer, mixer_name.c_str());
+    ctl = mixer_get_ctl_by_name(hwMixer, mixer_name.c_str());
     if (!ctl) {
         PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_name.c_str());
         status = -ENOENT;
@@ -282,9 +285,9 @@ int SpeakerProtection::getSpeakerTemperature(int spkr_pos)
             mixer_ctl_name = SPKR_RIGHT_WSA_TEMP;
     }
 
-    PAL_DBG(LOG_TAG, "audio_mixer %pK", mixer);
+    PAL_DBG(LOG_TAG, "audio_mixer %pK", hwMixer);
 
-    ctl = mixer_get_ctl_by_name(mixer, mixer_ctl_name);
+    ctl = mixer_get_ctl_by_name(hwMixer, mixer_ctl_name);
     if (!ctl) {
         PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_ctl_name);
         status = -ENOENT;
@@ -415,7 +418,7 @@ int SpeakerProtection::spkrStartCalibration()
         goto free_fe;
     }
     connectCtrlNameBeVI<< backEndNameTx << " metadata";
-    beMetaDataMixerCtrl = mixer_get_ctl_by_name(mixer, connectCtrlNameBeVI.str().data());
+    beMetaDataMixerCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlNameBeVI.str().data());
     if (!beMetaDataMixerCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control for VI : %s", backEndNameTx.c_str());
         ret = -EINVAL;
@@ -450,7 +453,7 @@ int SpeakerProtection::spkrStartCalibration()
         goto done;
     }
     connectCtrlName << "PCM" << pcmDevIdsTx.at(0) << " connect";
-    connectCtrl = mixer_get_ctl_by_name(mixer, connectCtrlName.str().data());
+    connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlName.str().data());
     if (!connectCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s", connectCtrlName.str().data());
         goto free_fe;
@@ -486,7 +489,7 @@ int SpeakerProtection::spkrStartCalibration()
     else
         modeConfg.th_quick_calib_flag = 0;
 
-    ret = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIdsTx.at(0),
+    ret = SessionAlsaUtils::getModuleInstanceId(virtMixer, pcmDevIdsTx.at(0),
                                                 backEndNameTx.c_str(),
                                                 MODULE_VI, &miid);
     if (0 != ret) {
@@ -541,7 +544,7 @@ int SpeakerProtection::spkrStartCalibration()
         }
     }
 
-    txPcm = pcm_open(rm->getSndCard(), pcmDevIdsTx.at(0), flags, &config);
+    txPcm = pcm_open(rm->getVirtualSndCard(), pcmDevIdsTx.at(0), flags, &config);
     if (!txPcm) {
         PAL_ERR(LOG_TAG, "txPcm open failed");
         goto free_fe;
@@ -567,7 +570,7 @@ int SpeakerProtection::spkrStartCalibration()
     event_cfg->event_config_payload_size = 0;
     event_cfg->is_register = 1;
 
-    ret = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIdsTx.at(0),
+    ret = SessionAlsaUtils::registerMixerEvent(virtMixer, pcmDevIdsTx.at(0),
                       backEndNameTx.c_str(), MODULE_VI, (void *)event_cfg,
                       payload_size);
     if (ret) {
@@ -634,7 +637,7 @@ int SpeakerProtection::spkrStartCalibration()
 
     connectCtrlNameBe<< backEndNameRx << " metadata";
 
-    beMetaDataMixerCtrl = mixer_get_ctl_by_name(mixer, connectCtrlNameBe.str().data());
+    beMetaDataMixerCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlNameBe.str().data());
     if (!beMetaDataMixerCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s", backEndNameRx.c_str());
         ret = -EINVAL;
@@ -671,7 +674,7 @@ int SpeakerProtection::spkrStartCalibration()
     }
 
     connectCtrlNameRx << "PCM" << pcmDevIdsRx.at(0) << " connect";
-    connectCtrl = mixer_get_ctl_by_name(mixer, connectCtrlNameRx.str().data());
+    connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlNameRx.str().data());
     if (!connectCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s", connectCtrlNameRx.str().data());
         ret = -ENOSYS;
@@ -700,7 +703,7 @@ int SpeakerProtection::spkrStartCalibration()
 
     // Set the operation mode for SP module
     spModeConfg.operation_mode = CALIBRATION_MODE;
-    ret = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIdsRx.at(0),
+    ret = SessionAlsaUtils::getModuleInstanceId(virtMixer, pcmDevIdsRx.at(0),
                                                 backEndNameRx.c_str(),
                                                 MODULE_SP, &miid);
     if (0 != ret) {
@@ -735,7 +738,7 @@ int SpeakerProtection::spkrStartCalibration()
         }
     }
 
-    rxPcm = pcm_open(rm->getSndCard(), pcmDevIdsRx.at(0), flags, &config);
+    rxPcm = pcm_open(rm->getVirtualSndCard(), pcmDevIdsRx.at(0), flags, &config);
     if (!rxPcm) {
         PAL_ERR(LOG_TAG, "pcm open failed for RX path");
         ret = -ENOSYS;
@@ -797,7 +800,7 @@ err_pcm_open :
         if (event_cfg != NULL) {
             event_cfg->is_register = 0;
 
-            status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIdsTx.at(0),
+            status = SessionAlsaUtils::registerMixerEvent(virtMixer, pcmDevIdsTx.at(0),
                         backEndNameTx.c_str(), MODULE_VI, (void *)event_cfg,
                         payload_size);
             if (status) {
@@ -873,7 +876,6 @@ void SpeakerProtection::spkrCalibrationThread()
 {
     unsigned long sec = 0;
     bool proceed = false;
-    std::string line;
     int i;
 
     while (!threadExit) {
@@ -886,8 +888,11 @@ void SpeakerProtection::spkrCalibrationThread()
             continue;
         }
         else {
-            PAL_DBG(LOG_TAG, "Speaker not in use, let's check for idle time");
-            if (sec < minIdleTime) {
+            PAL_DBG(LOG_TAG, "Speaker not in use");
+            if (isDynamicCalTriggered) {
+                PAL_DBG(LOG_TAG, "Dynamic Calibration triggered");
+            }
+            else if (sec < minIdleTime) {
                 PAL_DBG(LOG_TAG, "Speaker not idle for minimum time. %lu", sec);
                 spkrCalibrateWait();
                 PAL_DBG(LOG_TAG, "Waited for speaker to be idle for min time");
@@ -897,7 +902,7 @@ void SpeakerProtection::spkrCalibrationThread()
         }
 
         if (proceed) {
-            PAL_DBG(LOG_TAG, "Gettingtemperature of speakers");
+            PAL_DBG(LOG_TAG, "Getting temperature of speakers");
             getSpeakerTemperatureList();
 
             for (i = 0; i < numberOfChannels; i++) {
@@ -930,8 +935,11 @@ void SpeakerProtection::spkrCalibrationThread()
             continue;
         }
         else {
-            PAL_DBG(LOG_TAG, "Speaker not in use, let's check for idle time");
-            if (sec < minIdleTime) {
+            PAL_DBG(LOG_TAG, "Speaker not in use");
+            if (isDynamicCalTriggered) {
+                PAL_DBG(LOG_TAG, "Dynamic calibration triggered");
+            }
+            else if (sec < minIdleTime) {
                 PAL_DBG(LOG_TAG, "Speaker not idle for minimum time. %lu", sec);
                 spkrCalibrateWait();
                 PAL_DBG(LOG_TAG, "Waited for speaker to be idle for min time");
@@ -952,6 +960,7 @@ void SpeakerProtection::spkrCalibrationThread()
             continue;
         }
     }
+    isDynamicCalTriggered = false;
     calThrdCreated = false;
     PAL_DBG(LOG_TAG, "Calibration done, exiting the thread");
 }
@@ -992,9 +1001,13 @@ SpeakerProtection::SpeakerProtection(struct pal_device *device,
     clock_gettime(CLOCK_BOOTTIME, &spkrLastTimeUsed);
 
     // Getting mixture controls from Resource Manager
-    status = rm->getAudioMixer(&mixer);
+    status = rm->getVirtualAudioMixer(&virtMixer);
     if (status) {
-        PAL_ERR(LOG_TAG,"mixer error %d", status);
+        PAL_ERR(LOG_TAG,"virt mixer error %d", status);
+    }
+    status = rm->getHwAudioMixer(&hwMixer);
+    if (status) {
+        PAL_ERR(LOG_TAG,"hw mixer error %d", status);
     }
 
     calibrationCallbackStatus = 0;
@@ -1245,7 +1258,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             goto done;
         }
         connectCtrlNameBeVI<< backEndName << " metadata";
-        beMetaDataMixerCtrl = mixer_get_ctl_by_name(mixer,
+        beMetaDataMixerCtrl = mixer_get_ctl_by_name(virtMixer,
                                     connectCtrlNameBeVI.str().data());
         if (!beMetaDataMixerCtrl) {
             PAL_ERR(LOG_TAG, "invalid mixer control for VI : %s", backEndName.c_str());
@@ -1282,7 +1295,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             goto done;
         }
         connectCtrlName << "PCM" << pcmDevIdTx.at(0) << " connect";
-        connectCtrl = mixer_get_ctl_by_name(mixer, connectCtrlName.str().data());
+        connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlName.str().data());
         if (!connectCtrl) {
             PAL_ERR(LOG_TAG, "invalid mixer control: %s", connectCtrlName.str().data());
             goto free_fe;
@@ -1324,7 +1337,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
         }
         modeConfg.th_quick_calib_flag = 0;
 
-        ret = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIdTx.at(0),
+        ret = SessionAlsaUtils::getModuleInstanceId(virtMixer, pcmDevIdTx.at(0),
                         backEndName.c_str(), MODULE_VI, &miid);
         if (0 != ret) {
             PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", MODULE_VI, ret);
@@ -1454,7 +1467,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             }
         }
 
-        txPcm = pcm_open(rm->getSndCard(), pcmDevIdTx.at(0), flags, &config);
+        txPcm = pcm_open(rm->getVirtualSndCard(), pcmDevIdTx.at(0), flags, &config);
         if (!txPcm) {
             PAL_ERR(LOG_TAG, "txPcm open failed");
             goto free_fe;
@@ -1637,10 +1650,11 @@ int SpeakerProtection::speakerProtectionDynamicCal()
 {
     int ret = 0;
 
-    PAL_DBG(LOG_TAG, "Trigger Dynamic Cal");
+    PAL_DBG(LOG_TAG, "Enter");
 
-    if ((spkrCalState == SPKR_CALIB_IN_PROGRESS) || calThrdCreated) {
-        PAL_DBG(LOG_TAG, "Calibration already triggered");
+    if (calThrdCreated) {
+        PAL_DBG(LOG_TAG, "Calibration already triggered Thread State %d",
+                        calThrdCreated);
         return ret;
     }
 
@@ -1650,9 +1664,15 @@ int SpeakerProtection::speakerProtectionDynamicCal()
     calibrationCallbackStatus = 0;
     mDspCallbackRcvd = false;
 
-    mCalThread = std::thread(&SpeakerProtection::spkrCalibrationThread,
-                        this);
     calThrdCreated = true;
+    isDynamicCalTriggered = true;
+
+    std::thread dynamicCalThread(&SpeakerProtection::spkrCalibrationThread, this);
+
+    dynamicCalThread.detach();
+
+    PAL_DBG(LOG_TAG, "Exit");
+
     return ret;
 }
 
@@ -1723,7 +1743,7 @@ int32_t SpeakerProtection::getFTMParameter(void **param)
     if (pcmDeviceName)
         cntrlName<<pcmDeviceName<<" "<<getParamControl;
 
-    ctl = mixer_get_ctl_by_name(mixer, cntrlName.str().data());
+    ctl = mixer_get_ctl_by_name(virtMixer, cntrlName.str().data());
     if (!ctl) {
         PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", cntrlName.str().data());
         status = -ENOENT;
@@ -1731,7 +1751,7 @@ int32_t SpeakerProtection::getFTMParameter(void **param)
     }
     rm->getBackendName(PAL_DEVICE_IN_VI_FEEDBACK, backendName);
 
-    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIdTx.at(0),
+    status = SessionAlsaUtils::getModuleInstanceId(virtMixer, pcmDevIdTx.at(0),
                         backendName.c_str(), MODULE_VI, &miid);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", MODULE_VI, status);

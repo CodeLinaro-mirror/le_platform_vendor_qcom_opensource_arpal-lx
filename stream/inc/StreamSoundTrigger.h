@@ -125,7 +125,9 @@ class StreamSoundTrigger : public Stream {
     int32_t mute(bool state __unused) override { return 0; }
     int32_t mute_l(bool state __unused) override { return 0; }
     int32_t pause() override { return 0; }
+    int32_t pause_l() override { return 0; }
     int32_t resume() override { return 0; }
+    int32_t resume_l() override { return 0; }
 
     int32_t read(struct pal_buffer *buf) override;
 
@@ -509,6 +511,7 @@ class StreamSoundTrigger : public Stream {
                          st_module_type_t module_type);
     void AddEngine(std::shared_ptr<EngineCfg> engine_cfg);
     void updateStreamAttributes();
+    void UpdateModelId(st_module_type_t type);
     int32_t LoadSoundModel(struct pal_st_sound_model *sm_data);
     int32_t UpdateSoundModel(struct pal_st_sound_model *sm_data);
     int32_t SendRecognitionConfig(struct pal_st_recognition_config *config);
@@ -550,6 +553,7 @@ class StreamSoundTrigger : public Stream {
     bool exit_timer_thread_;
     bool pending_stop_;
     bool paused_;
+    bool device_opened_;
     st_module_type_t model_type_;
 
     void AddState(StState* state);
@@ -600,5 +604,6 @@ class StreamSoundTrigger : public Stream {
     ChronoSteadyClock_t transit_end_time_;
     // set to true only when mutex is not locked after callback
     bool mutex_unlocked_after_cb_;
+    bool concurrency_handling_;
 };
 #endif // STREAMSOUNDTRIGGER_H_

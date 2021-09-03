@@ -150,7 +150,7 @@ int SessionAlsaVoice::open(Stream * s)
 
     rm->getBackEndNames(associatedDevices, rxAifBackEnds, txAifBackEnds);
 
-    status = rm->getAudioMixer(&mixer);
+    status = rm->getVirtualAudioMixer(&mixer);
     if (status) {
         PAL_ERR(LOG_TAG,"mixer error");
         goto exit;
@@ -506,6 +506,8 @@ int SessionAlsaVoice::start(Stream * s)
 
     PAL_DBG(LOG_TAG,"Enter");
 
+    rm->voteSleepMonitor(s, true);
+
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"stream get attributes failed");
@@ -529,7 +531,7 @@ int SessionAlsaVoice::start(Stream * s)
     config.stop_threshold = 0;
     config.silence_threshold = 0;
 
-    pcmRx = pcm_open(rm->getSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
+    pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
     if (!pcmRx) {
         PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
         return -EINVAL;
@@ -552,7 +554,7 @@ int SessionAlsaVoice::start(Stream * s)
     config.period_size = in_buf_size;
     config.period_count = in_buf_count;
 
-    pcmTx = pcm_open(rm->getSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
+    pcmTx = pcm_open(rm->getVirtualSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
     if (!pcmTx) {
         PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
         return -EINVAL;
@@ -592,9 +594,11 @@ int SessionAlsaVoice::start(Stream * s)
     if (ttyMode) {
         palPayload = (pal_param_payload *)calloc(1,
                                  sizeof(pal_param_payload) + sizeof(ttyMode));
-        palPayload->payload_size = sizeof(ttyMode);
-        *(palPayload->payload) = ttyMode;
-        setParameters(s, TTY_MODE, PAL_PARAM_ID_TTY_MODE, palPayload);
+        if(palPayload != NULL){
+            palPayload->payload_size = sizeof(ttyMode);
+            *(palPayload->payload) = ttyMode;
+            setParameters(s, TTY_MODE, PAL_PARAM_ID_TTY_MODE, palPayload);
+        }
     }
 
     /*set sidetone*/
@@ -646,6 +650,8 @@ exit:
     }
     if (volume)
         free(volume);
+    if (status)
+        rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
@@ -680,6 +686,7 @@ int SessionAlsaVoice::stop(Stream * s __unused)
         }
     }
 
+    rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
@@ -865,7 +872,11 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
             device = pcmDevTxIds.at(0);
             status = payloadTaged(s, type, tag, device, TX_HOSTLESS);
             break;
-
+        case CHARGE_CONCURRENCY_ON_TAG:
+        case CHARGE_CONCURRENCY_OFF_TAG:
+            device = pcmDevRxIds.at(0);
+            status = payloadTaged(s, type, tag, device, RX_HOSTLESS);
+            break;
         default:
             PAL_ERR(LOG_TAG,"Failed unsupported tag type %d", static_cast<uint32_t>(tag));
             status = -EINVAL;
@@ -1521,7 +1532,7 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
     int32_t extEcbackendId;
     std::vector <std::string> extEcbackendNames;
     struct pal_device device;
-    struct pal_device rxDevAttr;
+    struct pal_device rxDevAttr = {};
     struct pal_device_info rxDevInfo;
     int dev_id = 0;
 
@@ -1555,8 +1566,7 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
     if (rxDevInfo.isExternalECRefEnabledFlag) {
         PAL_DBG(LOG_TAG, "Ext EC Ref flag is enabled");
         device.id = PAL_DEVICE_IN_EXT_EC_REF;
-        memcpy(&device.config, &rxDevAttr.config,
-            sizeof(struct pal_media_config));
+        rm->getDeviceConfig(&device, &sAttr);
         dev = Device::getInstance(&device, rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "dev get instance failed");
@@ -1612,7 +1622,7 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
         status = -EINVAL;
         goto exit;
     }
-    pcmEcTx = pcm_open(rm->getSndCard(), pcmDevEcTxIds.at(0), PCM_IN, &config);
+    pcmEcTx = pcm_open(rm->getVirtualSndCard(), pcmDevEcTxIds.at(0), PCM_IN, &config);
     if (!pcmEcTx) {
         PAL_ERR(LOG_TAG, "Exit pcm-ec-tx open failed");
         dev->stop();

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,28 +27,19 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef SPEAKER_H
-#define SPEAKER_H
+#ifndef PALUSECASE_TEST_H
+#define PALUSECASE_TEST_H
+#include <PalApi.h>
+#include <PalDefs.h>
 
-#include "Device.h"
-#include "PalAudioRoute.h"
+#define EVENT_ID_GENERIC_US_DETECTION      0x08001358
 
-class Speaker : public Device
-{
-protected:
-    static std::shared_ptr<Device> obj;
-    Speaker(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
-public:
-    static std::shared_ptr<Device> getInstance(struct pal_device *device,
-                                               std::shared_ptr<ResourceManager> Rm);
-    static int32_t isSampleRateSupported(uint32_t sampleRate);
-    static int32_t isChannelSupported(uint32_t numChannels);
-    static int32_t isBitWidthSupported(uint32_t bitWidth);
-    static std::shared_ptr<Device> getObject();
-    int stop();
-    Speaker();
-    virtual ~Speaker();
-};
+int32_t OpenAndStartUsecase(int usecase_type);
+int32_t StopAndCloseUsecase();
+int32_t setup_usecase_ultrasound();
+static int32_t HandleCallbackForUPD(pal_stream_handle_t *stream_handle,
+                                   uint32_t event_id, uint32_t *event_data,
+                                   uint32_t event_size, uint64_t cookie);
 
 
-#endif //SPEAKER_H
+#endif
