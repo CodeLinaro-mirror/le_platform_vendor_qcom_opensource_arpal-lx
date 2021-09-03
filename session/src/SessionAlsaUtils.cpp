@@ -1220,6 +1220,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     std::vector <std::pair<int, int>> streamRxCKV, streamTxCKV;
     std::vector <std::pair<int, int>> streamDeviceRxKV, streamDeviceTxKV;
     std::vector <std::pair<int, int>> deviceRxKV, deviceTxKV;
+    std::vector <std::pair<int, int>> devicePPCKV;
     // Using as empty key vector pairs
     std::vector <std::pair<int, int>> emptyKV;
     int status = 0;
@@ -1333,6 +1334,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         PAL_ERR(LOG_TAG, "get device KV failed %d", status);
         goto exit;
     }
+    // get devicePPCKV
+    if ((status = builder->populateDevicePPCkv(streamHandle, devicePPCKV)) != 0) {
+        PAL_ERR(LOG_TAG, "populateDevicePP Ckv failed %d", status);
+        status = 0; /**< ignore device PP CKV failures */
+    }
     // get streamdeviceKV
     status = builder->populateStreamDeviceKV(streamHandle, rxBackEnds[0].first,
             streamDeviceRxKV, txBackEnds[0].first, streamDeviceTxKV, vsidinfo,
@@ -1399,6 +1405,15 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             goto freeRxMetaData;
         }
     }
+    if (streamDeviceRxKV.size() > 0 || devicePPCKV.size() > 0) {
+        getAgmMetaData(streamDeviceRxKV, devicePPCKV, (struct prop_data *)streamDevicePropId,
+                streamDeviceRxMetaData);
+        if (!streamDeviceRxMetaData.size) {
+            PAL_ERR(LOG_TAG, "stream/device metadata is zero");
+            status = -ENOMEM;
+            goto freeRxMetaData;
+        }
+    }
 
     if ((streamTxKV.size() > 0) || (streamTxCKV.size() > 0)) {
         SessionAlsaUtils::getAgmMetaData(streamTxKV, streamTxCKV,
@@ -1424,6 +1439,15 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 (struct prop_data *)streamDevicePropId, streamDeviceTxMetaData);
         if (!streamDeviceTxMetaData.size) {
             PAL_ERR(LOG_TAG, "stream/device TX metadata is zero");
+            status = -ENOMEM;
+            goto freeTxMetaData;
+        }
+    }
+    if (streamDeviceTxKV.size() > 0 || devicePPCKV.size() > 0) {
+        getAgmMetaData(streamDeviceTxKV, devicePPCKV, (struct prop_data *)streamDevicePropId,
+                streamDeviceTxMetaData);
+        if (!streamDeviceTxMetaData.size) {
+            PAL_ERR(LOG_TAG, "stream/device metadata is zero");
             status = -ENOMEM;
             goto freeTxMetaData;
         }
