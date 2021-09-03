@@ -1550,9 +1550,29 @@ int PayloadBuilder::populateStreamCkv(Stream *s __unused, std::vector <std::pair
         struct pal_volume_data **volume_data __unused)
 {
     int status = 0;
+    struct pal_stream_attributes sAttr;
 
     PAL_DBG(LOG_TAG, "Enter");
+    memset(&sAttr, 0, sizeof(struct pal_stream_attributes));
 
+    status = s->getStreamAttributes(&sAttr);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "getStreamAttributes failed status %d", status);
+        goto exit;
+    }
+
+    switch (sAttr.type) {
+        case PAL_STREAM_LOOPBACK:
+            PAL_INFO(LOG_TAG, "populate for hfp NB/WB CKV, sample rate=%d", sAttr.in_media_config.sample_rate);
+            if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_16K) {
+                keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
+            } else if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_8K) {
+                keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
+            }
+            break;
+        default:
+            break;
+    }
     /*
      * Sending volume minimum as we want to ramp up instead of ramping
      * down while setting the desired volume. Thus avoiding glitch
@@ -1561,6 +1581,7 @@ int PayloadBuilder::populateStreamCkv(Stream *s __unused, std::vector <std::pair
     keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
     PAL_DBG(LOG_TAG, "Entered default %x %x", VOLUME, LEVEL_15);
 
+exit:
     return status;
 }
 
@@ -1642,6 +1663,13 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 /* TBD: Push Channels for these types once Channels are added */
                 //keyVector.push_back(std::make_pair(CHANNELS,
                 //                                   dAttr.config.ch_info.channels));
+                break;
+            case PAL_STREAM_LOOPBACK:
+                if (sattr->in_media_config.sample_rate == SAMPLINGRATE_16K) {
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
+                } else if (sattr->in_media_config.sample_rate == SAMPLINGRATE_8K) {
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
+                }
                 break;
             default:
                 PAL_VERBOSE(LOG_TAG,"stream type %d doesn't support DevicePP CKV ", sattr->type);
