@@ -281,11 +281,8 @@ StreamPCM::~StreamPCM()
     }
 
     /*switch back to proper config if there is a concurrency and device is still running*/
-    for (int32_t i=0; i < mDevices.size(); i++) {
-        if (mDevices[i]->getDeviceCount()) {
-            rm->restoreDevice(mDevices[i]);
-        }
-    }
+    for (int32_t i=0; i < mDevices.size(); i++)
+        rm->restoreDevice(mDevices[i]);
 
     mDevices.clear();
     mPalDevice.clear();
@@ -496,7 +493,7 @@ session_fail:
         rm->deregisterDevice(mDevices[i], this);
     }
 exit:
-    PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
+    PAL_DBG(LOG_TAG, "Exit. state %d, status %d", currentState, status);
     mStreamMutex.unlock();
     return status;
 }
@@ -605,9 +602,9 @@ int32_t StreamPCM::stop()
         status = -EINVAL;
         goto exit;
     }
-    PAL_DBG(LOG_TAG, "Exit. status %d, state %d", status, currentState);
 
 exit:
+    PAL_DBG(LOG_TAG, "Exit. status %d, state %d", status, currentState);
     mStreamMutex.unlock();
     return status;
 }
@@ -652,8 +649,9 @@ int32_t  StreamPCM::setStreamAttributes(struct pal_stream_attributes *sattr)
         goto exit;
     }
 
-    PAL_DBG(LOG_TAG, "Exit. session setConfig successful");
+    PAL_DBG(LOG_TAG, "session setConfig successful");
 exit:
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
 
@@ -775,7 +773,7 @@ int32_t  StreamPCM::read(struct pal_buffer* buf)
     PAL_VERBOSE(LOG_TAG, "Exit. session read successful size - %d", size);
     return size;
 exit :
-    PAL_DBG(LOG_TAG, "session read failed status %d", status);
+    PAL_DBG(LOG_TAG, "Exit. session read failed status %d", status);
     return status;
 }
 
@@ -825,7 +823,8 @@ int32_t StreamPCM::write(struct pal_buffer* buf)
         if ((frameSize == 0) || (sampleRate == 0)) {
             PAL_ERR(LOG_TAG, "frameSize=%d, sampleRate=%d", frameSize, sampleRate);
             mStreamMutex.unlock();
-            return  -EINVAL;
+            status = -EINVAL;
+            goto exit;
         }
         size = buf->size;
         usleep((uint64_t)size * 1000000 / frameSize / sampleRate);
@@ -875,7 +874,7 @@ int32_t StreamPCM::write(struct pal_buffer* buf)
     }
 
 exit:
-    PAL_ERR(LOG_TAG, "session write failed status %d", status);
+    PAL_ERR(LOG_TAG, "Exit session write failed status %d", status);
     return status;
 }
 
@@ -900,14 +899,14 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
     pal_param_payload *param_payload = NULL;
     effect_pal_payload_t *effectPalPayload = nullptr;
 
+    PAL_DBG(LOG_TAG, "Enter, set parameter %u, session handle - %p", param_id, session);
+
     if (!payload)
     {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "wrong params");
-        goto error;
+        goto exit;
     }
-
-    PAL_DBG(LOG_TAG, "Enter, set parameter %u, session handle - %p", param_id, session);
 
     mStreamMutex.lock();
     // Stream may not know about tags, so use setParameters instead of setConfig
@@ -994,8 +993,8 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
     }
 
     mStreamMutex.unlock();
+exit:
     PAL_DBG(LOG_TAG, "exit, session parameter %u set with status %d", param_id, status);
-error:
     return status;
 }
 
@@ -1215,8 +1214,9 @@ int32_t StreamPCM::addRemoveEffect(pal_audio_effect_t effect, bool enable)
                 status);
         goto exit;
     }
-    PAL_DBG(LOG_TAG, "Exit. session setConfig successful");
+    PAL_DBG(LOG_TAG, "session setConfig successful");
 exit:
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
     mStreamMutex.unlock();
     return status;
 }
