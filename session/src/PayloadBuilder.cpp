@@ -33,17 +33,27 @@
 #include "SessionGsl.h"
 #include "StreamSoundTrigger.h"
 #include "spr_api.h"
+#include "pop_suppressor_api.h"
 #include <agm/agm_api.h>
 #include <bt_intf.h>
 #include <bt_ble.h>
 #include "sp_vi.h"
 #include "sp_rx.h"
+#include "fluence_ffv_common_calibration.h"
 
 #if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #define USECASE_XML_FILE "/etc/usecaseKvManager.xml"
 #else
 #define USECASE_XML_FILE "/vendor/etc/usecaseKvManager.xml"
 #endif
+
+#define PARAM_ID_CHMIXER_COEFF 0x0800101F
+#define CUSTOM_STEREO_NUM_OUT_CH 0x0002
+#define CUSTOM_STEREO_NUM_IN_CH 0x0002
+#define Q14_GAIN_ZERO_POINT_FIVE 0x2000
+#define PCM_CHANNEL_FL 1
+#define PCM_CHANNEL_FR 2
+#define CUSTOM_STEREO_CMD_PARAM_SIZE 24
 
 #define PARAM_ID_DISPLAY_PORT_INTF_CFG   0x8001154
 
@@ -333,6 +343,46 @@ void PayloadBuilder::payloadMFCConfig(uint8_t** payload, size_t* size,
                       mfcConf->num_channels, header->module_instance_id);
     PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo,
                 *size);
+}
+
+int PayloadBuilder::payloadPopSuppressorConfig(uint8_t** payload, size_t* size,
+                                                uint32_t miid, bool enable)
+{
+    int status = 0;
+    struct apm_module_param_data_t* header = NULL;
+    struct param_id_pop_suppressor_mute_config_t *psConf;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(struct param_id_pop_suppressor_mute_config_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+
+    payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        status = -ENOMEM;
+        goto exit;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    psConf = (struct param_id_pop_suppressor_mute_config_t*)(payloadInfo +
+               sizeof(struct apm_module_param_data_t));
+
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_POP_SUPPRESSOR_MUTE_CONFIG;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+    PAL_DBG(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
+                      header->module_instance_id, header->param_id,
+                      header->error_code, header->param_size);
+
+    psConf->mute_enable = enable;
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
+    PAL_DBG(LOG_TAG, "pop suppressor mute enable %d", psConf->mute_enable);
+
+exit:
+    return status;
 }
 
 PayloadBuilder::PayloadBuilder()
@@ -809,6 +859,8 @@ int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
                     - sizeof(pal_effect_custom_payload_t);
 
     paddedSize = PAL_ALIGN_8BYTE(payloadSize);
+    PAL_INFO(LOG_TAG, "payloadSize=%d paddedSize=%x", payloadSize, paddedSize);
+
     if (sampleRate) {
         //CKV
         // step 1. check sample rate is in kv or not
@@ -850,7 +902,8 @@ int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
     payloadInfo->blob_size = payloadInfo->blob_size +
                             sizeof(struct apm_module_param_data_t) -
                             sizeof(pal_effect_custom_payload_t) +
-                            appendSampleRateInCKV * sizeof(struct gsl_key_value_pair);
+                            appendSampleRateInCKV * sizeof(struct gsl_key_value_pair)
+                            + paddedSize - payloadSize;
     payloadInfo->num_kvs = payloadInfo->num_kvs + appendSampleRateInCKV;
     if (appendSampleRateInCKV) {
         ptr = (uint32_t *)((uint8_t *)payloadInfo + dataLength);
@@ -867,7 +920,7 @@ int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
                                 ((uint8_t *)acdbParam + dataLength);
     header->module_instance_id = moduleInstanceId;
     header->param_id = effectCustomPayload->paramId;
-    header->param_size = paddedSize;
+    header->param_size = payloadSize;
     header->error_code = 0x0;
 
     if (paddedSize) {
@@ -973,6 +1026,56 @@ void PayloadBuilder::payloadQuery(uint8_t **payload, size_t *size,
     *payload = payloadInfo;
 }
 
+
+int PayloadBuilder::payloadDualMono(uint8_t **payloadInfo)
+{
+    uint8_t *payload = NULL;
+    uint32_t payload_size = 0;
+    uint16_t *update_params_value16 = nullptr;
+
+    payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) +
+                    sizeof(pal_effect_custom_payload_t) + CUSTOM_STEREO_CMD_PARAM_SIZE;
+    payload = (uint8_t *)calloc(1, payload_size);
+    if (!payload) {
+        ALOGE("%s: no mem. %d\n", __func__, __LINE__);
+        return -ENOMEM;
+    }
+
+    pal_param_payload *pal_payload = (pal_param_payload *)payload;
+    pal_payload->payload_size = payload_size - sizeof(pal_param_payload);
+    effect_pal_payload_t *effect_payload = nullptr;
+    effect_payload = (effect_pal_payload_t *)(payload +
+            sizeof(pal_param_payload));
+    effect_payload->isTKV = PARAM_NONTKV;
+    effect_payload->tag = PER_STREAM_PER_DEVICE_MFC;
+    effect_payload->payloadSize = payload_size - sizeof(pal_param_payload)
+                                    - sizeof(effect_pal_payload_t);
+    pal_effect_custom_payload_t *custom_stereo_payload =
+        (pal_effect_custom_payload_t *)(payload +
+            sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+    custom_stereo_payload->paramId = PARAM_ID_CHMIXER_COEFF;
+    custom_stereo_payload->data[0] = 1;// num of coeff table
+    update_params_value16 = (uint16_t *)&(custom_stereo_payload->data[1]);
+    /*for stereo mixing num out ch*/
+    *update_params_value16++ = CUSTOM_STEREO_NUM_OUT_CH;
+    /*for stereo mixing num in ch*/
+    *update_params_value16++ = CUSTOM_STEREO_NUM_IN_CH;
+    /* Out ch map FL/FR*/
+    *update_params_value16++ = PCM_CHANNEL_FL;
+    *update_params_value16++ = PCM_CHANNEL_FR;
+    /* In ch map FL/FR*/
+    *update_params_value16++ = PCM_CHANNEL_FL;
+    *update_params_value16++ = PCM_CHANNEL_FR;
+    /* weight */
+    *update_params_value16++ = Q14_GAIN_ZERO_POINT_FIVE;
+    *update_params_value16++ = Q14_GAIN_ZERO_POINT_FIVE;
+    *update_params_value16++ = Q14_GAIN_ZERO_POINT_FIVE;
+    *update_params_value16++ = Q14_GAIN_ZERO_POINT_FIVE;
+    *payloadInfo = payload;
+
+    return 0;
+}
+
 void PayloadBuilder::payloadDOAInfo(uint8_t **payload, size_t *size, uint32_t moduleId)
 {
     struct apm_module_param_data_t* header;
@@ -1053,6 +1156,47 @@ void PayloadBuilder::payloadTWSConfig(uint8_t** payload, size_t* size,
     *size = payloadSize;
     *payload = payloadInfo;
 }
+
+void PayloadBuilder::payloadNRECConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, bool isNrecEnabled)
+{
+    struct apm_module_param_data_t* header = NULL;
+    uint8_t* payloadInfo = NULL;
+    uint32_t param_id = 0, val = 0;
+    size_t payloadSize = 0, customPayloadSize = 0;
+    qcmn_global_effect_param_t *nrec_payload;
+
+    param_id = PARAM_ID_FLUENCE_CMN_GLOBAL_EFFECT;
+    customPayloadSize = sizeof(qcmn_global_effect_param_t);
+
+    payloadSize = PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
+                                        + customPayloadSize);
+    payloadInfo = (uint8_t *)calloc(1, (size_t)payloadSize);
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "failed to allocate memory.");
+        return;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = param_id;
+    header->error_code = 0x0;
+    header->param_size = customPayloadSize;
+    val = (isNrecEnabled == true) ? 0x3 : 0x0;
+
+    nrec_payload =
+        (qcmn_global_effect_param_t *)(payloadInfo +
+         sizeof(struct apm_module_param_data_t));
+    nrec_payload->ecns_effect_mode = val;
+    ar_mem_cpy(payloadInfo + sizeof(struct apm_module_param_data_t),
+                     customPayloadSize,
+                     nrec_payload,
+                     customPayloadSize);
+
+    *size = payloadSize;
+    *payload = payloadInfo;
+}
+
 
 void PayloadBuilder::payloadLC3Config(uint8_t** payload, size_t* size,
         uint32_t miid, bool isLC3MonoModeOn)
@@ -1618,14 +1762,15 @@ bool PayloadBuilder::compareSelectorPairs(
     PAL_DBG(LOG_TAG, "Enter: selector size: %zu filled_sel size: %zu",
         selector_pairs.size(), filled_selector_pairs.size());
     if (selector_pairs.size() == filled_selector_pairs.size()) {
+        std::sort(filled_selector_pairs.begin(), filled_selector_pairs.end());
+        std::sort(selector_pairs.begin(), selector_pairs.end());
         result = std::equal(selector_pairs.begin(), selector_pairs.end(),
             filled_selector_pairs.begin());
         if (result) {
-             PAL_DBG(LOG_TAG,"Return True");
+            PAL_DBG(LOG_TAG,"Return True");
             goto exit;
         }
-    }
-    else {
+    } else {
         for (int i = 0; i < filled_selector_pairs.size(); i++) {
             if (selector_pairs.end() != std::find(selector_pairs.begin(),
                 selector_pairs.end(), filled_selector_pairs[i])) {
@@ -1641,15 +1786,12 @@ bool PayloadBuilder::compareSelectorPairs(
         }
     }
 exit:
-    if(result) {
-        PAL_DBG(LOG_TAG, "No matching selectors found");
-    }
     PAL_DBG(LOG_TAG, "Exit result: %d", result);
     return result;
 }
 
 bool PayloadBuilder::findKVs(std::vector<std::pair<selector_type_t, std::string>>
-    &filled_selector_pairs, uint32_t type, std::vector<allKVs> any_type,
+    &filled_selector_pairs, uint32_t type, std::vector<allKVs> &any_type,
     std::vector<std::pair<int, int>> &keyVector)
 {
     bool found = false;
@@ -1672,9 +1814,7 @@ bool PayloadBuilder::findKVs(std::vector<std::pair<selector_type_t, std::string>
                         break;
                     }
                 } else {
-                    if (std::equal(any_type[i].keys_values[j].selector_pairs.begin(),
-                        any_type[i].keys_values[j].selector_pairs.end(),
-                        filled_selector_pairs.begin())) {
+                    if (any_type[i].keys_values[j].selector_pairs.empty()) {
                         for (int32_t k = 0; k < any_type[i].keys_values[j].kv_pairs.size(); k++) {
                             keyVector.push_back(
                                 std::make_pair(any_type[i].keys_values[j].kv_pairs[k].key,
@@ -1694,7 +1834,7 @@ bool PayloadBuilder::findKVs(std::vector<std::pair<selector_type_t, std::string>
 }
 
 int PayloadBuilder::retrieveKVs(std::vector<std::pair<selector_type_t, std::string>>
-    &filled_selector_pairs, uint32_t type, std::vector<allKVs> any_type,
+    &filled_selector_pairs, uint32_t type, std::vector<allKVs> &any_type,
     std::vector<std::pair<int, int>> &keyVector)
 {
     bool found = false, custom_config_fallback = false;
@@ -1785,7 +1925,7 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
             break;
             case INSTANCE_SEL:
                 if (sattr->type == PAL_STREAM_VOICE_UI)
-                    instance_id = s->getInstanceId();
+                    instance_id = dynamic_cast<StreamSoundTrigger *>(s)->GetInstanceId();
                 else
                     instance_id = rm->getStreamInstanceID(s);
                 if (instance_id < INSTANCE_1) {
@@ -1902,7 +2042,7 @@ bool PayloadBuilder::isIdTypeAvailable(int32_t type, std::vector<int>& id_type)
     return false;
 }
 
-std::vector<std::string> PayloadBuilder::retrieveSelectors(int32_t type, std::vector<allKVs> any_type)
+std::vector<std::string> PayloadBuilder::retrieveSelectors(int32_t type, std::vector<allKVs> &any_type)
 {
     std::vector<std::string> gkv_selectors;
     PAL_DBG(LOG_TAG, "Enter: size_of_all :%zu type:%d", any_type.size(), type);

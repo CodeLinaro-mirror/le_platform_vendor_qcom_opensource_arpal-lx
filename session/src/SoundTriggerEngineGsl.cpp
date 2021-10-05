@@ -1689,7 +1689,7 @@ int32_t SoundTriggerEngineGsl::HandleMultiStreamUnload(Stream *s) {
         UpdateState(ENG_LOADED);
     }
 
-    if (restore_eng_state) {
+    if (restore_eng_state && CheckIfOtherStreamsActive(s)) {
         if (IS_MODULE_TYPE_PDK(module_type_)) {
             std::map<uint32_t, struct detection_engine_config_stage1_pdk>::
                                      iterator itr = mid_wakeup_cfg_.begin();
@@ -2052,9 +2052,9 @@ int32_t SoundTriggerEngineGsl::ReconfigureDetectionGraph(Stream *s) {
     StreamSoundTrigger *st = dynamic_cast<StreamSoundTrigger *>(s);
 
     PAL_DBG(LOG_TAG, "Enter");
-    std::unique_lock<std::mutex> lck(mutex_);
 
-    DetachStream(s);
+    DetachStream(s, false);
+    std::unique_lock<std::mutex> lck(mutex_);
 
     /*
      * For PDK or sound model merging usecase, multi streams will
@@ -2178,6 +2178,18 @@ bool SoundTriggerEngineGsl::CheckIfOtherStreamsAttached(Stream *s) {
     for (uint32_t i = 0; i < eng_streams_.size(); i++)
         if (s != eng_streams_[i])
             return true;
+
+    return false;
+}
+
+bool SoundTriggerEngineGsl::CheckIfOtherStreamsActive(Stream *s) {
+    StreamSoundTrigger *st = nullptr;
+
+    for (uint32_t i = 0; i < eng_streams_.size(); i++) {
+        st = dynamic_cast<StreamSoundTrigger *>(eng_streams_[i]);
+        if (s != eng_streams_[i] && st && st->GetCurrentStateId() == ST_STATE_ACTIVE)
+            return true;
+    }
 
     return false;
 }
@@ -2854,15 +2866,17 @@ std::shared_ptr<SoundTriggerEngineGsl> SoundTriggerEngineGsl::GetInstance(
     return eng_[key];
 }
 
-void SoundTriggerEngineGsl::DetachStream(Stream *s) {
+void SoundTriggerEngineGsl::DetachStream(Stream *s, bool erase_engine) {
     st_module_type_t key;
+
+    std::unique_lock<std::mutex> lck(mutex_);
 
     if (s) {
         auto iter = std::find(eng_streams_.begin(), eng_streams_.end(), s);
         if (iter != eng_streams_.end())
             eng_streams_.erase(iter);
     }
-    if (!eng_streams_.size()) {
+    if (!eng_streams_.size() && erase_engine) {
         key = this->module_type_;
         if (IS_MODULE_TYPE_PDK(this->module_type_)) {
             key = ST_MODULE_TYPE_PDK;

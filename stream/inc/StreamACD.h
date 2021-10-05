@@ -131,7 +131,6 @@ class StreamACD : public Stream {
 
     pal_device_id_t GetAvailCaptureDevice();
     std::shared_ptr<CaptureProfile> GetCurrentCaptureProfile();
-    void NotifyClient(struct acd_context_event *event);
     void CacheEventData(struct acd_context_event *event);
     void SendCachedEventData();
     void PopulateCallbackPayload(struct acd_context_event *event, void *payload);
@@ -444,7 +443,6 @@ class StreamACD : public Stream {
     struct acd_recognition_cfg    *rec_config_;
     struct pal_param_context_list *context_config_;
     struct pal_st_recognition_event *cached_event_data_;
-    uint32_t                      detection_state_;
     bool                          paused_;
     bool                          device_opened_;
 

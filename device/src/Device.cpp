@@ -63,7 +63,7 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         return NULL;
     }
 
-    PAL_DBG(LOG_TAG, "Enter device id %d", device->id);
+    PAL_VERBOSE(LOG_TAG, "Enter device id %d", device->id);
 
     //TBD: decide on supported devices from XML and not in code
     switch (device->id) {
@@ -167,6 +167,8 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         return Headphone::getObject(dev_id);
     case PAL_DEVICE_OUT_USB_DEVICE:
     case PAL_DEVICE_OUT_USB_HEADSET:
+    case PAL_DEVICE_IN_USB_DEVICE:
+    case PAL_DEVICE_IN_USB_HEADSET:
         PAL_VERBOSE(LOG_TAG, "USB device");
         return USB::getObject(dev_id);
     case PAL_DEVICE_OUT_AUX_DIGITAL:
@@ -207,6 +209,12 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_IN_EXT_EC_REF:
         PAL_VERBOSE(LOG_TAG, "ExtEC device %d", dev_id);
         return ExtEC::getObject();
+    case PAL_DEVICE_IN_HANDSET_VA_MIC:
+        PAL_VERBOSE(LOG_TAG, "Handset VA Mic device %d", dev_id);
+        return HandsetVaMic::getObject();
+    case PAL_DEVICE_IN_HEADSET_VA_MIC:
+        PAL_VERBOSE(LOG_TAG, "Headset VA Mic device %d", dev_id);
+        return HeadsetVaMic::getObject();
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",dev_id);
         return nullptr;
@@ -400,6 +408,7 @@ int Device::close()
            PAL_DBG(LOG_TAG, "Disabling device %d with snd dev %s", deviceAttr.id, mSndDeviceName);
            disableDevice(audioRoute, mSndDeviceName);
            mCurrentPriority = MIN_USECASE_PRIORITY;
+           deviceStartDone = false;
        }
     }
     PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s), exit status %d", deviceCount,
@@ -432,7 +441,7 @@ int Device::start_l()
 
     PAL_DBG(LOG_TAG, "Enter. deviceCount %d for device id %d (%s)", deviceCount,
             this->deviceAttr.id, mPALDeviceName.c_str());
-    if (deviceCount == 1) {
+    if (!deviceStartDone) {
         rm->getBackendName(deviceAttr.id, backEndName);
         if (!strlen(backEndName.c_str())) {
             PAL_ERR(LOG_TAG, "Error: Backend name not defined for %d in xml file\n", deviceAttr.id);
@@ -449,6 +458,7 @@ int Device::start_l()
                  PAL_ERR(LOG_TAG, "Error: Dev setParam failed for %d\n",
                                    deviceAttr.id);
         }
+        deviceStartDone = true;
     }
 exit :
     PAL_DBG(LOG_TAG, "Exit, status %d", status);

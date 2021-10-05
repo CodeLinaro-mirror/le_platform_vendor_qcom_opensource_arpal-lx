@@ -39,11 +39,13 @@
 #include "audio_route/audio_route.h"
 #include <tinyalsa/asoundlib.h>
 #include "PalCommon.h"
+#include <array>
 #include <map>
 #include <expat.h>
 #include <stdio.h>
 #include <queue>
 #include <deque>
+#include <unordered_map>
 #include "PalDefs.h"
 #include "ChargerListener.h"
 #include "SndCardMonitor.h"
@@ -68,6 +70,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_HIFI_FILTER "hifi_filter"
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
+#define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -86,6 +89,7 @@ typedef enum {
 #endif
 
 using InstanceListNode_t = std::vector<std::pair<int32_t, bool>> ;
+using nonTunnelInstMap_t = std::unordered_map<uint32_t, bool>;
 
 typedef enum {
     TAG_ROOT,
@@ -275,7 +279,7 @@ typedef struct group_dev_hwep_config_ctl
 {
     uint32_t sample_rate;
     uint32_t channels;
-    uint32_t bit_width;
+    uint32_t aud_fmt_id;
     uint32_t slot_mask;
 } group_dev_hwep_config_t;
 
@@ -285,6 +289,13 @@ typedef struct group_dev_config
     devpp_mfc_config_t  devpp_mfc_cfg;
     group_dev_hwep_config_t grp_dev_hwep_cfg;
 } group_dev_config_t;
+
+static const constexpr uint32_t DEFAULT_NT_SESSION_TYPE_COUNT = 2;
+
+enum NTStreamTypes_t : uint32_t {
+    NT_PATH_ENCODE = 0,
+    NT_PATH_DECODE
+};
 
 typedef void (*session_callback)(uint64_t hdl, uint32_t event_id, void *event_data,
                 uint32_t event_size);
@@ -369,11 +380,15 @@ private:
     int handleDeviceConnectionChange(pal_param_device_connection_t connection_state);
     int32_t streamDevDisconnect(std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnectList);
     int32_t streamDevConnect(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList);
+    int32_t streamDevDisconnect_l(std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnectList);
+    int32_t streamDevConnect_l(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList);
     void ssrHandlingLoop(std::shared_ptr<ResourceManager> rm);
     int updateECDeviceMap(std::shared_ptr<Device> rx_dev,
                         std::shared_ptr<Device> tx_dev,
                         Stream *tx_str, int count, bool is_txstop);
     static bool isBitWidthSupported(uint32_t bitWidth);
+    uint32_t getNTPathForStreamAttr(const pal_stream_attributes attr);
+    ssize_t getAvailableNTStreamInstance(const pal_stream_attributes attr);
 protected:
     std::list <Stream*> mActiveStreams;
     std::list <StreamPCM*> active_streams_ll;
@@ -476,6 +491,7 @@ protected:
     int32_t nlpi_counter_;
     int sleepmon_fd_;
     static std::map<group_dev_config_idx_t, std::shared_ptr<group_dev_config_t>> groupDevConfigMap;
+    std::array<std::shared_ptr<nonTunnelInstMap_t>, DEFAULT_NT_SESSION_TYPE_COUNT> mNTStreamInstancesList;
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -490,6 +506,7 @@ public:
     static bool isRasEnabled;
     static bool isGaplessEnabled;
     static bool isContextManagerEnabled;
+    static bool isDualMonoEnabled;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
@@ -698,6 +715,7 @@ public:
     static int setContextManagerEnableParam(struct str_parms *parms,char *value, int len);
     static int setLpiLoggingParams(struct str_parms *parms, char *value, int len);
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
+    static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);

@@ -53,6 +53,7 @@ SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
    rm = Rm;
    builder = new PayloadBuilder();
    pcmEcTx = NULL;
+   streamHandle = NULL;
 }
 
 SessionAlsaVoice::~SessionAlsaVoice()
@@ -87,6 +88,9 @@ uint32_t SessionAlsaVoice::getMIID(const char *backendName, uint32_t tagId, uint
         device = pcmDevRxIds.at(0);
         break;
     case COP_DEPACKETIZER_V2:
+        device = pcmDevTxIds.at(0);
+        break;
+    case TAG_ECNS:
         device = pcmDevTxIds.at(0);
         break;
     case COP_PACKETIZER_V2:
@@ -124,6 +128,7 @@ int SessionAlsaVoice::open(Stream * s)
 
     PAL_DBG(LOG_TAG,"Enter");
     status = s->getStreamAttributes(&sAttr);
+    streamHandle = s;
     if(0 != status) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
         goto exit;
@@ -1453,6 +1458,9 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
     deviceToDisconnect->getDeviceAttributes(&dAttr);
 
     if (rxAifBackEnds.size() > 0) {
+        /*config mute on pop suppressor*/
+        setPopSuppressorMute(streamHandle);
+
         status =  SessionAlsaUtils::disconnectSessionDevice(streamHandle,
                                                             streamType, rm,
                                                             dAttr, pcmDevRxIds,
@@ -1704,29 +1712,36 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
         goto exit;
     }
     extEcTxDeviceList.push_back(dev);
+    pcmDevEcTxIds = rm->allocateFrontEndExtEcIds();
+    if (pcmDevEcTxIds.size() == 0) {
+        PAL_ERR(LOG_TAG, "ResourceManger::getBackEndNames returned no EXT_EC device Ids");
+        goto exit;
+    }
     status = dev->open();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "dev open failed");
         status = -EINVAL;
+        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
         goto exit;
     }
     status = dev->start();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "dev start failed");
         dev->close();
+        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
         status = -EINVAL;
         goto exit;
     }
 
     extEcbackendId = extEcTxDeviceList[0]->getSndDeviceId();
     extEcbackendNames = rm->getBackEndNames(extEcTxDeviceList);
-    pcmDevEcTxIds = rm->allocateFrontEndExtEcIds();
     status = SessionAlsaUtils::openDev(rm, pcmDevEcTxIds, extEcbackendId,
         extEcbackendNames.at(0).c_str());
     if (0 != status) {
         PAL_ERR(LOG_TAG, "SessionAlsaUtils::openDev failed");
         dev->stop();
         dev->close();
+        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
         status = -EINVAL;
         goto exit;
     }
@@ -1735,6 +1750,7 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
         PAL_ERR(LOG_TAG, "Exit pcm-ec-tx open failed");
         dev->stop();
         dev->close();
+        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
         status = -EINVAL;
         goto exit;
     }
@@ -1744,6 +1760,7 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
         pcmEcTx = NULL;
         dev->stop();
         dev->close();
+        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
         status = -EINVAL;
         goto exit;
     }
@@ -1752,8 +1769,10 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
     if (status) {
         PAL_ERR(LOG_TAG, "pcm_start ec_tx failed %d", status);
         pcm_close(pcmEcTx);
+        pcmEcTx = NULL;
         dev->stop();
         dev->close();
+        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
         status = -EINVAL;
         goto exit;
     }
@@ -1785,6 +1804,53 @@ int SessionAlsaVoice::getTXDeviceId(Stream *s, int *id)
     if(i >= PAL_DEVICE_IN_MAX){
         status = -EINVAL;
     }
+    return status;
+}
+
+int SessionAlsaVoice::setPopSuppressorMute(Stream *s)
+{
+    int status = 0;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    uint8_t* payload = NULL;
+    size_t payloadSize = 0;
+    uint32_t miid = 0;
+
+    if (!rxAifBackEnds.size()) {
+        PAL_ERR(LOG_TAG,"No RX backends found failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevRxIds.at(0),
+                                                   rxAifBackEnds[0].second.c_str(),
+                                                   DEVICE_POP_SUPPRESSOR, &miid);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"getModuleInstanceId failed for Rx pop suppressor: 0x%x status: %d",
+            DEVICE_POP_SUPPRESSOR, status);
+        goto exit;
+    }
+
+    if (!builder) {
+        PAL_ERR(LOG_TAG,"failed: builder instance not found")
+        status = -EINVAL;
+        goto exit;
+    }
+
+    status = builder->payloadPopSuppressorConfig((uint8_t**)&payload, &payloadSize, miid, true);
+    if (status) {
+        PAL_ERR(LOG_TAG,"pop suppressor payload creation failed: status: %d",
+                status);
+        goto exit;
+    }
+
+    status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevRxIds.at(0),
+                                                 payload, payloadSize);
+    if (status) {
+        PAL_ERR(LOG_TAG,"setMixerParameter failed");
+    }
+exit:
+    if (payload)
+        free(payload);
     return status;
 }
 
