@@ -51,6 +51,20 @@ StreamACD::StreamACD(struct pal_stream_attributes *sattr,
     paused_ = false;
     device_opened_ = false;
     currentState = STREAM_IDLE;
+    exit_thread_ = false;
+    acd_idle_ = nullptr;
+    acd_loaded_ = nullptr;
+    acd_active = nullptr;
+    acd_detected_ = nullptr;
+    acd_ssr_ = nullptr;
+    acd_states_ = {};
+    use_lpi_ = false;
+    cached_event_data_ = nullptr;
+    callback_ = nullptr;
+    cookie_ = 0;
+    cur_state_ = nullptr;
+    prev_state_ = nullptr;
+    state_for_restore_ = ACD_STATE_NONE;
 
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
@@ -102,7 +116,6 @@ StreamACD::StreamACD(struct pal_stream_attributes *sattr,
         throw std::runtime_error("ACD not enabled, exiting");
     }
 
-    exit_thread_ = false;
     notification_thread_handler_ = std::thread(EventNotificationThread, this);
     if (!notification_thread_handler_.joinable()) {
         PAL_ERR(LOG_TAG, "Error:%d failed to create notification thread",
@@ -126,8 +139,6 @@ StreamACD::StreamACD(struct pal_stream_attributes *sattr,
 
     // Set initial state
     cur_state_ = acd_idle_;
-    prev_state_ = nullptr;
-    state_for_restore_ = ACD_STATE_NONE;
 
     // Print the concurrency feature flags supported
     PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,voip conc enable %d",
@@ -218,6 +229,11 @@ int32_t StreamACD::close()
     if (context_config_) {
         free(context_config_);
         context_config_ = nullptr;
+    }
+
+    if (cached_event_data_) {
+        free(cached_event_data_);
+        cached_event_data_ = nullptr;
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -531,30 +547,6 @@ void StreamACD::SendCachedEventData()
     }
     free(cached_event_data_);
     cached_event_data_ = NULL;
-}
-void StreamACD::NotifyClient(struct acd_context_event *event)
-{
-    uint8_t *event_data = NULL;
-    int offset = 0;
-    struct pal_st_recognition_event *recognition_event = NULL;
-    size_t event_size = sizeof(struct pal_st_recognition_event) +
-                        sizeof(struct st_param_header) +
-                        sizeof(struct acd_context_event) +
-                        (event->num_contexts * sizeof(struct acd_per_context_event_info));
-
-    event_data = (uint8_t *)calloc(1, event_size);
-    if (!event_data) {
-        PAL_ERR(LOG_TAG, "Failed to allocate memory for event_data");
-        return;
-    }
-
-    if (callback_) {
-        PAL_INFO(LOG_TAG, "Notify detection event to client");
-        PopulateCallbackPayload(event, event_data);
-        callback_((pal_stream_handle_t *)this, 0, (uint32_t *)event_data,
-                  event_size, cookie_);
-    }
-    free(event_data);
 }
 
 void StreamACD::SetEngineDetectionData(struct acd_context_event *event)
@@ -1224,6 +1216,14 @@ int32_t StreamACD::ACDLoaded::ProcessEvent(
                 goto err_exit;
             }
             TransitTo(ACD_STATE_ACTIVE);
+            if (acd_stream_.state_for_restore_ == ACD_STATE_DETECTED) {
+                TransitTo(ACD_STATE_DETECTED);
+                acd_stream_.state_for_restore_ = ACD_STATE_NONE;
+            } else if (acd_stream_.cached_event_data_) {
+                std::unique_lock<std::mutex> lck(acd_stream_.mutex_);
+                acd_stream_.cv_.notify_one();
+                TransitTo(ACD_STATE_DETECTED);
+            }
             break;
         err_exit:
             if (acd_stream_.mDevices.size() > 0) {
@@ -1283,6 +1283,10 @@ int32_t StreamACD::ACDLoaded::ProcessEvent(
             acd_stream_.mDevices.clear();
             acd_stream_.mDevices.push_back(dev);
 
+            PAL_DBG(LOG_TAG, "Update capture profile before SetupSessionDevice");
+            acd_stream_.cap_prof_ = acd_stream_.GetCurrentCaptureProfile();
+            acd_stream_.mDevPPSelector = acd_stream_.cap_prof_->GetName();
+
             status = acd_stream_.engine_->SetupSessionDevice(&acd_stream_,
                 acd_stream_.mStreamAttr->type, dev);
             if (0 != status) {
@@ -1319,9 +1323,6 @@ int32_t StreamACD::ACDLoaded::ProcessEvent(
                 dev->close();
                 acd_stream_.device_opened_ = false;
             } else {
-                PAL_INFO(LOG_TAG, "Update capture profile after device switch");
-                acd_stream_.cap_prof_ = acd_stream_.GetCurrentCaptureProfile();
-                acd_stream_.mDevPPSelector = acd_stream_.cap_prof_->GetName();
                 if (acd_stream_.isActive())
                     acd_stream_.rm->registerDevice(dev, &acd_stream_);
             }
@@ -1395,20 +1396,22 @@ int32_t StreamACD::ACDLoaded::ProcessEvent(
                         PAL_ERR(LOG_TAG, "Error:%d Failed to disconnect device %d", status,
                                     acd_stream_.GetAvailCaptureDevice());
                 } else {
-                    acd_stream_.mDevPPSelector = new_cap_prof->GetName();
                     std::shared_ptr<ACDEventConfig> ev_cfg1(
                         new ACDDeviceConnectedEventConfig(acd_stream_.GetAvailCaptureDevice()));
                     status = acd_stream_.ProcessInternalEvent(ev_cfg1);
-                    if (status) {
+                    if (status)
                         PAL_ERR(LOG_TAG, "Error:%d Failed to connect device %d", status, acd_stream_.GetAvailCaptureDevice());
-                    } else {
-                        acd_stream_.cap_prof_ = new_cap_prof;
-                        acd_stream_.mDevPPSelector = acd_stream_.cap_prof_->GetName();
-                    }
                 }
             } else {
               PAL_INFO(LOG_TAG,"no action needed, same capture profile");
             }
+            break;
+        }
+        case ACD_EV_DETECTED: {
+            ACDDetectedEventConfigData *data =
+                (ACDDetectedEventConfigData *) ev_cfg->data_.get();
+            std::unique_lock<std::mutex> lck(acd_stream_.mutex_);
+            acd_stream_.CacheEventData((struct acd_context_event *)data->data_);
             break;
         }
         case ACD_EV_SSR_OFFLINE: {
@@ -1440,8 +1443,12 @@ int32_t StreamACD::ACDActive::ProcessEvent(
         case ACD_EV_DETECTED: {
             ACDDetectedEventConfigData *data =
                 (ACDDetectedEventConfigData *) ev_cfg->data_.get();
-            acd_stream_.NotifyClient((struct acd_context_event *)data->data_);
-            TransitTo(ACD_STATE_DETECTED);
+            std::unique_lock<std::mutex> lck(acd_stream_.mutex_);
+            acd_stream_.CacheEventData((struct acd_context_event *)data->data_);
+            if (acd_stream_.cached_event_data_) {
+                acd_stream_.cv_.notify_one();
+                TransitTo(ACD_STATE_DETECTED);
+            }
             break;
         }
         case ACD_EV_PAUSE: {
@@ -1510,6 +1517,8 @@ int32_t StreamACD::ACDActive::ProcessEvent(
             }
             auto& dev = acd_stream_.mDevices[0];
 
+            acd_stream_.rm->deregisterDevice(dev, &acd_stream_);
+
             acd_stream_.engine_->DisconnectSessionDevice(&acd_stream_,
                 acd_stream_.mStreamAttr->type, dev);
 
@@ -1518,8 +1527,6 @@ int32_t StreamACD::ACDActive::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Error:%d device stop failed", status);
                 goto disconnect_err;
             }
-
-            acd_stream_.rm->deregisterDevice(dev, &acd_stream_);
 
             status = dev->close();
             acd_stream_.device_opened_ = false;
@@ -1556,6 +1563,10 @@ int32_t StreamACD::ACDActive::ProcessEvent(
             acd_stream_.mDevices.clear();
             acd_stream_.mDevices.push_back(dev);
 
+            PAL_DBG(LOG_TAG, "Update capture profile before SetupSessionDevice");
+            acd_stream_.cap_prof_ = acd_stream_.GetCurrentCaptureProfile();
+            acd_stream_.mDevPPSelector = acd_stream_.cap_prof_->GetName();
+
             status = acd_stream_.engine_->SetupSessionDevice(&acd_stream_,
                 acd_stream_.mStreamAttr->type, dev);
             if (0 != status) {
@@ -1581,9 +1592,6 @@ int32_t StreamACD::ACDActive::ProcessEvent(
                 dev->close();
                 acd_stream_.device_opened_ = false;
             } else {
-                PAL_DBG(LOG_TAG, "Update capture profile after device switch");
-                acd_stream_.cap_prof_ = acd_stream_.GetCurrentCaptureProfile();
-                acd_stream_.mDevPPSelector = acd_stream_.cap_prof_->GetName();
                 acd_stream_.rm->registerDevice(dev, &acd_stream_);
             }
             break;
@@ -1655,18 +1663,11 @@ int32_t StreamACD::ACDActive::ProcessEvent(
                         PAL_ERR(LOG_TAG, "Error:%d Failed to disconnect device %d", status,
                                     acd_stream_.GetAvailCaptureDevice());
                 } else {
-                    acd_stream_.mDevPPSelector = new_cap_prof->GetName();
-
                     std::shared_ptr<ACDEventConfig> ev_cfg1(
                         new ACDDeviceConnectedEventConfig(acd_stream_.GetAvailCaptureDevice()));
                     status = acd_stream_.ProcessInternalEvent(ev_cfg1);
-                    if (status) {
+                    if (status)
                         PAL_ERR(LOG_TAG, "Error:%d Failed to connect device %d", status, acd_stream_.GetAvailCaptureDevice());
-                    } else {
-                        acd_stream_.cap_prof_ = new_cap_prof;
-                        acd_stream_.mDevPPSelector = acd_stream_.cap_prof_->GetName();
-                    }
-
                 }
             } else {
               PAL_INFO(LOG_TAG,"no action needed, same capture profile");
@@ -1726,6 +1727,25 @@ int32_t StreamACD::ACDDetected::ProcessEvent(
 
             break;
         }
+        case ACD_EV_RESUME:
+            acd_stream_.state_for_restore_ = ACD_STATE_DETECTED;
+            TransitTo(ACD_STATE_LOADED);
+            status = acd_stream_.ProcessInternalEvent(ev_cfg);
+            if (status)
+                PAL_ERR(LOG_TAG, "Error:%d Failed to process event %d", status, ev_cfg->id_);
+            break;
+        case ACD_EV_UNLOAD_SOUND_MODEL:
+        case ACD_EV_STOP_RECOGNITION:
+            /* if stream already in stopped state, move to LOADED state */
+            if (acd_stream_.paused_ == true)
+                TransitTo(ACD_STATE_LOADED);
+            else
+                TransitTo(ACD_STATE_ACTIVE);
+
+            status = acd_stream_.ProcessInternalEvent(ev_cfg);
+            if (status)
+                PAL_ERR(LOG_TAG, "Error:%d Failed to process event %d", status, ev_cfg->id_);
+            break;
         case ACD_EV_RECOGNITION_CONFIG:
         case ACD_EV_CONTEXT_CONFIG:
         case ACD_EV_EC_REF:
@@ -1733,6 +1753,7 @@ int32_t StreamACD::ACDDetected::ProcessEvent(
         case ACD_EV_DEVICE_CONNECTED:
         case ACD_EV_SSR_OFFLINE:
         case ACD_EV_CONCURRENT_STREAM:
+        case ACD_EV_PAUSE:
             acd_stream_.state_for_restore_ = ACD_STATE_DETECTED;
             // fall through to default
             [[fallthrough]];
@@ -1866,8 +1887,10 @@ int32_t StreamACD::ACDSSR::ProcessEvent(std::shared_ptr<ACDEventConfig> ev_cfg)
                 }
 
             if ((acd_stream_.state_for_restore_ == ACD_STATE_DETECTED) &&
-                (acd_stream_.cached_event_data_ != NULL))
-                acd_stream_.SendCachedEventData();
+                (acd_stream_.cached_event_data_ != NULL)) {
+                std::unique_lock<std::mutex> lck(acd_stream_.mutex_);
+                acd_stream_.cv_.notify_one();
+            }
             else
                 acd_stream_.state_for_restore_ = ACD_STATE_ACTIVE;
             }

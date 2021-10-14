@@ -70,7 +70,7 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
                           listen_model_indicator_enum type,
                           st_module_type_t module_type,
                           std::shared_ptr<SoundModelConfig> sm_cfg);
-    void DetachStream(Stream *s) override;
+    void DetachStream(Stream *s, bool erase_engine) override;
     int32_t LoadSoundModel(Stream *s, uint8_t *data,
                            uint32_t data_size) override;
     int32_t UnloadSoundModel(Stream *s) override;
@@ -129,6 +129,7 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
     static void HandleSessionCallBack(uint64_t hdl, uint32_t event_id, void *data,
                                       uint32_t event_size);
     bool CheckIfOtherStreamsAttached(Stream *s);
+    bool CheckIfOtherStreamsActive(Stream *s);
     int32_t HandleMultiStreamLoad(Stream *s, uint8_t *data, uint32_t data_size);
     int32_t HandleMultiStreamUnloadPDK(Stream *s);
     int32_t HandleMultiStreamUnload(Stream *s);

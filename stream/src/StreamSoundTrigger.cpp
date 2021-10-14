@@ -48,6 +48,7 @@
 
 #define ST_DEFERRED_STOP_DEALY_MS (1000)
 #define ST_MODEL_TYPE_SHIFT       (16)
+#define ST_MAX_FSTAGE_CONF_LEVEL  (100)
 
 ST_DBG_DECLARE(static int lab_cnt = 0);
 
@@ -84,7 +85,8 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     lab_fd_ = nullptr;
     rejection_notified_ = false;
     mutex_unlocked_after_cb_ = false;
-    concurrency_handling_ = false;
+    common_cp_update_disable_ = false;
+    second_stage_processing_ = false;
     gsl_engine_model_ = nullptr;
     gsl_conf_levels_ = nullptr;
     mDevices.clear();
@@ -181,7 +183,8 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
 
     // check if lpi should be used
     if (rm->IsLPISupported(PAL_STREAM_VOICE_UI) &&
-        !(rm->isNLPISwitchSupported(PAL_STREAM_VOICE_UI) && enable_concurrency_count)) {
+        !(rm->isNLPISwitchSupported(PAL_STREAM_VOICE_UI) && enable_concurrency_count) &&
+        !(rm->IsTransitToNonLPIOnChargingSupported() && charging_state_)) {
         use_lpi_ = true;
     } else {
         use_lpi_ = false;
@@ -492,7 +495,7 @@ int32_t StreamSoundTrigger::HandleConcurrentStream(bool active) {
 
     if (!active) {
         transit_start_time_ = std::chrono::steady_clock::now();
-        concurrency_handling_ = true;
+        common_cp_update_disable_ = true;
     }
 
     PAL_DBG(LOG_TAG, "Enter");
@@ -505,7 +508,7 @@ int32_t StreamSoundTrigger::HandleConcurrentStream(bool active) {
         transit_duration =
             std::chrono::duration_cast<std::chrono::milliseconds>(
                 transit_end_time_ - transit_start_time_).count();
-        concurrency_handling_ = false;
+        common_cp_update_disable_ = false;
         if (use_lpi_) {
             PAL_INFO(LOG_TAG, "NLPI->LPI switch takes %llums",
                 (long long)transit_duration);
@@ -524,6 +527,8 @@ int32_t StreamSoundTrigger::EnableLPI(bool is_enable) {
     std::lock_guard<std::mutex> lck(mStreamMutex);
     if (!rm->IsLPISupported(PAL_STREAM_VOICE_UI)) {
         PAL_DBG(LOG_TAG, "Ignore as LPI not supported");
+    } else if (rm->IsTransitToNonLPIOnChargingSupported() && charging_state_) {
+        PAL_DBG(LOG_TAG, "Ignore lpi update in car mode");
     } else {
         use_lpi_ = is_enable;
     }
@@ -612,14 +617,26 @@ int32_t StreamSoundTrigger::ConnectDevice(pal_device_id_t device_id) {
 
 int32_t StreamSoundTrigger::HandleChargingStateUpdate(bool state, bool active) {
     int32_t status = 0;
+    int32_t enable_concurrency_count = 0;
+    int32_t disable_concurrency_count = 0;
 
     PAL_DBG(LOG_TAG, "Enter, state %d", state);
     std::lock_guard<std::mutex> lck(mStreamMutex);
-
+    charging_state_ = state;
     if (!rm->IsLPISupported(PAL_STREAM_VOICE_UI)) {
         PAL_DBG(LOG_TAG, "Ignore as LPI not supported");
     } else {
-        use_lpi_ = !state;
+        // check concurrency count from rm
+        rm->GetSoundTriggerConcurrencyCount(PAL_STREAM_VOICE_UI,
+            &enable_concurrency_count, &disable_concurrency_count);
+
+        // no need to update use_lpi_ if there's concurrency enabled
+        if (rm->isNLPISwitchSupported(PAL_STREAM_VOICE_UI) &&
+            enable_concurrency_count) {
+            PAL_DBG(LOG_TAG, "Ignore lpi update when concurrency enabled");
+        } else {
+            use_lpi_ = !state;
+        }
     }
 
     std::shared_ptr<StEventConfig> ev_cfg(
@@ -944,6 +961,18 @@ unload_model:
 
 error_exit:
     return nullptr;
+}
+
+/*
+ * Return stream instance id for gkv popluation
+ * For PDK: always return INSTANCE_1
+ * For SVA4: just return stream instance id
+ */
+uint32_t StreamSoundTrigger::GetInstanceId() {
+    if (IS_MODULE_TYPE_PDK(model_type_))
+        return INSTANCE_1;
+    else
+        return mInstanceID;
 }
 
 void StreamSoundTrigger::GetUUID(class SoundTriggerUUID *uuid,
@@ -1639,14 +1668,16 @@ int32_t StreamSoundTrigger::SendRecognitionConfig(
         }
     }
 
-    gsl_engine_->UpdateConfLevels(this, config,
+    if (num_conf_levels > 0) {
+        gsl_engine_->UpdateConfLevels(this, config,
                                   conf_levels, num_conf_levels);
 
-    gsl_conf_levels_ = (uint8_t *)realloc(gsl_conf_levels_, num_conf_levels);
-    if (!gsl_conf_levels_) {
-        PAL_ERR(LOG_TAG, "Failed to allocate gsl conf levels memory");
-        status = -ENOMEM;
-        goto error_exit;
+        gsl_conf_levels_ = (uint8_t *)realloc(gsl_conf_levels_, num_conf_levels);
+        if (!gsl_conf_levels_) {
+            PAL_ERR(LOG_TAG, "Failed to allocate gsl conf levels memory");
+            status = -ENOMEM;
+            goto error_exit;
+        }
     }
     ar_mem_cpy(gsl_conf_levels_, num_conf_levels, conf_levels, num_conf_levels);
     gsl_conf_levels_size_ = num_conf_levels;
@@ -1657,28 +1688,26 @@ int32_t StreamSoundTrigger::SendRecognitionConfig(
     else
         capture_requested_ = true;
     gsl_engine_->SetCaptureRequested(capture_requested_);
-    return status;
+    goto exit;
 
 error_exit:
-    if (conf_levels)
-        free(conf_levels);
-
     if (rec_config_) {
         free(rec_config_);
         rec_config_ = nullptr;
     }
 
-    if (status) {
-        if (st_conf_levels_) {
-            free(st_conf_levels_);
-            st_conf_levels_ = nullptr;
-        }
-        if (st_conf_levels_v2_) {
-            free(st_conf_levels_v2_);
-            st_conf_levels_v2_ = nullptr;
-        }
+    if (st_conf_levels_) {
+        free(st_conf_levels_);
+        st_conf_levels_ = nullptr;
+    }
+    if (st_conf_levels_v2_) {
+        free(st_conf_levels_v2_);
+        st_conf_levels_v2_ = nullptr;
     }
 exit:
+    if (conf_levels)
+        free(conf_levels);
+
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -2019,8 +2048,8 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
     struct st_param_header *param_hdr = nullptr;
     struct st_keyword_indices_info *kw_indices = nullptr;
     struct st_timestamp_info *timestamps = nullptr;
-    struct detection_event_info_pdk *detection_event_info_multi_model =
-                                                                nullptr;
+    struct model_stats *det_model_stat = nullptr;
+    struct detection_event_info_pdk *det_ev_info_pdk = nullptr;
     struct detection_event_info *det_ev_info = nullptr;
     size_t opaque_size = 0;
     size_t event_size = 0, conf_levels_size = 0;
@@ -2037,11 +2066,10 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
     PAL_DBG(LOG_TAG, "Enter");
     *event = nullptr;
     if (sound_model_type_ == PAL_SOUND_MODEL_TYPE_KEYPHRASE) {
-        if (model_id_ > 0){
-            detection_event_info_multi_model =
-                    (struct detection_event_info_pdk *)gsl_engine_->
-                            GetDetectionEventInfo();
-            if (!detection_event_info_multi_model){
+        if (model_id_ > 0) {
+            det_ev_info_pdk = (struct detection_event_info_pdk *)
+                gsl_engine_->GetDetectionEventInfo();
+            if (!det_ev_info_pdk) {
                 PAL_ERR(LOG_TAG, "detection info multi model not available");
                 status = -EINVAL;
                 goto exit;
@@ -2121,24 +2149,17 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
             ar_mem_cpy(opaque_data, param_hdr->payload_size,
                 st_conf_levels_v2_, param_hdr->payload_size);
         if (model_id_ > 0) {
-            num_models = detection_event_info_multi_model->num_detected_models;
+            num_models = det_ev_info_pdk->num_detected_models;
             for (int i = 0; i < num_models; ++i) {
-                if (model_id_ == detection_event_info_multi_model->
-                                    detected_model_stats[i].detected_model_id) {
-                    det_keyword_id = detection_event_info_multi_model->
-                                        detected_model_stats[i].
-                                        detected_keyword_id;
-                    best_conf_level = detection_event_info_multi_model->
-                                        detected_model_stats[i].
-                                        best_confidence_level;
-                    detection_timestamp_lsw = detection_event_info_multi_model->
-                                                detected_model_stats[i].
-                                                detection_timestamp_lsw;
-                    detection_timestamp_msw = detection_event_info_multi_model->
-                                                detected_model_stats[i].
-                                                detection_timestamp_msw;
-                    PAL_DBG(LOG_TAG,
-                            "keywordID : %u and best_conf_level : %u is updated",
+                det_model_stat = &det_ev_info_pdk->detected_model_stats[i];
+                if (model_id_ == det_model_stat->detected_model_id) {
+                    det_keyword_id = det_model_stat->detected_keyword_id;
+                    best_conf_level = det_model_stat->best_confidence_level;
+                    detection_timestamp_lsw =
+                        det_model_stat->detection_timestamp_lsw;
+                    detection_timestamp_msw =
+                        det_model_stat->detection_timestamp_msw;
+                    PAL_DBG(LOG_TAG, "keywordID: %u, best_conf_level: %u",
                             det_keyword_id, best_conf_level);
                     break;
                 }
@@ -2184,11 +2205,11 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
         // dump detection event opaque data
         if ((*event)->data_offset > 0 && (*event)->data_size > 0 &&
             st_info_->GetEnableDebugDumps()) {
+            opaque_data = (uint8_t *)phrase_event + phrase_event->common.data_offset;
             ST_DBG_DECLARE(FILE *det_opaque_fd = NULL; static int det_opaque_cnt = 0);
             ST_DBG_FILE_OPEN_WR(det_opaque_fd, ST_DEBUG_DUMP_LOCATION,
                 "det_event_opaque", "bin", det_opaque_cnt);
-            ST_DBG_FILE_WRITE(det_opaque_fd,
-                (uint8_t *)(*event) + (*event)->data_offset, (*event)->data_size);
+            ST_DBG_FILE_WRITE(det_opaque_fd, opaque_data, (*event)->data_size);
             ST_DBG_FILE_CLOSE(det_opaque_fd);
             PAL_DBG(LOG_TAG, "detection event opaque data stored in: det_event_opaque_%d.bin",
                 det_opaque_cnt);
@@ -2249,8 +2270,8 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
     struct st_confidence_levels_info_v2 *conf_levels_v2 = nullptr;
     struct st_sound_model_conf_levels *sm_levels = nullptr;
     struct st_sound_model_conf_levels_v2 *sm_levels_v2 = nullptr;
-    uint8_t confidence_level = 0;
-    uint8_t confidence_level_v2 = 0;
+    int32_t confidence_level = 0;
+    int32_t confidence_level_v2 = 0;
     bool gmm_conf_found = false;
 
     PAL_DBG(LOG_TAG, "Enter");
@@ -2275,8 +2296,8 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
             sm_levels = &conf_levels->conf_levels[i];
             if (sm_levels->sm_id == ST_SM_ID_SVA_F_STAGE_GMM) {
                 gmm_conf_found = true;
-                FillOpaqueConfLevels((void *)sm_levels, out_conf_levels,
-                                     out_num_conf_levels, version);
+                status = FillOpaqueConfLevels((void *)sm_levels,
+                    out_conf_levels, out_num_conf_levels, version);
             } else if (sm_levels->sm_id & ST_SM_ID_SVA_S_STAGE_KWD ||
                        sm_levels->sm_id & ST_SM_ID_SVA_S_STAGE_USER) {
                 confidence_level =
@@ -2293,7 +2314,7 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
                         ((eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_RNN) &&
                         (sm_levels->sm_id & ST_SM_ID_SVA_S_STAGE_PDK))) {
                         eng->GetEngine()->UpdateConfLevels(this, rec_config_,
-                            &confidence_level, 1);
+                            (uint8_t *)&confidence_level, 1);
                     }
                 }
             }
@@ -2319,8 +2340,8 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
             sm_levels_v2 = &conf_levels_v2->conf_levels[i];
             if (sm_levels_v2->sm_id == ST_SM_ID_SVA_F_STAGE_GMM) {
                 gmm_conf_found = true;
-                FillOpaqueConfLevels((void *)sm_levels_v2, out_conf_levels,
-                                     out_num_conf_levels, version);
+                status = FillOpaqueConfLevels((void *)sm_levels_v2,
+                    out_conf_levels, out_num_conf_levels, version);
             } else if (sm_levels_v2->sm_id & ST_SM_ID_SVA_S_STAGE_KWD ||
                        sm_levels_v2->sm_id & ST_SM_ID_SVA_S_STAGE_USER) {
                 confidence_level_v2 =
@@ -2339,17 +2360,16 @@ int32_t StreamSoundTrigger::ParseOpaqueConfLevels(
                         ((eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_RNN) &&
                         (sm_levels_v2->sm_id & ST_SM_ID_SVA_S_STAGE_PDK))) {
                         eng->GetEngine()->UpdateConfLevels(this, rec_config_,
-                            &confidence_level_v2, 1);
+                            (uint8_t *)&confidence_level_v2, 1);
                     }
                 }
             }
         }
     }
 
-    if (!gmm_conf_found) {
+    if (!gmm_conf_found || status) {
         PAL_ERR(LOG_TAG, "Did not receive GMM confidence threshold, error!");
         status = -EINVAL;
-        goto exit;
     }
 
 exit:
@@ -2410,21 +2430,31 @@ int32_t StreamSoundTrigger::FillConfLevels(
 
     user_id_tracker = (unsigned char *)calloc(1, num_conf_levels);
     if (!user_id_tracker) {
-        free(conf_levels);
         status = -ENOMEM;
         PAL_ERR(LOG_TAG, "failed to allocate user_id_tracker status %d",
                 status);
         goto exit;
     }
 
-    /* for debug */
     for (i = 0; i < config->num_phrases; i++) {
         PAL_VERBOSE(LOG_TAG, "[%d] kw level %d", i,
         config->phrases[i].confidence_level);
+        if (config->phrases[i].confidence_level > ST_MAX_FSTAGE_CONF_LEVEL) {
+            PAL_ERR(LOG_TAG, "Invalid kw level %d",
+                config->phrases[i].confidence_level);
+            status = -EINVAL;
+            goto exit;
+        }
         for (j = 0; j < config->phrases[i].num_levels; j++) {
             PAL_VERBOSE(LOG_TAG, "[%d] user_id %d level %d ", i,
                         config->phrases[i].levels[j].user_id,
                         config->phrases[i].levels[j].level);
+            if (config->phrases[i].levels[j].level > ST_MAX_FSTAGE_CONF_LEVEL) {
+                PAL_ERR(LOG_TAG, "Invalid user level %d",
+                    config->phrases[i].levels[j].level);
+                status = -EINVAL;
+                goto exit;
+            }
         }
     }
 
@@ -2461,7 +2491,8 @@ int32_t StreamSoundTrigger::FillConfLevels(
                                 status);
                         goto exit;
                     }
-                    conf_levels[user_id] = (user_level < 100) ? user_level : 100;
+                    conf_levels[user_id] = (user_level < ST_MAX_FSTAGE_CONF_LEVEL) ?
+                        user_level : ST_MAX_FSTAGE_CONF_LEVEL;
                     user_id_tracker[user_id] = 1;
                     PAL_VERBOSE(LOG_TAG, "user_conf_levels[%d] = %d", user_id,
                                 conf_levels[user_id]);
@@ -2474,6 +2505,12 @@ int32_t StreamSoundTrigger::FillConfLevels(
     *out_num_conf_levels = num_conf_levels;
 
 exit:
+    if (status && conf_levels) {
+        free(conf_levels);
+        *out_conf_levels = nullptr;
+        *out_num_conf_levels = 0;
+    }
+
     if (user_id_tracker)
         free(user_id_tracker);
 
@@ -2489,6 +2526,7 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
     uint32_t version) {
 
     int status = 0;
+    int32_t level = 0;
     unsigned int num_conf_levels = 0;
     unsigned int user_level = 0, user_id = 0;
     unsigned char *conf_levels = nullptr;
@@ -2524,6 +2562,29 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
         }
 
         for (i = 0; i < sm_levels->num_kw_levels; i++) {
+            level = sm_levels->kw_levels[i].kw_level;
+            if (level < 0 || level > ST_MAX_FSTAGE_CONF_LEVEL) {
+                PAL_ERR(LOG_TAG, "Invalid First stage [%d] kw level %d", i, level);
+                status = -EINVAL;
+                goto exit;
+            } else {
+                PAL_DBG(LOG_TAG, "First stage [%d] kw level %d", i, level);
+            }
+            for (j = 0; j < sm_levels->kw_levels[i].num_user_levels; j++) {
+                level = sm_levels->kw_levels[i].user_levels[j].level;
+                if (level < 0 || level > ST_MAX_FSTAGE_CONF_LEVEL) {
+                    PAL_ERR(LOG_TAG, "Invalid First stage [%d] user_id %d level %d", i,
+                        sm_levels->kw_levels[i].user_levels[j].user_id, level);
+                    status = -EINVAL;
+                    goto exit;
+                } else {
+                    PAL_DBG(LOG_TAG, "First stage [%d] user_id %d level %d ", i,
+                        sm_levels->kw_levels[i].user_levels[j].user_id, level);
+                }
+            }
+        }
+
+        for (i = 0; i < sm_levels->num_kw_levels; i++) {
             num_conf_levels++;
             if (model_id_ == 0) {
                 for (j = 0; j < sm_levels->kw_levels[i].num_user_levels; j++)
@@ -2555,16 +2616,6 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
         }
 
         for (i = 0; i < sm_levels->num_kw_levels; i++) {
-            PAL_DBG(LOG_TAG, "First stage [%d] kw level %d", i,
-                sm_levels->kw_levels[i].kw_level);
-            for (j = 0; j < sm_levels->kw_levels[i].num_user_levels; j++) {
-                PAL_DBG(LOG_TAG, "First stage [%d] user_id %d level %d ", i,
-                    sm_levels->kw_levels[i].user_levels[j].user_id,
-                    sm_levels->kw_levels[i].user_levels[j].level);
-            }
-        }
-
-        for (i = 0; i < sm_levels->num_kw_levels; i++) {
             if (i < num_conf_levels) {
                 conf_levels[i] = sm_levels->kw_levels[i].kw_level;
             } else {
@@ -2589,8 +2640,7 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
                                     user_id);
                             goto exit;
                         }
-                        conf_levels[user_id] = (user_level < 100) ?
-                                               user_level: 100;
+                        conf_levels[user_id] = user_level;
                         user_id_tracker[user_id] = 1;
                         PAL_ERR(LOG_TAG, "user_conf_levels[%d] = %d",
                                 user_id, conf_levels[user_id]);
@@ -2605,6 +2655,29 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "ERROR. Invalid inputs");
             goto exit;
+        }
+
+        for (i = 0; i < sm_levels_v2->num_kw_levels; i++) {
+            level = sm_levels_v2->kw_levels[i].kw_level;
+            if (level < 0 || level > ST_MAX_FSTAGE_CONF_LEVEL) {
+                PAL_ERR(LOG_TAG, "Invalid First stage [%d] kw level %d", i, level);
+                status = -EINVAL;
+                goto exit;
+            } else {
+                PAL_DBG(LOG_TAG, "First stage [%d] kw level %d", i, level);
+            }
+            for (j = 0; j < sm_levels_v2->kw_levels[i].num_user_levels; j++) {
+                level = sm_levels_v2->kw_levels[i].user_levels[j].level;
+                if (level < 0 || level > ST_MAX_FSTAGE_CONF_LEVEL) {
+                    PAL_ERR(LOG_TAG, "Invalid First stage [%d] user_id %d level %d", i,
+                        sm_levels_v2->kw_levels[i].user_levels[j].user_id, level);
+                    status = -EINVAL;
+                    goto exit;
+                } else {
+                    PAL_DBG(LOG_TAG, "First stage [%d] user_id %d level %d ", i,
+                        sm_levels_v2->kw_levels[i].user_levels[j].user_id, level);
+                }
+            }
         }
 
         for (i = 0; i < sm_levels_v2->num_kw_levels; i++) {
@@ -2639,16 +2712,6 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
         }
 
         for (i = 0; i < sm_levels_v2->num_kw_levels; i++) {
-            PAL_DBG(LOG_TAG, "First stage [%d] kw level %d", i,
-                sm_levels_v2->kw_levels[i].kw_level);
-            for (j = 0; j < sm_levels_v2->kw_levels[i].num_user_levels; j++) {
-                PAL_VERBOSE(LOG_TAG, "First stage [%d] user_id %d level %d ", i,
-                     sm_levels_v2->kw_levels[i].user_levels[j].user_id,
-                     sm_levels_v2->kw_levels[i].user_levels[j].level);
-            }
-        }
-
-        for (i = 0; i < sm_levels_v2->num_kw_levels; i++) {
             if (i < num_conf_levels) {
                 conf_levels[i] = sm_levels_v2->kw_levels[i].kw_level;
             } else {
@@ -2673,8 +2736,7 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
                                 user_id);
                             goto exit;
                         }
-                        conf_levels[user_id] = (user_level < 100) ?
-                                                user_level: 100;
+                        conf_levels[user_id] = user_level;
                         user_id_tracker[user_id] = 1;
                         PAL_VERBOSE(LOG_TAG, "user_conf_levels[%d] = %d",
                         user_id, conf_levels[user_id]);
@@ -2688,6 +2750,12 @@ int32_t StreamSoundTrigger::FillOpaqueConfLevels(
     *out_payload_size = num_conf_levels;
     PAL_DBG(LOG_TAG, "Returning number of conf levels : %d", *out_payload_size);
 exit:
+    if (status && conf_levels) {
+        free(conf_levels);
+        *out_payload = nullptr;
+        *out_payload_size = 0;
+    }
+
     if (user_id_tracker)
         free(user_id_tracker);
 
@@ -3003,13 +3071,6 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                         st_stream_.mDevices.push_back(dev);
                         dev = nullptr;
                     }
-                    if (st_stream_.mDevices.size() > 0) {
-                        status = st_stream_.mDevices[0]->open();
-                        if (0 != status) {
-                            PAL_ERR(LOG_TAG, "Device open failed, status %d", status);
-                            goto err_concurrent;
-                        }
-                    }
 
                     st_stream_.cap_prof_ = new_cap_prof;
                     st_stream_.mDevPPSelector = new_cap_prof->GetName();
@@ -3054,12 +3115,6 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Failed to unload sound model, status %d", status);
 
         err_concurrent:
-            if (st_stream_.mDevices.size() > 0) {
-                status = st_stream_.mDevices[0]->close();
-                if (0 != status)
-                    PAL_ERR(LOG_TAG, "Failed to close device, status %d", status);
-                st_stream_.mDevices.clear();
-            }
             break;
         }
         case ST_EV_SSR_OFFLINE:
@@ -3089,6 +3144,14 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
         case ST_EV_UNLOAD_SOUND_MODEL: {
             int ret = 0;
 
+            if (st_stream_.device_opened_ && st_stream_.mDevices.size() > 0) {
+                status = st_stream_.mDevices[0]->close();
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "Failed to close device, status %d",
+                        status);
+                }
+            }
+
             st_stream_.mDevices.clear();
 
             for (auto& eng: st_stream_.engines_) {
@@ -3108,7 +3171,7 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
                 st_stream_.reader_ = nullptr;
             }
             st_stream_.engines_.clear();
-            st_stream_.gsl_engine_->DetachStream(&st_stream_);
+            st_stream_.gsl_engine_->DetachStream(&st_stream_, true);
             st_stream_.reader_list_.clear();
             if (st_stream_.sm_info_) {
                 delete st_stream_.sm_info_;
@@ -3176,7 +3239,7 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
              * 1. start recognition excuted
              * 2. resume excuted and current common capture profile is null
              */
-            if (!st_stream_.concurrency_handling_ &&
+            if (!st_stream_.common_cp_update_disable_ &&
                 (ev_cfg->id_ == ST_EV_START_RECOGNITION ||
                 (ev_cfg->id_ == ST_EV_RESUME &&
                 !st_stream_.rm->GetSoundTriggerCaptureProfile()))) {
@@ -3501,6 +3564,8 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                     st_stream_.PostDelayedStop();
                 }
             } else {
+                if (st_stream_.engines_.size() > 1)
+                    st_stream_.second_stage_processing_ = true;
                 TransitTo(ST_STATE_BUFFERING);
                 st_stream_.SetDetectedToEngines(true);
             }
@@ -3518,7 +3583,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
         case ST_EV_STOP_RECOGNITION: {
             // Do not update capture profile when pausing stream
             bool backend_update = false;
-            if (!st_stream_.concurrency_handling_ &&
+            if (!st_stream_.common_cp_update_disable_ &&
                 (ev_cfg->id_ == ST_EV_STOP_RECOGNITION ||
                 ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL)) {
                 backend_update = st_stream_.rm->UpdateSoundTriggerCaptureProfile(
@@ -3607,6 +3672,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                 }
             }
             for (auto& device: st_stream_.mDevices) {
+                st_stream_.rm->deregisterDevice(device, &st_stream_);
                 st_stream_.gsl_engine_->DisconnectSessionDevice(&st_stream_,
                     st_stream_.mStreamAttr->type, device);
 
@@ -3615,8 +3681,6 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                     PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
                     goto disconnect_err;
                 }
-
-                st_stream_.rm->deregisterDevice(device, &st_stream_);
 
                 status = device->close();
                 st_stream_.device_opened_ = false;
@@ -4140,6 +4204,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                         }
                     }
                 }
+                st_stream_.second_stage_processing_ = false;
                 st_stream_.detection_state_ = ENGINE_IDLE;
 
                 if (st_stream_.reader_) {
@@ -4177,6 +4242,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             // notify client until both keyword detection/user verification done
             if (st_stream_.detection_state_ == st_stream_.notification_state_) {
                 PAL_DBG(LOG_TAG, "Second stage detected");
+                st_stream_.second_stage_processing_ = false;
                 st_stream_.detection_state_ = ENGINE_IDLE;
                 if (!st_stream_.rec_config_->capture_requested) {
                     if (st_stream_.reader_) {
@@ -4237,7 +4303,10 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
         }
         case ST_EV_SSR_OFFLINE: {
             if (st_stream_.state_for_restore_ == ST_STATE_NONE) {
-                st_stream_.state_for_restore_ = ST_STATE_LOADED;
+                if (st_stream_.second_stage_processing_)
+                    st_stream_.state_for_restore_ = ST_STATE_ACTIVE;
+                else
+                    st_stream_.state_for_restore_ = ST_STATE_LOADED;
             }
 
             std::shared_ptr<StEventConfig> ev_cfg2(
@@ -4409,8 +4478,10 @@ int32_t StreamSoundTrigger::ssrDownHandler() {
     int32_t status = 0;
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    common_cp_update_disable_ = true;
     std::shared_ptr<StEventConfig> ev_cfg(new StSSROfflineConfig());
     status = cur_state_->ProcessEvent(ev_cfg);
+    common_cp_update_disable_ = false;
 
     return status;
 }
@@ -4419,8 +4490,10 @@ int32_t StreamSoundTrigger::ssrUpHandler() {
     int32_t status = 0;
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    common_cp_update_disable_ = true;
     std::shared_ptr<StEventConfig> ev_cfg(new StSSROnlineConfig());
     status = cur_state_->ProcessEvent(ev_cfg);
+    common_cp_update_disable_ = false;
 
     return status;
 }

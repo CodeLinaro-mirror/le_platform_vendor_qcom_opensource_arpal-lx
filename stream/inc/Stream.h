@@ -160,7 +160,7 @@ public:
     bool isPaused = false;
     bool a2dpMuted = false;
     bool a2dpPaused = false;
-    pal_device_id_t suspendedDevId = PAL_DEVICE_NONE;
+    std::vector<pal_device_id_t> suspendedDevIds;
     virtual int32_t open() = 0;
     virtual int32_t close() = 0;
     virtual int32_t start() = 0;
@@ -246,6 +246,8 @@ public:
                                                            uint32_t event_size);
     static void handleStreamException(struct pal_stream_attributes *attributes,
                                       pal_stream_callback cb, uint64_t cookie);
+    void lockStreamMutex() { mStreamMutex.lock();};
+    void unlockStreamMutex() { mStreamMutex.unlock();};
 };
 
 class StreamNonTunnel : public Stream
