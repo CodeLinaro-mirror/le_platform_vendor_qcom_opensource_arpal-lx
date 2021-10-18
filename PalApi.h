@@ -205,15 +205,14 @@ int32_t pal_stream_drain(pal_stream_handle_t *stream_handle, pal_drain_type_t ty
   *
   * \param[in] stream_handle - Valid stream handle obtained
   *       from pal_stream_open.
-  * \param[out] in_buffer - filled if stream was opened with
-  *       PAL_AUDIO_INPUT direction.
-  * \param[out] out_buffer - filled if stream was opened with
-  *       PAL_AUDIO_OUTPUT direction.
-  *
+  * \param[out] buffcount - filled with buffer count information
+  *       based on stream type.
+  * \param[out] out_buffer - filled with buffer size information
+  *       based on stream type.
   * \return - 0 on success, error code otherwise.
   */
 int32_t pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
-                                   size_t *in_buffer, size_t *out_buffer);
+                                   uint32_t *buffcount, uint32_t *buffersize);
 
 /**
   * Set audio buffer size based on the direction of the stream.
@@ -236,6 +235,18 @@ int32_t pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
 int32_t pal_stream_set_buffer_size (pal_stream_handle_t *stream_handle, size_t *in_buf_size,
                                     const size_t in_buf_count, size_t *out_buf_size,
                                     const size_t out_buf_count);
+
+/**
+  * Get audio latency based on the stream type.
+  *
+  * \param[in] stream_handle - Valid stream handle obtained
+  *       from pal_stream_open.
+  * \param[out] latency - filled if stream is supporte.
+  *
+  * \return - 0 on success, error code otherwise.
+  */
+int32_t pal_stream_get_rendering_latency(pal_stream_handle_t *stream_handle,
+                                   long long *latency);
 
 /**
   * Read audio buffer captured from in the audio stream.

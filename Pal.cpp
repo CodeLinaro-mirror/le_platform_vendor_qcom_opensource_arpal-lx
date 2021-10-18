@@ -457,6 +457,52 @@ int32_t pal_stream_flush(pal_stream_handle_t *stream_handle)
     return status;
 }
 
+int32_t pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
+                                   uint32_t *buffcount, uint32_t *buffersize)
+{
+    int status = -EINVAL;
+    Stream *s = NULL;
+    std::shared_ptr<ResourceManager> rm = NULL;
+    struct pal_buffer_data *buff_data = NULL;
+    size_t buff_data_size = 0;
+
+    if (!stream_handle) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+
+    buff_data = (pal_buffer_data *)calloc(1, sizeof(pal_buffer_data));
+    if(!buff_data) {
+        status = -ENOMEM;
+        return status;
+    }
+
+    status = rm->controlPluginGet(s, PLUGIN_CONTROL_AUDIO_BUFFER, (void**)&buff_data, 
+                                     &buff_data_size);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"controlPluginGet Failed \n");
+    }
+
+    *buffersize = buff_data->buffer_size;
+    *buffcount = buff_data->buffer_count;
+
+    if(buff_data)
+        free(buff_data);
+
+    return status;
+}
+
 int32_t pal_stream_set_buffer_size (pal_stream_handle_t *stream_handle,
                                     size_t *in_buf_size, const size_t in_buf_count,
                                     size_t *out_buf_size, const size_t out_buf_count)
@@ -476,6 +522,38 @@ int32_t pal_stream_set_buffer_size (pal_stream_handle_t *stream_handle,
         return status;
     }
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
+    return status;
+}
+
+int32_t pal_stream_get_rendering_latency(pal_stream_handle_t *stream_handle,
+                                   long long *latency)
+{
+    int status = -EINVAL;
+    Stream *s = NULL;
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    if (!stream_handle) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+
+    status = rm->controlPluginGet(s, PLUGIN_CONTROL_AUDIO_LATENCY, (void**)&latency, 
+                                     /*&vol_size*/NULL);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"controlPluginGet Failed \n");
+    }
+
     return status;
 }
 

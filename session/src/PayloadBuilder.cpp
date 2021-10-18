@@ -1771,6 +1771,15 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                         dAttr->custom_config.custom_key);
                 }
                 break;
+            case BUS_ADDRESS_SEL:
+                if (sattr && strlen(sattr->bus_addr)) {
+                    filled_selector_pairs.push_back(
+                        std::make_pair(BUS_ADDRESS_SEL,
+                        sattr->bus_addr));
+                    PAL_INFO(LOG_TAG, "BUS address:%s",
+                        sattr->bus_addr);
+                }
+                break;
             default:
                 PAL_DBG(LOG_TAG, "Selector type %d not handled", selector_type);
                 break;
@@ -2117,10 +2126,7 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
             case PAL_STREAM_DEEP_BUFFER:
             case PAL_STREAM_PCM_OFFLOAD:
             case PAL_STREAM_COMPRESSED:
-            case PAL_STREAM_PLAYBACK_MEDIA:
-            case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-            case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-            case PAL_STREAM_PLAYBACK_PHONE:
+            case PAL_STREAM_PLAYBACK_BUS:
                 if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
                     PAL_INFO(LOG_TAG,"SpeakerProt Status[%d], RAS Status[%d]\n",
                             rm->isSpeakerProtectionEnabled, rm->isRasEnabled);
