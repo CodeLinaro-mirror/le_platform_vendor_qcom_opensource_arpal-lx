@@ -269,35 +269,6 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_VI_FEEDBACK,           {std::string{ "" }}}
 };
 
-const std::map<std::string, uint32_t> usecaseIdLUT {
-    {std::string{ "PAL_STREAM_LOW_LATENCY" },               PAL_STREAM_LOW_LATENCY},
-    {std::string{ "PAL_STREAM_DEEP_BUFFER" },               PAL_STREAM_DEEP_BUFFER},
-    {std::string{ "PAL_STREAM_COMPRESSED" },                PAL_STREAM_COMPRESSED},
-    {std::string{ "PAL_STREAM_VOIP" },                      PAL_STREAM_VOIP},
-    {std::string{ "PAL_STREAM_VOIP_RX" },                   PAL_STREAM_VOIP_RX},
-    {std::string{ "PAL_STREAM_VOIP_TX" },                   PAL_STREAM_VOIP_TX},
-    {std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" },          PAL_STREAM_VOICE_CALL_MUSIC},
-    {std::string{ "PAL_STREAM_GENERIC" },                   PAL_STREAM_GENERIC},
-    {std::string{ "PAL_STREAM_RAW" },                       PAL_STREAM_RAW},
-    {std::string{ "PAL_STREAM_VOICE_ACTIVATION" },          PAL_STREAM_VOICE_ACTIVATION},
-    {std::string{ "PAL_STREAM_VOICE_CALL_RECORD" },         PAL_STREAM_VOICE_CALL_RECORD},
-    {std::string{ "PAL_STREAM_VOICE_CALL_TX" },             PAL_STREAM_VOICE_CALL_TX},
-    {std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" },          PAL_STREAM_VOICE_CALL_RX_TX},
-    {std::string{ "PAL_STREAM_VOICE_CALL" },                PAL_STREAM_VOICE_CALL},
-    {std::string{ "PAL_STREAM_LOOPBACK" },                  PAL_STREAM_LOOPBACK},
-    {std::string{ "PAL_STREAM_TRANSCODE" },                 PAL_STREAM_TRANSCODE},
-    {std::string{ "PAL_STREAM_VOICE_UI" },                  PAL_STREAM_VOICE_UI},
-    {std::string{ "PAL_STREAM_PCM_OFFLOAD" },               PAL_STREAM_PCM_OFFLOAD},
-    {std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" },         PAL_STREAM_ULTRA_LOW_LATENCY},
-    {std::string{ "PAL_STREAM_PROXY" },                     PAL_STREAM_PROXY},
-    {std::string{ "PAL_STREAM_PLAYBACK_MEDIA" },            PAL_STREAM_PLAYBACK_MEDIA},
-    {std::string{ "PAL_STREAM_PLAYBACK_SYS_NOTIFICATION" }, PAL_STREAM_PLAYBACK_SYS_NOTIFICATION},
-    {std::string{ "PAL_STREAM_PLAYBACK_NAV_GUIDANCE" },	    PAL_STREAM_PLAYBACK_NAV_GUIDANCE},
-    {std::string{ "PAL_STREAM_PLAYBACK_PHONE" },            PAL_STREAM_PLAYBACK_PHONE},
-    {std::string{ "PAL_STREAM_PLAYBACK_FRONT_PASSENGER" },  PAL_STREAM_PLAYBACK_FRONT_PASSENGER},
-    {std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" },        PAL_STREAM_PLAYBACK_REAR_SEAT},
-};
-
 const std::map<std::string, plugin_control_name_t> controlNameMap {
     {std::string{"PLUGIN_CONTROL_VOLUME"}, PLUGIN_CONTROL_VOLUME},
     {std::string{"PLUGIN_CONTROL_VOLUME_BOOST"}, PLUGIN_CONTROL_VOLUME_BOOST},
@@ -332,6 +303,7 @@ std::vector <int> ResourceManager::devicePpTag = {0};
 std::vector <int> ResourceManager::deviceTag = {0};
 std::mutex ResourceManager::mResourceManagerMutex;
 std::mutex ResourceManager::mGraphMutex;
+std::mutex ResourceManager::mActiveStreamMutex;
 std::vector <int> ResourceManager::listAllFrontEndIds = {0};
 std::vector <int> ResourceManager::listFreeFrontEndIds = {0};
 std::vector <int> ResourceManager::listAllPcmPlaybackFrontEnds = {0};
@@ -455,6 +427,18 @@ void agmServiceCrashHandler(uint64_t cookie __unused)
     _exit(1);
 }
 
+pal_device_id_t ResourceManager::getDeviceId(std::string device_name)
+{
+   pal_device_id_t type =  (pal_device_id_t )deviceIdLUT.at(device_name);
+   return type;
+}
+
+pal_stream_type_t ResourceManager::getStreamType(std::string stream_name)
+{
+    pal_stream_type_t type = (pal_stream_type_t )usecaseIdLUT.at(stream_name);
+    return type;
+}
+
 void ResourceManager::split_snd_card(const char* in_snd_card_name)
 {
     /* Sound card name follows below mentioned convention:
@@ -498,7 +482,7 @@ ResourceManager::ResourceManager()
 {
     int ret = 0;
     // Init audio_route and audio_mixer
-
+    PAL_INFO(LOG_TAG, "create resourcemanager object");
     na_props.rm_na_prop_enabled = false;
     na_props.ui_na_prop_enabled = false;
     na_props.na_mode = NATIVE_AUDIO_MODE_INVALID;
@@ -593,7 +577,23 @@ ResourceManager::ResourceManager()
     }
 
     ResourceManager::loadAdmLib();
-    ResourceManager::initWakeLocks();
+    //ResourceManager::initWakeLocks();
+	PAL_INFO(LOG_TAG, "init payload builder");
+    ret = PayloadBuilder::init();
+	PAL_INFO(LOG_TAG, "finish init payload builder");
+    if (ret) {
+        throw std::runtime_error("Failed to parse usecase manager xml");
+    } else {
+        PAL_INFO(LOG_TAG, "usecase manager xml parsing successful");
+    }
+/*
+    PAL_ERR(LOG_TAG, "Creating ContextManager");
+    ctxMgr = new ContextManager();
+    if (!ctxMgr) {
+        throw std::runtime_error("Failed to allocate ContextManager");
+
+    }
+*/
 }
 
 ResourceManager::~ResourceManager()
@@ -778,8 +778,8 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
             if (state == CARD_STATUS_NONE)
                 break;
 
+            mActiveStreamMutex.lock();
             rm->cardState = state;
-            mResourceManagerMutex.lock();
             if (state != prevState) {
                 if (rm->globalCb) {
                     PAL_DBG(LOG_TAG, "Notifying client about sound card state %d global cb %pK",
@@ -798,38 +798,26 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                 PAL_INFO(LOG_TAG, "%d state already handled", state);
             } else if (state == CARD_STATUS_OFFLINE) {
                 for (auto str: rm->mActiveStreams) {
-                    auto iter = std::find(mActiveStreams.begin(), mActiveStreams.end(), str);
-                    str->ssrDone = false;
-                    mResourceManagerMutex.unlock();
-                    if (iter != mActiveStreams.end()) {
-                        ret = str->ssrDownHandler();
-                        if (0 != ret) {
-                            PAL_ERR(LOG_TAG, "Ssr down handling failed for %pK ret %d",
+                    ret = str->ssrDownHandler();
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Ssr down handling failed for %pK ret %d",
                                           str, ret);
-                        }
                     }
-                    mResourceManagerMutex.lock();
                 }
                 prevState = state;
             } else if (state == CARD_STATUS_ONLINE) {
                 for (auto str: rm->mActiveStreams) {
-                    auto iter = std::find(mActiveStreams.begin(), mActiveStreams.end(), str);
-                    str->ssrDone = false;
-                    mResourceManagerMutex.unlock();
-                    if (iter != mActiveStreams.end()) {
-                        ret = str->ssrUpHandler();
-                        if (0 != ret) {
-                            PAL_ERR(LOG_TAG, "Ssr up handling failed for %pK ret %d",
+                    ret = str->ssrUpHandler();
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Ssr up handling failed for %pK ret %d",
                                           str, ret);
-                        }
                     }
-                    mResourceManagerMutex.lock();
                 }
                 prevState = state;
             } else {
                 PAL_ERR(LOG_TAG, "Invalid state. state %d", state);
             }
-            mResourceManagerMutex.unlock();
+            mActiveStreamMutex.unlock();
             lock.lock();
         }
     }
@@ -1018,7 +1006,6 @@ bool ResourceManager::getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_
 
 void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t type, std::string key, struct pal_device_info *devinfo)
 {
-    struct kvpair_info kv = {};
     bool found = false;
 
     for (int32_t i = 0; i < deviceInfo.size(); i++) {
@@ -1043,18 +1030,6 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
                                 type,
                                 deviceNameLUT.at(deviceId).c_str());
                     }
-                    /*get kv pairs*/
-                    if (deviceInfo[i].usecase[j].kvpair.size()) {
-                        for (int32_t kvsize = 0; kvsize < deviceInfo[i].usecase[j].kvpair.size(); kvsize++) {
-                            kv.key =  deviceInfo[i].usecase[j].kvpair[kvsize].key;
-                            kv.value =  deviceInfo[i].usecase[j].kvpair[kvsize].value;
-                            PAL_DBG(LOG_TAG, "kv overwitten to key 0X%x value 0X%x for usecase %d for dev %s",
-                                    kv.key, kv.value,
-                                    type,
-                                    deviceNameLUT.at(deviceId).c_str());
-                            devinfo->kvpair.push_back(kv);
-                        }
-                    }
                     /*parse custom config if there*/
                     for (int32_t k = 0; k < deviceInfo[i].usecase[j].config.size(); k++) {
                         if (!deviceInfo[i].usecase[j].config[k].key.compare(key)) {
@@ -1074,20 +1049,6 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
                                         key.c_str(),
                                         type,
                                         deviceNameLUT.at(deviceId).c_str());
-                            }
-                            /*overwrite the kv pairs if needed*/
-                            if (deviceInfo[i].usecase[j].config[k].kvpair.size()) {
-                                devinfo->kvpair.clear();
-                                for (int32_t kvsize = 0; kvsize < deviceInfo[i].usecase[j].config[k].kvpair.size(); kvsize++) {
-                                    kv.key =  deviceInfo[i].usecase[j].config[k].kvpair[kvsize].key;
-                                    kv.value =  deviceInfo[i].usecase[j].config[k].kvpair[kvsize].value;
-                                    PAL_DBG(LOG_TAG, "got overwitten kv key 0X%x value 0X%x for custom key %s usecase %d for dev %s",
-                                            kv.key, kv.value,
-                                            key.c_str(),
-                                            type,
-                                            deviceNameLUT.at(deviceId).c_str());
-                                    devinfo->kvpair.push_back(kv);
-                                }
                             }
                             found = true;
                             break;
@@ -1806,7 +1767,7 @@ int ResourceManager::registerStream(Stream *s)
         return ret;
     }
     PAL_DBG(LOG_TAG, "stream type %d", type);
-    mResourceManagerMutex.lock();
+    mActiveStreamMutex.lock();
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
         case PAL_STREAM_VOIP_RX:
@@ -1928,7 +1889,7 @@ int ResourceManager::registerStream(Stream *s)
     mAllActiveStreams.push_back(s);
 #endif
 
-    mResourceManagerMutex.unlock();
+    mActiveStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. ret %d", ret);
     return ret;
 }
@@ -1965,7 +1926,7 @@ int ResourceManager::deregisterStream(Stream *s)
     and store in mHighestPriorityActiveStream
 #endif
     PAL_INFO(LOG_TAG, "stream type %d", type);
-    mResourceManagerMutex.lock();
+    mActiveStreamMutex.lock();
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
         case PAL_STREAM_VOIP_RX:
@@ -2079,7 +2040,7 @@ int ResourceManager::deregisterStream(Stream *s)
     }
 
     deregisterstream(s, mActiveStreams);
-    mResourceManagerMutex.unlock();
+    mActiveStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. ret %d", ret);
     return ret;
 }
@@ -4272,14 +4233,16 @@ int32_t ResourceManager::streamDevDisconnect(std::vector <std::tuple<Stream *, u
 
     /* disconnect active list from the current devices they are attached to */
     for (sIter = streamDevDisconnectList.begin(); sIter != streamDevDisconnectList.end(); sIter++) {
-        status = (std::get<0>(*sIter))->disconnectStreamDevice(std::get<0>(*sIter), (pal_device_id_t)std::get<1>(*sIter));
-        if (status) {
-            PAL_ERR(LOG_TAG, "failed to disconnect stream %pK from device %d",
-                    std::get<0>(*sIter), std::get<1>(*sIter));
-            goto error;
-        } else {
-            PAL_DBG(LOG_TAG, "disconnect stream %pK from device %d",
-                    std::get<0>(*sIter), std::get<1>(*sIter));
+        if (isStreamActive(std::get<0>(*sIter), mActiveStreams)) {
+            status = (std::get<0>(*sIter))->disconnectStreamDevice(std::get<0>(*sIter), (pal_device_id_t)std::get<1>(*sIter));
+            if (status) {
+                PAL_ERR(LOG_TAG, "failed to disconnect stream %pK from device %d",
+                        std::get<0>(*sIter), std::get<1>(*sIter));
+                goto error;
+            } else {
+                PAL_DBG(LOG_TAG, "disconnect stream %pK from device %d",
+                       std::get<0>(*sIter), std::get<1>(*sIter));
+            }
         }
     }
 error:
@@ -4294,14 +4257,16 @@ int32_t ResourceManager::streamDevConnect(std::vector <std::tuple<Stream *, stru
     PAL_DBG(LOG_TAG, "Enter");
     /* connect active list from the current devices they are attached to */
     for (sIter = streamDevConnectList.begin(); sIter != streamDevConnectList.end(); sIter++) {
-        status = std::get<0>(*sIter)->connectStreamDevice(std::get<0>(*sIter), std::get<1>(*sIter));
-        if (status) {
-            PAL_ERR(LOG_TAG,"failed to connect stream %pK from device %d",
-                    std::get<0>(*sIter), (std::get<1>(*sIter))->id);
-            goto error;
-        } else {
-            PAL_DBG(LOG_TAG,"connected stream %pK from device %d",
-                    std::get<0>(*sIter), (std::get<1>(*sIter))->id);
+        if (isStreamActive(std::get<0>(*sIter), mActiveStreams)) {
+            status = std::get<0>(*sIter)->connectStreamDevice(std::get<0>(*sIter), std::get<1>(*sIter));
+            if (status) {
+                PAL_ERR(LOG_TAG,"failed to connect stream %pK from device %d",
+                        std::get<0>(*sIter), (std::get<1>(*sIter))->id);
+                goto error;
+            } else {
+                PAL_DBG(LOG_TAG,"connected stream %pK from device %d",
+                        std::get<0>(*sIter), (std::get<1>(*sIter))->id);
+            }
         }
     }
 error:
@@ -4320,6 +4285,7 @@ int32_t ResourceManager::streamDevSwitch(std::vector <std::tuple<Stream *, uint3
         PAL_ERR(LOG_TAG, "Sound card offline");
         return -EINVAL;
     }
+    mActiveStreamMutex.lock();
     status = streamDevDisconnect(streamDevDisconnectList);
     if (status) {
         PAL_ERR(LOG_TAG,"disconnect failed");
@@ -4330,6 +4296,7 @@ int32_t ResourceManager::streamDevSwitch(std::vector <std::tuple<Stream *, uint3
         PAL_ERR(LOG_TAG,"Connect failed");
     }
 error:
+    mActiveStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit ret: %d", status);
     return status;
 }
@@ -4413,8 +4380,10 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> inDev,
                 }
             }
             isDeviceSwitch = true;
+            mActiveStreamMutex.lock();
             streamDevDisconnect.push_back(elem);
             StreamDevConnect.push_back({std::get<0>(elem), inDevAttr});
+            mActiveStreamMutex.unlock();
         }
     }
 
@@ -4454,10 +4423,12 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     }
     //created dev switch vectors
 
+    mActiveStreamMutex.lock();
     for(sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
         streamDevDisconnect.push_back({(*sIter), inDev->getSndDeviceId()});
         StreamDevConnect.push_back({(*sIter), newDevAttr});
     }
+    mActiveStreamMutex.unlock();
     status = streamDevSwitch(streamDevDisconnect, StreamDevConnect);
     if (status) {
          PAL_ERR(LOG_TAG, "forceDeviceSwitch failed %d", status);
@@ -4790,7 +4761,7 @@ void ResourceManager::updateBackEndName(int32_t deviceId, std::string backEndNam
     }
 }
 
-int convertCharToHex(std::string num)
+int ResourceManager::convertCharToHex(std::string num)
 {
     uint64_t hexNum = 0;
     uint32_t base = 1;
@@ -6393,40 +6364,9 @@ void ResourceManager::process_config_voice(struct xml_userdata *data, const XML_
     }
 }
 
-void ResourceManager::process_kvinfo(const XML_Char **attr, bool overwrite)
-{
-    struct kvpair_info kv;
-    int size = 0, sizeusecase = 0, sizecustomconfig = 0;
-    std::string tagkey(attr[1]);
-    std::string tagvalue(attr[3]);
-
-    if (strcmp(attr[0], "key") !=0) {
-        PAL_ERR(LOG_TAG, "key not found");
-        return;
-    }
-    kv.key = convertCharToHex(tagkey);
-    if (strcmp(attr[2], "value") !=0) {
-        PAL_ERR(LOG_TAG, "value not found");
-        return;
-    }
-    kv.value = convertCharToHex(tagvalue);
-
-    size = deviceInfo.size() - 1;
-    sizeusecase = deviceInfo[size].usecase.size() - 1;
-
-    if (!overwrite) {
-        deviceInfo[size].usecase[sizeusecase].kvpair.push_back(kv);
-    } else {
-        sizecustomconfig = deviceInfo[size].usecase[sizeusecase].config.size() - 1;
-        deviceInfo[size].usecase[sizeusecase].config[sizecustomconfig].kvpair.push_back(kv);
-    }
-    PAL_DBG(LOG_TAG, "key  %x value  %x", kv.key, kv.value);
-}
-
 void ResourceManager::process_usecase()
 {
     struct usecase_info usecase_data = {};
-    usecase_data.kvpair = {};
     usecase_data.config = {};
     int size = 0;
 
@@ -6443,7 +6383,6 @@ void ResourceManager::process_custom_config(const XML_Char **attr){
     custom_config_data.sndDevName = "";
     custom_config_data.channel = 0;
     custom_config_data.key = "";
-    custom_config_data.kvpair = {};
 
     if (attr[0] && !strcmp(attr[0], "key")) {
         custom_config_data.key = key;
@@ -6629,15 +6568,7 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         }
 
     }
-    if (!strcmp(tag_name, "kvpair")) {
-        data->tag = TAG_DEVICEPP;
-    } else if (!strcmp(tag_name, "devicePP-metadata")) {
-        if (data->inCustomConfig) {
-            data->tag = TAG_CUSTOMCONFIG;
-        }else {
-            data->tag = TAG_USECASE;
-        }
-    } else if (!strcmp(tag_name, "usecase")) {
+    if (!strcmp(tag_name, "usecase")) {
         data->tag = TAG_IN_DEVICE;
     } else if (!strcmp(tag_name, "in-device") || !strcmp(tag_name, "out-device")) {
         data->tag = TAG_DEVICE_PROFILE;
@@ -6798,11 +6729,6 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
     } else if (!strcmp(tag_name, "usecase")) {
         process_usecase();
         data->tag = TAG_USECASE;
-    } else if (!strcmp(tag_name, "devicePP-metadata")) {
-        data->tag = TAG_DEVICEPP;
-    } else if (!strcmp(tag_name, "kvpair")) {
-        process_kvinfo(attr, data->inCustomConfig);
-        data->tag = TAG_KVPAIR;
     } else if (!strcmp(tag_name, "in_streams")) {
         data->tag = TAG_INSTREAMS;
     } else if (!strcmp(tag_name, "in_stream")) {

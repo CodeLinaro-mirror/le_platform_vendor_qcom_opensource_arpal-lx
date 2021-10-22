@@ -152,7 +152,6 @@ public:
     virtual ~Stream() {};
     pal_stream_callback streamCb;
     void *cookie;
-    bool ssrDone = true;
     bool isPaused = false;
     bool a2dp_compress_mute = false;  /* TODO : Check if this can be removed */
     pal_device_id_t suspendedDevId = PAL_DEVICE_NONE;

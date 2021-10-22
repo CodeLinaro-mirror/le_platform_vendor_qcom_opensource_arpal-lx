@@ -88,8 +88,6 @@ typedef enum {
     TAG_IN_DEVICE,
     TAG_OUT_DEVICE,
     TAG_USECASE,
-    TAG_DEVICEPP,
-    TAG_KVPAIR,
     TAG_CONFIG_VOICE,
     TAG_CONFIG_MODE_MAP,
     TAG_CONFIG_MODE_PAIR,
@@ -143,11 +141,6 @@ struct deviceCap {
     sess_mode_t sess_mode;
 };
 
-struct kvpair_info {
-    unsigned int key;
-    unsigned int value;
-};
-
 typedef enum {
     SIDETONE_OFF,
     SIDETONE_HW,
@@ -160,13 +153,12 @@ struct usecase_custom_config_info
     std::string key;
     std::string sndDevName;
     int channel;
-    std::vector<kvpair_info> kvpair;
     sidetone_mode_t sidetoneMode;
 };
 
 struct usecase_info {
     int type;
-    std::vector<kvpair_info> kvpair;
+    int samplerate;
     sidetone_mode_t sidetoneMode;
     std::string sndDevName;
     int channel;
@@ -178,9 +170,9 @@ struct usecase_info {
 struct pal_device_info {
      int channels;
      int max_channels;
-     std::vector<kvpair_info> kvpair;
-     bool isExternalECRefEnabledFlag;
+     int samplerate;
      std::string sndDevName;
+     bool isExternalECRefEnabledFlag;
 };
 
 struct vsid_modepair {
@@ -288,9 +280,8 @@ struct deviceIn {
      * when ll barge-in is not enabled.
      */
     std::map<int, std::vector<std::pair<Stream *, int>>> ec_ref_count_map;
-    std::vector<kvpair_info> kvpair;
-    bool isExternalECRefEnabled;
     std::string sndDevName;
+    bool isExternalECRefEnabled;
 };
 
 class ResourceManager
@@ -371,6 +362,7 @@ protected:
     pal_speaker_rotation_type rotation_type_;
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
+    static std::mutex mActiveStreamMutex;
     static int snd_card;
     static std::shared_ptr<ResourceManager> rm;
     static struct audio_route* audio_route;
@@ -594,7 +586,6 @@ public:
     static void process_device_info(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_input_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_voice(struct xml_userdata *data, const XML_Char *tag_name);
-    static void process_kvinfo(const XML_Char **attr, bool overwrite);
     static void process_voicemode_info(const XML_Char **attr);
     static void process_gain_db_to_level_map(struct xml_userdata *data, const XML_Char **attr);
     static void processCardInfo(struct xml_userdata *data, const XML_Char *tag_name);
@@ -614,6 +605,9 @@ public:
     static bool isOutputDevId(int deviceId);
     static bool isInputDevId(int deviceId);
     static bool matchDevDir(int devId1, int devId2);
+    static int convertCharToHex(std::string num);
+    static pal_stream_type_t getStreamType(std::string stream_name);
+    static pal_device_id_t getDeviceId(std::string device_name);
     bool getScreenState();
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);

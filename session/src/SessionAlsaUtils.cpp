@@ -419,7 +419,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
 
         if (sAttr.direction == PAL_AUDIO_OUTPUT)
             status = builder->populateDevicePPKV(streamHandle, be->first, streamDeviceKV, 0,
-                    emptyKV, devinfo.kvpair);
+                    emptyKV);
         else {
             for (i = 0; i < associatedDevices.size(); i++) {
                 associatedDevices[i]->getDeviceAttributes(&dAttr);
@@ -434,12 +434,8 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 rmHandle->getDeviceInfo((pal_device_id_t)be->first, sAttr.type,
                                         dAttr.custom_config.custom_key, &devinfo);
             }
-            if (devinfo.kvpair.size() == 0) {
-                PAL_DBG(LOG_TAG, "kv pair not found for dev[%d] stream[%d]",
-                        be->first, sAttr.type);
-            }
             status = builder->populateDevicePPKV(streamHandle, 0, emptyKV, be->first,
-                     streamDeviceKV, devinfo.kvpair);
+                     streamDeviceKV);
         }
         if (status != 0) {
             PAL_VERBOSE(LOG_TAG, "get device PP KV failed %d", status);
@@ -1037,6 +1033,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     std::vector <std::pair<int, int>> streamRxCKV, streamTxCKV;
     std::vector <std::pair<int, int>> streamDeviceRxKV, streamDeviceTxKV;
     std::vector <std::pair<int, int>> deviceRxKV, deviceTxKV;
+    std::vector <std::pair<int, int>> devicePPCKV;
     // Using as empty key vector pairs
     std::vector <std::pair<int, int>> emptyKV;
     int status = 0;
@@ -1100,10 +1097,6 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         rmHandle->getDeviceInfo((pal_device_id_t)txBackEnds[0].first, sAttr.type,
                                 dAttr.custom_config.custom_key, &devinfo);
     }
-    if (devinfo.kvpair.size() == 0) {
-        PAL_INFO(LOG_TAG, "kv pair not found for dev[%d] stream[%d]",
-                txBackEnds[0].first, sAttr.type);
-    }
 
     if(sAttr.type == PAL_STREAM_VOICE_CALL){
         //get vsid info
@@ -1147,9 +1140,14 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
      // get devicePP
     if ((status = builder->populateDevicePPKV(streamHandle,
                     rxBackEnds[0].first, streamDeviceRxKV, txBackEnds[0].first,
-                    streamDeviceTxKV,devinfo.kvpair))!= 0) {
+                    streamDeviceTxKV))!= 0) {
         PAL_ERR(LOG_TAG, "get device KV failed %d", status);
         goto exit;
+    }
+    // get devicePPCKV
+    if ((status = builder->populateDevicePPCkv(streamHandle, devicePPCKV)) != 0) {
+        PAL_ERR(LOG_TAG, "populateDevicePP Ckv failed %d", status);
+        status = 0; /**< ignore device PP CKV failures */
     }
     // get streamdeviceKV
     status = builder->populateStreamDeviceKV(streamHandle, rxBackEnds[0].first,
@@ -1187,6 +1185,15 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             goto freeRxMetaData;
         }
     }
+    if (streamDeviceRxKV.size() > 0 || devicePPCKV.size() > 0) {
+        getAgmMetaData(streamDeviceRxKV, devicePPCKV, (struct prop_data *)streamDevicePropId,
+                streamDeviceRxMetaData);
+        if (!streamDeviceRxMetaData.size) {
+            PAL_ERR(LOG_TAG, "stream/device metadata is zero");
+            status = -ENOMEM;
+            goto freeRxMetaData;
+        }
+    }
 
     if ((streamTxKV.size() > 0) || (streamTxCKV.size() > 0)) {
         SessionAlsaUtils::getAgmMetaData(streamTxKV, streamTxCKV,
@@ -1212,6 +1219,15 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 (struct prop_data *)streamDevicePropId, streamDeviceTxMetaData);
         if (!streamDeviceTxMetaData.size) {
             PAL_ERR(LOG_TAG, "stream/device TX metadata is zero");
+            status = -ENOMEM;
+            goto freeTxMetaData;
+        }
+    }
+    if (streamDeviceTxKV.size() > 0 || devicePPCKV.size() > 0) {
+        getAgmMetaData(streamDeviceTxKV, devicePPCKV, (struct prop_data *)streamDevicePropId,
+                streamDeviceTxMetaData);
+        if (!streamDeviceTxMetaData.size) {
+            PAL_ERR(LOG_TAG, "stream/device metadata is zero");
             status = -ENOMEM;
             goto freeTxMetaData;
         }
@@ -1814,16 +1830,12 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
     if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first))
         status = builder->populateDevicePPKV(streamHandle,
                 aifBackEndsToConnect[0].first, streamDeviceKV,
-                0, emptyKV,devinfo.kvpair);
+                0, emptyKV);
     else {
         rmHandle->getDeviceInfo(dAttr.id, streamType,
                                 dAttr.custom_config.custom_key, &devinfo);
-        if (devinfo.kvpair.size() == 0) {
-            PAL_INFO(LOG_TAG, "kv pair not found for dev[%d] stream[%d]",
-                    dAttr.id, streamType);
-         }
         status = builder->populateDevicePPKV(streamHandle, 0, emptyKV,
-                aifBackEndsToConnect[0].first, streamDeviceKV, devinfo.kvpair);
+                aifBackEndsToConnect[0].first, streamDeviceKV);
     }
     if (status != 0) {
         PAL_ERR(LOG_TAG, "get device PP KV failed %d", status);

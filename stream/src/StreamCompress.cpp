@@ -132,8 +132,8 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
         //rm->registerDevice(dev);
         dev = nullptr;
     }
-    rm->registerStream(this);
     mStreamMutex.unlock();
+    rm->registerStream(this);
     PAL_VERBOSE(LOG_TAG,"exit, state %d", currentState);
 }
 
@@ -224,7 +224,6 @@ int32_t StreamCompress::close()
     }
 
     currentState = STREAM_IDLE;
-    rm->deregisterStream(this);
     mStreamMutex.unlock();
     PAL_VERBOSE(LOG_TAG,"%d status - %d",__LINE__,status);
     return status;
@@ -232,8 +231,8 @@ int32_t StreamCompress::close()
 
 StreamCompress::~StreamCompress()
 {
-    mStreamMutex.lock();
     rm->resetStreamInstanceID(this);
+    rm->deregisterStream(this);
     if (mStreamAttr) {
         free(mStreamAttr);
         mStreamAttr = (struct pal_stream_attributes *)NULL;
@@ -248,7 +247,6 @@ StreamCompress::~StreamCompress()
         delete session;
         session = nullptr;
     }
-    mStreamMutex.unlock();
 }
 
 int32_t StreamCompress::stop()
@@ -450,9 +448,10 @@ int32_t StreamCompress::write(struct pal_buffer *buf)
                 return errno;
             } else if (rm->cardState == CARD_STATUS_OFFLINE) {
                 return errno;
-            } else
+            } else {
                 status = errno;
                 return status;
+            }
         }
         if (currentState != STREAM_STARTED)
             currentState = STREAM_STARTED;

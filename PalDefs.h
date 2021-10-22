@@ -80,6 +80,13 @@ typedef enum {
     PAL_AUDIO_FMT_PCM_S24_3LE = 0xF,           /**<24 bit packed little endian PCM*/
     PAL_AUDIO_FMT_PCM_S24_LE = 0x10,           /**<24bit in 32bit word (LSB aligned) little endian PCM*/
     PAL_AUDIO_FMT_PCM_S32_LE = 0x11,           /**< 32bit little endian PCM*/
+    PAL_AUDIO_FMT_AMR_NB = 0x12,
+    PAL_AUDIO_FMT_AMR_WB = 0x13,
+    PAL_AUDIO_FMT_AMR_WB_PLUS = 0x14,
+    PAL_AUDIO_FMT_EVRC = 0x15,
+    PAL_AUDIO_FMT_G711 = 0x16,
+    PAL_AUDIO_FMT_QCELP = 0x17,
+    PAL_AUDIO_FMT_NON_PCM = 0xE0000000,     /* Internal Constant used for Non PCM format identification */
     PAL_AUDIO_FMT_COMPRESSED_RANGE_BEGIN = 0xF0000000,  /* Reserved for beginning of compressed codecs */
     PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_BEGIN   = 0xF0000F00,  /* Reserved for beginning of 3rd party codecs */
     PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_END     = 0xF0000FFF,  /* Reserved for beginning of 3rd party codecs */
@@ -383,6 +390,30 @@ typedef enum {
     PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 19,
 } pal_device_id_t;
 
+typedef enum {
+    VOICEMMODE1 = 0x11C05000,
+    VOICEMMODE2 = 0x11DC5000,
+    VOICELBMMODE1 = 0x12006000,
+    VOICELBMMODE2 = 0x121C6000,
+} pal_VSID_t;
+
+
+typedef enum {
+    PAL_STREAM_PROXY_TX_VISUALIZER,
+    PAL_STREAM_PROXY_TX_WFD,
+    PAL_STREAM_PROXY_TX_TELEPHONY_RX,
+} pal_stream_proxy_tx_type_t;
+
+typedef enum {
+    PAL_STREAM_LOOPBACK_PCM,
+    PAL_STREAM_LOOPBACK_HFP_RX,
+    PAL_STREAM_LOOPBACK_HFP_TX,
+    PAL_STREAM_LOOPBACK_COMPRESS,
+    PAL_STREAM_LOOPBACK_FM,
+    PAL_STREAM_LOOPBACK_PLAYBACK_ONLY,
+    PAL_STREAM_LOOPBACK_CAPTURE_ONLY
+} pal_stream_loopback_type_t;
+
 #ifdef __cplusplus
 static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_MIN" },                  PAL_DEVICE_OUT_MIN},
@@ -464,6 +495,81 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_VI_FEEDBACK,           std::string{"PAL_DEVICE_IN_VI_FEEDBACK"}},
     {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
 };
+
+const std::map<std::string, uint32_t> usecaseIdLUT {
+    {std::string{ "PAL_STREAM_LOW_LATENCY" },              PAL_STREAM_LOW_LATENCY},
+    {std::string{ "PAL_STREAM_DEEP_BUFFER" },              PAL_STREAM_DEEP_BUFFER},
+    {std::string{ "PAL_STREAM_COMPRESSED" },               PAL_STREAM_COMPRESSED},
+    {std::string{ "PAL_STREAM_VOIP" },                     PAL_STREAM_VOIP},
+    {std::string{ "PAL_STREAM_VOIP_RX" },                  PAL_STREAM_VOIP_RX},
+    {std::string{ "PAL_STREAM_VOIP_TX" },                  PAL_STREAM_VOIP_TX},
+    {std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" },         PAL_STREAM_VOICE_CALL_MUSIC},
+    {std::string{ "PAL_STREAM_GENERIC" },                  PAL_STREAM_GENERIC},
+    {std::string{ "PAL_STREAM_RAW" },                      PAL_STREAM_RAW},
+    {std::string{ "PAL_STREAM_VOICE_ACTIVATION" },         PAL_STREAM_VOICE_ACTIVATION},
+    {std::string{ "PAL_STREAM_VOICE_CALL_RECORD" },        PAL_STREAM_VOICE_CALL_RECORD},
+    {std::string{ "PAL_STREAM_VOICE_CALL_TX" },            PAL_STREAM_VOICE_CALL_TX},
+    {std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" },         PAL_STREAM_VOICE_CALL_RX_TX},
+    {std::string{ "PAL_STREAM_VOICE_CALL" },               PAL_STREAM_VOICE_CALL},
+    {std::string{ "PAL_STREAM_LOOPBACK" },                 PAL_STREAM_LOOPBACK},
+    {std::string{ "PAL_STREAM_TRANSCODE" },                PAL_STREAM_TRANSCODE},
+    {std::string{ "PAL_STREAM_VOICE_UI" },                 PAL_STREAM_VOICE_UI},
+    {std::string{ "PAL_STREAM_PCM_OFFLOAD" },              PAL_STREAM_PCM_OFFLOAD},
+    {std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" },        PAL_STREAM_ULTRA_LOW_LATENCY},
+    {std::string{ "PAL_STREAM_PROXY" },                    PAL_STREAM_PROXY},
+    {std::string{ "PAL_STREAM_PLAYBACK_MEDIA" },           PAL_STREAM_PLAYBACK_MEDIA},
+    {std::string{ "PAL_STREAM_PLAYBACK_SYS_NOTIFICATION" },PAL_STREAM_PLAYBACK_SYS_NOTIFICATION},
+    {std::string{ "PAL_STREAM_PLAYBACK_NAV_GUIDANCE" },    PAL_STREAM_PLAYBACK_NAV_GUIDANCE},
+    {std::string{ "PAL_STREAM_PLAYBACK_PHONE" },           PAL_STREAM_PLAYBACK_PHONE},
+    {std::string{ "PAL_STREAM_PLAYBACK_FRONT_PASSENGER" }, PAL_STREAM_PLAYBACK_FRONT_PASSENGER},
+    {std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" },       PAL_STREAM_PLAYBACK_REAR_SEAT},
+};
+
+/* Update the reverse mapping as well when new stream is added */
+const std::map<uint32_t, std::string> streamNameLUT {
+    {PAL_STREAM_LOW_LATENCY,                 std::string{ "PAL_STREAM_LOW_LATENCY" } },
+    {PAL_STREAM_DEEP_BUFFER,                 std::string{ "PAL_STREAM_DEEP_BUFFER" } },
+    {PAL_STREAM_COMPRESSED,                  std::string{ "PAL_STREAM_COMPRESSED" } },
+    {PAL_STREAM_VOIP,                        std::string{ "PAL_STREAM_VOIP" } },
+    {PAL_STREAM_VOIP_RX,                     std::string{ "PAL_STREAM_VOIP_RX" } },
+    {PAL_STREAM_VOIP_TX,                     std::string{ "PAL_STREAM_VOIP_TX" } },
+    {PAL_STREAM_VOICE_CALL_MUSIC,            std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" } },
+    {PAL_STREAM_GENERIC,                     std::string{ "PAL_STREAM_GENERIC" } },
+    {PAL_STREAM_RAW,                         std::string{ "PAL_STREAM_RAW" } },
+    {PAL_STREAM_VOICE_ACTIVATION,            std::string{ "PAL_STREAM_VOICE_ACTIVATION" } },
+    {PAL_STREAM_VOICE_CALL_RECORD,           std::string{ "PAL_STREAM_VOICE_CALL_RECORD" } },
+    {PAL_STREAM_VOICE_CALL_TX,               std::string{ "PAL_STREAM_VOICE_CALL_TX" } },
+    {PAL_STREAM_VOICE_CALL_RX_TX,            std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" } },
+    {PAL_STREAM_VOICE_CALL,                  std::string{ "PAL_STREAM_VOICE_CALL" } },
+    {PAL_STREAM_LOOPBACK,                    std::string{ "PAL_STREAM_LOOPBACK" } },
+    {PAL_STREAM_TRANSCODE,                   std::string{ "PAL_STREAM_TRANSCODE" } },
+    {PAL_STREAM_VOICE_UI,                    std::string{ "PAL_STREAM_VOICE_UI" } },
+    {PAL_STREAM_PCM_OFFLOAD,                 std::string{ "PAL_STREAM_PCM_OFFLOAD" } },
+    {PAL_STREAM_ULTRA_LOW_LATENCY,           std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" } },
+    {PAL_STREAM_PROXY,                       std::string{ "PAL_STREAM_PROXY" } },
+    {PAL_STREAM_PLAYBACK_MEDIA,              std::string{ "PAL_STREAM_PLAYBACK_MEDIA" } },
+    {PAL_STREAM_PLAYBACK_SYS_NOTIFICATION,   std::string{ "PAL_STREAM_PLAYBACK_SYS_NOTIFICATION" } },
+    {PAL_STREAM_PLAYBACK_NAV_GUIDANCE,       std::string{ "PAL_STREAM_PLAYBACK_NAV_GUIDANCE" } },
+    {PAL_STREAM_PLAYBACK_PHONE,              std::string{ "PAL_STREAM_PLAYBACK_PHONE" } },
+    {PAL_STREAM_PLAYBACK_FRONT_PASSENGER,    std::string{ "PAL_STREAM_PLAYBACK_FRONT_PASSENGER" } },
+    {PAL_STREAM_PLAYBACK_REAR_SEAT,          std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" } },
+};
+
+const std::map<uint32_t, std::string> vsidLUT {
+    {VOICEMMODE1,    std::string{ "VOICEMMODE1" } },
+    {VOICEMMODE2,    std::string{ "VOICEMMODE2" } },
+    {VOICELBMMODE1,  std::string{ "VOICELBMMODE1" } },
+    {VOICELBMMODE2,  std::string{ "VOICELBMMODE2" } },
+};
+
+const std::map<uint32_t, std::string> loopbackLUT {
+    {PAL_STREAM_LOOPBACK_PCM,        std::string{ "PAL_STREAM_LOOPBACK_PCM" } },
+    {PAL_STREAM_LOOPBACK_HFP_RX,     std::string{ "PAL_STREAM_LOOPBACK_HFP_RX" } },
+    {PAL_STREAM_LOOPBACK_HFP_TX,     std::string{ "PAL_STREAM_LOOPBACK_HFP_TX" } },
+    {PAL_STREAM_LOOPBACK_COMPRESS,   std::string{ "PAL_STREAM_LOOPBACK_COMPRESS" } },
+    {PAL_STREAM_LOOPBACK_FM,         std::string{ "PAL_STREAM_LOOPBACK_FM" } },
+};
+
 #endif
 
 
@@ -480,20 +586,6 @@ typedef enum {
     PAL_SND_CARD_STATE,
 } pal_global_callback_event_t;
 
-typedef enum {
-    PAL_STREAM_LOOPBACK_PCM,
-    PAL_STREAM_LOOPBACK_HFP_RX,
-    PAL_STREAM_LOOPBACK_HFP_TX,
-    PAL_STREAM_LOOPBACK_COMPRESS,
-    PAL_STREAM_LOOPBACK_FM,
-    PAL_STREAM_LOOPBACK_PLAYBACK_ONLY,
-    PAL_STREAM_LOOPBACK_CAPTURE_ONLY
-} pal_stream_loopback_type_t;
-
-typedef enum {
-    PAL_STREAM_PROXY_TX_VISUALIZER,
-    PAL_STREAM_PROXY_TX_WFD,
-} pal_stream_proxy_tx_type_t;
 
 struct pal_stream_info {
     int64_t version;                    /** version of structure*/
@@ -522,13 +614,6 @@ struct pal_voice_call_info {
      uint32_t VSID;
      uint32_t tty_mode;
 };
-
-typedef enum {
-    VOICEMMODE1 = 0x11C05000,
-    VOICEMMODE2 = 0x11DC5000,
-    VOICELBMMODE1 = 0x12006000,
-    VOICELBMMODE2 = 0x121C6000,
-}pal_VSID_t;
 
 typedef enum {
     PAL_TTY_OFF = 0,
