@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -65,7 +66,7 @@ static int ble_pack_enc_config(bt_codec_t *codec, void *src, void **dst)
     enc_payload->sample_rate    = ble_bt_cfg->enc_cfg.toAirConfig.sampling_freq;
     enc_payload->num_blks       = num_blks;
     if (ble_bt_cfg->enc_cfg.stream_map_size) {
-        if (!ble_bt_cfg->enc_cfg.streamMapOut[0].audio_location)
+        if (1 == ble_bt_cfg->enc_cfg.stream_map_size)
             enc_payload->channel_count = CH_MONO;
         else
             enc_payload->channel_count = CH_STEREO;

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -125,6 +126,8 @@ class BtA2dp : public Bluetooth
 protected:
     static std::shared_ptr<Device> objRx;
     static std::shared_ptr<Device> objTx;
+    static std::shared_ptr<Device> objBleRx;
+    static std::shared_ptr<Device> objBleTx;
     BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     pal_param_bta2dp_t param_bt_a2dp;
 
