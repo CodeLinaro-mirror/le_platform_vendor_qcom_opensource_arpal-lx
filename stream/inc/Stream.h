@@ -40,6 +40,9 @@
 #include <mutex>
 #include <exception>
 #include <errno.h>
+#ifdef LINUX_ENABLED
+#include <condition_variable>
+#endif
 #include "PalCommon.h"
 
 typedef enum {
@@ -153,6 +156,7 @@ protected:
     uint32_t mInstanceID = 0;
     static std::condition_variable pauseCV;
     static std::mutex pauseMutex;
+    int connectToDefaultDevice(Stream* streamHandle, uint32_t dir);
 public:
     virtual ~Stream() {};
     pal_stream_callback streamCb;
@@ -234,6 +238,7 @@ public:
     int32_t rwACDBParameters(void *payload, uint32_t sampleRate,
                                 bool isParamWrite);
     bool isActive() { return currentState == STREAM_STARTED; }
+    bool isAlive() { return currentState != STREAM_IDLE; }
     /* Detection stream related APIs */
     virtual int32_t Resume() { return 0; }
     virtual int32_t Pause() { return 0; }

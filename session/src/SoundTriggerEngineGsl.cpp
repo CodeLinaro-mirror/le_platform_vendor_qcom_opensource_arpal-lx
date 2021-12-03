@@ -236,6 +236,18 @@ int32_t SoundTriggerEngineGsl::StartBuffering(Stream *s) {
     ATRACE_ASYNC_BEGIN("stEngine: read FTRT data", (int32_t)module_type_);
     kw_transfer_begin = std::chrono::steady_clock::now();
     while (!exit_buffering_) {
+        /*
+         * When RestartRecognition is called during buffering thread
+         * unlocking mutex, buffering loop may not exit properly as
+         * exit_buffering_ is still false after RestartRecognition
+         * finished. Add additional check here to avoid this corner
+         * case.
+         */
+        if (eng_state_ != ENG_BUFFERING) {
+            PAL_DBG(LOG_TAG, "engine is stopped/restarted, exit data reading");
+            break;
+        }
+
         PAL_VERBOSE(LOG_TAG, "request read %zu from gsl", buf.size);
         // read data from session
         ATRACE_ASYNC_BEGIN("stEngine: lab read", (int32_t)module_type_);
@@ -1990,6 +2002,13 @@ int32_t SoundTriggerEngineGsl::RestartRecognition(Stream *s) {
     PAL_DBG(LOG_TAG, "Enter");
     exit_buffering_ = true;
     std::lock_guard<std::mutex> lck(mutex_);
+
+    /* If engine is not active, do not restart recognition again */
+    if (!IsEngineActive()) {
+        PAL_INFO(LOG_TAG, "Engine is not active, return");
+        return 0;
+    }
+
     UpdateEngineConfigOnRestart(s);
     if (buffer_) {
         buffer_->reset();
@@ -2205,6 +2224,13 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
 
     exit_buffering_ = true;
     std::lock_guard<std::mutex> lck(mutex_);
+
+    if (!config) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid config, status %d", status);
+        goto exit;
+    }
+
     if (!is_qcva_uuid_ && !is_qcmd_uuid_) {
         custom_data_size = config->data_size;
         custom_data = (uint8_t *)calloc(1, custom_data_size);
@@ -2218,9 +2244,9 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
         goto exit;
     }
 
-    if (!config || !conf_levels) {
+    if (num_conf_levels != 0 && !conf_levels) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid config or conf levels, status %d", status);
+        PAL_ERR(LOG_TAG, "Invalid conf_levels, status %d", status);
         goto exit;
     }
 

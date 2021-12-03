@@ -92,11 +92,26 @@ struct pcm * SpeakerProtection::rxPcm = NULL;
 struct pcm * SpeakerProtection::txPcm = NULL;
 struct param_id_sp_th_vi_calib_res_cfg_t * SpeakerProtection::callback_data;
 int SpeakerProtection::numberOfChannels;
+struct pal_device_info SpeakerProtection::vi_device;
 int SpeakerProtection::calibrationCallbackStatus;
 int SpeakerProtection::numberOfRequest;
 bool SpeakerProtection::mDspCallbackRcvd;
 std::shared_ptr<Device> SpeakerFeedback::obj = nullptr;
 int SpeakerFeedback::numSpeaker;
+
+std::string getDefaultSpkrTempCtrl(uint8_t spkr_pos)
+{
+    switch(spkr_pos)
+    {
+        case SPKR_LEFT:
+            return std::string(SPKR_LEFT_WSA_TEMP);
+        break;
+        case SPKR_RIGHT:
+            [[fallthrough]];
+        default:
+            return std::string(SPKR_RIGHT_WSA_TEMP);
+    }
+}
 
 /* Function to check if Speaker is in use or not.
  * It returns the time as well for which speaker is not in use.
@@ -213,7 +228,7 @@ int SpeakerProtection::getCpsDevNumber(std::string mixer_name)
 int SpeakerProtection::getSpeakerTemperature(int spkr_pos)
 {
     struct mixer_ctl *ctl;
-    const char *mixer_ctl_name;
+    std::string mixer_ctl_name;
     int status = 0;
     /**
      * It is assumed that for Mono speakers only right speaker will be there.
@@ -221,24 +236,17 @@ int SpeakerProtection::getSpeakerTemperature(int spkr_pos)
      * TODO: Get the channel from RM.xml
      */
     PAL_DBG(LOG_TAG, "Enter Speaker Get Temperature %d", spkr_pos);
-
-    switch(spkr_pos)
-    {
-        case WSA_SPKR_RIGHT:
-            mixer_ctl_name = SPKR_RIGHT_WSA_TEMP;
-        break;
-        case WSA_SPKR_LEFT:
-            mixer_ctl_name = SPKR_LEFT_WSA_TEMP;
-        break;
-        default:
-            mixer_ctl_name = SPKR_RIGHT_WSA_TEMP;
+    mixer_ctl_name = rm->getSpkrTempCtrl(spkr_pos);
+    if (mixer_ctl_name.empty()) {
+        PAL_DBG(LOG_TAG, "Using default mixer control");
+        mixer_ctl_name = getDefaultSpkrTempCtrl(spkr_pos);
     }
 
     PAL_DBG(LOG_TAG, "audio_mixer %pK", hwMixer);
 
-    ctl = mixer_get_ctl_by_name(hwMixer, mixer_ctl_name);
+    ctl = mixer_get_ctl_by_name(hwMixer, mixer_ctl_name.c_str());
     if (!ctl) {
-        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_ctl_name);
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_ctl_name.c_str());
         status = -EINVAL;
         return status;
     }
@@ -372,8 +380,8 @@ int SpeakerProtection::spkrStartCalibration()
     }
 
     // Configure device attribute
-    rm->getChannelMap(&(ch_info.ch_map[0]), numberOfChannels);
-    switch (numberOfChannels) {
+    rm->getChannelMap(&(ch_info.ch_map[0]), vi_device.channels);
+    switch (vi_device.channels) {
         case 1 :
             ch_info.channels = CHANNELS_1;
         break;
@@ -387,10 +395,9 @@ int SpeakerProtection::spkrStartCalibration()
     }
 
     device.config.ch_info = ch_info;
-    // TODO: Check if we can move it to rm.xml
-    device.config.sample_rate = SAMPLINGRATE_48K;
-    device.config.bit_width = BITWIDTH_32;
-    device.config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+    device.config.sample_rate = vi_device.samplerate;
+    device.config.bit_width = vi_device.bit_width;
+    device.config.aud_fmt_id = rm->getAudioFmt(vi_device.bit_width);
 
     // Setup TX path
     ret = rm->getAudioRoute(&audioRoute);
@@ -493,10 +500,24 @@ int SpeakerProtection::spkrStartCalibration()
 
     isTxFeandBeConnected = true;
 
-    // TODO: Try to set it from RM.xml
-    config.rate = SAMPLINGRATE_48K;
-    config.format = PCM_FORMAT_S32_LE;
-    switch (numberOfChannels) {
+    config.rate = vi_device.samplerate;
+    switch (vi_device.bit_width) {
+        case 32 :
+            config.format = PCM_FORMAT_S32_LE;
+        break;
+        case 24 :
+            config.format = PCM_FORMAT_S24_LE;
+        break;
+        case 16:
+            config.format = PCM_FORMAT_S16_LE;
+        break;
+        default:
+            PAL_DBG(LOG_TAG, "Unsupported bit width. Set default as 16");
+            config.format = PCM_FORMAT_S16_LE;
+        break;
+    }
+
+    switch (vi_device.channels) {
         case 1 :
             config.channels = CHANNELS_1;
         break;
@@ -877,20 +898,20 @@ err_pcm_open :
         if (status) {
             PAL_ERR(LOG_TAG, "Failed to deregister callback to rm");
         }
-        disableDevice(audioRoute, mSndDeviceName_vi);
         if (isTxStarted)
             pcm_stop(txPcm);
 
         pcm_close(txPcm);
+        disableDevice(audioRoute, mSndDeviceName_vi);
 
         txPcm = NULL;
     }
 
     if (rxPcm) {
-        disableDevice(audioRoute, mSndDeviceName_rx);
         if (isRxStarted)
             pcm_stop(rxPcm);
         pcm_close(rxPcm);
+        disableDevice(audioRoute, mSndDeviceName_rx);
         rxPcm = NULL;
     }
 
@@ -1076,6 +1097,9 @@ SpeakerProtection::SpeakerProtection(struct pal_device *device,
     rm->getDeviceInfo(PAL_DEVICE_OUT_SPEAKER, PAL_STREAM_PROXY, "", &devinfo);
     numberOfChannels = devinfo.channels;
     PAL_DBG(LOG_TAG, "Number of Channels %d", numberOfChannels);
+
+    rm->getDeviceInfo(PAL_DEVICE_IN_VI_FEEDBACK, PAL_STREAM_PROXY, "", &vi_device);
+    PAL_DBG(LOG_TAG, "Number of Channels for VI path is %d", vi_device.channels);
 
     spkerTempList = new int [numberOfChannels];
     // Get current time
@@ -1294,7 +1318,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
         }
 
         // Configure device attribute
-       if (numberOfChannels > 1) {
+       if (vi_device.channels > 1) {
             ch_info.channels = CHANNELS_2;
             ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FL;
             ch_info.ch_map[1] = PAL_CHMAP_CHANNEL_FR;
@@ -1304,9 +1328,9 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FR;
         }
 
-        rm->getChannelMap(&(ch_info.ch_map[0]), numberOfChannels);
+        rm->getChannelMap(&(ch_info.ch_map[0]), vi_device.channels);
 
-        switch (numberOfChannels) {
+        switch (vi_device.channels) {
             case 1 :
                 ch_info.channels = CHANNELS_1;
             break;
@@ -1320,10 +1344,9 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
         }
 
         device.config.ch_info = ch_info;
-        // TODO: Check if we can move it to rm.xml instead of hardcoding
-        device.config.sample_rate = SAMPLINGRATE_48K;
-        device.config.bit_width = BITWIDTH_32;
-        device.config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S32_LE;
+        device.config.sample_rate = vi_device.samplerate;
+        device.config.bit_width = vi_device.bit_width;
+        device.config.aud_fmt_id = rm->getAudioFmt(vi_device.bit_width);
 
         // Setup TX path
         device.id = PAL_DEVICE_IN_VI_FEEDBACK;
@@ -1428,9 +1451,24 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
         isTxFeandBeConnected = true;
 
-        config.rate = SAMPLINGRATE_48K;
-        config.format = PCM_FORMAT_S16_LE;
-        switch (numberOfChannels) {
+        config.rate = vi_device.samplerate;
+        switch (vi_device.bit_width) {
+            case 32 :
+                config.format = PCM_FORMAT_S32_LE;
+            break;
+            case 24 :
+                config.format = PCM_FORMAT_S24_LE;
+            break;
+            case 16 :
+                config.format = PCM_FORMAT_S16_LE;
+            break;
+            default:
+                PAL_DBG(LOG_TAG, "Unsupported bit width. Set default as 16");
+                config.format = PCM_FORMAT_S16_LE;
+            break;
+        }
+
+        switch (vi_device.channels) {
             case 1 :
                 config.channels = CHANNELS_1;
             break;
@@ -1701,7 +1739,6 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
         PAL_DBG(LOG_TAG, "pcm start for TX");
         if (pcm_start(txPcm) < 0) {
             PAL_ERR(LOG_TAG, "pcm start failed for TX path");
-            disableDevice(audioRoute, mSndDeviceName_vi);
             goto err_pcm_open;
         }
 
@@ -1728,7 +1765,6 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             }
 
             ret = rm->getSndDeviceName(device.id , mSndDeviceName_vi);
-            disableDevice(audioRoute, mSndDeviceName_vi);
             rm->getBackendName(device.id, backEndName);
             if (!strlen(backEndName.c_str())) {
                 PAL_ERR(LOG_TAG, "Failed to obtain tx backend name for %d", device.id);
@@ -1736,6 +1772,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             }
             pcm_stop(txPcm);
             pcm_close(txPcm);
+            disableDevice(audioRoute, mSndDeviceName_vi);
             txPcm = NULL;
             sAttr.type = PAL_STREAM_LOW_LATENCY;
             sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
@@ -1746,6 +1783,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 err_pcm_open :
     if (txPcm) {
         pcm_close(txPcm);
+        disableDevice(audioRoute, mSndDeviceName_vi);
         txPcm = NULL;
     }
 

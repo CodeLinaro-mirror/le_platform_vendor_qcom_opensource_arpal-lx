@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2019-2020, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -84,6 +84,7 @@ public:
                         struct pal_channel_info *best);
     int getServiceInterval(const char *interval_str_start);
     static const unsigned int supported_sample_rates_[MAX_SAMPLE_RATE_SIZE];
+    int isCustomRateSupported(int requested_rate, unsigned int *best_rate);
 };
 
 class USBCardConfig {
@@ -105,7 +106,8 @@ public:
     int readSupportedConfig(dynamic_media_config_t *config, bool is_playback);
     int readBestConfig(struct pal_media_config *config,
                                     struct pal_stream_attributes *sattr,
-                                    bool is_playback);
+                                    bool is_playback, struct pal_device_info *devinfo,
+                                    bool uhqa);
     unsigned int getMax(unsigned int a, unsigned int b);
     unsigned int getMin(unsigned int a, unsigned int b);
     static const unsigned int out_chn_mask_[MAX_SUPPORTED_CHANNEL_MASKS];
@@ -126,9 +128,11 @@ public:
     int init(pal_param_device_connection_t device_conn);
     int deinit(pal_param_device_connection_t device_conn);
     int getDefaultConfig(pal_param_device_capability_t capability);
+    static bool isUsbConnected(struct pal_usb_device_address addr);
+    static bool isUsbAlive(int card);
     int selectBestConfig(struct pal_device *dattr,
                                    struct pal_stream_attributes *sattr,
-                                   bool is_playback);
+                                   bool is_playback, struct pal_device_info *devinfo);
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     static int32_t isSampleRateSupported(unsigned int sampleRate);

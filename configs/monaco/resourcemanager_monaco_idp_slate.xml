@@ -89,6 +89,9 @@
         <stream_type>PAL_STREAM_ACD</stream_type>
         <stream_type>PAL_STREAM_ULTRASOUND</stream_type>
     </low_power_vote_streams>
+    <spkr_temp_ctls>
+        <temp_ctrl spkr_posn="SPKR_RIGHT" ctrl="BB_TEMP"/>
+    </spkr_temp_ctls>
     <device_profile>
         <in-device>
             <id>PAL_DEVICE_IN_HANDSET_MIC</id>
@@ -106,9 +109,11 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
+                <priority>2</priority>
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
                 <sidetone_mode>HW</sidetone_mode>
                 <bit_width>16</bit_width>
             </usecase>
@@ -163,9 +168,11 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
+                <priority>2</priority>
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
                 <sidetone_mode>OFF</sidetone_mode>
                 <bit_width>16</bit_width>
             </usecase>
@@ -186,7 +193,7 @@
             <channels>1</channels>
             <samplerate>8000</samplerate>
             <bit_width>16</bit_width>
-            <snd_device_name>bt-a2dp</snd_device_name>
+            <snd_device_name>bt-sco-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
             </usecase>
@@ -198,10 +205,14 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
             </usecase>
             <usecase>
                 <name>PAL_STREAM_ULTRA_LOW_LATENCY</name>
             </usecase>
+            <ec_rx_device>
+                <id>PAL_DEVICE_OUT_BLUETOOTH_SCO</id>
+            </ec_rx_device>
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_HANDSET_VA_MIC</id>
@@ -216,6 +227,15 @@
                 <id>PAL_DEVICE_OUT_HANDSET</id>
                 <id>PAL_DEVICE_OUT_BLUETOOTH_A2DP</id>
             </ec_rx_device>
+        </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_VI_FEEDBACK</id>
+            <back_end_name>MI2S-LPAIF_RXTX-TX-PRIMARY</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <bit_width>16</bit_width>
+            <samplerate>48000</samplerate>
+            <snd_device_name>vi-feedback</snd_device_name>
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
@@ -252,6 +272,14 @@
             <speaker_mono_right>0</speaker_mono_right>
             <!-- Time in seconds for Quick cal. Set 0 to disable -->
             <quick_cal_time>0</quick_cal_time>
+            <usecase>
+                <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
+            </usecase>
+            <usecase>
+                <name>PAL_STREAM_VOIP_RX</name>
+                <priority>2</priority>
+            </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>
@@ -270,6 +298,10 @@
             <samplerate>44100</samplerate>
             <bit_width>16</bit_width>
             <snd_device_name>bt-a2dp</snd_device_name>
+        <usecase>
+                <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
+        </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_BLUETOOTH_SCO</id>
@@ -278,7 +310,11 @@
             <channels>1</channels>
             <samplerate>8000</samplerate>
             <bit_width>16</bit_width>
-            <snd_device_name>bt-a2dp</snd_device_name>
+            <snd_device_name>bt-sco</snd_device_name>
+        <usecase>
+                <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
+        </usecase>
         </out-device>
     </device_profile>
     <in_streams>
