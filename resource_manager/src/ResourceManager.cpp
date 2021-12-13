@@ -8324,7 +8324,6 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
             dev = Device::getInstance(&conn_device, rm);
             if (!dev) {
                 PAL_ERR(LOG_TAG, "Device getInstance failed");
-                throw std::runtime_error("failed to get device object");
                 status = -EIO;
                 goto err;
             }
