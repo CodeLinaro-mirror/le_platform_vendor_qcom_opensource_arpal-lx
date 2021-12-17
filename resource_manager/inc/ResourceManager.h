@@ -59,7 +59,8 @@ typedef enum {
 } hostless_dir_t;
 
 #define audio_mixer mixer
-
+#define MAX_SND_CARD 10
+#define DUMMY_SND_CARD MAX_SND_CARD
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO "audio.nat.codec.enabled"
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
@@ -119,7 +120,10 @@ typedef enum {
     TAG_ECREF,
     TAG_CUSTOMCONFIG,
     TAG_LPI_VOTE_STREAM,
-    TAG_SLEEP_MONITOR_LPI_STREAM
+    TAG_SLEEP_MONITOR_LPI_STREAM,
+    TAG_CONFIG_VOLUME,
+    TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAM,
+    TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAMS,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -169,6 +173,7 @@ struct xml_userdata {
     group_dev_config_idx_t group_dev_idx;
     resource_xml_tags_t tag;
     bool inCustomConfig;
+    XML_Parser parser;
 };
 
 typedef enum {
@@ -199,6 +204,13 @@ typedef enum {
     AUDIO_BIT_WIDTH_24 = 24,
     AUDIO_BIT_WIDTH_32 = 32,
 } audio_bit_width_t;
+
+typedef enum {
+    CHARGER_ON_PB_STARTS,
+    PB_ON_CHARGER_INSERT,
+    PB_ON_CHARGER_REMOVE,
+    CONCURRENCY_PB_STOPS
+} charger_boost_mode_t;
 
 struct usecase_custom_config_info
 {
@@ -236,6 +248,7 @@ struct pal_device_info {
      bool sndDevName_overwrite;
      bool bit_width_overwrite;
      uint32_t bit_width;
+     pal_audio_fmt_t bitFormatSupported;
 };
 
 struct vsid_modepair {
@@ -247,6 +260,11 @@ struct vsid_info {
      int vsid;
      std::vector<vsid_modepair> modepair;
      int loopback_delay;
+};
+
+struct volume_set_param_info {
+    int isVolumeUsingSetParam;
+    std::vector<uint32_t> streams_;
 };
 
 struct tx_ecinfo {
@@ -353,6 +371,7 @@ struct deviceIn {
     bool isExternalECRefEnabled;
     bool fractionalSRSupported;
     uint32_t bit_width;
+    pal_audio_fmt_t bitFormatSupported;
 };
 
 class ResourceManager
@@ -416,7 +435,9 @@ protected:
     bool charging_state_;
     bool is_charger_online_;
     bool is_concurrent_boost_state_;
+    bool current_concurrent_state_;
     pal_speaker_rotation_type rotation_type_;
+    bool isDeviceSwitch = false;
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
@@ -457,9 +478,13 @@ protected:
     static std::vector<deviceCap> devInfo;
     static std::map<std::pair<uint32_t, std::string>, std::string> btCodecMap;
     static std::map<std::string, uint32_t> btFmtTable;
+    static std::map<std::string, int> spkrPosTable;
+    static std::map<int, std::string> spkrTempCtrlsMap;
+    static std::map<uint32_t, uint32_t> btSlimClockSrcMap;
     static std::vector<deviceIn> deviceInfo;
     static std::vector<tx_ecinfo> txEcInfo;
     static struct vsid_info vsidInfo;
+    static struct volume_set_param_info volumeSetParamInfo_;
     static std::vector<struct pal_amp_db_and_gain_table> gainLvlMap;
     static SndCardMonitor *sndmon;
     static std::vector <uint32_t> lpi_vote_streams_;
@@ -492,6 +517,8 @@ protected:
     int sleepmon_fd_;
     static std::map<group_dev_config_idx_t, std::shared_ptr<group_dev_config_t>> groupDevConfigMap;
     std::array<std::shared_ptr<nonTunnelInstMap_t>, DEFAULT_NT_SESSION_TYPE_COUNT> mNTStreamInstancesList;
+    int32_t scoOutConnectCount = 0;
+    int32_t scoInConnectCount = 0;
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -501,12 +528,13 @@ public:
     static bool isSpeakerProtectionEnabled;
     static bool isChargeConcurrencyEnabled;
     static bool isCpsEnabled;
-    static pal_audio_fmt_t bitFormatSupported;
     static bool isVbatEnabled;
     static bool isRasEnabled;
     static bool isGaplessEnabled;
     static bool isContextManagerEnabled;
     static bool isDualMonoEnabled;
+    static bool isUHQAEnabled;
+    static std::mutex mChargerBoostMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
@@ -521,6 +549,8 @@ public:
     static bool isVIRecordStarted;
     /* Flag to indicate if shared backend is enabled for UPD */
     static bool isUpdDedicatedBeEnabled;
+    /* Variable to store max volume index for voice call */
+    static int max_voice_vol;
     uint64_t cookie;
     int initSndMonitor();
     int initContextManager();
@@ -554,9 +584,13 @@ public:
                        std::string key, struct pal_device_info *devinfo);
     bool getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_type_t rx_streamtype);
     int32_t getVsidInfo(struct vsid_info  *info);
+    int32_t getVolumeSetParamInfo(struct volume_set_param_info *volinfo);
+    int getMaxVoiceVol();
     void getChannelMap(uint8_t *channel_map, int channels);
+    pal_audio_fmt_t getAudioFmt(uint32_t bitWidth);
     int registerStream(Stream *s);
     int deregisterStream(Stream *s);
+    int isActiveStream(Stream *s);
     int registerDevice(std::shared_ptr<Device> d, Stream *s);
     int deregisterDevice(std::shared_ptr<Device> d, Stream *s);
     int registerDevice_l(std::shared_ptr<Device> d, Stream *s);
@@ -564,6 +598,7 @@ public:
     int registerMixerEventCallback(const std::vector<int> &DevIds,
                                    session_callback callback,
                                    uint64_t cookie, bool is_register);
+    bool isDeviceActive(pal_device_id_t deviceId);
     bool isDeviceActive(std::shared_ptr<Device> d, Stream *s);
     bool isDeviceActive_l(std::shared_ptr<Device> d, Stream *s);
     int addPlugInDevice(std::shared_ptr<Device> d,
@@ -585,6 +620,10 @@ public:
     static void updateBackEndName(int32_t deviceId, std::string backEndName);
     static void updateBtCodecMap(std::pair<uint32_t, std::string> key, std::string value);
     static std::string getBtCodecLib(uint32_t codecFormat, std::string codecType);
+    static void updateSpkrTempCtrls(int key, std::string value);
+    static std::string getSpkrTempCtrl(int channel);
+    static void updateBtSlimClockSrcMap(uint32_t key, uint32_t value);
+    static uint32_t getBtSlimClockSrc(uint32_t codecFormat);
     int getGainLevelMapping(struct pal_amp_db_and_gain_table *mapTbl, int tblSize);
 
     int setParameter(uint32_t param_id, void *param_payload,
@@ -592,8 +631,7 @@ public:
     int setParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
                      pal_stream_type_t pal_stream_type);
-    int setDeviceParamConfig(uint32_t param_id, std::shared_ptr<Device> dev,
-                             int tag);
+    int setSessionParamConfig(uint32_t param_id, Stream *stream, int tag);
     int rwParameterACDB(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
                      pal_stream_type_t pal_stream_type, uint32_t sample_rate,
@@ -611,8 +649,8 @@ public:
     int getHwAudioMixer(struct audio_mixer **am);
     int getActiveStream(std::shared_ptr<Device> d, std::vector<Stream*> &activestreams);
     int getActiveStream_l(std::shared_ptr<Device> d, std::vector<Stream*> &activestreams);
-    int getOrphanStream(std::vector<Stream*> &orphanstreams);
-    int getOrphanStream_l(std::vector<Stream*> &orphanstreams);
+    int getOrphanStream(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
+    int getOrphanStream_l(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
     int getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
     int getSndDeviceName(int deviceId, char *device_name);
     int getDeviceEpName(int deviceId, std::string &epName);
@@ -695,12 +733,14 @@ public:
     static void process_device_info(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_input_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_voice(struct xml_userdata *data, const XML_Char *tag_name);
+    static void process_config_volume(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_lpi_vote_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_kvinfo(const XML_Char **attr, bool overwrite);
     static void process_voicemode_info(const XML_Char **attr);
     static void process_gain_db_to_level_map(struct xml_userdata *data, const XML_Char **attr);
     static void processCardInfo(struct xml_userdata *data, const XML_Char *tag_name);
-    static void processBTCodecInfo(const XML_Char **attr);
+    static void processSpkrTempCtrls(const XML_Char **attr);
+    static void processBTCodecInfo(const XML_Char **attr, const int attr_count);
     static void startTag(void *userdata __unused, const XML_Char *tag_name, const XML_Char **attr);
     static void snd_data_handler(void *userdata, const XML_Char *s, int len);
     static void processDeviceIdProp(struct xml_userdata *data, const XML_Char *tag_name);
@@ -728,6 +768,7 @@ public:
     bool getScreenState();
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceAvailable(std::vector<std::shared_ptr<Device>> devices, pal_device_id_t id);
+    bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
     int32_t a2dpSuspend();
@@ -742,6 +783,8 @@ public:
      */
     void lockGraph() { mGraphMutex.lock(); };
     void unlockGraph() { mGraphMutex.unlock(); };
+    void lockActiveStream() { mActiveStreamMutex.lock(); };
+    void unlockActiveStream() { mActiveStreamMutex.unlock(); };
     void getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream *, uint32_t>> &activeStreamDevs,
                                      int dev_id);
     int32_t streamDevSwitch(std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnectList,
@@ -782,13 +825,19 @@ public:
     static void chargerListenerDeinit();
     static void onChargerListenerStatusChanged(int event_type, int status,
                                                  bool concurrent_state);
-    int chargerListenerSetBoostState(bool state);
+    int chargerListenerSetBoostState(bool state, charger_boost_mode_t mode);
+    int handlePBChargerInsertion(Stream *stream);
+    int handlePBChargerRemoval(Stream *stream);
     static bool isGroupConfigAvailable(group_dev_config_idx_t idx);
     int checkAndUpdateGroupDevConfig(struct pal_device *deviceattr,
                                  const struct pal_stream_attributes *sAttr,
                                  std::vector<Stream*> &streamsToSwitch,
                                  struct pal_device *streamDevAttr,
                                  bool streamEnable);
+    void checkHapticsConcurrency(struct pal_device *deviceattr,
+                             const struct pal_stream_attributes *sAttr,
+                             std::vector<Stream*> &streamsToSwitch,
+                             struct pal_device *streamDevAttr);
 };
 
 #endif

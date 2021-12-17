@@ -52,8 +52,11 @@ SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
 {
    rm = Rm;
    builder = new PayloadBuilder();
-   pcmEcTx = NULL;
    streamHandle = NULL;
+   max_vol_index = rm->getMaxVoiceVol();
+   if (max_vol_index == -1){
+      max_vol_index = MAX_VOL_INDEX;
+   }
 }
 
 SessionAlsaVoice::~SessionAlsaVoice()
@@ -594,7 +597,7 @@ int SessionAlsaVoice::start(Stream * s)
     struct pcm_config config;
     struct pal_stream_attributes sAttr;
     int32_t status = 0;
-    std::vector<std::shared_ptr<Device>> associatedDevices;
+    std::shared_ptr<Device> rxDevice = nullptr;
     pal_param_payload *palPayload = NULL;
     int txDevId;
     uint8_t* payload = NULL;
@@ -608,7 +611,7 @@ int SessionAlsaVoice::start(Stream * s)
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"stream get attributes failed");
-        return status;
+        goto exit;
     }
 
     s->getBufInfo(&in_buf_size,&in_buf_count,&out_buf_size,&out_buf_count);
@@ -628,16 +631,26 @@ int SessionAlsaVoice::start(Stream * s)
     config.stop_threshold = 0;
     config.silence_threshold = 0;
 
+    /*setup external ec if needed*/
+    status = getRXDevice(s, rxDevice);
+    if (status) {
+        PAL_ERR(LOG_TAG, "failed, could not find associated RX device");
+        goto exit;
+    }
+    setExtECRef(s, rxDevice, true);
+
     pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
     if (!pcmRx) {
         PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
-        return -EINVAL;
+        status = -EINVAL;
+        goto exit;
     }
 
     if (!pcm_is_ready(pcmRx)) {
         PAL_ERR(LOG_TAG, "Exit pcm-rx open not ready");
         pcmRx = NULL;
-        return -EINVAL;
+        status = -EINVAL;
+        goto exit;
     }
 
     config.rate = sAttr.in_media_config.sample_rate;
@@ -654,16 +667,22 @@ int SessionAlsaVoice::start(Stream * s)
     pcmTx = pcm_open(rm->getVirtualSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
     if (!pcmTx) {
         PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
-        return -EINVAL;
+        status = -EINVAL;
+        goto exit;
     }
 
     if (!pcm_is_ready(pcmTx)) {
         PAL_ERR(LOG_TAG, "Exit pcm-tx open not ready");
         pcmTx = NULL;
-        return -EINVAL;
+        status = -EINVAL;
+        goto exit;
     }
 
-    SessionAlsaVoice::setConfig(s, MODULE, VSID, RX_HOSTLESS);
+    status = SessionAlsaVoice::setConfig(s, MODULE, VSID, RX_HOSTLESS);
+    if (status) {
+        PAL_ERR(LOG_TAG, "setConfig failed %d", status);
+        goto exit;
+    }
 
     SessionAlsaVoice::setConfig(s, MODULE, CHANNEL_INFO, TX_HOSTLESS);
     volume = (struct pal_volume_data *)malloc(sizeof(uint32_t) +
@@ -737,6 +756,21 @@ int SessionAlsaVoice::start(Stream * s)
             PAL_ERR(LOG_TAG, "Failed to set data logging param status = %d", status);
     }
 
+    if (ResourceManager::isChargeConcurrencyEnabled) {
+        if (PAL_DEVICE_OUT_SPEAKER == rxDevice->getSndDeviceId()) {
+            status = Session::NotifyChargerConcurrency(rm, true);
+            if (0 == status) {
+                status = Session::EnableChargerConcurrency(rm, s);
+                //Handle failure case of ICL config
+                if (0 != status) {
+                    PAL_DBG(LOG_TAG, "Failed to set ICL Config status %d", status);
+                    status = Session::NotifyChargerConcurrency(rm, false);
+                }
+            }
+            status = 0;
+        }
+    }
+
     status = pcm_start(pcmRx);
     if (status) {
         PAL_ERR(LOG_TAG, "pcm_start rx failed %d", status);
@@ -764,10 +798,11 @@ exit:
     return status;
 }
 
-int SessionAlsaVoice::stop(Stream * s __unused)
+int SessionAlsaVoice::stop(Stream * s)
 {
     int status = 0;
     int txDevId = PAL_DEVICE_NONE;
+    std::shared_ptr<Device> rxDevice = nullptr;
 
     PAL_DBG(LOG_TAG,"Enter");
     /*disable sidetone*/
@@ -792,6 +827,14 @@ int SessionAlsaVoice::stop(Stream * s __unused)
         if (status) {
             PAL_ERR(LOG_TAG, "pcm_stop - tx failed %d", status);
         }
+    }
+
+    /*teardown external ec if needed*/
+    status = getRXDevice(s, rxDevice);
+    if (status) {
+        PAL_ERR(LOG_TAG, "failed, could not find associated RX device");
+    } else {
+        setExtECRef(s, rxDevice, false);
     }
 
     rm->voteSleepMonitor(s, false);
@@ -1319,7 +1362,7 @@ int SessionAlsaVoice::payloadCalKeys(Stream * s, uint8_t **payload, size_t *size
 
     /*volume key*/
     cal_key_pair[0].cal_key_id = VCPM_CAL_KEY_ID_VOLUME_LEVEL;
-    cal_key_pair[0].value = percent_to_index(vol, MIN_VOL_INDEX, MAX_VOL_INDEX);
+    cal_key_pair[0].value = percent_to_index(vol, MIN_VOL_INDEX, max_vol_index);
 
     /*cal key for volume boost*/
     cal_key_pair[1].cal_key_id = VCPM_CAL_KEY_ID_VOL_BOOST;
@@ -1341,7 +1384,7 @@ int SessionAlsaVoice::payloadCalKeys(Stream * s, uint8_t **payload, size_t *size
     *size = payloadSize + padBytes;
     *payload = payloadInfo;
     PAL_DBG(LOG_TAG, "Volume level: %lf, volume boost: %d, HD voice: %d",
-            percent_to_index(vol, MIN_VOL_INDEX, MAX_VOL_INDEX),
+            percent_to_index(vol, MIN_VOL_INDEX, max_vol_index),
             volume_boost, hd_voice);
 
 exit:
@@ -1489,6 +1532,11 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
         }
     }
 
+    /*teardown external ec if needed*/
+    if (SessionAlsaUtils::isRxDevice(dAttr.id)) {
+        setExtECRef(streamHandle,deviceToDisconnect,false);
+    }
+
     return status;
 }
 
@@ -1500,11 +1548,15 @@ int SessionAlsaVoice::setupSessionDevice(Stream* streamHandle,
     std::vector<std::string> aifBackEndsToConnect;
     struct pal_device dAttr;
     int status = 0;
-    int txDevId = PAL_DEVICE_NONE;
 
     deviceList.push_back(deviceToConnect);
     rm->getBackEndNames(deviceList, rxAifBackEnds, txAifBackEnds);
     deviceToConnect->getDeviceAttributes(&dAttr);
+
+    /*setup external ec if needed*/
+    if (SessionAlsaUtils::isRxDevice(dAttr.id)) {
+        setExtECRef(streamHandle,deviceToConnect,true);
+    }
 
     if (rxAifBackEnds.size() > 0) {
         status =  SessionAlsaUtils::setupSessionDevice(streamHandle, streamType,
@@ -1515,18 +1567,6 @@ int SessionAlsaVoice::setupSessionDevice(Stream* streamHandle,
             return status;
         }
     } else if (txAifBackEnds.size() > 0) {
-        /*set sidetone on new tx device*/
-        if (deviceToConnect->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
-            deviceToConnect->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
-            txDevId = deviceToConnect->getSndDeviceId();
-        }
-        if(txDevId != PAL_DEVICE_NONE)
-        {
-            status = setSidetone(txDevId,streamHandle,1);
-        }
-        if(0 != status) {
-            PAL_ERR(LOG_TAG,"enabling sidetone failed");
-        }
         status =  SessionAlsaUtils::setupSessionDevice(streamHandle, streamType,
                                                        rm, dAttr, pcmDevTxIds,
                                                        txAifBackEnds);
@@ -1543,8 +1583,10 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
 {
     std::vector<std::shared_ptr<Device>> deviceList;
     std::vector<std::string> aifBackEndsToConnect;
+    std::shared_ptr<Device> rxDevice = nullptr;
     struct pal_device dAttr;
     int status = 0;
+    int txDevId = PAL_DEVICE_NONE;
 
     deviceList.push_back(deviceToConnect);
     rm->getBackEndNames(deviceList, rxAifBackEnds, txAifBackEnds);
@@ -1559,14 +1601,46 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
             PAL_ERR(LOG_TAG,"connectSessionDevice on RX Failed");
             return status;
         }
-    } else if (txAifBackEnds.size() > 0) {
 
+        if (deviceToConnect->getSndDeviceId() == PAL_DEVICE_OUT_HANDSET ||
+            deviceToConnect->getSndDeviceId() == PAL_DEVICE_OUT_WIRED_HEADSET ||
+            deviceToConnect->getSndDeviceId() == PAL_DEVICE_OUT_WIRED_HEADPHONE ||
+            deviceToConnect->getSndDeviceId() == PAL_DEVICE_OUT_USB_DEVICE ||
+            deviceToConnect->getSndDeviceId() == PAL_DEVICE_OUT_USB_HEADSET) {
+            // set sidetone on new tx device after pcm_start
+            status = getTXDeviceId(streamHandle, &txDevId);
+            if (status){
+                PAL_ERR(LOG_TAG,"could not find TX device associated with this stream\n");
+            }
+            if (txDevId != PAL_DEVICE_NONE) {
+                status = setSidetone(txDevId, streamHandle, 1);
+            }
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"enabling sidetone failed");
+            }
+        }
+    } else if (txAifBackEnds.size() > 0) {
         status =  SessionAlsaUtils::connectSessionDevice(this, streamHandle,
                                                          streamType, rm,
                                                          dAttr, pcmDevTxIds,
                                                          txAifBackEnds);
         if(0 != status) {
             PAL_ERR(LOG_TAG,"connectSessionDevice on TX Failed");
+        }
+
+        if (deviceToConnect->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
+            deviceToConnect->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
+            txDevId = deviceToConnect->getSndDeviceId();
+        }
+        if (getRXDevice(streamHandle, rxDevice) != 0) {
+            PAL_DBG(LOG_TAG,"no active rx device, no need to setSidetone");
+            return status;
+        } else if (rxDevice && rxDevice->getDeviceCount() != 0 &&
+                   txDevId != PAL_DEVICE_NONE) {
+            status = setSidetone(txDevId, streamHandle, 1);
+        }
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"enabling sidetone failed");
         }
     }
     return status;
@@ -1636,145 +1710,33 @@ char* SessionAlsaVoice::getMixerVoiceStream(Stream *s, int dir){
     return stream;
 }
 
-int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unused, bool is_enable)
+int SessionAlsaVoice::setExtECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable)
 {
-    struct pcm_config config;
+    int status = 0;
     struct pal_stream_attributes sAttr;
-    int32_t status = 0;
-    std::vector<std::shared_ptr<Device>> associatedDevices;
-    std::shared_ptr<Device> dev = nullptr;
-    std::vector <std::shared_ptr<Device>> extEcTxDeviceList;
-    int32_t extEcbackendId;
-    std::vector <std::string> extEcbackendNames;
-    struct pal_device device;
     struct pal_device rxDevAttr = {};
-    struct pal_device_info rxDevInfo;
-    int dev_id = 0;
+    struct pal_device_info rxDevInfo = {};
 
-    memset(&rxDevAttr, 0, sizeof(struct pal_device));
-    status = s->getAssociatedDevices(associatedDevices);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-        goto exit;
-    }
-
-    for (int i = 0; i < associatedDevices.size(); i++) {
-        dev_id = associatedDevices[i]->getSndDeviceId();
-        if (rm->isOutputDevId(dev_id)) {
-            status = associatedDevices[i]->getDeviceAttributes(&rxDevAttr);
-            if (status != 0) {
-                PAL_ERR(LOG_TAG, "device get attributes failed");
-                goto exit;
-            }
-            break;
-        }
-    }
-
-    status = s->getStreamAttributes(&sAttr);
-    if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+    if (!s) {
+        PAL_ERR(LOG_TAG, "Invalid stream");
+        status = -EINVAL;
         goto exit;
     }
 
     rxDevInfo.isExternalECRefEnabledFlag = 0;
-    rm->getDeviceInfo(rxDevAttr.id, sAttr.type, rxDevAttr.custom_config.custom_key, &rxDevInfo);
+    if (rx_dev) {
+        status = rx_dev->getDeviceAttributes(&rxDevAttr);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG," get device attributes failed");
+            goto exit;
+        }
+        rm->getDeviceInfo(rxDevAttr.id, sAttr.type, rxDevAttr.custom_config.custom_key, &rxDevInfo);
+    }
 
     if (rxDevInfo.isExternalECRefEnabledFlag) {
-        PAL_DBG(LOG_TAG, "Ext EC Ref flag is enabled");
-        device.id = PAL_DEVICE_IN_EXT_EC_REF;
-        rm->getDeviceConfig(&device, &sAttr);
-        dev = Device::getInstance(&device, rm);
-        if (!dev) {
-            PAL_ERR(LOG_TAG, "dev get instance failed");
-            return -EINVAL;
-        }
-    } else {
-        goto exit;
-    }
-
-    if(!is_enable) {
-        if (pcmEcTx) {
-            status = pcm_stop(pcmEcTx);
-            if (status) {
-                PAL_ERR(LOG_TAG, "pcm_stop - ec_tx failed %d", status);
-            }
-            dev->stop();
-
-            status = pcm_close(pcmEcTx);
-            if (status) {
-                PAL_ERR(LOG_TAG, "pcm_close - ec_tx failed %d", status);
-            }
-            dev->close();
-
-            rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-            pcmEcTx = NULL;
-        }
-        goto exit;
-    }
-    extEcTxDeviceList.push_back(dev);
-    pcmDevEcTxIds = rm->allocateFrontEndExtEcIds();
-    if (pcmDevEcTxIds.size() == 0) {
-        PAL_ERR(LOG_TAG, "ResourceManger::getBackEndNames returned no EXT_EC device Ids");
-        goto exit;
-    }
-    status = dev->open();
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "dev open failed");
-        status = -EINVAL;
-        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-        goto exit;
-    }
-    status = dev->start();
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "dev start failed");
-        dev->close();
-        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-        status = -EINVAL;
-        goto exit;
-    }
-
-    extEcbackendId = extEcTxDeviceList[0]->getSndDeviceId();
-    extEcbackendNames = rm->getBackEndNames(extEcTxDeviceList);
-    status = SessionAlsaUtils::openDev(rm, pcmDevEcTxIds, extEcbackendId,
-        extEcbackendNames.at(0).c_str());
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "SessionAlsaUtils::openDev failed");
-        dev->stop();
-        dev->close();
-        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-        status = -EINVAL;
-        goto exit;
-    }
-    pcmEcTx = pcm_open(rm->getVirtualSndCard(), pcmDevEcTxIds.at(0), PCM_IN, &config);
-    if (!pcmEcTx) {
-        PAL_ERR(LOG_TAG, "Exit pcm-ec-tx open failed");
-        dev->stop();
-        dev->close();
-        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-        status = -EINVAL;
-        goto exit;
-    }
-
-    if (!pcm_is_ready(pcmEcTx)) {
-        PAL_ERR(LOG_TAG, "Exit pcm-ec-tx open not ready");
-        pcmEcTx = NULL;
-        dev->stop();
-        dev->close();
-        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-        status = -EINVAL;
-        goto exit;
-    }
-
-    status = pcm_start(pcmEcTx);
-    if (status) {
-        PAL_ERR(LOG_TAG, "pcm_start ec_tx failed %d", status);
-        pcm_close(pcmEcTx);
-        pcmEcTx = NULL;
-        dev->stop();
-        dev->close();
-        rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-        status = -EINVAL;
-        goto exit;
+        status = checkAndSetExtEC(rm, s, is_enable);
+        if (status)
+            PAL_ERR(LOG_TAG,"Failed to enable Ext EC for voice");
     }
 
 exit:
@@ -1802,6 +1764,32 @@ int SessionAlsaVoice::getTXDeviceId(Stream *s, int *id)
         }
     }
     if(i >= PAL_DEVICE_IN_MAX){
+        status = -EINVAL;
+    }
+    return status;
+}
+
+int SessionAlsaVoice::getRXDevice(Stream *s, std::shared_ptr<Device> &rx_dev)
+{
+    int status = 0;
+    int i;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+
+    rx_dev = nullptr;
+    status = s->getAssociatedDevices(associatedDevices);
+    if(0 != status) {
+        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed");
+        return status;
+    }
+
+    for (i = 0; i < associatedDevices.size(); i++) {
+        if (associatedDevices[i]->getSndDeviceId() > PAL_DEVICE_OUT_MIN &&
+            associatedDevices[i]->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
+            rx_dev = associatedDevices[i];
+            break;
+        }
+    }
+    if(rx_dev == nullptr) {
         status = -EINVAL;
     }
     return status;

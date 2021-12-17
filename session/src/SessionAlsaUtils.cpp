@@ -158,7 +158,7 @@ int SessionAlsaUtils::setMixerCtlData(struct mixer_ctl *ctl, MixerCtlType id, vo
     int rc = -EINVAL;
 
     if (!ctl || !data || size == 0) {
-        PAL_ERR(LOG_TAG,"invalid mixer ctrl data passed");
+        PAL_ERR(LOG_TAG, "invalid mixer ctrl data passed");
         goto error;
     }
 
@@ -242,7 +242,7 @@ int SessionAlsaUtils::getTagMetadata(int32_t tagsent, std::vector <std::pair<int
 {
     int status = 0;
     if (tkv.size() == 0 || !tagConfig) {
-        PAL_ERR(LOG_TAG,"invalid key values passed");
+        PAL_ERR(LOG_TAG, "invalid key values passed");
         status = -EINVAL;
         goto error;
     }
@@ -263,7 +263,7 @@ int SessionAlsaUtils::getCalMetadata(std::vector <std::pair<int,int>> &ckv, stru
 {
     int status = 0;
     if (ckv.size() == 0 || !calConfig) {
-        PAL_ERR(LOG_TAG,"invalid key values passed");
+        PAL_ERR(LOG_TAG, "invalid key values passed");
         status = -EINVAL;
         goto error;
     }
@@ -295,7 +295,7 @@ struct mixer_ctl *SessionAlsaUtils::getFeMixerControl(struct mixer *am, std::str
     std::ostringstream cntrlName;
 
     cntrlName << feName << feCtrlNames[idx];
-    PAL_DBG(LOG_TAG,"mixer control %s", cntrlName.str().data());
+    PAL_DBG(LOG_TAG, "mixer control %s", cntrlName.str().data());
     return mixer_get_ctl_by_name(am, cntrlName.str().data());
 }
 
@@ -305,7 +305,7 @@ struct mixer_ctl *SessionAlsaUtils::getBeMixerControl(struct mixer *am, std::str
     std::ostringstream cntrlName;
 
     cntrlName << beName << beCtrlNames[idx];
-    PAL_DBG(LOG_TAG,"mixer control %s", cntrlName.str().data());
+    PAL_DBG(LOG_TAG, "mixer control %s", cntrlName.str().data());
     return mixer_get_ctl_by_name(am, cntrlName.str().data());
 }
 
@@ -337,12 +337,12 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     struct pal_device dAttr;
     PayloadBuilder* builder = nullptr;
 
-    PAL_DBG(LOG_TAG,"Entry \n");
+    PAL_DBG(LOG_TAG, "Entry \n");
 
     memset(&dAttr, 0, sizeof(pal_device));
     status = streamHandle->getStreamAttributes(&sAttr);
     if(0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         goto exit;
     }
 
@@ -419,7 +419,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 }
             }
             if (i >= associatedDevices.size() ) {
-                PAL_ERR(LOG_TAG,"could not find associated device kv cannot be set");
+                PAL_ERR(LOG_TAG, "could not find associated device kv cannot be set");
 
             } else{
                 rmHandle->getDeviceInfo((pal_device_id_t)be->first, sAttr.type,
@@ -530,7 +530,7 @@ exit:
        delete builder;
        builder = NULL;
     }
-    PAL_DBG(LOG_TAG,"Exit, status %d", status);
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
 
@@ -586,12 +586,6 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
             goto exit;
         }
     }
-    // clear stream metadata
-    getAgmMetaData(emptyKV, emptyKV, (struct prop_data *)streamPropId,
-            streamMetaData);
-    if (streamMetaData.size)
-        mixer_ctl_set_array(feMixerCtrls[FE_METADATA],
-            (void *)streamMetaData.buf, streamMetaData.size);
 
     // clear device metadata
     for (auto be = BackEnds.begin(); be != BackEnds.end(); ++be) {
@@ -613,6 +607,7 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
         }
 
         /** set mixer controls */
+        mixer_ctl_set_enum_by_string(feMixerCtrls[FE_DISCONNECT], be->second.data());
         for (auto freeDevmeta = freedevicemetadata.begin(); freeDevmeta != freedevicemetadata.end(); ++freeDevmeta) {
             PAL_DBG(LOG_TAG, "backend %s and freedevicemetadata %d", freeDevmeta->first.data(), freeDevmeta->second);
             if (!(freeDevmeta->first.compare(be->second))) {
@@ -629,12 +624,20 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
         mixer_ctl_set_array(feMixerCtrls[FE_METADATA], (void *)streamDeviceMetaData.buf,
                 streamDeviceMetaData.size);
 
-        mixer_ctl_set_enum_by_string(feMixerCtrls[FE_DISCONNECT], be->second.data());
         free(streamDeviceMetaData.buf);
         free(deviceMetaData.buf);
         streamDeviceMetaData.buf = nullptr;
         deviceMetaData.buf = nullptr;
     }
+
+    // clear stream metadata
+    mixer_ctl_set_enum_by_string(feMixerCtrls[FE_CONTROL], "ZERO");
+    getAgmMetaData(emptyKV, emptyKV, (struct prop_data *)streamPropId,
+            streamMetaData);
+    if (streamMetaData.size)
+        mixer_ctl_set_array(feMixerCtrls[FE_METADATA],
+            (void *)streamMetaData.buf, streamMetaData.size);
+
 
 freeMetaData:
     if (streamDeviceMetaData.buf)
@@ -801,7 +804,7 @@ int SessionAlsaUtils::getTimestamp(struct mixer *mixer, const std::vector<int> &
     std::ostringstream CntrlName;
     struct mixer_ctl *ctl;
     struct param_id_spr_session_time_t *spr_session_time;
-    uint8_t* payload = NULL;
+    std::shared_ptr<std::vector<uint8_t>> payload = nullptr;
     size_t payloadSize = 0;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
 
@@ -824,20 +827,25 @@ int SessionAlsaUtils::getTimestamp(struct mixer *mixer, const std::vector<int> &
     }
 
     PayloadBuilder* builder = new PayloadBuilder();
-    builder->payloadTimestamp(&payload, &payloadSize, spr_miid);
-    status = mixer_ctl_set_array(ctl, payload, payloadSize);
+    builder->payloadTimestamp(payload, &payloadSize, spr_miid);
+    if (!payload) {
+        PAL_ERR(LOG_TAG, "Timestamp payload formation failed");
+        status = -EINVAL;
+        goto exit;
+    }
+    status = mixer_ctl_set_array(ctl, payload->data(), payloadSize);
     if (0 != status) {
          PAL_ERR(LOG_TAG, "Set failed status = %d", status);
          goto exit;
     }
-    memset(payload, 0, payloadSize);
-    status = mixer_ctl_get_array(ctl, payload, payloadSize);
+    memset(payload->data(), 0, payloadSize);
+    status = mixer_ctl_get_array(ctl, payload->data(), payloadSize);
     if (0 != status) {
          PAL_ERR(LOG_TAG, "Get failed status = %d", status);
          goto exit;
     }
     spr_session_time = (struct param_id_spr_session_time_t *)
-                     (payload + sizeof(struct apm_module_param_data_t));
+                     (payload->data() + sizeof(struct apm_module_param_data_t));
     stime->session_time.value_lsw = spr_session_time->session_time.value_lsw;
     stime->session_time.value_msw = spr_session_time->session_time.value_msw;
     stime->absolute_time.value_lsw = spr_session_time->absolute_time.value_lsw;
@@ -1016,7 +1024,6 @@ int SessionAlsaUtils::setMixerParameter(struct mixer *mixer, int device,
     ctl_len = strlen(pcmDeviceName) + 1 + strlen(control) + 1;
     mixer_str = (char *)calloc(1, ctl_len);
     if (!mixer_str) {
-        free(payload);
         return -ENOMEM;
     }
     snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
@@ -1053,7 +1060,7 @@ int SessionAlsaUtils::setStreamMetadataType(struct mixer *mixer, int device, con
     mixer_str = (char *)calloc(1, ctl_len);
     if(mixer_str == NULL) {
         ret = -ENOMEM;
-        PAL_ERR(LOG_TAG,"calloc failed");
+        PAL_ERR(LOG_TAG, "calloc failed");
         return ret;
     }
     snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
@@ -1145,7 +1152,7 @@ int SessionAlsaUtils::setECRefPath(struct mixer *mixer, int device, const char *
     mixer_str = (char *)calloc(1, ctl_len);
     if(mixer_str == NULL) {
         ret = -ENOMEM;
-        PAL_ERR(LOG_TAG,"calloc failed");
+        PAL_ERR(LOG_TAG, "calloc failed");
         return ret;
     }
     snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
@@ -1236,6 +1243,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     struct vsid_info vsidinfo = {};
     sidetone_mode_t sidetoneMode = SIDETONE_OFF;
     struct pal_device dAttr;
+    bool isDeviceFound = false;
 
     if (RxDevIds.empty() || TxDevIds.empty()) {
         PAL_ERR(LOG_TAG, "RX and TX FE Dev Ids are empty");
@@ -1243,13 +1251,13 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     }
     status = streamHandle->getStreamAttributes(&sAttr);
     if(0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         return status;
     }
 
     status = streamHandle->getAssociatedDevices(associatedDevices);
     if(0 != status) {
-        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+        PAL_ERR(LOG_TAG, "getAssociatedDevices Failed \n");
         return status;
     }
     if (associatedDevices.size() != 2) {
@@ -1265,14 +1273,16 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     for (i = 0; i < associatedDevices.size(); i++) {
         associatedDevices[i]->getDeviceAttributes(&dAttr);
         if (txBackEnds[0].first == dAttr.id) {
+            isDeviceFound = true;
             break;
         }
     }
-    if (i >= associatedDevices.size() ) {
-        PAL_ERR(LOG_TAG,"could not find associated device kv cannot be set");
-    } else{
+    if (isDeviceFound) {
         rmHandle->getDeviceInfo((pal_device_id_t)txBackEnds[0].first, sAttr.type,
-                                dAttr.custom_config.custom_key, &devinfo);
+                dAttr.custom_config.custom_key, &devinfo);
+    }
+    else {
+        PAL_ERR(LOG_TAG, "could not find associated device kv cannot be set");
     }
 
     if(sAttr.type == PAL_STREAM_VOICE_CALL){
@@ -1609,7 +1619,8 @@ freeMetaData:
 int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManager> rmHandle,
     const std::vector<int> &RxDevIds, const std::vector<int> &TxDevIds,
     const std::vector<std::pair<int32_t, std::string>> &rxBackEnds,
-    const std::vector<std::pair<int32_t, std::string>> &txBackEnds)
+    const std::vector<std::pair<int32_t, std::string>> &txBackEnds,
+    std::vector<std::pair<std::string, int>> &freeDeviceMetaData)
 {
     int status = 0;
     std::vector <std::pair<int, int>> emptyKV;
@@ -1634,7 +1645,7 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
 
     status = streamHandle->getStreamAttributes(&sAttr);
     if(0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         goto exit;
     }
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD && sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC) {
@@ -1735,35 +1746,57 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
     }
 
     /** set TX mixer controls */
+    mixer_ctl_set_enum_by_string(txFeMixerCtrls[FE_DISCONNECT], txBackEnds[0].second.data());
     mixer_ctl_set_enum_by_string(txFeMixerCtrls[FE_CONTROL], "ZERO");
     mixer_ctl_set_array(txFeMixerCtrls[FE_METADATA], (void *)streamTxMetaData.buf,
             streamTxMetaData.size);
-    mixer_ctl_set_array(txBeMixerCtrl, (void *)deviceTxMetaData.buf,
-            deviceTxMetaData.size);
     mixer_ctl_set_enum_by_string(txFeMixerCtrls[FE_CONTROL], txBackEnds[0].second.data());
     mixer_ctl_set_array(txFeMixerCtrls[FE_METADATA], (void *)streamDeviceTxMetaData.buf,
             streamDeviceTxMetaData.size);
-    mixer_ctl_set_enum_by_string(txFeMixerCtrls[FE_DISCONNECT], txBackEnds[0].second.data());
 
     /** set RX mixer controls */
+    mixer_ctl_set_enum_by_string(rxFeMixerCtrls[FE_DISCONNECT], rxBackEnds[0].second.data());
     mixer_ctl_set_enum_by_string(rxFeMixerCtrls[FE_CONTROL], "ZERO");
     mixer_ctl_set_array(rxFeMixerCtrls[FE_METADATA], (void *)streamRxMetaData.buf,
             streamRxMetaData.size);
-    mixer_ctl_set_array(rxBeMixerCtrl, (void *)deviceRxMetaData.buf,
-            deviceRxMetaData.size);
     mixer_ctl_set_enum_by_string(rxFeMixerCtrls[FE_CONTROL], rxBackEnds[0].second.data());
     mixer_ctl_set_array(rxFeMixerCtrls[FE_METADATA], (void *)streamDeviceRxMetaData.buf,
             streamDeviceRxMetaData.size);
-    mixer_ctl_set_enum_by_string(rxFeMixerCtrls[FE_DISCONNECT], rxBackEnds[0].second.data());
 
+    /* set Backend mixer control */
+    for (auto freeDevMeta = freeDeviceMetaData.begin(); freeDevMeta != freeDeviceMetaData.end(); ++freeDevMeta) {
+        PAL_DBG(LOG_TAG, "backend %s and freedevicemetadata %d", freeDevMeta->first.data(), freeDevMeta->second);
+        if (!(freeDevMeta->first.compare(txBackEnds[0].second))) {
+            if (freeDevMeta->second == 0) {
+                PAL_INFO(LOG_TAG, "No need to free TX device metadata as device is still active");
+            } else {
+                mixer_ctl_set_array(txBeMixerCtrl, (void *)deviceTxMetaData.buf,
+                                    deviceTxMetaData.size);
+            }
+        }
+        if (!(freeDevMeta->first.compare(rxBackEnds[0].second))) {
+            if (freeDevMeta->second == 0) {
+                PAL_INFO(LOG_TAG, "No need to free RX device metadata as device is still active");
+            } else {
+                mixer_ctl_set_array(rxBeMixerCtrl, (void *)deviceRxMetaData.buf,
+                                    deviceRxMetaData.size);
+            }
+        }
+    }
 freeTxMetaData:
-    free(streamDeviceTxMetaData.buf);
-    free(deviceTxMetaData.buf);
-    free(streamTxMetaData.buf);
+    if (streamDeviceTxMetaData.buf)
+        free(streamDeviceTxMetaData.buf);
+    if (deviceTxMetaData.buf)
+        free(deviceTxMetaData.buf);
+    if (streamTxMetaData.buf)
+        free(streamTxMetaData.buf);
 freeRxMetaData:
-    free(streamDeviceRxMetaData.buf);
-    free(deviceRxMetaData.buf);
-    free(streamRxMetaData.buf);
+    if (streamDeviceRxMetaData.buf)
+        free(streamDeviceRxMetaData.buf);
+    if (deviceRxMetaData.buf)
+        free(deviceRxMetaData.buf);
+    if (streamRxMetaData.buf)
+        free(streamRxMetaData.buf);
 exit:
     return status;
 }
@@ -1897,6 +1930,7 @@ int SessionAlsaUtils::disconnectSessionDevice(Stream* streamHandle, pal_stream_t
 
     switch (streamType) {
          case PAL_STREAM_ULTRASOUND:
+         case PAL_STREAM_LOOPBACK:
              status = rmHandle->getVirtualAudioMixer(&mixerHandle);
              txFeName << PCM_SND_DEV_NAME_PREFIX << pcmTxDevIds.at(0);
              txFeMixerCtrls[FE_LOOPBACK] = getFeMixerControl(mixerHandle, txFeName.str(), FE_LOOPBACK);
@@ -1907,8 +1941,12 @@ int SessionAlsaUtils::disconnectSessionDevice(Stream* streamHandle, pal_stream_t
                  return status;
              }
              mixer_ctl_set_enum_by_string(txFeMixerCtrls[FE_LOOPBACK], "ZERO");
-             disconnectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmRxDevIds.at(0) << " disconnect";
-             break;
+             if (dAttr.id > PAL_DEVICE_OUT_MIN && dAttr.id < PAL_DEVICE_OUT_MAX) {
+                 disconnectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmRxDevIds.at(0) << " disconnect";
+             } else if (dAttr.id > PAL_DEVICE_IN_MIN && dAttr.id < PAL_DEVICE_IN_MAX) {
+                 disconnectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmTxDevIds.at(0) << " disconnect";
+             }
+            break;
         default:
             disconnectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmRxDevIds.at(0) << " disconnect";
             break;
@@ -1936,6 +1974,8 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
     int status = 0;
     std::ostringstream connectCtrlName;
     struct pal_stream_attributes sAttr;
+    uint8_t* payload = NULL;
+    size_t payloadSize = 0;
     int sub = 1;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
 
@@ -1980,6 +2020,16 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
             if (sess) {
                 sess->configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                     aifBackEndsToConnect[0].second.data());
+                sess->getCustomPayload(&payload, &payloadSize);
+                if (payload) {
+                    status = SessionAlsaUtils::setMixerParameter(mixerHandle, pcmDevIds.at(0),
+                                                             payload, payloadSize);
+                    sess->freeCustomPayload();
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+                        goto exit;
+                    }
+                }
             } else {
                 PAL_ERR(LOG_TAG, "invalid session audio object");
                 status = -EINVAL;
@@ -2025,8 +2075,14 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
     struct mixer_ctl *txFeMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     std::ostringstream txFeName,rxFeName;
     struct pal_stream_attributes sAttr;
+    uint8_t* payload = NULL;
+    size_t payloadSize = 0;
 
-    connectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmRxDevIds.at(0) << " connect";
+    if (dAttr.id > PAL_DEVICE_OUT_MIN && dAttr.id < PAL_DEVICE_OUT_MAX) {
+        connectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmRxDevIds.at(0) << " connect";
+    } else if (dAttr.id > PAL_DEVICE_IN_MIN && dAttr.id < PAL_DEVICE_IN_MAX) {
+        connectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmTxDevIds.at(0) << " connect";
+    }
 
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
     if (status) {
@@ -2039,6 +2095,16 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
         if (sess) {
             sess->configureMFC(rmHandle,sAttr, dAttr, pcmRxDevIds,
                                 aifBackEndsToConnect[0].second.data());
+            sess->getCustomPayload(&payload, &payloadSize);
+            if (payload) {
+                status = SessionAlsaUtils::setMixerParameter(mixerHandle, pcmRxDevIds.at(0),
+                                                         payload, payloadSize);
+                sess->freeCustomPayload();
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "setMixerParameter failed");
+                    goto exit;
+                }
+            }
         } else {
             PAL_ERR(LOG_TAG, "invalid session ultrasound object");
             status = -EINVAL;
@@ -2057,6 +2123,7 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
 
     switch (streamType) {
          case PAL_STREAM_ULTRASOUND:
+         case PAL_STREAM_LOOPBACK:
              status = rmHandle->getVirtualAudioMixer(&mixerHandle);
              txFeName << PCM_SND_DEV_NAME_PREFIX << pcmTxDevIds.at(0);
              rxFeName << PCM_SND_DEV_NAME_PREFIX << pcmRxDevIds.at(0);
@@ -2117,7 +2184,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
 
     status = streamHandle->getStreamAttributes(&sAttr);
     if(0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         goto exit;
     }
 
@@ -2258,7 +2325,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
 
     aifMdCtrl = mixer_get_ctl_by_name(mixerHandle, aifMdName.str().data());
-    PAL_DBG(LOG_TAG,"mixer control %s", aifMdName.str().data());
+    PAL_DBG(LOG_TAG, "mixer control %s", aifMdName.str().data());
     if (!aifMdCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s", aifMdName.str().data());
         status = -EINVAL;
@@ -2268,7 +2335,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
         mixer_ctl_set_array(aifMdCtrl, (void *)deviceMetaData.buf, deviceMetaData.size);
 
     feCtrl = mixer_get_ctl_by_name(mixerHandle, cntrlName.str().data());
-    PAL_DBG(LOG_TAG,"mixer control %s", cntrlName.str().data());
+    PAL_DBG(LOG_TAG, "mixer control %s", cntrlName.str().data());
     if (!feCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s", cntrlName.str().data());
         status = -EINVAL;
@@ -2277,7 +2344,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
     mixer_ctl_set_enum_by_string(feCtrl, aifBackEndsToConnect[0].second.data());
 
     feMdCtrl = mixer_get_ctl_by_name(mixerHandle, feMdName.str().data());
-    PAL_DBG(LOG_TAG,"mixer control %s", feMdName.str().data());
+    PAL_DBG(LOG_TAG, "mixer control %s", feMdName.str().data());
     if (!feMdCtrl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s", feMdName.str().data());
         status = -EINVAL;

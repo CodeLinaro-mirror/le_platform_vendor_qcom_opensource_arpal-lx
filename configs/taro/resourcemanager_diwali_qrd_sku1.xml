@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.       -->
+<!-- Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.       -->
 <!--                                                                           -->
 <!-- Redistribution and use in source and binary forms, with or without        -->
 <!-- modification, are permitted provided that the following conditions are    -->
@@ -38,6 +38,13 @@
         <param key="lpi_logging_enable" value ="false" />
         <param key="upd_dedicated_be" value ="true" />
     </config_params>
+    <config_volume>
+        <use_volume_set_param>0</use_volume_set_param>
+        <supported_streams>
+            <supported_stream>PAL_STREAM_ULTRA_LOW_LATENCY</supported_stream>
+            <supported_stream>PAL_STREAM_COMPRESSED</supported_stream>
+        </supported_streams>
+    </config_volume>
     <config_gapless key="gapless_supported" value="1"/>
     <bt_codecs>
         <codec codec_format="CODEC_TYPE_AAC" codec_type="enc|dec" codec_library="lib_bt_bundle.so" />
@@ -358,8 +365,8 @@
             <snd_device_name>ext_ec_ref_tx</snd_device_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
-            <bit_width>16</bit_width>
             <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
         </in-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
@@ -437,9 +444,6 @@
           <usecase>
               <name>PAL_STREAM_VOIP_RX</name>
               <priority>3</priority>
-              <custom-config key="HAC">
-                 <snd_device_name>voice-handset-hac</snd_device_name> <!-- override sound device name with HAC handset for voip -->
-              </custom-config>
           </usecase>
           <usecase>
               <name>PAL_STREAM_ULTRASOUND</name>

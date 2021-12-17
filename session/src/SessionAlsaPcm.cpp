@@ -44,6 +44,9 @@
 #include "apm_api.h"
 #include "us_detect_api.h"
 
+std::mutex SessionAlsaPcm::pcmLpmRefCntMtx;
+int SessionAlsaPcm::pcmLpmRefCnt = 0;
+
 #define SESSION_ALSA_MMAP_DEFAULT_OUTPUT_SAMPLING_RATE (48000)
 #define SESSION_ALSA_MMAP_PERIOD_SIZE (SESSION_ALSA_MMAP_DEFAULT_OUTPUT_SAMPLING_RATE/1000)
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_MIN 64
@@ -61,7 +64,6 @@ SessionAlsaPcm::SessionAlsaPcm(std::shared_ptr<ResourceManager> Rm)
    pcm = NULL;
    pcmRx = NULL;
    pcmTx = NULL;
-   pcmEcTx = NULL;
    mState = SESSION_IDLE;
    ecRefDevId = PAL_DEVICE_OUT_MIN;
    streamHandle = NULL;
@@ -87,11 +89,11 @@ int SessionAlsaPcm::open(Stream * s)
     int ldir = 0;
     std::vector<int> pcmId;
 
-    PAL_DBG(LOG_TAG,"Enter");
+    PAL_DBG(LOG_TAG, "Enter");
     status = s->getStreamAttributes(&sAttr);
     streamHandle = s;
     if (0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         goto exit;
     }
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
@@ -99,7 +101,7 @@ int SessionAlsaPcm::open(Stream * s)
         sAttr.type != PAL_STREAM_CONTEXT_PROXY) {
         status = s->getAssociatedDevices(associatedDevices);
         if (0 != status) {
-            PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+            PAL_ERR(LOG_TAG, "getAssociatedDevices Failed \n");
             goto exit;
         }
 
@@ -113,7 +115,7 @@ int SessionAlsaPcm::open(Stream * s)
     }
     status = rm->getVirtualAudioMixer(&mixer);
     if (status) {
-        PAL_ERR(LOG_TAG,"mixer error");
+        PAL_ERR(LOG_TAG, "mixer error");
         goto exit;
     }
     if (sAttr.direction == PAL_AUDIO_INPUT) {
@@ -143,12 +145,14 @@ int SessionAlsaPcm::open(Stream * s)
             goto exit;
         }
     }
+    frontEndIdAllocated = true;
     switch (sAttr.direction) {
         case PAL_AUDIO_INPUT:
             status = SessionAlsaUtils::open(s, rm, pcmDevIds, txAifBackEnds);
             if (status) {
                 PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                 rm->freeFrontEndIds(pcmDevIds, sAttr, ldir);
+                frontEndIdAllocated = false;
             }
             break;
         case PAL_AUDIO_OUTPUT:
@@ -156,6 +160,7 @@ int SessionAlsaPcm::open(Stream * s)
             if (status) {
                 PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                 rm->freeFrontEndIds(pcmDevIds, sAttr, 0);
+                frontEndIdAllocated = false;
             }
             else if ((sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
                      (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
@@ -182,10 +187,11 @@ int SessionAlsaPcm::open(Stream * s)
                 PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                 rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
                 rm->freeFrontEndIds(pcmDevTxIds, sAttr, TX_HOSTLESS);
+                frontEndIdAllocated = false;
             }
             break;
         default:
-            PAL_ERR(LOG_TAG,"unsupported direction");
+            PAL_ERR(LOG_TAG, "unsupported direction");
             break;
     }
 
@@ -215,7 +221,7 @@ int SessionAlsaPcm::open(Stream * s)
         }
     }
 exit:
-    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
 
@@ -230,7 +236,7 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, uint32_t tag1,
     const char *setParamTagControl = "setParamTag";
     struct mixer_ctl *ctl = nullptr;
     uint32_t tkv_size = 0;
-    PAL_DBG(LOG_TAG,"Enter tags: %d %d %d", tag1, tag2, tag3);
+    PAL_DBG(LOG_TAG, "Enter tags: %d %d %d", tag1, tag2, tag3);
     switch (type) {
         case MODULE:
             tkv.clear();
@@ -265,7 +271,7 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, uint32_t tag1,
             tkv_size = tkv.size() * sizeof(struct agm_key_value);
             status = mixer_ctl_set_array(ctl, tagConfig, sizeof(struct agm_tag_config) + tkv_size);
             if (status != 0) {
-                PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+                PAL_ERR(LOG_TAG, "failed to set the tag calibration %d", status);
                 goto exit;
             }
             ctl = NULL;
@@ -279,7 +285,7 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, uint32_t tag1,
     }
 
 exit:
-    PAL_DBG(LOG_TAG,"exit status: %d ", status);
+    PAL_DBG(LOG_TAG, "exit status: %d ", status);
     return status;
 }
 
@@ -312,7 +318,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
     }
     status = streamHandle->getStreamAttributes(&sAttr);
     if (0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         goto exit;
     }
     if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT)) {
@@ -321,7 +327,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
             case BT_PLACEHOLDER_DECODER:
             case COP_DEPACKETIZER_V2:
                 if (!pcmDevTxIds.size()){
-                    PAL_ERR(LOG_TAG,"pcmDevTxIds not found \n");
+                    PAL_ERR(LOG_TAG, "pcmDevTxIds not found \n");
                     status = -EINVAL;
                     goto exit;
                 }
@@ -333,7 +339,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
             case COP_PACKETIZER_V0:
             case MODULE_SP:
                 if (!pcmDevRxIds.size()){
-                    PAL_ERR(LOG_TAG,"pcmDevRxIds not found \n");
+                    PAL_ERR(LOG_TAG, "pcmDevRxIds not found \n");
                     status = -EINVAL;
                     goto exit;
                 }
@@ -353,7 +359,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
         }
     } else {
         if (!pcmDevIds.size()){
-            PAL_ERR(LOG_TAG,"pcmDevIds not found \n");
+            PAL_ERR(LOG_TAG, "pcmDevIds not found \n");
             status = -EINVAL;
             goto exit;
         }
@@ -393,16 +399,16 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         return status;
     }
-    PAL_DBG(LOG_TAG,"Enter tag: %d", tag);
+    PAL_DBG(LOG_TAG, "Enter tag: %d", tag);
     switch (type) {
         case MODULE:
             tkv.clear();
             status = builder->populateTagKeyVector(s, tkv, tag, &tagsent);
             if (0 != status) {
-                PAL_ERR(LOG_TAG,"Failed to set the tag configuration\n");
+                PAL_ERR(LOG_TAG, "Failed to set the tag configuration\n");
                 goto exit;
             }
 
@@ -447,15 +453,16 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 
             status = mixer_ctl_set_array(ctl, tagConfig, tag_config_size);
             if (status != 0) {
-                PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+                PAL_ERR(LOG_TAG, "failed to set the tag calibration %d", status);
                 goto exit;
             }
             tkv.clear();
             break;
         case CALIBRATION:
+            ckv.clear();
             status = builder->populateCalKeyVector(s, ckv, tag);
             if (0 != status) {
-                PAL_ERR(LOG_TAG,"Failed to set the calibration data\n");
+                PAL_ERR(LOG_TAG, "Failed to set the calibration data\n");
                 goto exit;
             }
 
@@ -496,7 +503,7 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 
             status = mixer_ctl_set_array(ctl, calConfig, cal_config_size);
             if (status != 0) {
-                PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+                PAL_ERR(LOG_TAG, "failed to set the tag calibration %d", status);
                 goto exit;
             }
             ckv.clear();
@@ -513,7 +520,7 @@ exit:
     if (calConfig)
         free(calConfig);
 
-    PAL_DBG(LOG_TAG,"exit status: %d ", status);
+    PAL_DBG(LOG_TAG, "exit status: %d ", status);
     return status;
 }
 
@@ -538,6 +545,7 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
     switch (type) {
         case MODULE:
         {
+            tkv.clear();
             pal_key_vector_t *pal_kvpair = (pal_key_vector_t *)effectPayload->payload;
             uint32_t num_tkvs =  pal_kvpair->num_tkvs;
             for (int i = 0; i < num_tkvs; i++) {
@@ -580,7 +588,7 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             tkv_size = tkv.size()*sizeof(struct agm_key_value);
             status = mixer_ctl_set_array(ctl, tagConfig, sizeof(struct agm_tag_config) + tkv_size);
             if (status != 0) {
-                PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+                PAL_ERR(LOG_TAG, "failed to set the tag calibration %d", status);
                 goto exit;
             }
             ctl = NULL;
@@ -589,13 +597,13 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             break;
         }
         default:
-            PAL_ERR(LOG_TAG,"invalid type ");
+            PAL_ERR(LOG_TAG, "invalid type ");
             status = -EINVAL;
             goto exit;
     }
 
 exit:
-    PAL_DBG(LOG_TAG,"exit status:%d ", status);
+    PAL_DBG(LOG_TAG, "exit status:%d ", status);
     if (tagConfig) {
         free(tagConfig);
         tagConfig = nullptr;
@@ -674,12 +682,12 @@ int SessionAlsaPcm::start(Stream * s)
     int tagId = 0;
     int DeviceId;
 
-    PAL_DBG(LOG_TAG,"Enter");
+    PAL_DBG(LOG_TAG, "Enter");
 
     rm->voteSleepMonitor(s, true);
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         goto exit;
     }
 
@@ -854,7 +862,7 @@ int SessionAlsaPcm::start(Stream * s)
                     status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
                                                                 "ZERO", TAG_STREAM_MFC_SR, &miid);
                 if (status != 0) {
-                    PAL_ERR(LOG_TAG,"getModuleInstanceId failed");
+                    PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
                     goto exit;
                 }
                 if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
@@ -877,35 +885,78 @@ int SessionAlsaPcm::start(Stream * s)
                     status = updateCustomPayload(payload, payloadSize);
                     freeCustomPayload(&payload, &payloadSize);
                     if (0 != status) {
-                        PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                        PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
                         goto exit;
                     }
                 }
+
+                if (sAttr.type == PAL_STREAM_VOIP_TX) {
+                    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
+                                                txAifBackEnds[0].second.data(), TAG_DEVICEPP_EC_MFC, &miid);
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG,"getModuleInstanceId failed\n");
+                        goto set_mixer;
+                    }
+                    PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
+                    status = s->getAssociatedDevices(associatedDevices);
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                        goto set_mixer;
+                    }
+                    for (int i = 0; i < associatedDevices.size();i++) {
+                        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+                        if (0 != status) {
+                            PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+                            goto set_mixer;
+                        }
+
+                        streamData.sampleRate = dAttr.config.sample_rate;
+                        streamData.bitWidth = 0xffff;
+                        streamData.numChannel = 0xffff;
+                        builder->payloadMFCConfig(&payload, &payloadSize, miid, &streamData);
+                        if (payloadSize && payload) {
+                            status = updateCustomPayload(payload, payloadSize);
+                            freeCustomPayload(&payload, &payloadSize);
+                            if (0 != status) {
+                                PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                                goto set_mixer;
+                            }
+                        }
+                    }
+                }
+
+set_mixer:
                 status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
                                                              customPayload, customPayloadSize);
                 freeCustomPayload();
                 if (status != 0) {
-                    PAL_ERR(LOG_TAG,"setMixerParameter failed");
+                    PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
                 }
                 if (sAttr.type == PAL_STREAM_VOICE_CALL_RECORD) {
                     status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
                                                                 "ZERO", RAT_RENDER, &miid);
                     if (status != 0) {
-                        PAL_ERR(LOG_TAG,"getModuleInstanceId failed");
+                        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
                         goto exit;
                     }
                     PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
                     codecConfig.bit_width = sAttr.in_media_config.bit_width;
-                    codecConfig.sample_rate = sAttr.in_media_config.sample_rate;
+                    codecConfig.sample_rate = 48000;
                     codecConfig.aud_fmt_id =  sAttr.in_media_config.aud_fmt_id;
-                    codecConfig.ch_info.channels = sAttr.in_media_config.ch_info.channels;
+                    /* RAT RENDER always set to stereo for uplink+downlink record*/
+                    /* As mux_demux gives only stereo o/p & there is no MFC between mux and RAT */
+                    if (sAttr.info.voice_rec_info.record_direction == INCALL_RECORD_VOICE_UPLINK_DOWNLINK) {
+                        codecConfig.ch_info.channels = 2;
+                    } else {
+                        codecConfig.ch_info.channels = sAttr.in_media_config.ch_info.channels;
+                    }
                     builder->payloadRATConfig(&payload, &payloadSize, miid, &codecConfig);
                     if (payloadSize && payload) {
                         status = updateCustomPayload(payload, payloadSize);
                         freeCustomPayload(&payload, &payloadSize);
                         if (0 != status) {
-                            PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
                             goto exit;
                         }
                     }
@@ -913,7 +964,7 @@ int SessionAlsaPcm::start(Stream * s)
                                                                  customPayload, customPayloadSize);
                     freeCustomPayload();
                     if (status != 0) {
-                        PAL_ERR(LOG_TAG,"setMixerParameter failed for RAT render");
+                        PAL_ERR(LOG_TAG, "setMixerParameter failed for RAT render");
                         goto exit;
                     }
                     switch (sAttr.info.voice_rec_info.record_direction) {
@@ -944,10 +995,12 @@ int SessionAlsaPcm::start(Stream * s)
                 setConfig(s, MODULE, LPI_LOGGING_ON);
             }
 
-            status = pcm_start(pcm);
-            if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+            if (pcm) {
+                status = pcm_start(pcm);
+                if (status) {
+                    status = errno;
+                    PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+                }
             }
             break;
         case PAL_AUDIO_OUTPUT:
@@ -955,7 +1008,7 @@ int SessionAlsaPcm::start(Stream * s)
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
                                                                 "ZERO", RAT_RENDER, &miid);
                 if (status != 0) {
-                    PAL_ERR(LOG_TAG,"getModuleInstanceId failed");
+                    PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
                     goto exit;
                 }
                 PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
@@ -968,7 +1021,7 @@ int SessionAlsaPcm::start(Stream * s)
                     status = updateCustomPayload(payload, payloadSize);
                     freeCustomPayload(&payload, &payloadSize);
                     if (0 != status) {
-                        PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                        PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
                         goto exit;
                     }
                 }
@@ -976,37 +1029,77 @@ int SessionAlsaPcm::start(Stream * s)
                                                              customPayload, customPayloadSize);
                 freeCustomPayload();
                 if (status != 0) {
-                    PAL_ERR(LOG_TAG,"setMixerParameter failed for RAT render");
+                    PAL_ERR(LOG_TAG, "setMixerParameter failed for RAT render");
                     goto exit;
                 }
                 goto pcm_start;
             }
             status = s->getAssociatedDevices(associatedDevices);
             if (0 != status) {
-                PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                PAL_ERR(LOG_TAG, "getAssociatedDevices Failed\n");
                 goto exit;
             }
             for (int i = 0; i < associatedDevices.size();i++) {
                 status = associatedDevices[i]->getDeviceAttributes(&dAttr);
                 if (0 != status) {
-                    PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+                    PAL_ERR(LOG_TAG, "get Device Attributes Failed\n");
                     goto exit;
                 }
 
                 status = configureMFC(rm, sAttr, dAttr, pcmDevIds,
                             rxAifBackEnds[i].second.data());
                 if (status != 0) {
-                    PAL_ERR(LOG_TAG,"configure MFC failed");
+                    PAL_ERR(LOG_TAG, "configure MFC failed");
                     goto exit;
+                }
+                if (customPayload) {
+                    status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
+                                                     customPayload, customPayloadSize);
+                    freeCustomPayload();
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+                        goto exit;
+                    }
+                }
+                if ((ResourceManager::isChargeConcurrencyEnabled) &&
+                    (dAttr.id == PAL_DEVICE_OUT_SPEAKER)) {
+                    status = Session::NotifyChargerConcurrency(rm, true);
+                    if (0 == status) {
+                        status = Session::EnableChargerConcurrency(rm, s);
+                        //Handle failure case of ICL config
+                        if (0 != status) {
+                            PAL_DBG(LOG_TAG, "Failed to set ICL Config status %d", status);
+                            status = Session::NotifyChargerConcurrency(rm, false);
+                        }
+                    }
+                    /*
+                     Irespective of status, Audio continues to play for success
+                     status, PB continues in Buck mode otherwise play in Boost mode.
+                   */
+                    status = 0;
                 }
             }
 
 pcm_start:
-            status = pcm_start(pcm);
-            if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+            if (sAttr.type == PAL_STREAM_LOW_LATENCY ||
+                    sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+                std::lock_guard<std::mutex> lock(pcmLpmRefCntMtx);
+                PAL_DBG(LOG_TAG,"pcmLpmRefCnt %d\n", pcmLpmRefCnt);
+                pcmLpmRefCnt++;
+                if (1 == pcmLpmRefCnt)
+                    setPmQosMixerCtl(PM_QOS_VOTE_ENABLE);
+                else
+                    PAL_DBG(LOG_TAG,"pcmLpmRefCnt %d\n", pcmLpmRefCnt);
             }
+
+            if (pcm) {
+                status = pcm_start(pcm);
+                if (status) {
+                    status = errno;
+                    PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+                }
+            }
+
             if (!status && isPauseRegistrationDone) {
                 // Stream supports Soft Pause and registration with RM is
                 // successful. So register for Soft pause callback from adsp.
@@ -1032,7 +1125,7 @@ pcm_start:
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
             status = s->getAssociatedDevices(associatedDevices);
             if (0 != status) {
-                PAL_ERR(LOG_TAG,"getAssociatedDevices Failed");
+                PAL_ERR(LOG_TAG, "getAssociatedDevices Failed");
                 goto exit;
             }
             for (int i = 0; i < associatedDevices.size(); i++) {
@@ -1042,25 +1135,52 @@ pcm_start:
 
                 status = associatedDevices[i]->getDeviceAttributes(&dAttr);
                 if (0 != status) {
-                    PAL_ERR(LOG_TAG,"get Device Attributes Failed");
+                    PAL_ERR(LOG_TAG, "get Device Attributes Failed");
                     goto exit;
                 }
                 status = configureMFC(rm, sAttr, dAttr, pcmDevRxIds,
                             rxAifBackEnds[0].second.data());
                 if (status != 0) {
-                    PAL_ERR(LOG_TAG,"configure MFC failed");
+                    PAL_ERR(LOG_TAG, "configure MFC failed");
                     goto exit;
                 }
+                if (customPayload) {
+                    status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevRxIds.at(0),
+                                                             customPayload, customPayloadSize);
+                    freeCustomPayload();
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+                        goto exit;
+                    }
+                }
+                if ((ResourceManager::isChargeConcurrencyEnabled) &&
+                    (dAttr.id == PAL_DEVICE_OUT_SPEAKER)) {
+                    status = Session::NotifyChargerConcurrency(rm, true);
+                    if (0 == status) {
+                        status = Session::EnableChargerConcurrency(rm, s);
+                        //Handle failure case of ICL config
+                        if (0 != status) {
+                            PAL_DBG(LOG_TAG, "Failed to set ICL Config status %d", status);
+                            status = Session::NotifyChargerConcurrency(rm, false);
+                        }
+                    }
+                    status = 0;
+                }
             }
-            status = pcm_start(pcmRx);
-            if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_start rx failed %d", status);
+
+            if (pcmRx) {
+                status = pcm_start(pcmRx);
+                if (status) {
+                    status = errno;
+                    PAL_ERR(LOG_TAG, "pcm_start rx failed %d", status);
+                }
             }
-            status = pcm_start(pcmTx);
-            if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_start tx failed %d", status);
+            if (pcmTx) {
+                status = pcm_start(pcmTx);
+                if (status) {
+                    status = errno;
+                    PAL_ERR(LOG_TAG, "pcm_start tx failed %d", status);
+                }
             }
            break;
     }
@@ -1072,7 +1192,7 @@ pcm_start:
         sAttr.type != PAL_STREAM_SENSOR_PCM_DATA &&
         sAttr.type != PAL_STREAM_HAPTICS) {
         if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
-            PAL_ERR(LOG_TAG,"Setting volume failed");
+            PAL_ERR(LOG_TAG, "Setting volume failed");
         }
     }
 
@@ -1081,7 +1201,7 @@ pcm_start:
 exit:
     if (status != 0)
         rm->voteSleepMonitor(s, false);
-    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
 
@@ -1094,10 +1214,10 @@ int SessionAlsaPcm::stop(Stream * s)
     int tagId;
     int DeviceId;
 
-    PAL_DBG(LOG_TAG,"Enter");
+    PAL_DBG(LOG_TAG, "Enter");
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         return status;
     }
     switch (sAttr.direction) {
@@ -1195,7 +1315,7 @@ int SessionAlsaPcm::stop(Stream * s)
         status = register_asps_event(0);
     }
 exit:
-    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
 
@@ -1209,10 +1329,15 @@ int SessionAlsaPcm::close(Stream * s)
     int ldir = 0;
     std::vector<int> pcmId;
 
-    PAL_DBG(LOG_TAG,"Enter");
+    PAL_DBG(LOG_TAG, "Enter");
+    if (!frontEndIdAllocated) {
+        PAL_DBG(LOG_TAG, "Session not opened or already closed");
+        goto exit;
+    }
+
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         goto exit;
     }
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
@@ -1220,10 +1345,11 @@ int SessionAlsaPcm::close(Stream * s)
         sAttr.type != PAL_STREAM_CONTEXT_PROXY) {
         status = s->getAssociatedDevices(associatedDevices);
         if (status != 0) {
-            PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+            PAL_ERR(LOG_TAG, "getAssociatedDevices Failed\n");
             goto exit;
         }
     }
+    freeDeviceMetadata.clear();
 
     switch (sAttr.direction) {
         case PAL_AUDIO_INPUT:
@@ -1279,6 +1405,21 @@ int SessionAlsaPcm::close(Stream * s)
             if (SessionAlsaUtils::isMmapUsecase(sAttr) &&
                 !(sAttr.flags & PAL_STREAM_FLAG_MMAP_NO_IRQ_MASK))
                 deRegisterAdmStream(s);
+
+            if (sAttr.type == PAL_STREAM_LOW_LATENCY ||
+                    sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+                std::lock_guard<std::mutex> lock(pcmLpmRefCntMtx);
+                PAL_DBG(LOG_TAG, "pcm_close pcmLpmRefCnt %d", pcmLpmRefCnt);
+                pcmLpmRefCnt--;
+                if (pcmLpmRefCnt < 0) { //May not happen, to catch the error, if it happens to be
+                    PAL_ERR(LOG_TAG, "pcm_close Unacceptable pcmLpmRefCnt %d, resetting to 0", pcmLpmRefCnt);
+                    pcmLpmRefCnt = 0;
+                }
+                if (0 == pcmLpmRefCnt)
+                    setPmQosMixerCtl(PM_QOS_VOTE_DISABLE);
+                PAL_DBG(LOG_TAG, "pcm_close pcmLpmRefCnt %d", pcmLpmRefCnt);
+            }
+
             if (pcm)
                 status = pcm_close(pcm);
             if (status) {
@@ -1299,8 +1440,20 @@ int SessionAlsaPcm::close(Stream * s)
             pcm = NULL;
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
+            for (auto &dev: associatedDevices) {
+                beDevId = dev->getSndDeviceId();
+                rm->getBackendName(beDevId, backendname);
+                PAL_DBG(LOG_TAG, "backendname %s", backendname.c_str());
+                if (dev->getDeviceCount() != 0) {
+                    PAL_DBG(LOG_TAG, "dev %d still active", beDevId);
+                    freeDeviceMetadata.push_back(std::make_pair(backendname, 0));
+                } else {
+                    PAL_DBG(LOG_TAG, "dev %d not active", beDevId);
+                    freeDeviceMetadata.push_back(std::make_pair(backendname, 1));
+                }
+            }
             status = SessionAlsaUtils::close(s, rm, pcmDevRxIds, pcmDevTxIds,
-                    rxAifBackEnds, txAifBackEnds);
+                    rxAifBackEnds, txAifBackEnds, freeDeviceMetadata);
             if (status) {
                 PAL_ERR(LOG_TAG, "session alsa close failed with %d", status);
             }
@@ -1322,7 +1475,7 @@ int SessionAlsaPcm::close(Stream * s)
             pcmTx = NULL;
             break;
     }
-
+    frontEndIdAllocated = false;
     mState = SESSION_IDLE;
 
     if (sAttr.type == PAL_STREAM_VOICE_UI ||
@@ -1357,7 +1510,7 @@ int SessionAlsaPcm::close(Stream * s)
     }
 exit:
     ecRefDevId = PAL_DEVICE_OUT_MIN;
-    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
 
@@ -1378,7 +1531,8 @@ int SessionAlsaPcm::disconnectSessionDevice(Stream *streamHandle,
 
     if (!rxAifBackEndsToDisconnect.empty()) {
         int cnt = 0;
-        if (streamType != PAL_STREAM_ULTRASOUND)
+        if (streamType != PAL_STREAM_ULTRASOUND &&
+            streamType != PAL_STREAM_LOOPBACK)
             status = SessionAlsaUtils::disconnectSessionDevice(streamHandle, streamType, rm,
                      dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevRxIds), rxAifBackEndsToDisconnect);
         else
@@ -1398,8 +1552,12 @@ int SessionAlsaPcm::disconnectSessionDevice(Stream *streamHandle,
     }
     if (!txAifBackEndsToDisconnect.empty()) {
         int cnt = 0;
-        status = SessionAlsaUtils::disconnectSessionDevice(streamHandle, streamType, rm,
-            dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevTxIds), txAifBackEndsToDisconnect);
+        if (streamType != PAL_STREAM_LOOPBACK)
+            status = SessionAlsaUtils::disconnectSessionDevice(streamHandle, streamType, rm,
+                     dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevTxIds), txAifBackEndsToDisconnect);
+        else
+            status = SessionAlsaUtils::disconnectSessionDevice(streamHandle, streamType, rm,
+                     dAttr, pcmDevTxIds, pcmDevRxIds, txAifBackEndsToDisconnect);
 
         for (const auto &elem : txAifBackEnds) {
             cnt++;
@@ -1456,7 +1614,8 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
     deviceToConnect->getDeviceAttributes(&dAttr);
 
     if (!rxAifBackEndsToConnect.empty()) {
-        if (streamType != PAL_STREAM_ULTRASOUND)
+        if (streamType != PAL_STREAM_ULTRASOUND &&
+            streamType != PAL_STREAM_LOOPBACK)
             status = SessionAlsaUtils::connectSessionDevice(this, streamHandle, streamType, rm,
                      dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevRxIds), rxAifBackEndsToConnect);
         else
@@ -1473,8 +1632,12 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
     }
 
     if (!txAifBackEndsToConnect.empty()) {
-        status = SessionAlsaUtils::connectSessionDevice(this, streamHandle, streamType, rm,
-            dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevTxIds), txAifBackEndsToConnect);
+        if (streamType != PAL_STREAM_LOOPBACK)
+            status = SessionAlsaUtils::connectSessionDevice(this, streamHandle, streamType, rm,
+                     dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevTxIds), txAifBackEndsToConnect);
+        else
+            status = SessionAlsaUtils::connectSessionDevice(this, streamHandle, streamType, rm,
+                     dAttr, pcmDevTxIds, pcmDevRxIds, txAifBackEndsToConnect);
 
         if (!status) {
             for (const auto &elem : txAifBackEndsToConnect)
@@ -1493,10 +1656,10 @@ int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, in
     int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0;
     struct pal_stream_attributes sAttr;
 
-    PAL_VERBOSE(LOG_TAG,"Enter")
+    PAL_VERBOSE(LOG_TAG, "Enter")
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         return status;
     }
     while (1) {
@@ -1525,7 +1688,7 @@ int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, in
         }
 
         if ((0 != status) || (pcmReadSize == 0)) {
-            PAL_ERR(LOG_TAG,"Failed to read data %d bytes read %d", status, pcmReadSize);
+            PAL_ERR(LOG_TAG, "Failed to read data %d bytes read %d", status, pcmReadSize);
             break;
         }
 
@@ -1533,7 +1696,7 @@ int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, in
     }
 
     *size = bytesRead;
-    PAL_VERBOSE(LOG_TAG,"exit bytesRead:%d status:%d ", bytesRead, status);
+    PAL_VERBOSE(LOG_TAG, "exit bytesRead:%d status:%d ", bytesRead, status);
     return status;
 }
 
@@ -1545,16 +1708,16 @@ int SessionAlsaPcm::write(Stream *s, int tag, struct pal_buffer *buf, int * size
     struct pal_stream_attributes sAttr;
 
 
-    PAL_VERBOSE(LOG_TAG,"Enter buf:%p tag:%d flag:%d", buf, tag, flag);
+    PAL_VERBOSE(LOG_TAG, "Enter buf:%p tag:%d flag:%d", buf, tag, flag);
 
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         return status;
     }
 
     if (pcm == NULL) {
-        PAL_ERR(LOG_TAG,"PCM is NULL");
+        PAL_ERR(LOG_TAG, "PCM is NULL");
         return -EINVAL;
     }
 
@@ -1586,7 +1749,7 @@ int SessionAlsaPcm::write(Stream *s, int tag, struct pal_buffer *buf, int * size
             if (sAttr.out_media_config.sample_rate)
                 ns = pcm_bytes_to_frames(pcm, sizeWritten)*1000000000LL/
                     sAttr.out_media_config.sample_rate;
-            PAL_DBG(LOG_TAG,"1.bufsize:%u ns:%ld", sizeWritten, ns);
+            PAL_DBG(LOG_TAG, "1.bufsize:%u ns:%ld", sizeWritten, ns);
             requestAdmFocus(s, ns);
             status =  pcm_mmap_write(pcm, data,  sizeWritten);
             releaseAdmFocus(s);
@@ -1595,7 +1758,7 @@ int SessionAlsaPcm::write(Stream *s, int tag, struct pal_buffer *buf, int * size
         }
 
         if (0 != status) {
-            PAL_ERR(LOG_TAG,"Failed to write the data");
+            PAL_ERR(LOG_TAG, "Failed to write the data");
             goto exit;
         }
         bytesWritten += sizeWritten;
@@ -1625,26 +1788,26 @@ int SessionAlsaPcm::write(Stream *s, int tag, struct pal_buffer *buf, int * size
             if (sAttr.out_media_config.sample_rate)
                 ns = pcm_bytes_to_frames(pcm, sizeWritten)*1000000000LL/
                     sAttr.out_media_config.sample_rate;
-            PAL_DBG(LOG_TAG,"2.bufsize:%u ns:%ld", sizeWritten, ns);
+            PAL_DBG(LOG_TAG, "2.bufsize:%u ns:%ld", sizeWritten, ns);
             requestAdmFocus(s, ns);
             status =  pcm_mmap_write(pcm, data,  sizeWritten);
             releaseAdmFocus(s);
             if (status != 0) {
-                PAL_ERR(LOG_TAG,"Error! pcm_mmap_write failed");
+                PAL_ERR(LOG_TAG, "Error! pcm_mmap_write failed");
                 goto exit;
             }
         }
     } else {
         status =  pcm_write(pcm, data,  sizeWritten);
         if (status != 0) {
-            PAL_ERR(LOG_TAG,"Error! pcm_write failed");
+            PAL_ERR(LOG_TAG, "Error! pcm_write failed");
             goto exit;
         }
     }
     bytesWritten += sizeWritten;
     *size = bytesWritten;
 exit:
-    PAL_VERBOSE(LOG_TAG,"exit status: %d", status);
+    PAL_VERBOSE(LOG_TAG, "exit status: %d", status);
     return status;
 }
 
@@ -1719,7 +1882,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 if (!customPayload) {
                     status = -ENOMEM;
                     PAL_ERR(LOG_TAG, "failed to allocate memory for custom payload");
-                    goto free_payload;
+                    goto exit;
                 }
 
                 ar_mem_cpy((uint8_t *)customPayload + customPayloadSize, paramSize,
@@ -1744,7 +1907,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
             status = streamHandle->getStreamAttributes(&sAttr);
             if (status != 0) {
-                PAL_ERR(LOG_TAG,"stream get attributes failed");
+                PAL_ERR(LOG_TAG, "stream get attributes failed");
                 goto exit;
             }
 
@@ -1757,17 +1920,19 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                                                                rxAifBackEnds[0].second.data(),
                                                                tagId, &miid);
             else {
-                if (pcmDevRxIds.size() > 0)
+                status = -EINVAL;
+                if (pcmDevRxIds.size() > 0) {
                     device = pcmDevRxIds.at(0);
-                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                               rxAifBackEnds[0].second.data(),
-                                                               tagId, &miid);
-                if (status) {
-                    if (pcmDevTxIds.size() > 0)
-                        device = pcmDevTxIds.at(0);
                     status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                               txAifBackEnds[0].second.data(),
-                                                               tagId, &miid);
+                                                                   rxAifBackEnds[0].second.data(),
+                                                                   tagId, &miid);
+                    if (status) {
+                        if (pcmDevTxIds.size() > 0)
+                            device = pcmDevTxIds.at(0);
+                        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                                       txAifBackEnds[0].second.data(),
+                                                                       tagId, &miid);
+                    }
                 }
             }
             if (0 != status) {
@@ -1785,7 +1950,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                     break;
                 }
                 status = SessionAlsaUtils::setMixerParameter(mixer,
-                                                             pcmDevIds.at(0),
+                                                             device,
                                                              paramData,
                                                              paramSize);
                 PAL_INFO(LOG_TAG, "mixer set param status=%d\n", status);
@@ -1851,6 +2016,51 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             RegisterForEvents = detection_payload->register_status;
             return 0;
         }
+        case PAL_PARAM_ID_VOLUME_USING_SET_PARAM:
+        {
+            pal_param_payload *param_payload = (pal_param_payload *)payload;
+            pal_volume_data *vdata = (struct pal_volume_data *)param_payload->payload;
+            status = streamHandle->getStreamAttributes(&sAttr);
+            if (sAttr.direction == PAL_AUDIO_OUTPUT) {
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                        rxAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
+            } else if (sAttr.direction == PAL_AUDIO_INPUT) {
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                        txAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
+            } else if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT)) {
+                status = -EINVAL;
+                if (pcmDevRxIds.size()) {
+                    device = pcmDevRxIds.at(0);
+                    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                            rxAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
+                    if (status) {
+                        if (pcmDevTxIds.size() > 0)
+                            device = pcmDevTxIds.at(0);
+                        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                                       txAifBackEnds[0].second.data(),
+                                                                       tagId, &miid);
+                    }
+                }
+            } else {
+                status = 0;
+                goto exit;
+            }
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get tag info %x, dir: %d (%d)", tagId,
+                       sAttr.direction, status);
+                goto exit;
+            }
+
+            builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            if (paramSize) {
+                status = SessionAlsaUtils::setMixerParameter(mixer, device,
+                                               paramData, paramSize);
+                PAL_INFO(LOG_TAG, "mixer set volume config status=%d\n", status);
+                freeCustomPayload(&paramData, &paramSize);
+            }
+            return 0;
+
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -1865,9 +2075,10 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
 
     PAL_VERBOSE(LOG_TAG, "%pK - payload and %zu size", paramData , paramSize);
 
-free_payload :
-    free(paramData);
 exit:
+    if (paramData)
+        free(paramData);
+
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -1910,14 +2121,8 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
     struct pal_stream_attributes sAttr;
     std::vector <std::shared_ptr<Device>> rxDeviceList;
     std::vector <std::string> backendNames;
-    std::vector <std::shared_ptr<Device>> extEcTxDeviceList;
-    std::vector <std::string> extEcbackendNames;
-    int32_t extEcbackendId;
-    struct pcm_config config;
-    std::shared_ptr<Device> dev = nullptr;
-    struct pal_device device;
-    struct pal_device rxDevAttr;
-    struct pal_device_info rxDevInfo;
+    struct pal_device rxDevAttr = {};
+    struct pal_device_info rxDevInfo = {};
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!s) {
@@ -1938,24 +2143,27 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         goto exit;
     }
 
-    rxDevInfo.isExternalECRefEnabledFlag = 0; //set by default to 0 to pass through
+    rxDevInfo.isExternalECRefEnabledFlag = 0;
     if (rx_dev) {
-        rx_dev->getDeviceAttributes(&rxDevAttr);
-        PAL_DBG(LOG_TAG, "rx_dev id is %d", rxDevAttr.id);
-        rm->getDeviceInfo(rxDevAttr.id, sAttr.type, rxDevAttr.custom_config.custom_key, &rxDevInfo);
-    }
-
-
-    if (rxDevInfo.isExternalECRefEnabledFlag) {
-        device.id = PAL_DEVICE_IN_EXT_EC_REF;
-        rm->getDeviceConfig(&device, &sAttr);
-        dev = Device::getInstance(&device, rm);
-        if (!dev) {
-            PAL_ERR(LOG_TAG, "getInstance failed");
+        status = rx_dev->getDeviceAttributes(&rxDevAttr);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG," get device attributes failed");
             goto exit;
         }
+        rm->getDeviceInfo(rxDevAttr.id, sAttr.type, rxDevAttr.custom_config.custom_key, &rxDevInfo);
+    } else if (!is_enable && ecRefDevId != PAL_DEVICE_OUT_MIN) {
+        // if disable EC with null rx_dev, retrieve current EC device
+        rxDevAttr.id = ecRefDevId;
+        rx_dev = Device::getInstance(&rxDevAttr, rm);
+        if (rx_dev) {
+            status = rx_dev->getDeviceAttributes(&rxDevAttr);
+            if (status) {
+                PAL_ERR(LOG_TAG, "getDeviceAttributes failed for ec dev: %d", ecRefDevId);
+                goto exit;
+            }
+        }
+        rm->getDeviceInfo(rxDevAttr.id, sAttr.type, rxDevAttr.custom_config.custom_key, &rxDevInfo);
     }
-
 
     if (!is_enable) {
         if (ecRefDevId == PAL_DEVICE_OUT_MIN) {
@@ -1967,33 +2175,19 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
             goto exit;
         }
 
-        if (pcmEcTx) {
-            status = pcm_stop(pcmEcTx);
+        if (rxDevInfo.isExternalECRefEnabledFlag) {
+            status = checkAndSetExtEC(rm, s, false);
             if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_stop - ec_tx failed %d", status);
+                PAL_ERR(LOG_TAG, "Failed to disable External EC, status %d", status);
+                goto exit;
             }
-            if (dev) {
-                dev->stop();
-            }
-            status = pcm_close(pcmEcTx);
+        } else {
+            status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
             if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_close - ec_tx failed %d", status);
+                PAL_ERR(LOG_TAG, "Failed to disable EC Ref, status %d", status);
+                goto exit;
             }
-            if (dev) {
-                dev->close();
-            }
-            rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-            pcmEcTx = NULL;
         }
-
-        status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
-        if (status) {
-            PAL_ERR(LOG_TAG, "Failed to disable EC Ref, status %d", status);
-            goto exit;
-        }
-        ecRefDevId = PAL_DEVICE_OUT_MIN;
     } else if (is_enable && rx_dev) {
         if (rx_dev && ecRefDevId == rx_dev->getSndDeviceId()) {
             PAL_DBG(LOG_TAG, "EC Ref already set for dev %d", ecRefDevId);
@@ -2002,94 +2196,33 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         // TODO: handle EC Ref switch case also
         rxDeviceList.push_back(rx_dev);
         backendNames = rm->getBackEndNames(rxDeviceList);
+
         if (rxDevInfo.isExternalECRefEnabledFlag) {
-            PAL_DBG(LOG_TAG, "Ext EC Ref flag is enabled");
-            extEcTxDeviceList.push_back(dev);
-            pcmDevEcTxIds = rm->allocateFrontEndExtEcIds();
-            if (pcmDevEcTxIds.size() == 0) {
-                PAL_ERR(LOG_TAG, "ResourceManger::getBackEndNames returned no EXT_EC device Ids");
-                goto exit;
-            }
-            status = dev->open();
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "dev open failed");
-                rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-                goto exit;
-            }
-            status = dev->start();
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "dev start failed");
-                dev->close();
-                rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-                goto exit;
-            }
-            extEcbackendId = extEcTxDeviceList[0]->getSndDeviceId();
-            extEcbackendNames = rm->getBackEndNames(extEcTxDeviceList);
-            status = SessionAlsaUtils::openDev(rm, pcmDevEcTxIds, extEcbackendId,
-                extEcbackendNames.at(0).c_str());
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "SessionAlsaUtils::openDev failed");
-                dev->stop();
-                dev->close();
-                rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-                goto exit;
-            }
-            config.rate = rxDevAttr.config.sample_rate;
-            config.format =
-                   SessionAlsaUtils::palToAlsaFormat((uint32_t)sAttr.out_media_config.aud_fmt_id);
-            config.channels = rxDevAttr.config.ch_info.channels;
-            config.period_size = 256;
-            config.period_count = 4;
-            config.start_threshold = 0;
-            config.stop_threshold = 0;
-            config.silence_threshold = 0;
-            pcmEcTx = pcm_open(rm->getVirtualSndCard(), pcmDevEcTxIds.at(0), PCM_IN, &config);
-            if (!pcmEcTx) {
-                PAL_ERR(LOG_TAG, "pcm-ec-tx open failed");
-                dev->stop();
-                dev->close();
-                rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-                status = errno;
-                goto exit;
-            }
-            if (!pcm_is_ready(pcmEcTx)) {
-                PAL_ERR(LOG_TAG, " pcm-ec-tx open not ready");
-                pcmEcTx = NULL;
-                dev->stop();
-                dev->close();
-                rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-                status = errno;
-                goto exit;
-            }
-            status = pcm_start(pcmEcTx);
+            status = checkAndSetExtEC(rm, s, true);
             if (status) {
-                status = errno;
-                PAL_ERR(LOG_TAG, "pcm_start ec_tx failed %d", status);
-                pcm_close(pcmEcTx);
-                pcmEcTx = NULL;
-                dev->stop();
-                dev->close();
-                rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
-                status = errno;
+                PAL_ERR(LOG_TAG, "Failed to enable External EC, status %d", status);
                 goto exit;
             }
-            PAL_INFO(LOG_TAG, "backend name %s", extEcbackendNames.at(0).c_str());
         } else {
             status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0),
-                     backendNames[0].c_str());
+                    backendNames[0].c_str());
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to enable EC Ref, status %d", status);
+                goto exit;
+            }
         }
-        dev = nullptr;
-        if (status) {
-            PAL_ERR(LOG_TAG, "Failed to enable EC Ref, status %d", status);
-            goto exit;
-        }
-        ecRefDevId = static_cast<pal_device_id_t>(rx_dev->getSndDeviceId());
     } else {
         PAL_ERR(LOG_TAG, "Invalid operation");
         status = -EINVAL;
         goto exit;
     }
 exit:
+    if (status == 0) {
+        if (is_enable && rx_dev)
+            ecRefDevId = static_cast<pal_device_id_t>(rx_dev->getSndDeviceId());
+        else
+            ecRefDevId = PAL_DEVICE_OUT_MIN;
+    }
     PAL_DBG(LOG_TAG, "Exit, status: %d", status);
     return status;
 }
@@ -2233,7 +2366,7 @@ int SessionAlsaPcm::flush()
         PAL_ERR(LOG_TAG, "Pcm is invalid");
         return -EINVAL;
     }
-    PAL_VERBOSE(LOG_TAG,"Enter flush\n");
+    PAL_VERBOSE(LOG_TAG, "Enter flush\n");
     if (pcm && isActive()) {
         status = pcm_stop(pcm);
 
@@ -2243,7 +2376,7 @@ int SessionAlsaPcm::flush()
             status = errno;
     }
 
-    PAL_VERBOSE(LOG_TAG,"status %d\n", status);
+    PAL_VERBOSE(LOG_TAG, "status %d\n", status);
 
     return status;
 }
@@ -2260,10 +2393,10 @@ int SessionAlsaPcm::getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint
     struct pal_stream_attributes sAttr;
     int DeviceId;
 
-    PAL_DBG(LOG_TAG,"Enter");
+    PAL_DBG(LOG_TAG, "Enter");
     status = s->getStreamAttributes(&sAttr);
     if (0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
+        PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
         return status;
     }
 
@@ -2458,9 +2591,9 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
  exit:
      if (status < 0) {
         if (pcm == NULL) {
-            PAL_ERR(LOG_TAG,"%s - %d",step, status);
+            PAL_ERR(LOG_TAG, "%s - %d",step, status);
         } else {
-            PAL_ERR(LOG_TAG,"%s - %d",step, status);
+            PAL_ERR(LOG_TAG, "%s - %d",step, status);
             if (pcm) {
                 pcm_close(pcm);
                 pcm = NULL;
@@ -2478,7 +2611,7 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
     struct pal_stream_attributes sAttr;
     struct timespec ts = { 0, 0 };
 
-    PAL_DBG(LOG_TAG,"enter");
+    PAL_DBG(LOG_TAG, "enter");
 
     if (pcm == NULL) {
         return -ENOSYS;
@@ -2486,7 +2619,7 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
 
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
         return status;
     }
 
@@ -2510,7 +2643,7 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
      }
      position->time_nanoseconds = ts.tv_sec*1000000000LL + ts.tv_nsec
              /*+ out->mmap_time_offset_nanos*/;
-     PAL_DBG(LOG_TAG,"Exit status: %d", status);
+     PAL_DBG(LOG_TAG, "Exit status: %d", status);
      return status;
  }
 
@@ -2576,6 +2709,6 @@ int SessionAlsaPcm::openGraph(Stream *s) {
         goto exit;
     }
 exit:
-    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }

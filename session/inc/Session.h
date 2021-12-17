@@ -62,6 +62,11 @@ typedef enum {
     SESSION_STOPPED,
 }sessionState;
 
+typedef enum {
+    PM_QOS_VOTE_DISABLE = 0,
+    PM_QOS_VOTE_ENABLE  = 1
+} pmQosVote;
+
 #define EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE 0x0800103F
 
 class Stream;
@@ -80,12 +85,15 @@ protected:
     size_t customPayloadSize;
     int updateCustomPayload(void *payload, size_t size);
     int freeCustomPayload(uint8_t **payload, size_t *payloadSize);
-    int freeCustomPayload();
     uint32_t eventId;
     void *eventPayload;
     size_t eventPayloadSize;
     bool RegisterForEvents = false;
     Stream *streamHandle;
+    static struct pcm *pcmEcTx;
+    static std::vector<int> pcmDevEcTxIds;
+    static int extECRefCnt;
+    bool frontEndIdAllocated = false;
 public:
     bool isPauseRegistrationDone;
     virtual ~Session();
@@ -97,6 +105,9 @@ public:
             struct pal_device &dAttr, const std::vector<int> &pcmDevIds);
     int configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal_stream_attributes &sAttr,
             struct pal_device &dAttr, const std::vector<int> &pcmDevIds, const char* intf);
+    void setPmQosMixerCtl(pmQosVote vote);
+    int getCustomPayload(uint8_t **payload, size_t *payloadSize);
+    int freeCustomPayload();
     virtual int open(Stream * s) = 0;
     virtual int prepare(Stream * s) = 0;
     virtual int setConfig(Stream * s, configType type, int tag) = 0;
@@ -135,6 +146,8 @@ public:
     virtual uint32_t getMIID(const char *backendName __unused, uint32_t tagId __unused, uint32_t *miid __unused) { return -EINVAL; }
     int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
     int rwACDBParameters(void *payload, uint32_t sampleRate, bool isParamWrite);
+    int NotifyChargerConcurrency(std::shared_ptr<ResourceManager>rm, bool state);
+    int EnableChargerConcurrency(std::shared_ptr<ResourceManager>rm, Stream *s);
     virtual struct mixer_ctl* getFEMixerCtl(const char *controlName __unused, int *device __unused) {return nullptr;}
     virtual int createMmapBuffer(Stream *s __unused, int32_t min_size_frames __unused,
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
@@ -142,6 +155,8 @@ public:
     virtual int openGraph(Stream *s __unused) { return 0; }
     virtual int getTagsWithModuleInfo(Stream *s __unused, size_t *size __unused,
                                       uint8_t *payload __unused) {return -EINVAL;}
+    virtual int checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
+                                 Stream *s, bool is_enable);
 };
 
 #endif //SESSION_H
