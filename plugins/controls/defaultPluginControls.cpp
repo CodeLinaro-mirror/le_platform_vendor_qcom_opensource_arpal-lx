@@ -35,6 +35,7 @@
 #include <string.h>
 #include <agm_api.h>
 #include <sstream>
+#include <system/audio.h>
 
 #include "PluginControlIntf.h"
 #include "SessionAlsaUtils.h"
@@ -51,6 +52,61 @@
 
 #define RXDIR 0
 #define TXDIR 1
+
+/**
+* Following are the default latencies
+* Customers can choose to updates these as per their requirements
+**/
+#define LOW_LATENCY_DELAY (13*1000LL)
+#define DEEP_BUFFER_DELAY (29*1000LL)
+#define PCM_OFFLOAD_DELAY (30*1000LL)
+#define MMAP_DELAY        (3*1000LL)
+#define ULL_DELAY         (4*1000LL)
+
+/**
+* Following are the default supported BUS addresses
+* Following list should be extended by customers if more
+  BUS devices are added.
+**/
+#define BUS_MEDIA            "BUS00_MEDIA"
+#define BUS_SYS_NOTIFICATION "BUS01_SYS_NOTIFICATION"
+#define BUS_NAV_GUIDANCE     "BUS02_NAV_GUIDANCE"
+#define BUS_PHONE            "BUS03_PHONE"
+
+/**
+* Following are the default defined period sizes
+* Customers can add/modify the period sizes as per their requirements
+**/
+#define DEFAULT_OUTPUT_SAMPLING_RATE    48000
+#define MMAP_PERIOD_SIZE (DEFAULT_OUTPUT_SAMPLING_RATE/1000)
+#define ULL_PERIOD_SIZE (DEFAULT_OUTPUT_SAMPLING_RATE / 1000) /** 1ms; frames */
+#define LOW_LATENCY_PLAYBACK_PERIOD_SIZE 240 /** 5ms; frames */
+#define ULL_PERIOD_MULTIPLIER 3
+#define BUF_SIZE_PLAYBACK 1024
+#define COMPRESS_VOIP_IO_BUF_SIZE_FB 1920
+#define COMPRESS_VOIP_IO_BUF_SIZE_SWB 1280
+#define COMPRESS_VOIP_IO_BUF_SIZE_WB 640
+#define COMPRESS_VOIP_IO_BUF_SIZE_NB 320
+#define COMPRESS_OFFLOAD_FRAGMENT_SIZE (32 * 1024)
+#define FLAC_COMPRESS_OFFLOAD_FRAGMENT_SIZE (256 * 1024)
+#define PCM_OFFLOAD_OUTPUT_PERIOD_DURATION 80
+#define MIN_PCM_FRAGMENT_SIZE 512
+#define MAX_PCM_FRAGMENT_SIZE (240 * 1024)
+
+/**
+* Following are the default defined period counts
+* Customers can add/modify the period counts as per their requirements
+**/
+#define MMAP_PERIOD_COUNT_MAX 512
+#define MMAP_PERIOD_COUNT_DEFAULT (MMAP_PERIOD_COUNT_MAX)
+#define ULL_PERIOD_COUNT_DEFAULT 512
+#define LOW_LATENCY_PLAYBACK_PERIOD_COUNT 2
+#define PCM_OFFLOAD_PLAYBACK_PERIOD_COUNT 2 /** Direct PCM */
+#define DEEP_BUFFER_PLAYBACK_PERIOD_COUNT 2 /** Deep Buffer*/
+#define NO_OF_BUF 4
+
+#define DIV_ROUND_UP(x, y) (((x) + (y) - 1)/(y))
+#define ALIGN(x, y) ((y) * DIV_ROUND_UP((x), (y)))
 
 extern "C" {
 int payloadCalKeys(Session* s, uint8_t **payload, size_t *size, float volume)
@@ -396,6 +452,189 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
     return status;
 }
 
+int GetUsecase(audio_output_flags_t halStreamFlags)
+{
+    // need to update other usecases in future
+    int usecase = AUDIO_USECASE_PLAYBACK_LOW_LATENCY;
+
+    if (halStreamFlags & AUDIO_OUTPUT_FLAG_VOIP_RX)
+        usecase = AUDIO_USECASE_PLAYBACK_VOIP;
+    else if ((halStreamFlags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD) ||
+             (halStreamFlags == AUDIO_OUTPUT_FLAG_DIRECT)) {
+        if (halStreamFlags & AUDIO_OUTPUT_FLAG_COMPRESS_OFFLOAD)
+            usecase = AUDIO_USECASE_PLAYBACK_OFFLOAD;
+        else
+            usecase = AUDIO_USECASE_PLAYBACK_OFFLOAD2;
+    } else if (halStreamFlags & AUDIO_OUTPUT_FLAG_RAW)
+        usecase = AUDIO_USECASE_PLAYBACK_ULL;
+    else if (halStreamFlags & AUDIO_OUTPUT_FLAG_FAST)
+        usecase = AUDIO_USECASE_PLAYBACK_LOW_LATENCY;
+    else if (halStreamFlags & AUDIO_OUTPUT_FLAG_DEEP_BUFFER)
+        usecase = AUDIO_USECASE_PLAYBACK_DEEP_BUFFER;
+    else if (halStreamFlags & AUDIO_OUTPUT_FLAG_MMAP_NOIRQ)
+        usecase = AUDIO_USECASE_PLAYBACK_MMAP;
+
+    return usecase;
+}
+
+int pcm_buffer_size(pal_stream_attributes sattr)
+{
+    uint8_t channels = audio_channel_count_from_out_mask(sattr.out_media_config.ch_mask);
+    uint8_t bytes_per_sample = audio_bytes_per_sample((audio_format_t)sattr.out_media_config.format);
+    uint32_t fragment_size = 0;
+
+    PAL_DBG(LOG_TAG, "config_ format:%x, SR %d ch_mask 0x%x",
+            sattr.out_media_config.format, sattr.out_media_config.sample_rate,
+            sattr.out_media_config.ch_mask);
+    fragment_size = PCM_OFFLOAD_OUTPUT_PERIOD_DURATION *
+        sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    fragment_size /= 1000;
+
+    if (fragment_size < MIN_PCM_FRAGMENT_SIZE)
+        fragment_size = MIN_PCM_FRAGMENT_SIZE;
+    else if (fragment_size > MAX_PCM_FRAGMENT_SIZE)
+        fragment_size = MAX_PCM_FRAGMENT_SIZE;
+
+    fragment_size = ALIGN(fragment_size, (bytes_per_sample * channels * 32));
+
+    PAL_DBG(LOG_TAG, "fragment size: %d", fragment_size);
+    return fragment_size;
+}
+
+int compressed_buffer_size(audio_format_t format)
+{
+    int fragment_size = COMPRESS_OFFLOAD_FRAGMENT_SIZE;
+    PAL_DBG(LOG_TAG, "Format %x", format);
+    if(format ==  AUDIO_FORMAT_FLAC ) {
+        fragment_size = FLAC_COMPRESS_OFFLOAD_FRAGMENT_SIZE;
+    } else {
+        fragment_size =  COMPRESS_OFFLOAD_FRAGMENT_SIZE;
+    }
+    return fragment_size;
+}
+
+int voip_buffer_size(uint32_t sample_rate)
+{
+    if (sample_rate == 48000)
+        return COMPRESS_VOIP_IO_BUF_SIZE_FB;
+    else if (sample_rate == 32000)
+        return COMPRESS_VOIP_IO_BUF_SIZE_SWB;
+    else if (sample_rate == 16000)
+        return COMPRESS_VOIP_IO_BUF_SIZE_WB;
+    else
+        return COMPRESS_VOIP_IO_BUF_SIZE_NB;
+}
+
+uint32_t get_buffer_size(pal_stream_attributes streamAttributes_) {
+    if (streamAttributes_.type == PAL_STREAM_VOIP_RX) {
+        return voip_buffer_size(streamAttributes_.out_media_config.sample_rate);
+    } else if (streamAttributes_.type == PAL_STREAM_COMPRESSED) {
+        return compressed_buffer_size((audio_format_t)streamAttributes_.out_media_config.format);
+    } else if (streamAttributes_.type == PAL_STREAM_PCM_OFFLOAD
+              || streamAttributes_.type == PAL_STREAM_DEEP_BUFFER) {
+        return pcm_buffer_size(streamAttributes_);
+    } else if (streamAttributes_.type == PAL_STREAM_LOW_LATENCY) {
+        return LOW_LATENCY_PLAYBACK_PERIOD_SIZE *
+            audio_bytes_per_frame(
+                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
+                    (audio_format_t)streamAttributes_.out_media_config.format);
+    } else if (streamAttributes_.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+        return ULL_PERIOD_SIZE * ULL_PERIOD_MULTIPLIER *
+            audio_bytes_per_frame(
+                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
+                    (audio_format_t)streamAttributes_.out_media_config.format);
+    } else if (streamAttributes_.type == PAL_STREAM_PLAYBACK_BUS) {
+        if ((strcmp(streamAttributes_.bus_addr, BUS_MEDIA) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_SYS_NOTIFICATION) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_NAV_GUIDANCE) == 0)) {
+            return pcm_buffer_size(streamAttributes_);
+        } else if(strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0) {
+            return LOW_LATENCY_PLAYBACK_PERIOD_SIZE *
+            audio_bytes_per_frame(
+                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
+                    (audio_format_t)streamAttributes_.out_media_config.format);
+        } else {
+            return BUF_SIZE_PLAYBACK * NO_OF_BUF;
+        }
+    } else {
+        return BUF_SIZE_PLAYBACK * NO_OF_BUF;
+    }
+}
+
+void get_buffer_configration(Stream* s, void** payload, size_t* payload_size)
+{
+    struct pal_buffer_data *buff_config = (struct pal_buffer_data*)*payload;
+    struct pal_stream_attributes streamAttributes_;
+    int usecase;
+
+    s->getStreamAttributes(&streamAttributes_);
+    PAL_DBG(LOG_TAG, " PAL stream type %d", streamAttributes_.type);
+
+    usecase = GetUsecase((audio_output_flags_t)streamAttributes_.hal_flags);
+
+    if (usecase == AUDIO_USECASE_PLAYBACK_MMAP) {
+        buff_config->buffer_size = MMAP_PERIOD_SIZE * audio_bytes_per_frame(
+                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
+                    (audio_format_t)streamAttributes_.out_media_config.format);
+        buff_config->buffer_count = MMAP_PERIOD_COUNT_DEFAULT;
+    } else if (usecase == AUDIO_USECASE_PLAYBACK_ULL) {
+        buff_config->buffer_size = ULL_PERIOD_SIZE * audio_bytes_per_frame(
+                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
+                    (audio_format_t)streamAttributes_.out_media_config.format);
+        buff_config->buffer_count = ULL_PERIOD_COUNT_DEFAULT;
+    } else
+        buff_config->buffer_size = get_buffer_size(streamAttributes_);
+
+    if (usecase == AUDIO_USECASE_PLAYBACK_LOW_LATENCY)
+        buff_config->buffer_count = LOW_LATENCY_PLAYBACK_PERIOD_COUNT;
+    else if (usecase == AUDIO_USECASE_PLAYBACK_OFFLOAD2)
+         buff_config->buffer_count = PCM_OFFLOAD_PLAYBACK_PERIOD_COUNT;
+    else if (usecase == AUDIO_USECASE_PLAYBACK_DEEP_BUFFER)
+         buff_config->buffer_count = DEEP_BUFFER_PLAYBACK_PERIOD_COUNT;
+
+    *payload_size = sizeof(struct pal_buffer_data);
+}
+void get_render_latency(Stream* s, void **payload)
+{
+    struct pal_stream_attributes streamAttributes_;
+    long long** latency = (long long**)payload;
+
+    s->getStreamAttributes(&streamAttributes_);
+    PAL_DBG(LOG_TAG, " PAL stream type %d", streamAttributes_.type);
+
+    switch (streamAttributes_.type) {
+         case PAL_STREAM_DEEP_BUFFER:
+             **latency = DEEP_BUFFER_DELAY;
+             break;
+         case PAL_STREAM_LOW_LATENCY:
+             **latency = LOW_LATENCY_DELAY;
+             break;
+         case PAL_STREAM_COMPRESSED:
+         case PAL_STREAM_PCM_OFFLOAD:
+              **latency = PCM_OFFLOAD_DELAY;
+              break;
+         case PAL_STREAM_ULTRA_LOW_LATENCY:
+              **latency = ULL_DELAY;
+              break;
+         case PAL_STREAM_PLAYBACK_BUS:
+              {
+                  if((strcmp(streamAttributes_.bus_addr, BUS_MEDIA) == 0) ||
+                      (strcmp(streamAttributes_.bus_addr, BUS_NAV_GUIDANCE) == 0)) {
+                      **latency = DEEP_BUFFER_DELAY;
+                  } else if((strcmp(streamAttributes_.bus_addr, BUS_SYS_NOTIFICATION) == 0) ||
+                      (strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0)) {
+                      **latency = LOW_LATENCY_DELAY;
+                  }
+                  //TODO: Customers should add handling of additional BUS devices here if added.
+              }
+              break;
+         //TODO: Add more usecases/type as in current hal, once they are available in pal
+         default:
+             **latency = 0;
+             break;
+     }
+}
+
 /*interface function definition*/
 
 __attribute__ ((visibility ("default")))
@@ -444,6 +683,12 @@ int plugin_get(Stream* s, plugin_control_name_t control, void **payload,
          memcpy((bool*)*payload, &(data->hd_voice), sizeof(bool));
          *playload_size = sizeof(bool);
          break;
+     case PLUGIN_CONTROL_AUDIO_BUFFER:
+        get_buffer_configration(s, payload, playload_size);
+        break;
+     case PLUGIN_CONTROL_AUDIO_LATENCY:
+        get_render_latency(s, payload);
+        break;
     default:
         PAL_ERR(LOG_TAG,"control not supported in this plugin");
         status = -EINVAL;

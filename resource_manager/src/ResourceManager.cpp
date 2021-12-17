@@ -187,6 +187,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_HANDSET_VA_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_A2DP,        {std::string{ "" }}},
     {PAL_DEVICE_IN_HEADSET_VA_MIC,        {std::string{ "" }}},
+    {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
 std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
@@ -226,6 +228,8 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_HANDSET_VA_MIC,        0},
     {PAL_DEVICE_IN_BLUETOOTH_A2DP,        0},
     {PAL_DEVICE_IN_HEADSET_VA_MIC,        0},
+    {PAL_DEVICE_IN_EXT_EC_REF,            0},
+    {PAL_DEVICE_IN_MAX,                   0},
 };
 
 // To be defined in detail
@@ -266,13 +270,18 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_HANDSET_VA_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_A2DP,        {std::string{ "" }}},
     {PAL_DEVICE_IN_HEADSET_VA_MIC,        {std::string{ "" }}},
-    {PAL_DEVICE_IN_VI_FEEDBACK,           {std::string{ "" }}}
+    {PAL_DEVICE_IN_VI_FEEDBACK,           {std::string{ "" }}},
+    {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
+
 };
 
 const std::map<std::string, plugin_control_name_t> controlNameMap {
     {std::string{"PLUGIN_CONTROL_VOLUME"}, PLUGIN_CONTROL_VOLUME},
     {std::string{"PLUGIN_CONTROL_VOLUME_BOOST"}, PLUGIN_CONTROL_VOLUME_BOOST},
     {std::string{"PLUGIN_CONTROL_HD_VOICE"}, PLUGIN_CONTROL_HD_VOICE},
+    {std::string{"PLUGIN_CONTROL_AUDIO_BUFFER"}, PLUGIN_CONTROL_AUDIO_BUFFER},
+    {std::string{"PLUGIN_CONTROL_AUDIO_LATENCY"}, PLUGIN_CONTROL_AUDIO_LATENCY},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -419,6 +428,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_BLUETOOTH_A2DP,        {std::string{ "" }}},
     {PAL_DEVICE_IN_HEADSET_VA_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_VI_FEEDBACK,           {std::string{ "" }}},
+    {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
 void agmServiceCrashHandler(uint64_t cookie __unused)
@@ -1588,29 +1599,9 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             cur_sessions = active_streams_ulla.size();
             max_sessions = MAX_SESSIONS_GENERIC;
             break;
-        case PAL_STREAM_PLAYBACK_MEDIA:
-            cur_sessions = active_streams_media_playback.size();
+        case PAL_STREAM_PLAYBACK_BUS:
+            cur_sessions = active_streams_bus.size();
             max_sessions = MAX_SESSIONS_DEEP_BUFFER;
-            break;
-        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-            cur_sessions = active_streams_nav_guid.size();
-            max_sessions = MAX_SESSIONS_DEEP_BUFFER;
-            break;
-        case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
-            cur_sessions = active_streams_front_psg.size();
-            max_sessions = MAX_SESSIONS_DEEP_BUFFER;
-            break;
-        case PAL_STREAM_PLAYBACK_REAR_SEAT:
-            cur_sessions = active_streams_rear_seat.size();
-            max_sessions = MAX_SESSIONS_DEEP_BUFFER;
-            break;
-        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-            cur_sessions = active_streams_sys_notf.size();
-            max_sessions = MAX_SESSIONS_LOW_LATENCY;
-            break;
-        case PAL_STREAM_PLAYBACK_PHONE:
-            cur_sessions = active_streams_phone.size();
-            max_sessions = MAX_SESSIONS_LOW_LATENCY;
             break;
         case PAL_STREAM_RAW:
         case PAL_STREAM_VOICE_ACTIVATION:
@@ -1661,12 +1652,7 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_PROXY:
         case PAL_STREAM_VOICE_CALL_MUSIC:
-        case PAL_STREAM_PLAYBACK_MEDIA:
-        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-        case PAL_STREAM_PLAYBACK_PHONE:
-        case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
-        case PAL_STREAM_PLAYBACK_REAR_SEAT:
+        case PAL_STREAM_PLAYBACK_BUS:
             if (attributes->direction == PAL_AUDIO_INPUT) {
                 channels = attributes->in_media_config.ch_info.channels;
                 samplerate = attributes->in_media_config.sample_rate;
@@ -1803,40 +1789,10 @@ int ResourceManager::registerStream(Stream *s)
             ret = registerstream(sULLA, active_streams_ulla);
             break;
         }
-        case PAL_STREAM_PLAYBACK_MEDIA:
+        case PAL_STREAM_PLAYBACK_BUS:
         {
             StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = registerstream(sDB, active_streams_media_playback);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-        {
-            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = registerstream(sDB, active_streams_nav_guid);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
-        {
-            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = registerstream(sDB, active_streams_front_psg);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_REAR_SEAT:
-        {
-            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = registerstream(sDB, active_streams_rear_seat);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-        {
-            StreamPCM* sPCM = dynamic_cast<StreamPCM*>(s);
-            ret = registerstream(sPCM, active_streams_sys_notf);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_PHONE:
-        {
-            StreamPCM* sPCM = dynamic_cast<StreamPCM*>(s);
-            ret = registerstream(sPCM, active_streams_phone);
+            ret = registerstream(sDB, active_streams_bus);
             break;
         }
         case PAL_STREAM_VOICE_UI:
@@ -1985,40 +1941,10 @@ int ResourceManager::deregisterStream(Stream *s)
             ret = deregisterstream(sProxy, active_streams_proxy);
             break;
         }
-        case PAL_STREAM_PLAYBACK_MEDIA:
+        case PAL_STREAM_PLAYBACK_BUS:
         {
             StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = deregisterstream(sDB, active_streams_media_playback);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-        {
-            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = deregisterstream(sDB, active_streams_nav_guid);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
-        {
-            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = deregisterstream(sDB, active_streams_front_psg);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_REAR_SEAT:
-        {
-            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
-            ret = deregisterstream(sDB, active_streams_rear_seat);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-        {
-            StreamPCM* sPCM = dynamic_cast<StreamPCM*>(s);
-            ret = deregisterstream(sPCM, active_streams_sys_notf);
-            break;
-        }
-        case PAL_STREAM_PLAYBACK_PHONE:
-        {
-            StreamPCM* sPCM = dynamic_cast<StreamPCM*>(s);
-            ret = deregisterstream(sPCM, active_streams_phone);
+            ret = deregisterstream(sDB, active_streams_bus);
             break;
         }
         case PAL_STREAM_VOICE_CALL_MUSIC:
@@ -3382,12 +3308,7 @@ int ResourceManager::getActiveStream_l(std::shared_ptr<Device> d,
     getActiveStreams(d, activestreams, active_streams_proxy);
     getActiveStreams(d, activestreams, active_streams_incall_record);
     getActiveStreams(d, activestreams, active_streams_incall_music);
-    getActiveStreams(d, activestreams, active_streams_media_playback);
-    getActiveStreams(d, activestreams, active_streams_sys_notf);
-    getActiveStreams(d, activestreams, active_streams_nav_guid);
-    getActiveStreams(d, activestreams, active_streams_phone);
-    getActiveStreams(d, activestreams, active_streams_front_psg);
-    getActiveStreams(d, activestreams, active_streams_rear_seat);
+    getActiveStreams(d, activestreams, active_streams_bus);
 
     if (activestreams.empty()) {
         ret = -ENOENT;
@@ -3663,12 +3584,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
         case PAL_STREAM_PCM_OFFLOAD:
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_PROXY:
-        case PAL_STREAM_PLAYBACK_MEDIA:
-        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-        case PAL_STREAM_PLAYBACK_PHONE:
-        case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
-        case PAL_STREAM_PLAYBACK_REAR_SEAT:
+        case PAL_STREAM_PLAYBACK_BUS:
             switch (sAttr.direction) {
                 case PAL_AUDIO_INPUT:
                     if ( howMany > listAllPcmRecordFrontEnds.size()) {
@@ -3894,12 +3810,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         case PAL_STREAM_VOICE_UI:
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_PCM_OFFLOAD:
-        case PAL_STREAM_PLAYBACK_MEDIA:
-        case PAL_STREAM_PLAYBACK_SYS_NOTIFICATION:
-        case PAL_STREAM_PLAYBACK_NAV_GUIDANCE:
-        case PAL_STREAM_PLAYBACK_PHONE:
-        case PAL_STREAM_PLAYBACK_FRONT_PASSENGER:
-        case PAL_STREAM_PLAYBACK_REAR_SEAT:
+        case PAL_STREAM_PLAYBACK_BUS:
             switch (sAttr.direction) {
                 case PAL_AUDIO_INPUT:
                     for (int i = 0; i < frontend.size(); i++) {
@@ -4754,7 +4665,7 @@ void ResourceManager::updateSndName(int32_t deviceId, std::string sndName)
 
 void ResourceManager::updateBackEndName(int32_t deviceId, std::string backEndName)
 {
-    if (isValidDevId(deviceId)) {
+    if (isValidDevId(deviceId) && deviceId < listAllBackEndIds.size()) {
         listAllBackEndIds[deviceId].second = backEndName;
     } else {
         PAL_ERR(LOG_TAG, "Invalid device id %d", deviceId);
@@ -5437,12 +5348,7 @@ setdevparam:
                         (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
                         (sAttr.type == PAL_STREAM_COMPRESSED) ||
                         (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
-                        (sAttr.type == PAL_STREAM_PLAYBACK_MEDIA) ||
-                        (sAttr.type == PAL_STREAM_PLAYBACK_SYS_NOTIFICATION) ||
-                        (sAttr.type == PAL_STREAM_PLAYBACK_NAV_GUIDANCE) ||
-                        (sAttr.type == PAL_STREAM_PLAYBACK_PHONE) ||
-                        (sAttr.type == PAL_STREAM_PLAYBACK_FRONT_PASSENGER) ||
-                        (sAttr.type == PAL_STREAM_PLAYBACK_REAR_SEAT))) {
+                        (sAttr.type == PAL_STREAM_PLAYBACK_BUS))) {
                         stream->setGainLevel(gain_lvl_cal->level);
                         stream->getAssociatedSession(&session);
                         status = session->setConfig(stream, CALIBRATION, TAG_DEVICE_PP_MBDRC);
@@ -5710,10 +5616,7 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
                 if ((PAL_STREAM_DEEP_BUFFER == streamType) ||
                     (PAL_STREAM_COMPRESSED == streamType) ||
                     (PAL_STREAM_PCM_OFFLOAD == streamType) ||
-                    (PAL_STREAM_PLAYBACK_MEDIA == streamType) ||
-                    (PAL_STREAM_PLAYBACK_NAV_GUIDANCE == streamType) ||
-                    (PAL_STREAM_PLAYBACK_FRONT_PASSENGER == streamType) ||
-                    (PAL_STREAM_PLAYBACK_REAR_SEAT == streamType)) {
+                    (PAL_STREAM_PLAYBACK_BUS == streamType)) {
 
                     PAL_INFO(LOG_TAG, "Rotation for stream %d", streamType);
                     // Need to set the rotation now.

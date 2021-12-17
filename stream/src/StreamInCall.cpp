@@ -169,23 +169,21 @@ int32_t  StreamInCall::close()
     int32_t status = 0;
     mStreamMutex.lock();
 
+    if (currentState == STREAM_IDLE) {
+        PAL_INFO(LOG_TAG, "Stream is already closed");
+        mStreamMutex.unlock();
+        return status;
+    }
+
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK device count - %zu state %d",
             session, mDevices.size(), currentState);
 
-    if (currentState == STREAM_IDLE) {
-        /* If current state is STREAM_IDLE, that means :
-         * 1. SSR down has happened
-         * Session is already closed as part of ssr handling, so just
-         * close device and destroy the objects.
-         * 2. Stream created but opened failed.
-         * No need to call session close for this case too.
-         */
-        PAL_VERBOSE(LOG_TAG, "closed the devices successfully");
-        goto exit;
-    } else if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED) {
+    if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED) {
+        mStreamMutex.unlock();
         status = stop();
         if (0 != status)
             PAL_ERR(LOG_TAG, "stream stop failed. status %d",  status);
+        mStreamMutex.lock();
     }
 
     rm->lockGraph();
@@ -195,9 +193,9 @@ int32_t  StreamInCall::close()
         PAL_ERR(LOG_TAG, "session close failed with status %d", status);
     }
 
-exit:
     currentState = STREAM_IDLE;
     mStreamMutex.unlock();
+
     PAL_DBG(LOG_TAG, "Exit. closed the stream successfully %d status %d",
              currentState, status);
     return status;
@@ -207,6 +205,9 @@ exit:
 int32_t StreamInCall::start()
 {
     int32_t status = 0;
+
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK mStreamAttr->direction - %d state %d",
+              session, mStreamAttr->direction, currentState);
     mStreamMutex.lock();
     if (rm->cardState == CARD_STATUS_OFFLINE) {
         cachedState = STREAM_STARTED;
@@ -215,8 +216,6 @@ int32_t StreamInCall::start()
         goto exit;
     }
 
-    PAL_DBG(LOG_TAG, "Enter. session handle - %pK mStreamAttr->direction - %d state %d",
-              session, mStreamAttr->direction, currentState);
 
     if (currentState == STREAM_INIT || currentState == STREAM_STOPPED) {
         switch (mStreamAttr->direction) {
@@ -235,11 +234,18 @@ int32_t StreamInCall::start()
             PAL_VERBOSE(LOG_TAG, "session prepare successful");
 
             status = session->start(this);
-            if (errno == -ENETRESET &&
-                rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
-                rm->ssrHandler(CARD_STATUS_OFFLINE);
+            if (errno == -ENETRESET) {
+                if (rm->cardState != CARD_STATUS_OFFLINE) {
+                    PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
+                    rm->ssrHandler(CARD_STATUS_OFFLINE);
+                }
                 cachedState = STREAM_STARTED;
+                /* Returning status 0,  hal shouldn't be
+                 * informed of failure because we have cached
+                 * the state and will start from STARTED state
+                 * during SSR up Handling.
+                 */
+                status = 0;
                 rm->unlockGraph();
                 goto exit;
             }
@@ -266,10 +272,12 @@ int32_t StreamInCall::start()
             PAL_VERBOSE(LOG_TAG, "session prepare successful");
 
             status = session->start(this);
-            if (errno == -ENETRESET &&
-                rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
-                rm->ssrHandler(CARD_STATUS_OFFLINE);
+            if (errno == -ENETRESET) {
+                if (rm->cardState != CARD_STATUS_OFFLINE) {
+                    PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
+                    rm->ssrHandler(CARD_STATUS_OFFLINE);
+                }
+                status = 0;
                 cachedState = STREAM_STARTED;
                 rm->unlockGraph();
                 goto exit;
@@ -311,7 +319,7 @@ int32_t StreamInCall::stop()
     int32_t status = 0;
 
     mStreamMutex.lock();
-    PAL_ERR(LOG_TAG, "Enter. session handle - %pK mStreamAttr->direction - %d state %d",
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK mStreamAttr->direction - %d state %d",
                 session, mStreamAttr->direction, currentState);
 
     if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED) {
@@ -402,6 +410,67 @@ int32_t  StreamInCall::setStreamAttributes(struct pal_stream_attributes *sattr)
     PAL_DBG(LOG_TAG, "Exit. session setConfig successful");
 
 exit:
+    return status;
+}
+
+//TBD: move this to Stream, why duplicate code?
+int32_t  StreamInCall::setVolume(struct pal_volume_data *volume)
+{
+    int32_t status = 0;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+    if (!volume) {
+        PAL_ERR(LOG_TAG, "Wrong volume data");
+        status = -EINVAL;
+        goto exit;
+    }
+    if (volume->no_of_volpair == 0) {
+        PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
+        status = -EINVAL;
+        goto exit;
+    }
+
+    /*if already allocated free and reallocate */
+    if (mVolumeData) {
+        free(mVolumeData);
+    }
+
+    mVolumeData = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
+                      (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair))));
+    if (!mVolumeData) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "mVolumeData malloc failed %s", strerror(errno));
+        goto exit;
+    }
+
+    //mStreamMutex.lock();
+    ar_mem_cpy (mVolumeData, (sizeof(uint32_t) +
+                      (sizeof(struct pal_channel_vol_kv) *
+                      (volume->no_of_volpair))), volume, (sizeof(uint32_t) +
+                      (sizeof(struct pal_channel_vol_kv) *
+                      (volume->no_of_volpair))));
+    //mStreamMutex.unlock();
+    for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
+        PAL_INFO(LOG_TAG, "Volume payload mask:%x vol:%f",
+                      (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
+    }
+    /* Allow caching of stream volume as part of mVolumeData
+     * till the pcm_open is not done or if sound card is
+     * offline.
+     */
+    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
+        && currentState != STREAM_INIT) {
+        status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "session setConfig for VOLUME_TAG failed with status %d",
+                    status);
+            goto exit;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Volume payload No.of vol pair:%d ch mask:%x gain:%f",
+                      (volume->no_of_volpair), (volume->volume_pair->channel_mask),
+                      (volume->volume_pair->vol));
+exit:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
 
@@ -568,6 +637,9 @@ int32_t  StreamInCall::write(struct pal_buffer* buf)
             status = -EIO;
         else
             status = -EINVAL;
+
+
+        mStreamMutex.unlock();
         goto exit;
     }
 
@@ -649,6 +721,7 @@ exit:
 int32_t StreamInCall::pause()
 {
     int32_t status = 0;
+    std::unique_lock<std::mutex> pauseLock(pauseMutex);
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     mStreamMutex.lock();
     if (rm->cardState == CARD_STATUS_OFFLINE) {
@@ -664,7 +737,11 @@ int32_t StreamInCall::pause()
                 status);
         goto exit;
     }
-    usleep(VOLUME_RAMP_PERIOD);
+    PAL_DBG(LOG_TAG, "Waiting for Pause to complete");
+    if (session->isPauseRegistrationDone)
+        pauseCV.wait_for(pauseLock, std::chrono::microseconds(VOLUME_RAMP_PERIOD));
+    else
+        usleep(VOLUME_RAMP_PERIOD);
     isPaused = true;
     currentState = STREAM_PAUSED;
     PAL_DBG(LOG_TAG, "Exit. session setConfig successful");
@@ -711,6 +788,11 @@ int32_t StreamInCall::flush()
     if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD) {
          PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD stream, ignore");
          goto exit;
+    }
+
+    if (currentState == STREAM_STOPPED || currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Already flushed, state %d", currentState);
+        goto exit;
     }
 
     status = session->flush();
@@ -826,15 +908,10 @@ int32_t StreamInCall::ssrDownHandler()
             session, cachedState);
 
     if (currentState == STREAM_INIT || currentState == STREAM_STOPPED) {
-        //Not calling stream close here, as we don't want to delete the session
-        //and device objects.
-        rm->lockGraph();
-        status = session->close(this);
-        rm->unlockGraph();
-        currentState = STREAM_IDLE;
         mStreamMutex.unlock();
+        status = close();
         if (0 != status) {
-            PAL_ERR(LOG_TAG, "session close failed. status %d", status);
+            PAL_ERR(LOG_TAG, "stream close failed. status %d", status);
             goto exit;
         }
     } else if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED) {
@@ -842,24 +919,20 @@ int32_t StreamInCall::ssrDownHandler()
         status = stop();
         if (0 != status)
             PAL_ERR(LOG_TAG, "stream stop failed. status %d",  status);
-        mStreamMutex.lock();
-        rm->lockGraph();
-        status = session->close(this);
-        rm->unlockGraph();
-        currentState = STREAM_IDLE;
-        mStreamMutex.unlock();
+        status = close();
         if (0 != status) {
-            PAL_ERR(LOG_TAG, "session close failed. status %d", status);
+            PAL_ERR(LOG_TAG, "stream close failed. status %d", status);
             goto exit;
         }
     } else {
-       PAL_ERR(LOG_TAG, "stream state is %d, nothing to handle", currentState);
-       mStreamMutex.unlock();
-       goto exit;
+        PAL_ERR(LOG_TAG, "stream state is %d, nothing to handle", currentState);
+        mStreamMutex.unlock();
+        goto exit;
     }
 
 exit :
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
+    currentState = STREAM_IDLE;
     return status;
 }
 
@@ -873,16 +946,19 @@ int32_t StreamInCall::ssrUpHandler()
 {
     int status = 0;
 
+    mStreamMutex.lock();
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK state %d",
             session, cachedState);
 
     if (cachedState == STREAM_INIT) {
+        mStreamMutex.unlock();
         status = open();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "stream open failed. status %d", status);
             goto exit;
         }
     } else if (cachedState == STREAM_STARTED) {
+        mStreamMutex.unlock();
         status = open();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "stream open failed. status %d", status);
@@ -891,9 +967,17 @@ int32_t StreamInCall::ssrUpHandler()
         status = start();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
+            goto exit;
+        }
+        /* For scenario when we get SSR down while handling SSR up,
+         * status will be 0, so we need to have this additonal check
+         * to keep the cached state as STREAM_STARTED.
+         */
+        if (currentState != STREAM_STARTED) {
             goto exit;
         }
     } else if (cachedState == STREAM_PAUSED) {
+        mStreamMutex.unlock();
         status = open();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "stream open failed. status %d", status);
@@ -904,12 +988,15 @@ int32_t StreamInCall::ssrUpHandler()
             PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
             goto exit;
         }
+        if (currentState != STREAM_STARTED)
+            goto exit;
         status = pause();
         if (0 != status) {
            PAL_ERR(LOG_TAG, "stream set pause failed. status %d", status);
             goto exit;
         }
     } else {
+        mStreamMutex.unlock();
         PAL_ERR(LOG_TAG, "stream not in correct state to handle %d", cachedState);
         goto exit;
     }

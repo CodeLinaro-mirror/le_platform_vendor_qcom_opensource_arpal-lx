@@ -334,12 +334,7 @@ typedef enum {
     PAL_STREAM_PCM_OFFLOAD = 18,                 /**< pcm offload audio */
     PAL_STREAM_ULTRA_LOW_LATENCY = 19,           /**< pcm ULL audio */
     PAL_STREAM_PROXY = 20,                       /**< pcm proxy audio */
-    PAL_STREAM_PLAYBACK_MEDIA = 21,              /**< BUS type media */
-    PAL_STREAM_PLAYBACK_SYS_NOTIFICATION = 22,   /**< BUS type system notification */
-    PAL_STREAM_PLAYBACK_NAV_GUIDANCE = 23,       /**< BUS type navigation guidance */
-    PAL_STREAM_PLAYBACK_PHONE = 24,              /**< BUS type voice command/recognition */
-    PAL_STREAM_PLAYBACK_FRONT_PASSENGER = 25,    /**< BUS type front passenger zone audio streams */
-    PAL_STREAM_PLAYBACK_REAR_SEAT = 26,          /**< BUS type rear passenger zone audio streams */
+    PAL_STREAM_PLAYBACK_BUS = 21,                /**< BUS type pal streams */
     PAL_STREAM_MAX                               /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -517,12 +512,7 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_PCM_OFFLOAD" },              PAL_STREAM_PCM_OFFLOAD},
     {std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" },        PAL_STREAM_ULTRA_LOW_LATENCY},
     {std::string{ "PAL_STREAM_PROXY" },                    PAL_STREAM_PROXY},
-    {std::string{ "PAL_STREAM_PLAYBACK_MEDIA" },           PAL_STREAM_PLAYBACK_MEDIA},
-    {std::string{ "PAL_STREAM_PLAYBACK_SYS_NOTIFICATION" },PAL_STREAM_PLAYBACK_SYS_NOTIFICATION},
-    {std::string{ "PAL_STREAM_PLAYBACK_NAV_GUIDANCE" },    PAL_STREAM_PLAYBACK_NAV_GUIDANCE},
-    {std::string{ "PAL_STREAM_PLAYBACK_PHONE" },           PAL_STREAM_PLAYBACK_PHONE},
-    {std::string{ "PAL_STREAM_PLAYBACK_FRONT_PASSENGER" }, PAL_STREAM_PLAYBACK_FRONT_PASSENGER},
-    {std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" },       PAL_STREAM_PLAYBACK_REAR_SEAT},
+    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },           PAL_STREAM_PLAYBACK_BUS},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -547,12 +537,7 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_PCM_OFFLOAD,                 std::string{ "PAL_STREAM_PCM_OFFLOAD" } },
     {PAL_STREAM_ULTRA_LOW_LATENCY,           std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" } },
     {PAL_STREAM_PROXY,                       std::string{ "PAL_STREAM_PROXY" } },
-    {PAL_STREAM_PLAYBACK_MEDIA,              std::string{ "PAL_STREAM_PLAYBACK_MEDIA" } },
-    {PAL_STREAM_PLAYBACK_SYS_NOTIFICATION,   std::string{ "PAL_STREAM_PLAYBACK_SYS_NOTIFICATION" } },
-    {PAL_STREAM_PLAYBACK_NAV_GUIDANCE,       std::string{ "PAL_STREAM_PLAYBACK_NAV_GUIDANCE" } },
-    {PAL_STREAM_PLAYBACK_PHONE,              std::string{ "PAL_STREAM_PLAYBACK_PHONE" } },
-    {PAL_STREAM_PLAYBACK_FRONT_PASSENGER,    std::string{ "PAL_STREAM_PLAYBACK_FRONT_PASSENGER" } },
-    {PAL_STREAM_PLAYBACK_REAR_SEAT,          std::string{ "PAL_STREAM_PLAYBACK_REAR_SEAT" } },
+    {PAL_STREAM_PLAYBACK_BUS,              std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {
@@ -633,7 +618,9 @@ struct pal_media_config {
     uint32_t sample_rate;                /**< sample rate */
     uint32_t bit_width;                  /**< bit width */
     pal_audio_fmt_t aud_fmt_id;          /**< audio format id*/
-    struct pal_channel_info ch_info;    /**< channel info */
+    struct pal_channel_info ch_info;     /**< channel info */
+    uint32_t ch_mask;                    /**< Channel mask received in audio_config*/
+    uint32_t format;                     /**< Audio format value received in audio_config*/
 };
 
 /** Android Media configuraiton  */
@@ -663,6 +650,8 @@ struct pal_stream_attributes {
     pal_stream_direction_t direction;            /**<  direction of the streams */
     struct pal_media_config in_media_config;     /**<  media config of the input audio samples */
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
+    char* bus_addr;                              /**<  BUS device address */
+    uint32_t hal_flags;                          /**<  Stream flags received in HAL*/
 };
 
 /**< Key value pair to identify the topology of a usecase from default  */
@@ -754,6 +743,12 @@ struct pal_volume_data {
 struct pal_time_us {
     uint32_t value_lsw;   /** Lower 32 bits of 64 bit time value in microseconds */
     uint32_t value_msw;   /** Upper 32 bits of 64 bit time value in microseconds */
+};
+
+/** Buffer config data strucutre defintion used as argument for buff_config command */
+struct pal_buffer_data {
+    uint32_t buffer_size;                       /**< Buffer Size*/
+    uint32_t buffer_count;                      /**< Buffer Count*/
 };
 
 /** Timestamp strucutre defintion used as argument for
