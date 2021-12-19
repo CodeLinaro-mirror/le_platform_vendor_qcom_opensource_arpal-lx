@@ -1292,11 +1292,9 @@ int SessionAlsaPcm::stop(Stream * s)
         tagId = ULTRASOUND_DETECTION_MODULE;
         DeviceId = pcmDevTxIds.at(0);
         RegisterForEvents = false;
-        if (!txAifBackEnds.empty()) {
-            SessionAlsaUtils::registerMixerEvent(mixer, DeviceId,
-                    txAifBackEnds[0].second.data(), tagId, (void *)&event_cfg,
-                    payload_size);
-        }
+        SessionAlsaUtils::registerMixerEvent(mixer, DeviceId,
+                txAifBackEnds[0].second.data(), tagId, (void *)&event_cfg,
+                payload_size);
     } else if (sAttr.type == PAL_STREAM_ACD) {
         if (eventPayload == NULL)
             goto exit;
