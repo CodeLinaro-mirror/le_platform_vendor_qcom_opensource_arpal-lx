@@ -5897,6 +5897,7 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
         default:
             status = str->getInstanceId();
             if (StrAttr.direction == PAL_AUDIO_INPUT && !status) {
+                PAL_DBG(LOG_TAG, "Did not find instance id %d for input stream", status);
                 if (in_stream_instances[StrAttr.type - 1] ==  -1) {
                     PAL_ERR(LOG_TAG, "All stream instances taken");
                     status = -EINVAL;
@@ -5909,6 +5910,13 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
                         break;
                     }
                 str->setInstanceId(status);
+            } else if (StrAttr.direction == PAL_AUDIO_INPUT && status) {
+                PAL_DBG(LOG_TAG, "Found instance id %d for input stream", status);
+                for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
+                    if (!(in_stream_instances[StrAttr.type - 1] & (1 << (status - 1)))) {
+                        in_stream_instances[StrAttr.type - 1] |= (1 << (status - 1));
+                        break;
+                    }
             } else if (!status) {
                 if (stream_instances[StrAttr.type - 1] ==  -1) {
                     PAL_ERR(LOG_TAG, "All stream instances taken");
