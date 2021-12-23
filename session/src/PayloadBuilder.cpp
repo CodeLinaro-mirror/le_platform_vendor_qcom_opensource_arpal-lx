@@ -1772,6 +1772,11 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                 }
                 break;
             case BUS_ADDRESS_SEL:
+                PAL_INFO(LOG_TAG, "BUS_ADDRESS_SEL, sttr.type=%d\n", sattr->type);
+                if (sattr->type == PAL_STREAM_LOOPBACK) {
+                    PAL_INFO(LOG_TAG,"hfp loopback stream, skip bus_addr_sel");
+                    break;
+                }
                 if (sattr && strlen(sattr->bus_addr)) {
                     filled_selector_pairs.push_back(
                         std::make_pair(BUS_ADDRESS_SEL,
