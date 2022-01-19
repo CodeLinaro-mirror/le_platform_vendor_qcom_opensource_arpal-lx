@@ -154,8 +154,6 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         throw std::runtime_error(err);
     }
 
-    rm->registerStream(this);
-
     // Create internal states
     st_idle_ = new StIdle(*this);
     st_loaded_ = new StLoaded(*this);
@@ -181,6 +179,9 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         prev_state_ = nullptr;
         state_for_restore_ = ST_STATE_NONE;
     }
+
+    rm->registerStream(this);
+
     // Print the concurrency feature flags supported
     PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,voip conc enable %d",
         st_info_->GetConcurrentCaptureEnable(), st_info_->GetConcurrentVoiceCallEnable(),
@@ -234,27 +235,17 @@ StreamSoundTrigger::~StreamSoundTrigger() {
     engines_.clear();
 
     rm->deregisterStream(this);
-    if (mStreamAttr) {
+    if (mStreamAttr)
         free(mStreamAttr);
-    }
-    if (gsl_engine_model_) {
+
+    if (gsl_engine_model_)
         free(gsl_engine_model_);
-    }
-    if (gsl_conf_levels_) {
+
+    if (gsl_conf_levels_)
         free(gsl_conf_levels_);
-    }
-    mDevices.clear();
-    PAL_DBG(LOG_TAG, "Exit");
-}
 
-int32_t StreamSoundTrigger::close() {
-    int32_t status = 0;
-
-    PAL_DBG(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
-
-    std::lock_guard<std::mutex> lck(mStreamMutex);
-    std::shared_ptr<StEventConfig> ev_cfg(new StUnloadEventConfig());
-    status = cur_state_->ProcessEvent(ev_cfg);
+    if (mVolumeData)
+        free(mVolumeData);
 
     if (sm_config_) {
         free(sm_config_);
@@ -278,6 +269,24 @@ int32_t StreamSoundTrigger::close() {
     if (st_conf_levels_v2_) {
         free(st_conf_levels_v2_);
         st_conf_levels_v2_ = nullptr;
+    }
+
+    mDevices.clear();
+    PAL_DBG(LOG_TAG, "Exit");
+}
+
+int32_t StreamSoundTrigger::close() {
+    int32_t status = 0;
+
+    PAL_DBG(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
+
+    std::lock_guard<std::mutex> lck(mStreamMutex);
+    std::shared_ptr<StEventConfig> ev_cfg(new StUnloadEventConfig());
+    status = cur_state_->ProcessEvent(ev_cfg);
+
+    if (sm_config_) {
+        free(sm_config_);
+        sm_config_ = nullptr;
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -4334,6 +4343,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                         TransitTo(ST_STATE_LOADED);
                     }
                 }
+                rm->releaseWakeLock();
                 break;
             }
             if (data->det_type_ == KEYWORD_DETECTION_SUCCESS ||
@@ -4561,6 +4571,14 @@ int32_t StreamSoundTrigger::StSSR::ProcessEvent(
             } else {
                 st_stream_.state_for_restore_ = ST_STATE_LOADED;
             }
+            break;
+        }
+        case ST_EV_PAUSE: {
+            st_stream_.paused_ = true;
+            break;
+        }
+        case ST_EV_RESUME: {
+            st_stream_.paused_ = false;
             break;
         }
         case ST_EV_READ_BUFFER:

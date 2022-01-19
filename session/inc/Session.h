@@ -93,6 +93,7 @@ protected:
     static struct pcm *pcmEcTx;
     static std::vector<int> pcmDevEcTxIds;
     static int extECRefCnt;
+    static std::mutex extECMutex;
     bool frontEndIdAllocated = false;
 public:
     bool isPauseRegistrationDone;
@@ -157,6 +158,7 @@ public:
                                       uint8_t *payload __unused) {return -EINVAL;}
     virtual int checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
                                  Stream *s, bool is_enable);
+    virtual void AdmRoutingChange(Stream *s __unused) {  };
 };
 
 #endif //SESSION_H

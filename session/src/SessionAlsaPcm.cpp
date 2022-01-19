@@ -658,6 +658,12 @@ void SessionAlsaPcm::requestAdmFocus(Stream *s,  long ns)
         rm->admRequestFocusFn(rm->admData, static_cast<void *>(s));
 }
 
+void SessionAlsaPcm::AdmRoutingChange(Stream *s)
+{
+    if (rm->admOnRoutingChangeFn)
+        rm->admOnRoutingChangeFn(rm->admData, static_cast<void *>(s));
+}
+
 void SessionAlsaPcm::releaseAdmFocus(Stream *s)
 {
     if (rm->admAbandonFocusFn)
@@ -681,6 +687,11 @@ int SessionAlsaPcm::start(Stream * s)
     struct agm_event_reg_cfg *acd_event_cfg = nullptr;
     int tagId = 0;
     int DeviceId;
+    struct disable_lpm_info lpm_info;
+    bool isStreamAvail = false;
+    struct volume_set_param_info vol_set_param_info;
+    uint16_t volSize = 0;
+    uint8_t *volPayload = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -910,9 +921,23 @@ int SessionAlsaPcm::start(Stream * s)
                             goto set_mixer;
                         }
 
-                        streamData.sampleRate = dAttr.config.sample_rate;
-                        streamData.bitWidth = 0xffff;
-                        streamData.numChannel = 0xffff;
+                        if ((dAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ||
+                                (dAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)) {
+                            struct pal_media_config codecConfig;
+                            status = associatedDevices[i]->getCodecConfig(&codecConfig);
+                            if (0 != status) {
+                                PAL_ERR(LOG_TAG, "getCodecConfig Failed \n");
+                                goto set_mixer;
+                            }
+                            streamData.sampleRate = codecConfig.sample_rate;
+                            streamData.bitWidth   = codecConfig.bit_width;
+                            streamData.numChannel = codecConfig.ch_info.channels;
+                        } else {
+                            streamData.sampleRate = dAttr.config.sample_rate;
+                            streamData.bitWidth   = 0xFFFF;
+                            streamData.numChannel = 0xFFFF;
+                        }
+
                         builder->payloadMFCConfig(&payload, &payloadSize, miid, &streamData);
                         if (payloadSize && payload) {
                             status = updateCustomPayload(payload, payloadSize);
@@ -1081,8 +1106,12 @@ set_mixer:
             }
 
 pcm_start:
-            if (sAttr.type == PAL_STREAM_LOW_LATENCY ||
-                    sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+            memset(&lpm_info, 0, sizeof(struct disable_lpm_info));
+            rm->getDisableLpmInfo(&lpm_info);
+            isStreamAvail = (find(lpm_info.streams_.begin(),
+                            lpm_info.streams_.end(), sAttr.type) !=
+                            lpm_info.streams_.end());
+            if (isStreamAvail && lpm_info.isDisableLpm) {
                 std::lock_guard<std::mutex> lock(pcmLpmRefCntMtx);
                 PAL_DBG(LOG_TAG,"pcmLpmRefCnt %d\n", pcmLpmRefCnt);
                 pcmLpmRefCnt++;
@@ -1184,15 +1213,36 @@ pcm_start:
             }
            break;
     }
-    // Setting the volume as in stream open, no default volume is set.
-    if (sAttr.type != PAL_STREAM_ACD &&
-        sAttr.type != PAL_STREAM_VOICE_UI &&
-        sAttr.type != PAL_STREAM_CONTEXT_PROXY &&
-        sAttr.type != PAL_STREAM_ULTRASOUND &&
-        sAttr.type != PAL_STREAM_SENSOR_PCM_DATA &&
-        sAttr.type != PAL_STREAM_HAPTICS) {
-        if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
-            PAL_ERR(LOG_TAG, "Setting volume failed");
+    memset(&vol_set_param_info, 0, sizeof(struct volume_set_param_info));
+    rm->getVolumeSetParamInfo(&vol_set_param_info);
+    isStreamAvail = (find(vol_set_param_info.streams_.begin(),
+                vol_set_param_info.streams_.end(), sAttr.type) !=
+                vol_set_param_info.streams_.end());
+    if (isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) {
+        // apply if there is any cached volume
+        if (s->mVolumeData) {
+            volSize = (sizeof(struct pal_volume_data) +
+                    (sizeof(struct pal_channel_vol_kv) * (s->mVolumeData->no_of_volpair)));
+            volPayload = new uint8_t[sizeof(pal_param_payload) +
+                volSize]();
+            pal_param_payload *pld = (pal_param_payload *)volPayload;
+            pld->payload_size = sizeof(struct pal_volume_data);
+            memcpy(pld->payload, s->mVolumeData, volSize);
+            status = setParameters(s, TAG_STREAM_VOLUME,
+                    PAL_PARAM_ID_VOLUME_USING_SET_PARAM, (void *)pld);
+            delete[] volPayload;
+        }
+    } else {
+        // Setting the volume as in stream open, no default volume is set.
+        if (sAttr.type != PAL_STREAM_ACD &&
+            sAttr.type != PAL_STREAM_VOICE_UI &&
+            sAttr.type != PAL_STREAM_CONTEXT_PROXY &&
+            sAttr.type != PAL_STREAM_ULTRASOUND &&
+            sAttr.type != PAL_STREAM_SENSOR_PCM_DATA &&
+            sAttr.type != PAL_STREAM_HAPTICS) {
+            if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
+                PAL_ERR(LOG_TAG,"Setting volume failed");
+            }
         }
     }
 
@@ -1326,6 +1376,8 @@ int SessionAlsaPcm::close(Stream * s)
     std::vector<std::shared_ptr<Device>> associatedDevices;
     int ldir = 0;
     std::vector<int> pcmId;
+    struct disable_lpm_info lpm_info;
+    bool isStreamAvail = false;
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!frontEndIdAllocated) {
@@ -1355,7 +1407,7 @@ int SessionAlsaPcm::close(Stream * s)
                 beDevId = dev->getSndDeviceId();
                 rm->getBackendName(beDevId, backendname);
                 PAL_DBG(LOG_TAG, "backendname %s", backendname.c_str());
-                if (dev->getDeviceCount() != 0) {
+                if (dev->getDeviceCount() > 1) {
                     PAL_DBG(LOG_TAG, "Tx dev still active\n");
                     freeDeviceMetadata.push_back(std::make_pair(backendname, 0));
                 } else {
@@ -1388,7 +1440,7 @@ int SessionAlsaPcm::close(Stream * s)
                 beDevId = dev->getSndDeviceId();
                 rm->getBackendName(beDevId, backendname);
                 PAL_DBG(LOG_TAG, "backendname %s", backendname.c_str());
-                if (dev->getDeviceCount() != 0) {
+                if (dev->getDeviceCount() > 1) {
                     PAL_DBG(LOG_TAG, "Rx dev still active");
                     freeDeviceMetadata.push_back(std::make_pair(backendname, 0));
                 } else {
@@ -1404,8 +1456,12 @@ int SessionAlsaPcm::close(Stream * s)
                 !(sAttr.flags & PAL_STREAM_FLAG_MMAP_NO_IRQ_MASK))
                 deRegisterAdmStream(s);
 
-            if (sAttr.type == PAL_STREAM_LOW_LATENCY ||
-                    sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+            memset(&lpm_info, 0, sizeof(struct disable_lpm_info));
+            rm->getDisableLpmInfo(&lpm_info);
+            isStreamAvail = (find(lpm_info.streams_.begin(),
+                            lpm_info.streams_.end(), sAttr.type) !=
+                            lpm_info.streams_.end());
+            if (isStreamAvail && lpm_info.isDisableLpm) {
                 std::lock_guard<std::mutex> lock(pcmLpmRefCntMtx);
                 PAL_DBG(LOG_TAG, "pcm_close pcmLpmRefCnt %d", pcmLpmRefCnt);
                 pcmLpmRefCnt--;
@@ -1442,7 +1498,7 @@ int SessionAlsaPcm::close(Stream * s)
                 beDevId = dev->getSndDeviceId();
                 rm->getBackendName(beDevId, backendname);
                 PAL_DBG(LOG_TAG, "backendname %s", backendname.c_str());
-                if (dev->getDeviceCount() != 0) {
+                if (dev->getDeviceCount() > 1) {
                     PAL_DBG(LOG_TAG, "dev %d still active", beDevId);
                     freeDeviceMetadata.push_back(std::make_pair(backendname, 0));
                 } else {
@@ -1880,7 +1936,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 if (!customPayload) {
                     status = -ENOMEM;
                     PAL_ERR(LOG_TAG, "failed to allocate memory for custom payload");
-                    goto free_payload;
+                    goto exit;
                 }
 
                 ar_mem_cpy((uint8_t *)customPayload + customPayloadSize, paramSize,
@@ -2022,7 +2078,8 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             if (sAttr.direction == PAL_AUDIO_OUTPUT) {
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                         rxAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
-            } else if (sAttr.direction == PAL_AUDIO_INPUT) {
+            } else if (sAttr.direction == PAL_AUDIO_INPUT &&
+                       sAttr.type != PAL_STREAM_ULTRA_LOW_LATENCY) {
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                         txAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
             } else if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT)) {
@@ -2073,9 +2130,10 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
 
     PAL_VERBOSE(LOG_TAG, "%pK - payload and %zu size", paramData , paramSize);
 
-free_payload :
-    free(paramData);
 exit:
+    if (paramData)
+        free(paramData);
+
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -2115,7 +2173,7 @@ int SessionAlsaPcm::register_asps_event(uint32_t reg)
 int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     std::vector <std::shared_ptr<Device>> rxDeviceList;
     std::vector <std::string> backendNames;
     struct pal_device rxDevAttr = {};
@@ -2186,7 +2244,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
             }
         }
     } else if (is_enable && rx_dev) {
-        if (rx_dev && ecRefDevId == rx_dev->getSndDeviceId()) {
+        if (ecRefDevId == rx_dev->getSndDeviceId()) {
             PAL_DBG(LOG_TAG, "EC Ref already set for dev %d", ecRefDevId);
             goto exit;
         }
@@ -2195,12 +2253,26 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         backendNames = rm->getBackEndNames(rxDeviceList);
 
         if (rxDevInfo.isExternalECRefEnabledFlag) {
+            // reset EC if internal EC is being used
+            if (ecRefDevId != PAL_DEVICE_OUT_MIN && !rm->isExternalECRefEnabled(ecRefDevId)) {
+                status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to reset before set ext EC, status %d", status);
+                    goto exit;
+                }
+            }
             status = checkAndSetExtEC(rm, s, true);
             if (status) {
                 PAL_ERR(LOG_TAG, "Failed to enable External EC, status %d", status);
                 goto exit;
             }
         } else {
+            // avoid set internal ec if ext ec connected
+            if (ecRefDevId != PAL_DEVICE_OUT_MIN && rm->isExternalECRefEnabled(ecRefDevId)) {
+                PAL_ERR(LOG_TAG, "Cannot be set internal EC with external EC connected");
+                status = -EINVAL;
+                goto exit;
+            }
             status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0),
                     backendNames[0].c_str());
             if (status) {
