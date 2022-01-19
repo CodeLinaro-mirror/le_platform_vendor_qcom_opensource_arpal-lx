@@ -102,6 +102,7 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
         goto stream_create;
     for (int i = 0; i < noOfDevices; i++) {
         struct pal_device_info devinfo = {};
+        palDevsAttr[i] = {};
 
         if (sAttr->type == PAL_STREAM_ULTRASOUND) {
             if (i == 0) { // first assign output device
@@ -165,6 +166,7 @@ stream_create:
             case PAL_STREAM_PROXY:
             case PAL_STREAM_HAPTICS:
             case PAL_STREAM_RAW:
+            case PAL_STREAM_VOICE_RECOGNITION:
                 //TODO:for now keeping PAL_STREAM_PLAYBACK_GENERIC for ULLA need to check
                 stream = new StreamPCM(sAttr,
                                        palDevsAttr,
@@ -311,12 +313,19 @@ int32_t Stream::getEffectParameters(void *effect_query)
         return -EINVAL;
     }
 
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
     pal_param_payload *pal_param = (pal_param_payload *)effect_query;
     effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
     status = session->getEffectParameters(this, effectPayload);
     if (status) {
        PAL_ERR(LOG_TAG, "getParameters failed with %d", status);
     }
+    mStreamMutex.unlock();
 
     return status;
 }
@@ -324,7 +333,18 @@ int32_t Stream::getEffectParameters(void *effect_query)
 int32_t Stream::rwACDBParameters(void *payload, uint32_t sampleRate,
                                     bool isParamWrite)
 {
-    return session->rwACDBParameters(payload, sampleRate, isParamWrite);
+    int32_t status = 0;
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+    status = session->rwACDBParameters(payload, sampleRate, isParamWrite);
+    mStreamMutex.unlock();
+
+    return status;
 }
 
 int32_t Stream::getStreamType (pal_stream_type_t* streamType)
@@ -370,6 +390,9 @@ uint32_t Stream::getRenderLatency()
     case PAL_STREAM_DEEP_BUFFER:
         delayMs = PAL_DEEP_BUFFER_PLATFORM_DELAY / 1000;
         break;
+    case PAL_STREAM_GENERIC:
+        delayMs = PAL_GENERIC_PLATFORM_DELAY / 1000;
+        break;
     case PAL_STREAM_LOW_LATENCY:
         delayMs = PAL_LOW_LATENCY_PLATFORM_DELAY / 1000;
         break;
@@ -397,6 +420,10 @@ uint32_t Stream::getLatency()
     }
 
     switch (mStreamAttr->type) {
+    case PAL_STREAM_GENERIC:
+        latencyMs = PAL_GENERIC_OUTPUT_PERIOD_DURATION *
+            PAL_GENERIC_PLAYBACK_PERIOD_COUNT;
+        break;
     case PAL_STREAM_DEEP_BUFFER:
         latencyMs = PAL_DEEP_BUFFER_OUTPUT_PERIOD_DURATION *
             PAL_DEEP_BUFFER_PLAYBACK_PERIOD_COUNT;
@@ -430,21 +457,25 @@ int32_t Stream::getAssociatedDevices(std::vector <std::shared_ptr<Device>> &aDev
     return status;
 }
 
-int32_t Stream::UpdatePalDevice(struct pal_device *dattr,  pal_device_id_t Dev_id)
+int32_t Stream::updatePalDevice(struct pal_device *dattr, pal_device_id_t dev_id, bool replace)
 {
     int32_t status = 0;
 
-    PAL_DBG(LOG_TAG, "Updatepaldevice from %d to %d", Dev_id, dattr->id);
+    PAL_DBG(LOG_TAG, "updatePalDevice from %d to %d", dev_id, dattr->id);
     for (int i = 0; i < mPalDevice.size(); i++) {
-        if (Dev_id == mPalDevice[i].id) {
+        if (dev_id == mPalDevice[i].id) {
+            if (!replace) {
+                PAL_DBG(LOG_TAG, "found existing dattr, don't replace");
+                return status;
+            }
             mPalDevice.erase(mPalDevice.begin() + i);
             break;
         }
     }
+
     mPalDevice.push_back(*dattr);
     return status;
 }
-
 
 int32_t Stream::getAssociatedPalDevices(std::vector <struct pal_device> &palDevices)
 {
@@ -709,9 +740,9 @@ exit:
 int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
 {
     int32_t status = 0;
-    struct pal_device dattr;
-    struct pal_device spkrDattr;
-    struct pal_device handsetDattr;
+    struct pal_device dattr = {};
+    struct pal_device spkrDattr = {};
+    struct pal_device handsetDattr = {};
     std::shared_ptr<Device> dev = nullptr;
     std::shared_ptr<Device> spkrDev = nullptr;
     std::shared_ptr<Device> handsetDev = nullptr;
@@ -845,9 +876,9 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
             dattr.id = spkrDattr.id;
             dev = spkrDev;
 
-            rm->getActiveStream_l(spkrDev, activeStreams);
+            rm->getActiveStream_l(activeStreams, spkrDev);
             if (activeStreams.empty()) {
-                rm->getActiveStream_l(handsetDev, activeStreams);
+                rm->getActiveStream_l(activeStreams, handsetDev);
                 if (!activeStreams.empty()) {
                     // active streams found on handset
                     dattr.id = PAL_DEVICE_OUT_HANDSET;
@@ -888,6 +919,8 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
                 goto exit;
             }
             mDevices.push_back(dev);
+            dev->getDeviceAttributes(&dattr);
+            updatePalDevice(&dattr, dattr.id);
         }
     }
 
@@ -969,8 +1002,6 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
 {
     int32_t status = 0;
     std::shared_ptr<Device> dev = nullptr;
-    bool foundPalDev = false;
-
 
     if (!dattr) {
         PAL_ERR(LOG_TAG, "invalid params");
@@ -1022,16 +1053,8 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
     }
 
     mDevices.push_back(dev);
-    /*check if pal devices exsists if it does not, push
-      catch all if connect is being called outside of a deviceSwitch or open */
-    for(int i = 0; i < mPalDevice.size(); i++) {
-        if (dattr->id == mPalDevice[i].id) {
-            foundPalDev = true;
-        }
-    }
-    if (!foundPalDev) {
-        mPalDevice.push_back(*dattr);
-    }
+    //don't replace device attr for implicit device switch
+    updatePalDevice(dattr, dattr->id, false);
     status = session->setupSessionDevice(streamHandle, mStreamAttr->type, dev);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "setupSessionDevice for %d failed with status %d",
@@ -1074,7 +1097,7 @@ dev_close:
     dev->close();
 exit:
     /*check if USB is not available restore to default device */
-    if (status && (dev->getSndDeviceId() == PAL_DEVICE_OUT_USB_HEADSET ||
+    if (dev && status && (dev->getSndDeviceId() == PAL_DEVICE_OUT_USB_HEADSET ||
                    dev->getSndDeviceId() == PAL_DEVICE_IN_USB_HEADSET))
     {
        if(USB::isUsbConnected(dattr->address)){
@@ -1166,7 +1189,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     std::vector <Stream *> streamsToSwitch;
     struct pal_device streamDevAttr;
     std::vector <Stream*>::iterator sIter;
-    bool foundPalDev = false;
 
     mStreamMutex.lock();
 
@@ -1262,23 +1284,15 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                 isNewDeviceA2dp = true;
         }
 
-        /* store/update palDev before newDevices can be changed*/
-        for(int j = 0; j < mPalDevice.size(); j++) {
-            if (newDevices[i].id == mPalDevice[j].id) {
-                foundPalDev = true;
-                UpdatePalDevice(&(newDevices[i]), newDevices[i].id);
-            }
-        }
-        if (!foundPalDev) {
-            mPalDevice.push_back(newDevices[i]);
-        }
+        /* store or update palDev before newDevices can be changed */
+        updatePalDevice(&(newDevices[i]), newDevices[i].id);
     }
 
     /*  No new device is ready */
     if ((numDev != 0) && (connectCount == 0)) {
-        PAL_ERR(LOG_TAG, "No new device is ready to connect");
+        PAL_INFO(LOG_TAG, "No new device is ready to connect");
         mStreamMutex.unlock();
-        return -ENODEV;
+        return 0;
     }
 
     PAL_INFO(LOG_TAG,"number of active devices %zu, new devices %d", mDevices.size(), connectCount);
@@ -1456,7 +1470,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                 }
             }
         }
-        if (matchFound) {
+
+        if (matchFound || (disconnectCount == 0)) {
             dev = Device::getInstance(&newDevices[newDeviceSlots[i]],rm);
             StreamDevConnect.push_back({streamHandle, &newDevices[newDeviceSlots[i]]});
         }

@@ -493,7 +493,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
         beMetaDataMixerCtrl = SessionAlsaUtils::getBeMixerControl(mixerHandle, be->second, BE_METADATA);
         if (!beMetaDataMixerCtrl) {
-            PAL_ERR(LOG_TAG, "invalid mixer control: %s %s", be->second.data(),
+            PAL_FATAL(LOG_TAG, "invalid mixer control: %s %s", be->second.data(),
                     beCtrlNames[BE_METADATA]);
             status = -EINVAL;
             goto freeMetaData;
@@ -1024,6 +1024,8 @@ int SessionAlsaUtils::setMixerParameter(struct mixer *mixer, int device,
     ctl_len = strlen(pcmDeviceName) + 1 + strlen(control) + 1;
     mixer_str = (char *)calloc(1, ctl_len);
     if (!mixer_str) {
+        free(payload);
+        payload = nullptr;
         return -ENOMEM;
     }
     snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
@@ -2039,6 +2041,11 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
     } else if (!(SessionAlsaUtils::isMmapUsecase(sAttr))) {
         if (sess) {
             SessionAlsaVoice *voiceSession = dynamic_cast<SessionAlsaVoice *>(sess);
+            if (!voiceSession) {
+                PAL_ERR(LOG_TAG, "invalid session voice object");
+                status = -EINVAL;
+                goto exit;
+            }
             if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first)) {
                 voiceSession->setSessionParameters(streamHandle, RX_HOSTLESS);
             } else {

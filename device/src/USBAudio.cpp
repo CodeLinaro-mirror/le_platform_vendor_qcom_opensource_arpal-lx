@@ -133,7 +133,7 @@ int USB::configureUsb()
 
     rm->getBackendName(deviceAttr.id, backEndName);
     dev = Device::getInstance(&deviceAttr, rm);
-    status = rm->getActiveStream_l(dev, activestreams);
+    status = rm->getActiveStream_l(activestreams, dev);
     if ((0 != status) || (activestreams.size() == 0)) {
         PAL_ERR(LOG_TAG, "no active stream available");
         status = -EINVAL;
@@ -491,8 +491,8 @@ int USBCardConfig::getCapability(usb_usecase_type_t type,
         memcpy(bit_width_str, bit_width_start, size);
         bit_width_str[size] = '\0';
 
-        const char *formats[] = {"S32", "S24_3", "S24", "S16" };
-        const int bit_width[] = {32, 24, 24, 16};
+        const char *formats[] = {"S32", "S24_3", "S24", "S16", "U32"};
+        const int bit_width[] = {32, 24, 24, 16, 32};
         for (size_t i = 0; i < sizeof(formats)/sizeof(formats[0]); i++) {
             const char * s = strstr(bit_width_str, formats[i]);
             if (s) {
@@ -701,6 +701,12 @@ int USBCardConfig::readBestConfig(struct pal_media_config *config,
             bitwidth = (*iter)->getBitWidth();
             if (bitwidth == devinfo->bit_width) {
                 config->bit_width = bitwidth;
+
+                if (!config->bit_width && !max_bit_width)
+                    continue;
+                else if (!config->bit_width && max_bit_width)
+                    config->bit_width = max_bit_width;
+
                 PAL_INFO(LOG_TAG, "found matching BitWidth = %d", config->bit_width);
                 /* 2. sample rate: Check if the custom sample rate set for device in RM.xml
                 is supported and then set it, otherwise set the rate based on stream attribute */
@@ -734,6 +740,10 @@ int USBCardConfig::readBestConfig(struct pal_media_config *config,
             PAL_INFO(LOG_TAG, "Default bitwidth of %d is not supported by USB. Use USB width of %d",
                          devinfo->bit_width, max_bit_width);
             config->bit_width = bitwidth;
+
+            if (config->bit_width == 0)
+                config->bit_width = max_bit_width;
+
             if (uhqa && is_playback) {
                 ret = candidate_config->isCustomRateSupported(SAMPLINGRATE_192K,
                                  &config->sample_rate);

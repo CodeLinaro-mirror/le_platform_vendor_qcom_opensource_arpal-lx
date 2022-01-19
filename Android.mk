@@ -20,10 +20,6 @@ LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
-ifeq ($(TARGET_BOARD_PLATFORM), taro)
-LOCAL_CFLAGS   += -DWAIPIO_CHIPSET
-endif
-
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/device/inc \
@@ -182,10 +178,6 @@ include $(CLEAR_VARS)
 
 include $(PAL_BASE_PATH)/plugins/Android.mk
 include $(PAL_BASE_PATH)/ipc/HwBinders/Android.mk
-
-ifeq ($(TARGET_SUPPORTS_WEAR_AON),true)
-LOCAL_CFLAGS += -DPLATFORM_SLATE
-endif
 
 endif #TARGET_USES_QCOM_MM_AUDIO
 endif #AUDIO_USE_STUB_HAL

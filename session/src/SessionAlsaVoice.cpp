@@ -55,6 +55,9 @@ SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
    streamHandle = NULL;
    pcmRx = NULL;
    pcmTx = NULL;
+   customPayload = NULL;
+   customPayloadSize = 0;
+
    max_vol_index = rm->getMaxVoiceVol();
    if (max_vol_index == -1){
       max_vol_index = MAX_VOL_INDEX;
@@ -682,7 +685,7 @@ int SessionAlsaVoice::start(Stream * s)
     status = SessionAlsaVoice::setConfig(s, MODULE, VSID, RX_HOSTLESS);
     if (status) {
         PAL_ERR(LOG_TAG, "setConfig failed %d", status);
-        goto exit;
+        goto err_pcm_open;
     }
 
     SessionAlsaVoice::setConfig(s, MODULE, CHANNEL_INFO, TX_HOSTLESS);
@@ -1735,7 +1738,7 @@ char* SessionAlsaVoice::getMixerVoiceStream(Stream *s, int dir){
 int SessionAlsaVoice::setExtECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     struct pal_device rxDevAttr = {};
     struct pal_device_info rxDevInfo = {};
 
@@ -1743,6 +1746,12 @@ int SessionAlsaVoice::setExtECRef(Stream *s, std::shared_ptr<Device> rx_dev, boo
         PAL_ERR(LOG_TAG, "Invalid stream");
         status = -EINVAL;
         goto exit;
+    }
+
+    status = s->getStreamAttributes(&sAttr);
+    if(0 != status) {
+       PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
+       goto exit;
     }
 
     rxDevInfo.isExternalECRefEnabledFlag = 0;

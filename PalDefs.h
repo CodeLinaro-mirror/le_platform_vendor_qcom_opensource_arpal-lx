@@ -336,7 +336,7 @@ typedef enum {
     PAL_STREAM_VOICE_CALL_MUSIC = 7,      /**< :incall music */
     PAL_STREAM_GENERIC = 8,               /**< :generic playback audio*/
     PAL_STREAM_RAW = 9,                   /**< pcm no post processing*/
-    PAL_STREAM_VOICE_ACTIVATION = 10,     /**< voice activation*/
+    PAL_STREAM_VOICE_RECOGNITION = 10,     /**< voice recognition*/
     PAL_STREAM_VOICE_CALL_RECORD = 11,    /**< incall record */
     PAL_STREAM_VOICE_CALL_TX = 12,        /**< incall record, uplink */
     PAL_STREAM_VOICE_CALL_RX_TX = 13,     /**< incall record, uplink & Downlink */
@@ -532,7 +532,7 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" },         PAL_STREAM_VOICE_CALL_MUSIC},
     {std::string{ "PAL_STREAM_GENERIC" },                  PAL_STREAM_GENERIC},
     {std::string{ "PAL_STREAM_RAW" },                      PAL_STREAM_RAW},
-    {std::string{ "PAL_STREAM_VOICE_ACTIVATION" },         PAL_STREAM_VOICE_ACTIVATION},
+    {std::string{ "PAL_STREAM_VOICE_RECOGNITION" },        PAL_STREAM_VOICE_RECOGNITION},
     {std::string{ "PAL_STREAM_VOICE_CALL_RECORD" },        PAL_STREAM_VOICE_CALL_RECORD},
     {std::string{ "PAL_STREAM_VOICE_CALL_TX" },            PAL_STREAM_VOICE_CALL_TX},
     {std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" },         PAL_STREAM_VOICE_CALL_RX_TX},
@@ -561,7 +561,7 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_VOICE_CALL_MUSIC,   std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" } },
     {PAL_STREAM_GENERIC,            std::string{ "PAL_STREAM_GENERIC" } },
     {PAL_STREAM_RAW,                std::string{ "PAL_STREAM_RAW" } },
-    {PAL_STREAM_VOICE_ACTIVATION,   std::string{ "PAL_STREAM_VOICE_ACTIVATION" } },
+    {PAL_STREAM_VOICE_RECOGNITION,  std::string{ "PAL_STREAM_VOICE_RECOGNITION" } },
     {PAL_STREAM_VOICE_CALL_RECORD,  std::string{ "PAL_STREAM_VOICE_CALL_RECORD" } },
     {PAL_STREAM_VOICE_CALL_TX,      std::string{ "PAL_STREAM_VOICE_CALL_TX" } },
     {PAL_STREAM_VOICE_CALL_RX_TX,   std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" } },
@@ -1393,16 +1393,19 @@ typedef struct pal_buffer_config {
     size_t max_metadata_size; /** < max metadata size associated with each buffer*/
 } pal_buffer_config_t;
 
+#define PAL_GENERIC_PLATFORM_DELAY     (29*1000LL)
 #define PAL_DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)
 #define PAL_PCM_OFFLOAD_PLATFORM_DELAY (30*1000LL)
 #define PAL_LOW_LATENCY_PLATFORM_DELAY (13*1000LL)
 #define PAL_MMAP_PLATFORM_DELAY        (3*1000LL)
 #define PAL_ULL_PLATFORM_DELAY         (4*1000LL)
 
+#define PAL_GENERIC_OUTPUT_PERIOD_DURATION 40
 #define PAL_DEEP_BUFFER_OUTPUT_PERIOD_DURATION 40
 #define PAL_PCM_OFFLOAD_OUTPUT_PERIOD_DURATION 80
 #define PAL_LOW_LATENCY_OUTPUT_PERIOD_DURATION 5
 
+#define PAL_GENERIC_PLAYBACK_PERIOD_COUNT 2
 #define PAL_DEEP_BUFFER_PLAYBACK_PERIOD_COUNT 2
 #define PAL_PCM_OFFLOAD_PLAYBACK_PERIOD_COUNT 2
 #define PAL_LOW_LATENCY_PLAYBACK_PERIOD_COUNT 2

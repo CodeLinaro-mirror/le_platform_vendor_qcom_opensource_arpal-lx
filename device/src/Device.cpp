@@ -194,8 +194,10 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         PAL_VERBOSE(LOG_TAG, "BT SCO device %d", dev_id);
         return BtSco::getObject(dev_id);
     case PAL_DEVICE_OUT_PROXY:
-    case PAL_DEVICE_IN_PROXY:
     case PAL_DEVICE_OUT_HEARING_AID:
+        PAL_VERBOSE(LOG_TAG, "RTProxyOut device %d", dev_id);
+        return RTProxyOut::getObject();
+    case PAL_DEVICE_IN_PROXY:
     case PAL_DEVICE_IN_TELEPHONY_RX:
         PAL_VERBOSE(LOG_TAG, "RTProxy device %d", dev_id);
         return RTProxy::getObject();
@@ -408,7 +410,7 @@ int Device::close()
            PAL_DBG(LOG_TAG, "Disabling device %d with snd dev %s", deviceAttr.id, mSndDeviceName);
            disableDevice(audioRoute, mSndDeviceName);
            mCurrentPriority = MIN_USECASE_PRIORITY;
-           deviceStartDone = false;
+           deviceStartStopCount = 0;
        }
     }
     PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s), exit status %d", deviceCount,
@@ -439,9 +441,10 @@ int Device::start_l()
     int status = 0;
     std::string backEndName;
 
-    PAL_DBG(LOG_TAG, "Enter. deviceCount %d for device id %d (%s)", deviceCount,
+    PAL_DBG(LOG_TAG, "Enter. deviceCount %d deviceStartStopCount %d"
+        " for device id %d (%s)", deviceCount, deviceStartStopCount,
             this->deviceAttr.id, mPALDeviceName.c_str());
-    if (!deviceStartDone) {
+    if (0 == deviceStartStopCount) {
         rm->getBackendName(deviceAttr.id, backEndName);
         if (!strlen(backEndName.c_str())) {
             PAL_ERR(LOG_TAG, "Error: Backend name not defined for %d in xml file\n", deviceAttr.id);
@@ -458,8 +461,8 @@ int Device::start_l()
                  PAL_ERR(LOG_TAG, "Error: Dev setParam failed for %d\n",
                                    deviceAttr.id);
         }
-        deviceStartDone = true;
     }
+    deviceStartStopCount++;
 exit :
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
@@ -479,6 +482,14 @@ int Device::stop()
 // must be called with mDeviceMutex held
 int Device::stop_l()
 {
+    PAL_DBG(LOG_TAG, "Enter. deviceCount %d deviceStartStopCount %d"
+        " for device id %d (%s)", deviceCount, deviceStartStopCount,
+            this->deviceAttr.id, mPALDeviceName.c_str());
+
+    if (deviceStartStopCount > 0) {
+        --deviceStartStopCount;
+    }
+
     return 0;
 }
 

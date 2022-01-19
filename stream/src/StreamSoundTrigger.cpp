@@ -153,8 +153,6 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         throw std::runtime_error(err);
     }
 
-    rm->registerStream(this);
-
     // Create internal states
     st_idle_ = new StIdle(*this);
     st_loaded_ = new StLoaded(*this);
@@ -180,6 +178,9 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         prev_state_ = nullptr;
         state_for_restore_ = ST_STATE_NONE;
     }
+
+    rm->registerStream(this);
+
     // Print the concurrency feature flags supported
     PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,voip conc enable %d",
         st_info_->GetConcurrentCaptureEnable(), st_info_->GetConcurrentVoiceCallEnable(),
@@ -216,7 +217,7 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
 }
 
 StreamSoundTrigger::~StreamSoundTrigger() {
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
     {
         std::lock_guard<std::mutex> lck(timer_mutex_);
         exit_timer_thread_ = true;
@@ -231,6 +232,7 @@ StreamSoundTrigger::~StreamSoundTrigger() {
 
     st_states_.clear();
     engines_.clear();
+    mStreamMutex.unlock();
 
     rm->deregisterStream(this);
     if (mStreamAttr)
@@ -281,6 +283,11 @@ int32_t StreamSoundTrigger::close() {
     std::lock_guard<std::mutex> lck(mStreamMutex);
     std::shared_ptr<StEventConfig> ev_cfg(new StUnloadEventConfig());
     status = cur_state_->ProcessEvent(ev_cfg);
+
+    if (sm_config_) {
+        free(sm_config_);
+        sm_config_ = nullptr;
+    }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
@@ -660,13 +667,16 @@ int32_t StreamSoundTrigger::HandleChargingStateUpdate(bool state, bool active) {
     int32_t disable_concurrency_count = 0;
 
     PAL_DBG(LOG_TAG, "Enter, state %d", state);
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    if (!active) {
+        mStreamMutex.lock();
+        common_cp_update_disable_ = true;
+    }
     charging_state_ = state;
     if (!rm->IsLPISupported(PAL_STREAM_VOICE_UI)) {
         PAL_DBG(LOG_TAG, "Ignore as LPI not supported");
     } else {
         // check concurrency count from rm
-        rm->GetSoundTriggerConcurrencyCount(PAL_STREAM_VOICE_UI,
+        rm->GetSoundTriggerConcurrencyCount_l(PAL_STREAM_VOICE_UI,
             &enable_concurrency_count, &disable_concurrency_count);
 
         // no need to update use_lpi_ if there's concurrency enabled
@@ -683,6 +693,11 @@ int32_t StreamSoundTrigger::HandleChargingStateUpdate(bool state, bool active) {
     status = cur_state_->ProcessEvent(ev_cfg);
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to update charging state");
+    }
+
+    if (active) {
+        common_cp_update_disable_ = false;
+        mStreamMutex.unlock();
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -4336,6 +4351,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                         TransitTo(ST_STATE_LOADED);
                     }
                 }
+                rm->releaseWakeLock();
                 break;
             }
             if (data->det_type_ == KEYWORD_DETECTION_SUCCESS ||
@@ -4563,6 +4579,14 @@ int32_t StreamSoundTrigger::StSSR::ProcessEvent(
             } else {
                 st_stream_.state_for_restore_ = ST_STATE_LOADED;
             }
+            break;
+        }
+        case ST_EV_PAUSE: {
+            st_stream_.paused_ = true;
+            break;
+        }
+        case ST_EV_RESUME: {
+            st_stream_.paused_ = false;
             break;
         }
         case ST_EV_READ_BUFFER:

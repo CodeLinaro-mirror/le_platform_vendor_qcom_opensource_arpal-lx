@@ -124,6 +124,9 @@ typedef enum {
     TAG_CONFIG_VOLUME,
     TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAM,
     TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAMS,
+    TAG_CONFIG_LPM,
+    TAG_CONFIG_LPM_SUPPORTED_STREAM,
+    TAG_CONFIG_LPM_SUPPORTED_STREAMS,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -212,6 +215,12 @@ typedef enum {
     CONCURRENCY_PB_STOPS
 } charger_boost_mode_t;
 
+typedef enum {
+    NO_DEFER,
+    DEFER_LPI_NLPI_SWITCH,
+    DEFER_NLPI_LPI_SWITCH,
+} defer_switch_state_t;
+
 struct usecase_custom_config_info
 {
     std::string key;
@@ -264,6 +273,11 @@ struct vsid_info {
 
 struct volume_set_param_info {
     int isVolumeUsingSetParam;
+    std::vector<uint32_t> streams_;
+};
+
+struct disable_lpm_info {
+    int isDisableLpm;
     std::vector<uint32_t> streams_;
 };
 
@@ -405,6 +419,7 @@ private:
     int updateECDeviceMap(std::shared_ptr<Device> rx_dev,
                         std::shared_ptr<Device> tx_dev,
                         Stream *tx_str, int count, bool is_txstop);
+    int clearInternalECRefCounts(Stream *tx_str, std::shared_ptr<Device> tx_dev);
     static bool isBitWidthSupported(uint32_t bitWidth);
     uint32_t getNTPathForStreamAttr(const pal_stream_attributes attr);
     ssize_t getAvailableNTStreamInstance(const pal_stream_attributes attr);
@@ -418,6 +433,7 @@ protected:
     std::list <StreamPCM*> active_streams_proxy;
     std::list <StreamPCM*> active_streams_haptics;
     std::list <StreamPCM*> active_streams_raw;
+    std::list <StreamPCM*> active_streams_voice_rec;
     std::list <StreamInCall*> active_streams_incall_record;
     std::list <StreamNonTunnel*> active_streams_non_tunnel;
     std::list <StreamInCall*> active_streams_incall_music;
@@ -442,6 +458,7 @@ protected:
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
     static std::mutex mSleepMonitorMutex;
+    static std::mutex mListFrontEndsMutex;
     static int snd_virt_card;
     static int snd_hw_card;
 
@@ -485,6 +502,7 @@ protected:
     static std::vector<tx_ecinfo> txEcInfo;
     static struct vsid_info vsidInfo;
     static struct volume_set_param_info volumeSetParamInfo_;
+    static struct disable_lpm_info disableLpmInfo_;
     static std::vector<struct pal_amp_db_and_gain_table> gainLvlMap;
     static SndCardMonitor *sndmon;
     static std::vector <uint32_t> lpi_vote_streams_;
@@ -503,6 +521,7 @@ protected:
     static int ACDConcurrencyDisableCount;
     static int SNSPCMDataConcurrencyEnableCount;
     static int SNSPCMDataConcurrencyDisableCount;
+    static defer_switch_state_t deferredSwitchState;
     static int wake_lock_fd;
     static int wake_unlock_fd;
     static uint32_t wake_lock_cnt;
@@ -585,6 +604,7 @@ public:
     bool getEcRefStatus(pal_stream_type_t tx_streamtype,pal_stream_type_t rx_streamtype);
     int32_t getVsidInfo(struct vsid_info  *info);
     int32_t getVolumeSetParamInfo(struct volume_set_param_info *volinfo);
+    int32_t getDisableLpmInfo(struct disable_lpm_info *lpminfo);
     int getMaxVoiceVol();
     void getChannelMap(uint8_t *channel_map, int channels);
     pal_audio_fmt_t getAudioFmt(uint32_t bitWidth);
@@ -647,8 +667,8 @@ public:
     int getAudioRoute(struct audio_route** ar);
     int getVirtualAudioMixer(struct audio_mixer **am);
     int getHwAudioMixer(struct audio_mixer **am);
-    int getActiveStream(std::shared_ptr<Device> d, std::vector<Stream*> &activestreams);
-    int getActiveStream_l(std::shared_ptr<Device> d, std::vector<Stream*> &activestreams);
+    int getActiveStream(std::vector<Stream*> &activestreams, std::shared_ptr<Device> d = nullptr);
+    int getActiveStream_l(std::vector<Stream*> &activestreams,std::shared_ptr<Device> d = nullptr);
     int getOrphanStream(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
     int getOrphanStream_l(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
     int getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
@@ -687,6 +707,7 @@ public:
     bool IsTransitToNonLPIOnChargingSupported();
     bool IsDedicatedBEForUPDEnabled();
     void GetSoundTriggerConcurrencyCount(pal_stream_type_t type, int32_t *enable_count, int32_t *disable_count);
+    void GetSoundTriggerConcurrencyCount_l(pal_stream_type_t type, int32_t *enable_count, int32_t *disable_count);
     bool GetChargingState() const { return charging_state_; }
     bool getChargerOnlineState(void) const { return is_charger_online_; }
     bool getConcurrentBoostState(void) const { return is_concurrent_boost_state_; }
@@ -715,9 +736,13 @@ public:
     void ConcurrentStreamStatus(pal_stream_type_t type,
                                 pal_stream_direction_t dir,
                                 bool active);
-    void HandleConcurrenyForSoundTriggerStreams(pal_stream_type_t type,
+    void HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t type,
                                 pal_stream_direction_t dir,
                                 bool active);
+    bool isAnyVUIStreamBuffering();
+    void handleDeferredSwitch();
+    void handleConcurrentStreamSwitch(std::vector<pal_stream_type_t>& st_streams,
+                                      bool stream_active, bool is_deferred);
     std::shared_ptr<Device> getActiveEchoReferenceRxDevices(Stream *tx_str);
     std::shared_ptr<Device> getActiveEchoReferenceRxDevices_l(Stream *tx_str);
     std::vector<Stream*> getConcurrentTxStream(
@@ -726,6 +751,9 @@ public:
         Stream *rx_str, std::shared_ptr<Device> rx_device);
     bool checkECRef(std::shared_ptr<Device> rx_dev,
                     std::shared_ptr<Device> tx_dev);
+    bool isExternalECSupported(std::shared_ptr<Device> tx_dev);
+    bool isExternalECRefEnabled(int rx_dev_id);
+    void disableInternalECRefs(Stream *s);
 
     static void endTag(void *userdata __unused, const XML_Char *tag_name);
     static void snd_reset_data_buf(struct xml_userdata *data);
@@ -734,6 +762,7 @@ public:
     static void process_input_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_voice(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_volume(struct xml_userdata *data, const XML_Char *tag_name);
+    static void process_config_lpm(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_lpi_vote_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_kvinfo(const XML_Char **attr, bool overwrite);
     static void process_voicemode_info(const XML_Char **attr);
