@@ -210,12 +210,3 @@ int RTProxyOut::start() {
     return Device::start();
 }
 
-std::shared_ptr<Device> RTProxyOut::getObject()
-{
-    return obj;
-}
-
-RTProxyOut::~RTProxyOut()
-{
-
-}
