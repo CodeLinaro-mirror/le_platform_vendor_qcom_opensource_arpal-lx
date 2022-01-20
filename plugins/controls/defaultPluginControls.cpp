@@ -479,13 +479,13 @@ int GetUsecase(audio_output_flags_t halStreamFlags)
 
 int pcm_buffer_size(pal_stream_attributes sattr)
 {
-    uint8_t channels = audio_channel_count_from_out_mask(sattr.out_media_config.ch_mask);
-    uint8_t bytes_per_sample = audio_bytes_per_sample((audio_format_t)sattr.out_media_config.format);
+    uint8_t channels = audio_channel_count_from_out_mask(sattr.ch_mask);
+    uint8_t bytes_per_sample = audio_bytes_per_sample((audio_format_t)sattr.format);
     uint32_t fragment_size = 0;
 
     PAL_DBG(LOG_TAG, "config_ format:%x, SR %d ch_mask 0x%x",
-            sattr.out_media_config.format, sattr.out_media_config.sample_rate,
-            sattr.out_media_config.ch_mask);
+            sattr.format, sattr.out_media_config.sample_rate,
+            sattr.ch_mask);
     fragment_size = PCM_OFFLOAD_OUTPUT_PERIOD_DURATION *
         sattr.out_media_config.sample_rate * bytes_per_sample * channels;
     fragment_size /= 1000;
@@ -529,20 +529,20 @@ uint32_t get_buffer_size(pal_stream_attributes streamAttributes_) {
     if (streamAttributes_.type == PAL_STREAM_VOIP_RX) {
         return voip_buffer_size(streamAttributes_.out_media_config.sample_rate);
     } else if (streamAttributes_.type == PAL_STREAM_COMPRESSED) {
-        return compressed_buffer_size((audio_format_t)streamAttributes_.out_media_config.format);
+        return compressed_buffer_size((audio_format_t)streamAttributes_.format);
     } else if (streamAttributes_.type == PAL_STREAM_PCM_OFFLOAD
               || streamAttributes_.type == PAL_STREAM_DEEP_BUFFER) {
         return pcm_buffer_size(streamAttributes_);
     } else if (streamAttributes_.type == PAL_STREAM_LOW_LATENCY) {
         return LOW_LATENCY_PLAYBACK_PERIOD_SIZE *
             audio_bytes_per_frame(
-                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
-                    (audio_format_t)streamAttributes_.out_media_config.format);
+                    audio_channel_count_from_out_mask(streamAttributes_.ch_mask),
+                    (audio_format_t)streamAttributes_.format);
     } else if (streamAttributes_.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
         return ULL_PERIOD_SIZE * ULL_PERIOD_MULTIPLIER *
             audio_bytes_per_frame(
-                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
-                    (audio_format_t)streamAttributes_.out_media_config.format);
+                    audio_channel_count_from_out_mask(streamAttributes_.ch_mask),
+                    (audio_format_t)streamAttributes_.format);
     } else if (streamAttributes_.type == PAL_STREAM_PLAYBACK_BUS) {
         if ((strcmp(streamAttributes_.bus_addr, BUS_MEDIA) == 0)
             || (strcmp(streamAttributes_.bus_addr, BUS_SYS_NOTIFICATION) == 0)
@@ -551,8 +551,8 @@ uint32_t get_buffer_size(pal_stream_attributes streamAttributes_) {
         } else if(strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0) {
             return LOW_LATENCY_PLAYBACK_PERIOD_SIZE *
             audio_bytes_per_frame(
-                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
-                    (audio_format_t)streamAttributes_.out_media_config.format);
+                    audio_channel_count_from_out_mask(streamAttributes_.ch_mask),
+                    (audio_format_t)streamAttributes_.format);
         } else {
             return BUF_SIZE_PLAYBACK * NO_OF_BUF;
         }
@@ -574,13 +574,13 @@ void get_buffer_configration(Stream* s, void** payload, size_t* payload_size)
 
     if (usecase == AUDIO_USECASE_PLAYBACK_MMAP) {
         buff_config->buffer_size = MMAP_PERIOD_SIZE * audio_bytes_per_frame(
-                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
-                    (audio_format_t)streamAttributes_.out_media_config.format);
+                    audio_channel_count_from_out_mask(streamAttributes_.ch_mask),
+                    (audio_format_t)streamAttributes_.format);
         buff_config->buffer_count = MMAP_PERIOD_COUNT_DEFAULT;
     } else if (usecase == AUDIO_USECASE_PLAYBACK_ULL) {
         buff_config->buffer_size = ULL_PERIOD_SIZE * audio_bytes_per_frame(
-                    audio_channel_count_from_out_mask(streamAttributes_.out_media_config.ch_mask),
-                    (audio_format_t)streamAttributes_.out_media_config.format);
+                    audio_channel_count_from_out_mask(streamAttributes_.ch_mask),
+                    (audio_format_t)streamAttributes_.format);
         buff_config->buffer_count = ULL_PERIOD_COUNT_DEFAULT;
     } else
         buff_config->buffer_size = get_buffer_size(streamAttributes_);

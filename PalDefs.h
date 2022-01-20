@@ -41,6 +41,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <system/audio.h>
 
 #ifdef __cplusplus
 
@@ -619,8 +620,6 @@ struct pal_media_config {
     uint32_t bit_width;                  /**< bit width */
     pal_audio_fmt_t aud_fmt_id;          /**< audio format id*/
     struct pal_channel_info ch_info;     /**< channel info */
-    uint32_t ch_mask;                    /**< Channel mask received in audio_config*/
-    uint32_t format;                     /**< Audio format value received in audio_config*/
 };
 
 /** Android Media configuraiton  */
@@ -652,6 +651,8 @@ struct pal_stream_attributes {
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
     char* bus_addr;                              /**<  BUS device address */
     uint32_t hal_flags;                          /**<  Stream flags received in HAL*/
+    audio_channel_mask_t ch_mask;                /**<  Channel mask received in audio_config */
+    audio_format_t format;                       /**<  Audio format value received in audio_config */
 };
 
 /**< Key value pair to identify the topology of a usecase from default  */
