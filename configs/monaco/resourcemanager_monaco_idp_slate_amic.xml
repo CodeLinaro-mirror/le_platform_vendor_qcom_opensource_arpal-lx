@@ -89,6 +89,9 @@
         <stream_type>PAL_STREAM_ACD</stream_type>
         <stream_type>PAL_STREAM_ULTRASOUND</stream_type>
     </low_power_vote_streams>
+    <deepsleep_support_streams>
+        <ds_stream_type>PAL_STREAM_VOICE_UI</ds_stream_type>
+    </deepsleep_support_streams>
     <device_profile>
         <in-device>
             <id>PAL_DEVICE_IN_HANDSET_MIC</id>

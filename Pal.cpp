@@ -26,6 +26,36 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/*
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+*/
 
 #define LOG_TAG "PAL: API"
 
@@ -37,6 +67,11 @@
 #include "Device.h"
 #include "ResourceManager.h"
 #include "PalCommon.h"
+
+#ifdef PSM_ENABLE
+#include "PowerStateMonitor.h"
+#endif
+
 class Stream;
 
 /*
@@ -79,6 +114,9 @@ int32_t pal_init(void)
 {
     PAL_DBG(LOG_TAG, "Enter.");
     int32_t ret = 0;
+#ifdef PSM_ENABLE
+    PowerStateMonitor *psm = NULL;
+#endif
     std::shared_ptr<ResourceManager> ri = NULL;
     try {
         ri = ResourceManager::getInstance();
@@ -87,6 +125,16 @@ int32_t pal_init(void)
         ret = -EINVAL;
         goto exit;
     }
+#ifdef PSM_ENABLE
+    psm = PowerStateMonitor::getInstance();
+    if (psm && psm->attachToPowerStateMonitor() == true) {
+        PAL_DBG(LOG_TAG, "Attached to powerStateMonitor %p\n", (void *)psm);
+    } else {
+        /* Not breaking other audio features even if PSM fails */
+        PAL_ERR(LOG_TAG, "Failed to attach to powerStateMonitor %p\n", (void *)psm);
+    }
+#endif
+
     ret = ri->initSndMonitor();
     if (ret != 0) {
         PAL_ERR(LOG_TAG, "snd monitor init failed");
@@ -115,7 +163,9 @@ exit:
 void pal_deinit(void)
 {
     PAL_DBG(LOG_TAG, "Enter.");
-
+#ifdef PSM_ENABLE
+    PowerStateMonitor *psm = NULL;
+#endif
     std::shared_ptr<ResourceManager> ri = NULL;
 
     try {
@@ -126,6 +176,15 @@ void pal_deinit(void)
     ri->deInitContextManager();
 
     ResourceManager::deinit();
+
+#ifdef PSM_ENABLE
+    psm = PowerStateMonitor::getInstance();
+    if (psm && psm->dettachFromPowerStateMonitor() == true) {
+        PAL_DBG(LOG_TAG, "Dettached from powerStateMonitor %p\n", (void *)psm);
+    } else {
+        PAL_ERR(LOG_TAG, "Failed to dettach from powerStateMonitor %p\n", (void *)psm);
+    }
+#endif
     PAL_DBG(LOG_TAG, "Exit.");
     return;
 }
@@ -147,6 +206,25 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
         return status;
     }
 
+#ifdef PSM_ENABLE
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG,"Resource manager unavailable");
+        return status;
+    }
+
+    /* Allow only deepsleep_support_streams(from RM-XML) while in DS state */
+    if (!rm->isStreamSupportedInDeepsleep(attributes->type)) {
+        PowerStateMonitor *psm = PowerStateMonitor::getInstance();
+        if (psm && psm->getPsmDeepsleepState()) {
+            PAL_ERR(LOG_TAG, "In DEEPSLEEP state, stream type %d, open not allowed", attributes->type);
+            status = -EINVAL;
+            usleep(PSM_DS_RECOVERY_US);
+            return status;
+        }
+    }
+#endif
     PAL_INFO(LOG_TAG, "Enter, stream type:%d", attributes->type);
 
     try {
