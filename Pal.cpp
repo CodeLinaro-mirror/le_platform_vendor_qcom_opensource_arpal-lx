@@ -209,7 +209,6 @@ exit:
 int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
-    std::shared_ptr<ResourceManager> rm = NULL;
     int status;
     pal_stream_type_t type;
     pal_stream_direction_t dir;
@@ -220,26 +219,16 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
     }
     PAL_INFO(LOG_TAG, "Enter. Stream handle %pK", stream_handle);
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        goto exit;
-    }
-
-    rm->lockActiveStream();
     s = reinterpret_cast<Stream *>(stream_handle);
 
     status = s->start();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
-        rm->unlockActiveStream();
         goto exit;
     }
 
     s->getStreamType(&type);
     s->getStreamDirection(&dir);
-    rm->unlockActiveStream();
     notify_concurrent_stream(type, dir, true);
 exit:
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
@@ -249,7 +238,6 @@ exit:
 int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
-    std::shared_ptr<ResourceManager> rm = NULL;
     int status;
     pal_stream_type_t type;
     pal_stream_direction_t dir;
@@ -259,14 +247,7 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
         return status;
     }
     PAL_INFO(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        goto exit;
-    }
 
-    rm->lockActiveStream();
     s = reinterpret_cast<Stream *>(stream_handle);
     s->getStreamType(&type);
     s->getStreamDirection(&dir);
@@ -274,12 +255,10 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
     status = s->stop();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream stop failed. status : %d", status);
-        rm->unlockActiveStream();
         notify_concurrent_stream(type, dir, false);
         goto exit;
     }
 
-    rm->unlockActiveStream();
     notify_concurrent_stream(type, dir, false);
 
 exit:
