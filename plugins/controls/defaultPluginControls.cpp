@@ -360,6 +360,12 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         goto exit;
     }
 
+    if (voldB > 1.0) {
+        // need to rebase voldB level
+        voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
+        PAL_DBG(LOG_TAG,"Volume brought within range (%f)\n", voldB);
+    }
+
     if (voldB == 0.0f) {
         ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
     }
