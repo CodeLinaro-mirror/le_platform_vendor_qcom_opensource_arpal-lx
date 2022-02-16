@@ -2055,7 +2055,7 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
             if (a2dpState == A2DP_STATE_DISCONNECTED)
                 goto exit;
 
-            status = rm->a2dpSuspend();
+            status = rm->a2dpSuspend(param_a2dp->dev_id);
             if (audio_source_suspend_api)
                 audio_source_suspend_api(get_session_type());
             else
@@ -2077,7 +2077,7 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                     goto exit;
                 }
             }
-            status = rm->a2dpResume();
+            status = rm->a2dpResume(param_a2dp->dev_id);
         }
         break;
     }
@@ -2141,7 +2141,7 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
             if (a2dpState == A2DP_STATE_DISCONNECTED)
                 goto exit;
 
-            rm->a2dpCaptureSuspend();
+            status = rm->a2dpCaptureSuspend(param_a2dp->dev_id);
             if (audio_sink_suspend_api)
                 audio_sink_suspend_api(get_session_type());
             else
@@ -2164,7 +2164,7 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                     goto exit;
                 }
             }
-            rm->a2dpCaptureResume();
+            rm->a2dpCaptureResume(param_a2dp->dev_id);
         }
         break;
     }
