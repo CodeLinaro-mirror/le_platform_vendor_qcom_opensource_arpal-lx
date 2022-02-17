@@ -851,11 +851,12 @@ int SessionAlsaPcm::start(Stream * s)
 
     switch (sAttr.direction) {
         case PAL_AUDIO_INPUT:
-            if ((sAttr.type != PAL_STREAM_VOICE_UI) &&
+            if (((sAttr.type != PAL_STREAM_VOICE_UI) &&
                 (sAttr.type != PAL_STREAM_ACD) &&
                 (sAttr.type != PAL_STREAM_CONTEXT_PROXY) &&
                 (sAttr.type != PAL_STREAM_SENSOR_PCM_DATA) &&
-                (SessionAlsaUtils::isMmapUsecase(sAttr) == false)) {
+                (SessionAlsaUtils::isMmapUsecase(sAttr) == false)) ||
+                (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY )) {
                 /* Get MFC MIID and configure to match to stream config */
                 /* This has to be done after sending all mixer controls and before connect */
                 if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD)
@@ -936,6 +937,12 @@ set_mixer:
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
+                }
+                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY){
+                     status = setConfig(s, MODULE, PUSHPULL_CHMIXER_COEFFICIENT);
+
+                        if (status)
+                            PAL_ERR(LOG_TAG, "Failed setConfig status=%d", status);
                 }
                 if (sAttr.type == PAL_STREAM_VOICE_CALL_RECORD) {
                     status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),

@@ -110,6 +110,7 @@ typedef enum {
 #define CHARGE_CONCURRENCY_ON_TAG 43
 #define CHARGE_CONCURRENCY_OFF_TAG 44
 #define VOICE_CKV_DATA 45
+#define PUSHPULL_CHMIXER_COEFFICIENT 46
 
 /* This sleep is added to give time to kernel and
  * spf to recover from SSR so that audio-hal will
