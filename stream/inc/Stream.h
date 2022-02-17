@@ -101,6 +101,7 @@ typedef enum {
 #define DEVICE_MUTE 38
 #define DEVICE_UNMUTE 39
 #define VOICE_CKV_DATA 40
+#define PUSHPULL_CHMIXER_COEFFICIENT 41
 
 /* This sleep is added to give time to kernel and
  * spf to recover from SSR so that audio-hal will
