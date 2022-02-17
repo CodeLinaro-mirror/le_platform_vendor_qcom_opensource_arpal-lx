@@ -2304,6 +2304,19 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
     }
 
     switch (tag) {
+    case PUSHPULL_CHMIXER_COEFFICIENT:
+       if(sAttr.in_media_config.ch_info.channels == 3){
+           tkv.push_back(std::make_pair(PUSH_PULL_CHMIXER_COEFF,PUSH_PULL_CHMIXER_COEFF_3CH));
+       }
+       else if (sAttr.in_media_config.ch_info.channels == 5){
+           tkv.push_back(std::make_pair(PUSH_PULL_CHMIXER_COEFF,PUSH_PULL_CHMIXER_COEFF_5CH));
+       }
+       else{
+           PAL_ERR(LOG_TAG,"valid out_num_channels for CHMIXER is 3CH and 5CH, returning error\n");
+           status = -EINVAL;
+       }
+       *gsltag = TAG_STREAM_PUSH_PULL_CHMIXER_COEFF;
+	break;
     case MUTE_TAG:
        tkv.push_back(std::make_pair(MUTE,ON));
        *gsltag = TAG_MUTE;
