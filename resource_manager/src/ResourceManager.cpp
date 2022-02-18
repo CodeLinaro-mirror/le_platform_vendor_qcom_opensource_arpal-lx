@@ -1171,6 +1171,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "sm8150") ||
                     strstr(snd_card_name, "lahaina") ||
                     strstr(snd_card_name, "waipio") ||
+                    strstr(snd_card_name, "neo") ||
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco")) {
