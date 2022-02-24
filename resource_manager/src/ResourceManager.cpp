@@ -952,6 +952,11 @@ int ResourceManager::init_audio()
                !strncmp(cur_snd_card_split.form_factor, "6155", sizeof ("6155"))) {
             strlcat(rmngr_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
             strlcat(rmngr_xml_file, cur_snd_card_split.form_factor, XML_PATH_MAX_LENGTH);
+    } else if (!strncmp(cur_snd_card_split.device, "gvmauto8295", sizeof("gvmauto8295"))) {
+            /* For 8295, the form_factor is "adp" because the snd_card name is
+               gvmauto8295-adp-star-snd-card */
+            strlcat(rmngr_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
+            strlcat(rmngr_xml_file, "8295",  XML_PATH_MAX_LENGTH);
     }
     strlcat(mixer_xml_file, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
