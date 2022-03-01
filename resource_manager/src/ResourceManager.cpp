@@ -2191,6 +2191,10 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             cur_sessions = active_streams_raw.size();
             max_sessions = MAX_SESSIONS_RAW;
             break;
+        case PAL_STREAM_PLAYBACK_BUS:
+            cur_sessions = active_streams_bus.size();
+            max_sessions = MAX_SESSIONS_DEEP_BUFFER;
+            break;
         case PAL_STREAM_VOICE_ACTIVATION:
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_TRANSCODE:
@@ -2262,6 +2266,7 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_PROXY:
         case PAL_STREAM_VOICE_CALL_MUSIC:
+        case PAL_STREAM_PLAYBACK_BUS:
         case PAL_STREAM_HAPTICS:
             if (attributes->direction == PAL_AUDIO_INPUT) {
                 channels = attributes->in_media_config.ch_info.channels;
@@ -2427,6 +2432,12 @@ int ResourceManager::registerStream(Stream *s)
         {
             StreamPCM* sULLA = dynamic_cast<StreamPCM*>(s);
             ret = registerstream(sULLA, active_streams_ulla);
+            break;
+        }
+        case PAL_STREAM_PLAYBACK_BUS:
+        {
+            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
+            ret = registerstream(sDB, active_streams_bus);
             break;
         }
         case PAL_STREAM_VOICE_UI:
@@ -2615,6 +2626,12 @@ int ResourceManager::deregisterStream(Stream *s)
         {
             StreamPCM* sProxy = dynamic_cast<StreamPCM*>(s);
             ret = deregisterstream(sProxy, active_streams_proxy);
+            break;
+        }
+        case PAL_STREAM_PLAYBACK_BUS:
+        {
+            StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
+            ret = deregisterstream(sDB, active_streams_bus);
             break;
         }
         case PAL_STREAM_VOICE_CALL_MUSIC:
@@ -4696,6 +4713,7 @@ int ResourceManager::getActiveStream_l(std::shared_ptr<Device> d,
     getActiveStreams(d, activestreams, active_streams_haptics);
     getActiveStreams(d, activestreams, active_streams_ultrasound);
     getActiveStreams(d, activestreams, active_streams_sensor_pcm_data);
+    getActiveStreams(d, activestreams, active_streams_bus);
 
     if (activestreams.empty()) {
         ret = -ENOENT;
@@ -5380,6 +5398,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
         case PAL_STREAM_PCM_OFFLOAD:
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_PROXY:
+        case PAL_STREAM_PLAYBACK_BUS:
         case PAL_STREAM_HAPTICS:
         case PAL_STREAM_ULTRASOUND:
         case PAL_STREAM_RAW:
@@ -5656,6 +5675,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_ACD:
         case PAL_STREAM_PCM_OFFLOAD:
+        case PAL_STREAM_PLAYBACK_BUS:
         case PAL_STREAM_HAPTICS:
         case PAL_STREAM_ULTRASOUND:
         case PAL_STREAM_SENSOR_PCM_DATA:
@@ -7830,7 +7850,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
                         (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
                         (sAttr.type == PAL_STREAM_COMPRESSED) ||
-                        (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
+                        (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+                        (sAttr.type == PAL_STREAM_PLAYBACK_BUS))) {
                         stream->setGainLevel(gain_lvl_cal->level);
                         stream->getAssociatedSession(&session);
                         status = session->setConfig(stream, CALIBRATION, TAG_DEVICE_PP_MBDRC);
@@ -8226,7 +8247,8 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
                     (PAL_STREAM_COMPRESSED == streamType) ||
                     (PAL_STREAM_PCM_OFFLOAD == streamType) ||
                     (PAL_STREAM_ULTRA_LOW_LATENCY == streamType) ||
-                    (PAL_STREAM_LOW_LATENCY == streamType)) {
+                    (PAL_STREAM_LOW_LATENCY == streamType) ||
+                    (PAL_STREAM_PLAYBACK_BUS == streamType)) {
 
                     PAL_INFO(LOG_TAG, "Rotation for stream %d", streamType);
                     // Need to set the rotation now.
@@ -8555,6 +8577,7 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
         default: {
             status = str->getInstanceId();
             if (StrAttr.direction == PAL_AUDIO_INPUT && !status) {
+                PAL_DBG(LOG_TAG, "Did not find instance id %d for input stream", status);
                 if (in_stream_instances[StrAttr.type - 1] ==  -1) {
                     PAL_ERR(LOG_TAG, "All stream instances taken");
                     status = -EINVAL;
@@ -8567,6 +8590,13 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
                         break;
                     }
                 str->setInstanceId(status);
+            } else if (StrAttr.direction == PAL_AUDIO_INPUT && status) {
+                PAL_DBG(LOG_TAG, "Found instance id %d for input stream", status);
+                for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
+                    if (!(in_stream_instances[StrAttr.type - 1] & (1 << (status - 1)))) {
+                        in_stream_instances[StrAttr.type - 1] |= (1 << (status - 1));
+                        break;
+                    }
             } else if (!status) {
                 if (stream_instances[StrAttr.type - 1] ==  -1) {
                     PAL_ERR(LOG_TAG, "All stream instances taken");

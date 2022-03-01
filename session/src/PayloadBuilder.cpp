@@ -848,6 +848,7 @@ int PayloadBuilder::init()
         if (bytes_read == 0)
             break;
     }
+    PAL_DBG(LOG_TAG, "Exit");
 
 freeParser:
     XML_ParserFree(parser);
@@ -2040,6 +2041,7 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                 PAL_INFO(LOG_TAG, "devicePP_type:%s", s->getDevicePPSelector().c_str());
                 break;
             case STREAM_TYPE_SEL:
+			    PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
                 filled_selector_pairs.push_back(std::make_pair(selector_type,
                     streamNameLUT.at(sattr->type)));
                 PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
@@ -2062,6 +2064,20 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                         dAttr->custom_config.custom_key));
                     PAL_INFO(LOG_TAG, "custom config key:%s",
                         dAttr->custom_config.custom_key);
+                }
+                break;
+            case BUS_ADDRESS_SEL:
+                PAL_INFO(LOG_TAG, "BUS_ADDRESS_SEL, sttr.type=%d\n", sattr->type);
+                if (sattr->type == PAL_STREAM_LOOPBACK) {
+                    PAL_INFO(LOG_TAG,"hfp loopback stream, skip bus_addr_sel");
+                    break;
+                }
+                if (sattr && strlen(sattr->bus_addr)) {
+                    filled_selector_pairs.push_back(
+                        std::make_pair(BUS_ADDRESS_SEL,
+                        sattr->bus_addr));
+                    PAL_INFO(LOG_TAG, "BUS address:%s",
+                        sattr->bus_addr);
                 }
                 break;
             default:
@@ -2427,6 +2443,7 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
             case PAL_STREAM_DEEP_BUFFER:
             case PAL_STREAM_PCM_OFFLOAD:
             case PAL_STREAM_COMPRESSED:
+            case PAL_STREAM_PLAYBACK_BUS:
                 if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
                     PAL_INFO(LOG_TAG,"SpeakerProt Status[%d], RAS Status[%d]\n",
                             rm->isSpeakerProtectionEnabled, rm->isRasEnabled);

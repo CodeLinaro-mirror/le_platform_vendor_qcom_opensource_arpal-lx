@@ -442,6 +442,7 @@ protected:
     std::list <StreamPCM*> active_streams_db;
     std::list <StreamPCM*> active_streams_po;
     std::list <StreamPCM*> active_streams_proxy;
+    std::list <StreamPCM*> active_streams_bus;
     std::list <StreamPCM*> active_streams_haptics;
     std::list <StreamPCM*> active_streams_raw;
     std::list <StreamInCall*> active_streams_incall_record;
@@ -767,7 +768,6 @@ public:
     static void process_config_volume(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_lpm(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_lpi_vote_streams(struct xml_userdata *data, const XML_Char *tag_name);
-    static void process_kvinfo(const XML_Char **attr, bool overwrite);
     static void process_voicemode_info(const XML_Char **attr);
     static void process_gain_db_to_level_map(struct xml_userdata *data, const XML_Char **attr);
     static void processCardInfo(struct xml_userdata *data, const XML_Char *tag_name);

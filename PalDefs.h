@@ -41,6 +41,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <system/audio.h>
 
 #ifdef __cplusplus
 
@@ -353,6 +354,7 @@ typedef enum {
     PAL_STREAM_CONTEXT_PROXY = 24,        /**< Context Proxy Stream */
     PAL_STREAM_SENSOR_PCM_DATA = 25,      /**< Sensor Pcm Data Stream */
     PAL_STREAM_ULTRASOUND = 26,           /**< Ultrasound Proximity detection */
+    PAL_STREAM_PLAYBACK_BUS = 27,         /**< BUS type pal streams */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -548,6 +550,7 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_ACD" },                      PAL_STREAM_ACD},
     {std::string{ "PAL_STREAM_ULTRASOUND" },               PAL_STREAM_ULTRASOUND},
     {std::string{ "PAL_STREAM_SENSOR_PCM_DATA" },          PAL_STREAM_SENSOR_PCM_DATA},
+    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },           PAL_STREAM_PLAYBACK_BUS},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -577,6 +580,7 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_ACD,                std::string{ "PAL_STREAM_ACD" } },
     {PAL_STREAM_ULTRASOUND,         std::string{ "PAL_STREAM_ULTRASOUND" } },
     {PAL_STREAM_SENSOR_PCM_DATA,    std::string{ "PAL_STREAM_SENSOR_PCM_DATA" } },
+    {PAL_STREAM_PLAYBACK_BUS,              std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {
@@ -692,6 +696,10 @@ struct pal_stream_attributes {
     pal_stream_direction_t direction;            /**<  direction of the streams */
     struct pal_media_config in_media_config;     /**<  media config of the input audio samples */
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
+    char* bus_addr;                              /**<  BUS device address */
+    uint32_t hal_flags;                          /**<  Stream flags received in HAL*/
+    audio_channel_mask_t ch_mask;                /**<  Channel mask received in audio_config */
+    audio_format_t format;                       /**<  Audio format value received in audio_config */
 };
 
 /**< Key value pair to identify the topology of a usecase from default  */
@@ -785,6 +793,12 @@ struct pal_volume_data {
 struct pal_time_us {
     uint32_t value_lsw;   /** Lower 32 bits of 64 bit time value in microseconds */
     uint32_t value_msw;   /** Upper 32 bits of 64 bit time value in microseconds */
+};
+
+/** Buffer config data strucutre defintion used as argument for buff_config command */
+struct pal_buffer_data {
+    uint32_t buffer_size;                       /**< Buffer Size*/
+    uint32_t buffer_count;                      /**< Buffer Count*/
 };
 
 /** Timestamp strucutre defintion used as argument for
