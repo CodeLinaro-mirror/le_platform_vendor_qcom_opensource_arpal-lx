@@ -111,6 +111,7 @@ public:
     uint32_t getMIID(const char *backendName __unused, uint32_t tagId __unused, uint32_t *miid __unused)
                      {return 0;};
     struct mixer_ctl* getFEMixerCtl(const char *controlName __unused, int *device __unused) {return 0;}
+    int getPCMDeviceID(Stream *s, int *devId) {return 0;}
     session_callback sessionCb;
     uint64_t cbCookie;
     int32_t sessionId;

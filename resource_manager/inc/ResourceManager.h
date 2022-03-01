@@ -52,6 +52,7 @@
 #include "SoundTriggerPlatformInfo.h"
 #include "ACDPlatformInfo.h"
 #include "ContextManager.h"
+#include "PluginControlIntf.h"
 
 typedef enum {
     RX_HOSTLESS = 1,
@@ -127,6 +128,8 @@ typedef enum {
     TAG_CONFIG_LPM,
     TAG_CONFIG_LPM_SUPPORTED_STREAM,
     TAG_CONFIG_LPM_SUPPORTED_STREAMS,
+    TAG_CONTROL,
+    TAG_CONTROL_PLUGIN,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -273,6 +276,24 @@ struct tx_ecinfo {
     std::vector<int> disabled_rx_streams;
 };
 
+struct plugin_fn_ops{
+    plugin_set_control_fn_t set_control;
+    plugin_get_control_fn_t get_control;
+}typedef plugin_fn_ops_t;
+
+struct plugin_t {
+    std::string name;
+    void* handle;
+    plugin_fn_ops_t ops;
+    std::vector<uint32_t> usecases;
+}typedef plugin_t;
+
+struct control_t {
+    plugin_control_name_t name;
+    plugin_t default_plugin;
+    std::vector<plugin_t> plugins;
+};
+
 enum {
     NATIVE_AUDIO_MODE_SRC = 1,
     NATIVE_AUDIO_MODE_TRUE_44_1,
@@ -410,6 +431,9 @@ private:
     static bool isBitWidthSupported(uint32_t bitWidth);
     uint32_t getNTPathForStreamAttr(const pal_stream_attributes attr);
     ssize_t getAvailableNTStreamInstance(const pal_stream_attributes attr);
+    static int openControlPlugin(plugin_t *plugin, plugin_control_name_t control);
+    int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
+
 protected:
     std::list <Stream*> mActiveStreams;
     std::list <StreamPCM*> active_streams_ll;
@@ -484,6 +508,7 @@ protected:
     static std::map<uint32_t, uint32_t> btSlimClockSrcMap;
     static std::vector<deviceIn> deviceInfo;
     static std::vector<tx_ecinfo> txEcInfo;
+    static std::vector<control_t> ControlInfo;
     static struct vsid_info vsidInfo;
     static struct volume_set_param_info volumeSetParamInfo_;
     static struct disable_lpm_info disableLpmInfo_;
@@ -843,6 +868,11 @@ public:
                              const struct pal_stream_attributes *sAttr,
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
+    static void process_control(const XML_Char **attr);
+    static void process_plugin(struct xml_userdata *data, const XML_Char **attr);
+    static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
+    int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
+    int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
 };
 
 #endif

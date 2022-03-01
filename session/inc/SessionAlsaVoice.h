@@ -40,6 +40,14 @@
 class Stream;
 class Session;
 
+struct ckv_data {
+    uint32_t vsid;
+    uint32_t ttyMode;
+    bool volume_boost;
+    bool slow_talk;
+    bool hd_voice;
+}typedef ckv_data_t;
+
 class SessionAlsaVoice : public Session
 {
 private:
@@ -73,6 +81,7 @@ public:
     int setConfig(Stream * s, configType type, int tag = 0, int dir = 0) override;
     int setParameters(Stream *streamHandle, int tagId, uint32_t param_id,
                       void *payload) override;
+    int getParameters(Stream *s, int tagId, uint32_t param_id, void **payload) override;
     int setSessionParameters(Stream *s, int dir);
     int start(Stream * s) override;
     int stop(Stream * s) override;
@@ -87,7 +96,6 @@ public:
                              std::shared_ptr<Device> deviceToConnect);
     int setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable) {return 0;};
 private:
-    int payloadCalKeys(Stream * s, uint8_t **payload, size_t *size);
     int payloadTaged(Stream * s, configType type, int tag, int device, int dir);
     int payloadSetVSID(Stream* s);
     int payloadSetChannelInfo(Stream * s, uint8_t **payload, size_t *size);
@@ -109,6 +117,7 @@ private:
     int setPopSuppressorMute(Stream *s);
     int setExtECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable);
     int getRXDevice(Stream *s, std::shared_ptr<Device> &rx_dev);
+    int getPCMDeviceID(Stream *s, int *devId) override;
 };
 
 #endif //SESSION_ALSAVOICE_H

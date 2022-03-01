@@ -155,6 +155,7 @@ public:
                                       uint8_t *payload __unused) {return -EINVAL;}
     virtual int checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
                                  Stream *s, bool is_enable);
+    virtual int getPCMDeviceID(Stream *s, int *devId) = 0;
 };
 
 #endif //SESSION_H

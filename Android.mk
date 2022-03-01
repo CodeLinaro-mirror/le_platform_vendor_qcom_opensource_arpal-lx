@@ -28,6 +28,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/context_manager/inc \
     $(LOCAL_PATH)/utils/inc \
     $(LOCAL_PATH)/plugins/codecs \
+    $(LOCAL_PATH)/plugins/controls \
     $(TOP)/system/media/audio_route/include \
     $(TOP)/system/media/audio/include
 
@@ -157,6 +158,8 @@ include $(CLEAR_VARS)
 LOCAL_USE_VNDK := true
 
 LOCAL_C_INCLUDES     := $(TOP)/vendor/qcom/opensource/pal
+LOCAL_C_INCLUDES     += $(TOP)/system/media/audio/include
+LOCAL_C_INCLUDES     += $(TOP)/system/media/audio_route/include
 
 LOCAL_CFLAGS += -Wno-tautological-compare
 LOCAL_CFLAGS += -Wno-macro-redefined
@@ -169,7 +172,9 @@ LOCAL_MODULE_OWNER         := qti
 LOCAL_MODULE_TAGS          := optional
 
 LOCAL_SHARED_LIBRARIES := \
-                          libpalclient
+                          libpalclient \
+                          libcutils
+
 LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_EXECUTABLE)

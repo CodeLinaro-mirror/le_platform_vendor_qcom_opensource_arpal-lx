@@ -683,6 +683,8 @@ int SessionAlsaPcm::start(Stream * s)
     int DeviceId;
     struct disable_lpm_info lpm_info;
     bool isStreamAvail = false;
+    struct pal_volume_data *voldata = NULL;
+    size_t vol_size = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -1167,14 +1169,31 @@ pcm_start:
         sAttr.type != PAL_STREAM_ULTRASOUND &&
         sAttr.type != PAL_STREAM_SENSOR_PCM_DATA &&
         sAttr.type != PAL_STREAM_HAPTICS) {
-        if (setConfig(s, CALIBRATION, TAG_STREAM_VOLUME) != 0) {
-            PAL_ERR(LOG_TAG, "Setting volume failed");
+        // Setting the volume as no default volume is set now in stream open
+        voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
+                          (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
+        if (!voldata) {
+            status = -ENOMEM;
+            goto exit;
+        }
+        status = rm->controlPluginGet(s,PLUGIN_CONTROL_VOLUME, (void**)&voldata,
+                                      &vol_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
+        } else {
+            if(rm->controlPluginSet(s, PLUGIN_CONTROL_VOLUME, (void*)voldata,
+                                    vol_size)) {
+                PAL_ERR(LOG_TAG,"failed to set default volume data");
+            }
         }
     }
 
     mState = SESSION_STARTED;
 
 exit:
+    if (voldata) {
+        free(voldata);
+    }
     if (status != 0)
         rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
@@ -2704,5 +2723,26 @@ int SessionAlsaPcm::openGraph(Stream *s) {
     }
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
+{
+    int status = 0;
+    pal_stream_attributes sAttr;
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT) {
+        *devId = pcmDevIds.at(0);
+    } else {
+        *devId = pcmDevRxIds.at(0);
+    }
+exit:
     return status;
 }

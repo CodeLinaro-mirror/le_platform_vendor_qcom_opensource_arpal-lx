@@ -109,6 +109,7 @@ typedef enum {
 #define CHANNEL_INFO 42
 #define CHARGE_CONCURRENCY_ON_TAG 43
 #define CHARGE_CONCURRENCY_OFF_TAG 44
+#define VOICE_CKV_DATA 45
 
 /* This sleep is added to give time to kernel and
  * spf to recover from SSR so that audio-hal will
@@ -174,7 +175,7 @@ public:
     virtual int32_t prepare() = 0;
     virtual int32_t drain(pal_drain_type_t type __unused) {return 0;}
     virtual int32_t setStreamAttributes(struct pal_stream_attributes *sattr) = 0;
-    virtual int32_t setVolume(struct pal_volume_data *volume) = 0;
+    virtual int32_t setVolume(struct pal_volume_data *volume);
     virtual int32_t mute(bool state) = 0;
     virtual int32_t mute_l(bool state) = 0;
     virtual int32_t pause() = 0;
@@ -216,7 +217,7 @@ public:
     int32_t getBufInfo(size_t *in_buf_size, size_t *in_buf_count,
                        size_t *out_buf_size, size_t *out_buf_count);
     int32_t getMaxMetadataSz(size_t *in_max_metadata_sz, size_t *out_max_metadata_sz);
-    int32_t getVolumeData(struct pal_volume_data *vData);
+    int32_t getVolumeData(struct pal_volume_data *vData, size_t *size);
     void setGainLevel(int level) { mGainLevel = level; };
     int getGainLevel() { return mGainLevel; };
     /* static so that this method can be accessed wihtout object */
