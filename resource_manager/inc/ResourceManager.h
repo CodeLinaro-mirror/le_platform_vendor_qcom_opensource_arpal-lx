@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -465,6 +466,7 @@ protected:
     std::vector <std::pair<std::shared_ptr<Device>, Stream*>> active_devices;
     std::vector <std::shared_ptr<Device>> plugin_devices_;
     std::vector <pal_device_id_t> avail_devices_;
+    std::map<Stream*, uint32_t> mActiveStreamUserCounter;
     bool bOverwriteFlag;
     bool screen_state_;
     bool charging_state_;
@@ -626,7 +628,13 @@ public:
     pal_audio_fmt_t getAudioFmt(uint32_t bitWidth);
     int registerStream(Stream *s);
     int deregisterStream(Stream *s);
-    int isActiveStream(Stream *s);
+    int isActiveStream(pal_stream_handle_t *handle);
+    int initStreamUserCounter(Stream *s);
+    int deinitStreamUserCounter(Stream *s);
+    int increaseStreamUserCounter(Stream* s);
+    int decreaseStreamUserCounter(Stream* s);
+    int getStreamUserCounter(Stream *s);
+    int printStreamUserCounter(Stream *s);
     int registerDevice(std::shared_ptr<Device> d, Stream *s);
     int deregisterDevice(std::shared_ptr<Device> d, Stream *s);
     int registerDevice_l(std::shared_ptr<Device> d, Stream *s);
