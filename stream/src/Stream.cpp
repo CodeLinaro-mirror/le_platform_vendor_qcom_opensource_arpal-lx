@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,6 +29,7 @@
  */
 
 #define LOG_TAG "PAL: Stream"
+#include <semaphore.h>
 #include "Stream.h"
 #include "StreamPCM.h"
 #include "StreamInCall.h"
@@ -507,7 +509,7 @@ int32_t Stream::setBufInfo(pal_buffer_config *in_buffer_cfg,
                            pal_buffer_config *out_buffer_cfg)
 {
     int32_t status = 0;
-    struct pal_stream_attributes sattr;
+    struct pal_stream_attributes sattr = {};
     int16_t nBlockAlignIn, nBlockAlignOut ;        // block size of data
 
     status = getStreamAttributes(&sattr);
@@ -1533,6 +1535,25 @@ bool Stream::checkStreamMatch(pal_device_id_t pal_device_id,
     return match;
 }
 
+int Stream::initStreamSmph()
+{
+    return sem_init(&mInUse, 0, 1);
+}
+
+int Stream::deinitStreamSmph()
+{
+    return sem_destroy(&mInUse);
+}
+
+int Stream::postStreamSmph()
+{
+    return sem_post(&mInUse);
+}
+
+int Stream::waitStreamSmph()
+{
+    return sem_wait(&mInUse);
+}
 
 bool Stream::checkBusStreamMatch(pal_device_id_t pal_device_id,
                                         pal_stream_type_t pal_stream_type, char* bus_addr)
