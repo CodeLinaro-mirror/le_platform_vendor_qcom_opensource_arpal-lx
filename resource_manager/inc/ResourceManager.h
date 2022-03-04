@@ -66,7 +66,11 @@
 #define ADM_LIBRARY_PATH "/usr/lib/libadm.so"
 #endif
 #else
+#if defined(AUTO_GVM)
+#define ADM_LIBRARY_PATH "/vendor/lib/libadm_ar.so"
+#else
 #define ADM_LIBRARY_PATH "/vendor/lib/libadm.so"
+#endif
 #endif
 
 using InstanceListNode_t = std::vector<std::pair<int32_t, bool>> ;

@@ -50,10 +50,12 @@ LOCAL_CFLAGS   += -Wall -Werror
 LOCAL_CFLAGS   += -DCONFIG_GSL
 LOCAL_CFLAGS   += -D_GNU_SOURCE
 LOCAL_CFLAGS   += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
+ifeq ($(PRODUCT_NAME), msmnile_gvmq)
+LOCAL_CFLAGS   += -DAUTO_GVM
+endif
 LOCAL_CPPFLAGS += -fexceptions -frtti
 
-
-LOCAL_SRC_FILES        := Pal.cpp\
+LOCAL_SRC_FILES := Pal.cpp\
     stream/src/Stream.cpp\
     stream/src/StreamCompress.cpp\
     stream/src/StreamPCM.cpp\
