@@ -6,6 +6,15 @@ PAL_BASE_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := libarpal_headers
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/inc
+
+LOCAL_VENDOR_MODULE := true
+
+include $(BUILD_HEADER_LIBRARY)
+
+include $(CLEAR_VARS)
+
 LOCAL_MODULE        := libar-pal
 LOCAL_MODULE_OWNER  := qti
 LOCAL_MODULE_TAGS   := optional
@@ -21,6 +30,7 @@ LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
 LOCAL_C_INCLUDES := \
+    $(LOCAL_PATH)/inc \
     $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/device/inc \
     $(LOCAL_PATH)/session/inc \
@@ -50,7 +60,7 @@ LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/incl
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/include
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
-LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)
+LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
@@ -123,8 +133,6 @@ LOCAL_SHARED_LIBRARIES := \
 #if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
 #This assumes we would be using AR code only for Android R and subsequent versions.
 ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
-LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinyalsa/include
-LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
 LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
@@ -155,8 +163,6 @@ include $(BUILD_SHARED_LIBRARY)
 
 include $(CLEAR_VARS)
 LOCAL_USE_VNDK := true
-
-LOCAL_C_INCLUDES     := $(TOP)/vendor/qcom/opensource/pal
 
 LOCAL_CFLAGS += -Wno-tautological-compare
 LOCAL_CFLAGS += -Wno-macro-redefined
