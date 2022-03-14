@@ -1375,15 +1375,15 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote)
   Playback is going on and charger Insertion occurs, Below
   steps to smooth recovery of FET which avoid its fault.
   1. Wait for 4s to honour usb insertion notification.
-  2. Mute PA by using stream_mute tag = 1(writing 0 buffers).
-  3. Need 150 ms, wait for settling current load from 550mA(approx) to 5mA mean.
-  4. Audio notifies charger driver about concurrency.
-  5. Unmute PA by using stream_mute tag = 0.
+  2. Force Device switch from spkr->spkr, to disable PA.
+  3. Audio notifies charger driver about concurrency.
+  4. StreamDevConnect to enable PA.
 */
 int ResourceManager::handlePBChargerInsertion(Stream *stream)
 {
     int status = 0;
-
+    struct pal_device newDevAttr;
+    std::shared_ptr<Device> dev = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter. charger status %d", is_charger_online_);
 
@@ -1415,28 +1415,23 @@ int ResourceManager::handlePBChargerInsertion(Stream *stream)
     if (!is_charger_online_)
         is_charger_online_ = true;
 
+    newDevAttr.id = PAL_DEVICE_OUT_SPEAKER;
+    dev = Device::getInstance(&newDevAttr, rm);
 
-    status = stream->mute(true);
+    if (!dev)
+        goto unlockChargerBoostMutex;
+
+    status = dev->getDeviceAttributes(&newDevAttr);
     if (0 != status) {
-        PAL_ERR(LOG_TAG, "failed to set Mute with status %d", status);
-        mChargerBoostMutex.unlock();
-        goto exit;
+        PAL_ERR(LOG_TAG, "Failed to get Device Attribute with status %d", status);
+        goto unlockChargerBoostMutex;
     }
-    /*
-     Need 150 ms wait to recover FET, when Boost to Buck mode
-     transition occurs before writing concurrency.
-    */
-    usleep(WAIT_RECOVER_FET);
-    status = rm->chargerListenerSetBoostState(true, PB_ON_CHARGER_INSERT);
 
-    /*
-     If notifying concurrency failed then continue Playback in Boost state
-     (Only Audio PB) otherwise continue in Buck state(when charging and PB continues)
-    */
-    status = stream->mute(false);
+    status = forceDeviceSwitch(dev, &newDevAttr);
     if (0 != status)
-        PAL_ERR(LOG_TAG, "Failed to set UnMute with status %d", status);
+        PAL_ERR(LOG_TAG, "Failed to do Force Device switch %d", status);
 
+unlockChargerBoostMutex:
     mChargerBoostMutex.unlock();
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
@@ -1497,7 +1492,6 @@ int ResourceManager::handlePBChargerRemoval(Stream *stream)
     }
 
     status = rm->chargerListenerSetBoostState(false, PB_ON_CHARGER_REMOVE);
-
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
@@ -1526,10 +1520,13 @@ int ResourceManager::setSessionParamConfig(uint32_t param_id, Stream *stream, in
     switch (param_id) {
         case PAL_PARAM_ID_CHARGER_STATE:
         {
-            status = session->setConfig(stream, MODULE, tag);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to setParam with status %d", status);
-                goto exit;
+            if (is_concurrent_boost_state_) {
+                status = session->setConfig(stream, MODULE, tag);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "Failed to setConfig with status %d", status);
+                    goto exit;
+                }
+                is_limiter_configured_ = (tag == CHARGE_CONCURRENCY_ON_TAG) ? true : false ;
             }
 
             if (!is_concurrent_boost_state_ && tag == CHARGE_CONCURRENCY_ON_TAG)
@@ -1560,13 +1557,14 @@ void ResourceManager::onChargerListenerStatusChanged(int event_type, int status,
     pal_param_charger_state_t charger_state;
     std::shared_ptr<ResourceManager> rm = nullptr;
 
-    PAL_DBG(LOG_TAG, "Enter: Event %d status %d concurrent_state %d",
-            event_type, status, concurrent_state);
+    PAL_DBG(LOG_TAG, "Enter: Event: %s, status: %s and concurrent_state: %s",
+            event_type ? "Battery": "Charger", status ? "online" : "Offline",
+            concurrent_state ? "True" : "False");
 
     switch (event_type) {
         case CHARGER_EVENT:
             charger_state.is_charger_online =  status ? true : false;
-            PAL_DBG(LOG_TAG, "charger status is %s ", status ? "online" : "offline");
+            PAL_DBG(LOG_TAG, "charger status is %s", status ? "Online" : "Offline");
             charger_state.is_concurrent_boost_enable = concurrent_state;
             rm = ResourceManager::getInstance();
             if (rm) {
@@ -1584,7 +1582,8 @@ void ResourceManager::onChargerListenerStatusChanged(int event_type, int status,
             PAL_ERR(LOG_TAG, "Invalid Uevent_type");
             break;
     }
-    PAL_DBG(LOG_TAG, "Exit: call back executed for event %d result %d", event_type, result);
+    PAL_DBG(LOG_TAG, "Exit: call back executed for event: %s is %s",
+            event_type ? "Battery": "Charger", result ? "Failed" : "Success");
 }
 
 void ResourceManager::chargerListenerInit(charger_status_change_fn_t fn)
@@ -1639,7 +1638,8 @@ int ResourceManager::chargerListenerSetBoostState(bool state, charger_boost_mode
 {
     int status = 0;
 
-    PAL_DBG(LOG_TAG, "Enter: state %d mode %d", state, mode);
+    PAL_DBG(LOG_TAG, "Enter: setting concurrency state: %s for usecase mode: %d", state ?
+            "True" : "False", mode);
 
     if (cl_set_boost_state) {
         switch (mode) {
@@ -1660,8 +1660,10 @@ int ResourceManager::chargerListenerSetBoostState(bool state, charger_boost_mode
                 }
             break;
             case CONCURRENCY_PB_STOPS:
-                 if (!state && is_concurrent_boost_state_)
+                if (!state && is_concurrent_boost_state_) {
+                     is_limiter_configured_ = false;
                      goto notify_charger;
+                 }
             break;
             default:
                 PAL_ERR(LOG_TAG, "Invalid mode to Notify charger");
@@ -1672,8 +1674,8 @@ notify_charger:
         status = cl_set_boost_state(state);
         if (0 == status)
             is_concurrent_boost_state_ = state;
-        PAL_DBG(LOG_TAG, "Updated Concurrent Boost state is  %d: with Setting status %d",
-                 is_concurrent_boost_state_, status);
+        PAL_DBG(LOG_TAG, "Updated Concurrent Boost state is: %s with Setting status: %d",
+                 is_concurrent_boost_state_ ? "True" : "False", status);
     }
 exit:
     PAL_DBG(LOG_TAG, "Exit:  status %d", status);
@@ -1683,6 +1685,7 @@ exit:
 void ResourceManager::chargerListenerFeatureInit()
 {
     is_concurrent_boost_state_ = false;
+    is_limiter_configured_ = false;
     ResourceManager::chargerListenerInit(onChargerListenerStatusChanged);
 }
 
@@ -3129,6 +3132,8 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
                             status = 0;
                             PAL_VERBOSE(LOG_TAG, "Failed to enable EC Ref because of -ENODEV");
                         }
+                        // decrease ec ref count if ec ref set failure
+                        updateECDeviceMap(d, tx_devices[0], str, 0, false);
                     }
                 }
             }
@@ -3189,6 +3194,8 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
                             status = 0;
                             PAL_VERBOSE(LOG_TAG, "Failed to enable EC Ref because of -ENODEV");
                         }
+                        // decrease ec ref count if ec ref set failure
+                        updateECDeviceMap(d, tx_devices[0], str, 0, false);
                     }
                 }
             }
@@ -4762,6 +4769,18 @@ bool ResourceManager::checkECRef(std::shared_ptr<Device> rx_dev,
     return result;
 }
 
+int ResourceManager::updateECDeviceMap_l(std::shared_ptr<Device> rx_dev,
+    std::shared_ptr<Device> tx_dev, Stream *tx_str, int count, bool is_txstop)
+{
+    int status = 0;
+    mResourceManagerMutex.lock();
+    status = updateECDeviceMap(rx_dev, tx_dev, tx_str, count, is_txstop);
+    mResourceManagerMutex.unlock();
+
+    return status;
+}
+
+
 int ResourceManager::updateECDeviceMap(std::shared_ptr<Device> rx_dev,
     std::shared_ptr<Device> tx_dev, Stream *tx_str, int count, bool is_txstop)
 {
@@ -4794,6 +4813,8 @@ int ResourceManager::updateECDeviceMap(std::shared_ptr<Device> rx_dev,
         for (map_iter = deviceInfo[i].ec_ref_count_map.begin();
             map_iter != deviceInfo[i].ec_ref_count_map.end(); map_iter++) {
             rx_dev_id = (*map_iter).first;
+            if (rx_dev && rx_dev->getSndDeviceId() != rx_dev_id)
+                continue;
             for (iter = deviceInfo[i].ec_ref_count_map[rx_dev_id].begin();
                 iter != deviceInfo[i].ec_ref_count_map[rx_dev_id].end(); iter++) {
                 if ((*iter).first == tx_str) {
@@ -4803,7 +4824,7 @@ int ResourceManager::updateECDeviceMap(std::shared_ptr<Device> rx_dev,
                     break;
                 }
             }
-            if (tx_stream_found)
+            if (tx_stream_found && rx_dev)
                 break;
         }
     } else {
