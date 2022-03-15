@@ -8110,6 +8110,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
     std::vector <std::tuple<Stream *, struct pal_device *>> StreamDevConnect;
     pal_device_info devInfo;
     std::string key;
+    memset(&newDevAttr, 0, sizeof(struct pal_device));
 
     PAL_DBG(LOG_TAG, "Enter");
 

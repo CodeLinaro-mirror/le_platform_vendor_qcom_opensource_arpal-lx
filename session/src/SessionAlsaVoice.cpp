@@ -985,10 +985,9 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
         goto exit;
     }
 
-    PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
-
 exit:
 if (paramData) {
+    PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
     free(paramData);
 }
     PAL_DBG(LOG_TAG,"Exit status:%d ", status);
