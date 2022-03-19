@@ -26,6 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
 
@@ -1199,10 +1200,12 @@ typedef enum {
 } pal_ultrasound_gain_t;
 
 /**< PAL device */
+#define DEVICE_NAME_MAX_SIZE 128
 struct pal_device {
     pal_device_id_t id;                     /**<  device id */
     struct pal_media_config config;         /**<  media config of the device */
     struct pal_usb_device_address address;
+    char sndDevName[DEVICE_NAME_MAX_SIZE];
     pal_device_custom_config_t custom_config;        /**<  Optional */
 };
 
