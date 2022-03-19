@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -87,7 +87,6 @@ StreamACDB::StreamACDB(const struct pal_stream_attributes *sattr, struct pal_dev
     inBufCount = NO_OF_BUF;
     outBufCount = NO_OF_BUF;
     mDevices.clear();
-    mPalDevice.clear();
     currentState = STREAM_IDLE;
     //Modify cached values only at time of SSR down.
     cachedState = STREAM_IDLE;
@@ -155,7 +154,6 @@ StreamACDB::~StreamACDB()
     }
 
     mDevices.clear();
-    mPalDevice.clear();
     delete session;
     session = nullptr;
 }

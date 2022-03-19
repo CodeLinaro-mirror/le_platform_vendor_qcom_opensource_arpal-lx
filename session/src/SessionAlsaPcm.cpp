@@ -29,7 +29,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025  Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -2430,7 +2430,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
 
     rxDevInfo.isExternalECRefEnabledFlag = 0;
     if (rx_dev) {
-        status = rx_dev->getDeviceAttributes(&rxDevAttr);
+        status = rx_dev->getDeviceAttributes(&rxDevAttr, s);
         if (status != 0) {
             PAL_ERR(LOG_TAG," get device attributes failed");
             goto exit;
@@ -2441,7 +2441,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         rxDevAttr.id = ecRefDevId;
         rx_dev = Device::getInstance(&rxDevAttr, rm);
         if (rx_dev) {
-            status = rx_dev->getDeviceAttributes(&rxDevAttr);
+            status = rx_dev->getDeviceAttributes(&rxDevAttr, s);
             if (status) {
                 PAL_ERR(LOG_TAG, "getDeviceAttributes failed for ec dev: %d", ecRefDevId);
                 goto exit;

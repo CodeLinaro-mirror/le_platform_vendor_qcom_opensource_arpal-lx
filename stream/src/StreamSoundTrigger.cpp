@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -128,7 +128,6 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     sm_cfg_ = nullptr;
     ec_rx_dev_ = nullptr;
     mDevices.clear();
-    mPalDevice.clear();
 
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
@@ -156,10 +155,6 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     if (!dattr) {
         PAL_ERR(LOG_TAG,"Error:invalid device arguments");
         throw std::runtime_error("invalid device arguments");
-    }
-
-    for (int i=0; i < no_of_devices; i++) {
-        mPalDevice.push_back(dattr[i]);
     }
 
     mStreamAttr = (struct pal_stream_attributes *)calloc(1,
