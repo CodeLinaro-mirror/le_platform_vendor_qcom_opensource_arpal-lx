@@ -8204,10 +8204,11 @@ int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
     std::string key(incomingDev->custom_config.custom_key);
     std::vector <struct pal_device> palDevices;
 
+    memset(&devInfo, 0, sizeof(pal_device_info));
+
     if (!incomingDev || !currentStrAttr) {
         PAL_ERR(LOG_TAG, "invalid dev or stream cannot get device attr");
-        status = -EINVAL;
-        goto exit;
+        return -EINVAL;
     }
 
     /*get the incoming stream dev info*/
@@ -8248,7 +8249,6 @@ int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
     }
     stream_count++;
 
-exit:
     getSndDeviceName(dev_id, CurrentSndDeviceName);
     PAL_DBG(LOG_TAG,"dev attr configured are, ch %d, sr %d, bit_width %d, fmt %d, sndDev %s",
             incomingDev->config.ch_info.channels,
@@ -8256,6 +8256,8 @@ exit:
             incomingDev->config.bit_width,
             incomingDev->config.aud_fmt_id,
             CurrentSndDeviceName);
+
+exit:
     return status;
 }
 
@@ -8268,6 +8270,10 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
     char activeSndDeviceName[DEVICE_NAME_MAX_SIZE] = {0};
 
     dev = Device::getInstance(curDevAttr, rm);
+    if (!dev) {
+        PAL_ERR(LOG_TAG, "No device instance found");
+        goto exit;
+    }
     getSndDeviceName(dev->getSndDeviceId(),activeSndDeviceName);
 
     if (inDevAttr->config.sample_rate != curDevAttr->config.sample_rate) {
@@ -8290,5 +8296,7 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
                 activeSndDeviceName);
         ret = true;
     }
+
+exit:
     return ret;
 }

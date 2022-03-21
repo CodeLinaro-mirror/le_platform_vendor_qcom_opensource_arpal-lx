@@ -1528,10 +1528,11 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
     int32_t extEcbackendId;
     std::vector <std::string> extEcbackendNames;
     struct pal_device device;
-    struct pal_device rxDevAttr;
+    struct pal_device rxDevAttr = {};
     struct pal_device_info rxDevInfo;
     int dev_id = 0;
 
+    memset(&rxDevAttr, 0, sizeof(struct pal_device));
     status = s->getAssociatedDevices(associatedDevices);
     if (0 != status) {
         PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
