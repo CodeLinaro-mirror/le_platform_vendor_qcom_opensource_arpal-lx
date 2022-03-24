@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -86,6 +87,9 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     lab_fd_ = nullptr;
     rejection_notified_ = false;
     mutex_unlocked_after_cb_ = false;
+    gsl_engine_ = nullptr;
+    sm_info_ = nullptr;
+    sm_cfg_ = nullptr;
     mDevices.clear();
     mPalDevice.clear();
 
@@ -354,6 +358,11 @@ int32_t StreamSoundTrigger::getParameters(uint32_t param_id, void **payload) {
         }
 
         sm_cfg_ = sm_cfg_list[0];
+        if (!sm_cfg_) {
+            PAL_ERR(LOG_TAG, "Failed to get sound model config");
+            return -EINVAL;
+        }
+
         if (!mDevices.size()) {
             struct pal_device* dattr = new (struct pal_device);
             std::shared_ptr<Device> dev = nullptr;
@@ -1050,6 +1059,11 @@ int32_t StreamSoundTrigger::LoadSoundModel(
     }
     GetUUID(&uuid, sound_model);
     this->sm_cfg_ = this->st_info_->GetSmConfig(uuid);
+    if (!this->sm_cfg_) {
+        PAL_ERR(LOG_TAG, "Failed to get sound model config");
+        status = -EINVAL;
+        goto exit;
+    }
 
     /* Update stream attributes as per sound model config */
     updateStreamAttributes();
