@@ -913,7 +913,7 @@ int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
                     - sizeof(pal_effect_custom_payload_t);
 
     paddedSize = PAL_ALIGN_8BYTE(payloadSize);
-    PAL_INFO(LOG_TAG, "payloadSize=%d paddedSize=%x", payloadSize, paddedSize);
+    //PAL_INFO(LOG_TAG, "payloadSize=%d paddedSize=%x", payloadSize, paddedSize);
 
     if (sampleRate) {
         //CKV
