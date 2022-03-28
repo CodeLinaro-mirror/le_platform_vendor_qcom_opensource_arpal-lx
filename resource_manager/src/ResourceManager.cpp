@@ -1109,7 +1109,9 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "waipio") ||
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "bengal") ||
-                    strstr(snd_card_name, "monaco")) {
+                    strstr(snd_card_name, "monaco") ||
+                    strstr(snd_card_name, "sa8155")||
+                    strstr(snd_card_name, "sa6155")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
@@ -8396,10 +8398,8 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
     pal_stream_attributes StrAttr;
     std::string streamSelector;
 
-    if(sInstanceID < INSTANCE_1){
-        PAL_ERR(LOG_TAG,"Invalid Stream Instance ID\n");
-        return -EINVAL;
-    }
+    if (sInstanceID < INSTANCE_1)
+        return 0; //no stream instance assigned, return
 
     status = str->getStreamAttributes(&StrAttr);
     if (status != 0) {
