@@ -199,6 +199,7 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
     uint64_t *stream = NULL;
     Stream *s = NULL;
     int status;
+    struct pal_stream_attributes sAttr;
 
     if (!attributes) {
         status = -EINVAL;
@@ -251,6 +252,9 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
         goto exit;
     }
 
+    s->getStreamAttributes(&sAttr);
+    notify_concurrent_stream(sAttr.type, sAttr.direction, true);
+
     if (cb)
        s->registerCallBack(cb, cookie);
     stream = reinterpret_cast<uint64_t *>(s);
@@ -264,6 +268,8 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
+    struct pal_stream_attributes sAttr;
+
     if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
@@ -277,8 +283,9 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
         PAL_ERR(LOG_TAG, "stream closed failed. status %d", status);
         goto exit;
     }
-
 exit:
+    s->getStreamAttributes(&sAttr);
+    notify_concurrent_stream(sAttr.type, sAttr.direction, false);
     delete s;
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
@@ -288,8 +295,6 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    pal_stream_type_t type;
-    pal_stream_direction_t dir;
     if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
@@ -298,16 +303,12 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
     PAL_INFO(LOG_TAG, "Enter. Stream handle %pK", stream_handle);
 
     s = reinterpret_cast<Stream *>(stream_handle);
-
     status = s->start();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
         goto exit;
     }
 
-    s->getStreamType(&type);
-    s->getStreamDirection(&dir);
-    notify_concurrent_stream(type, dir, true);
 exit:
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
@@ -317,8 +318,7 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    pal_stream_type_t type;
-    pal_stream_direction_t dir;
+
     if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
@@ -327,17 +327,11 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
     PAL_INFO(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
     s = reinterpret_cast<Stream *>(stream_handle);
-    s->getStreamType(&type);
-    s->getStreamDirection(&dir);
-
     status = s->stop();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream stop failed. status : %d", status);
-        notify_concurrent_stream(type, dir, false);
         goto exit;
     }
-
-    notify_concurrent_stream(type, dir, false);
 
 exit:
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
