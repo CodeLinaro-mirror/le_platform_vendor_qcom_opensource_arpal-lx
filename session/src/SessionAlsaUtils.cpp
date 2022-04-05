@@ -27,6 +27,13 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: SessionAlsaUtils"
 
 #include "SessionAlsaUtils.h"
@@ -1034,8 +1041,6 @@ int SessionAlsaUtils::setMixerParameter(struct mixer *mixer, int device,
     ctl_len = strlen(pcmDeviceName) + 1 + strlen(control) + 1;
     mixer_str = (char *)calloc(1, ctl_len);
     if (!mixer_str) {
-        free(payload);
-        payload = nullptr;
         return -ENOMEM;
     }
     snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
@@ -2043,6 +2048,8 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
                     status = SessionAlsaUtils::setMixerParameter(mixerHandle, pcmDevIds.at(0),
                                                              payload, payloadSize);
                     sess->freeCustomPayload();
+                    payload = NULL;
+                    payloadSize = 0;
                     if (status != 0) {
                         PAL_ERR(LOG_TAG, "setMixerParameter failed");
                         goto exit;
@@ -2123,6 +2130,8 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
                 status = SessionAlsaUtils::setMixerParameter(mixerHandle, pcmRxDevIds.at(0),
                                                          payload, payloadSize);
                 sess->freeCustomPayload();
+                payload = NULL;
+                payloadSize = 0;
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
