@@ -56,6 +56,10 @@ endif
 endif
 endif
 
+ifeq ($(strip $(AUDIO_USE_POWER_STATE_MONITOR)),true)
+LOCAL_CFLAGS += -DPSM_ENABLE
+endif
+
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/include
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
@@ -130,6 +134,12 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libagmclient
 
+ifeq ($(strip $(AUDIO_USE_POWER_STATE_MONITOR)),true)
+LOCAL_SHARED_LIBRARIES += \
+    libpowerstatemonitorimpl \
+    libpowerstatemonitor
+endif
+
 #if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
 #This assumes we would be using AR code only for Android R and subsequent versions.
 ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
@@ -179,6 +189,66 @@ LOCAL_SHARED_LIBRARIES := \
 LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_EXECUTABLE)
+
+#-------------------------------------------
+#    Build power state monitor
+#-------------------------------------------
+ifeq ($(strip $(AUDIO_USE_POWER_STATE_MONITOR)),true)
+
+include $(CLEAR_VARS)
+LOCAL_MODULE := libpowerstatemonitorimpl
+
+LOCAL_MODULE_OWNER := qti
+LOCAL_MODULE_TAGS   := optional
+LOCAL_VENDOR_MODULE := true
+
+LOCAL_SRC_FILES := \
+    utils/src/PowerStateMonitorImpl.cpp \
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/utils/inc
+
+LOCAL_HEADER_LIBRARIES := \
+    libcutils_headers \
+
+LOCAL_SHARED_LIBRARIES := \
+    liblog \
+    libcutils \
+    libutils \
+    libdl \
+    libhidlbase \
+    libbase \
+    libhardware_legacy \
+    libhardware \
+    vendor.qti.hardware.powerstateservice@1.0 \
+
+include $(BUILD_SHARED_LIBRARY)
+
+
+include $(CLEAR_VARS)
+
+LOCAL_MODULE := libpowerstatemonitor
+
+LOCAL_MODULE_OWNER := qti
+LOCAL_MODULE_TAGS   := optional
+LOCAL_VENDOR_MODULE := true
+
+LOCAL_SRC_FILES := \
+    utils/src/PowerStateMonitor.cpp \
+
+LOCAL_C_INCLUDES := $(LOCAL_PATH)/utils/inc
+
+LOCAL_HEADER_LIBRARIES := \
+    libcutils_headers \
+
+LOCAL_SHARED_LIBRARIES := \
+    liblog \
+    libcutils \
+    libutils \
+    libpowerstatemonitorimpl \
+    vendor.qti.hardware.powerstateservice@1.0 \
+
+include $(BUILD_SHARED_LIBRARY)
+endif #AUDIO_USE_POWER_STATE_MONITOR
 
 include $(CLEAR_VARS)
 

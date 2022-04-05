@@ -480,6 +480,7 @@ void str_parms_destroy(struct str_parms *str_parms){return;}
 #endif
 
 std::vector<uint32_t> ResourceManager::lpi_vote_streams_;
+std::vector<uint32_t> ResourceManager::ds_streams_;
 std::vector<deviceIn> ResourceManager::deviceInfo;
 std::vector<tx_ecinfo> ResourceManager::txEcInfo;
 struct vsid_info ResourceManager::vsidInfo;
@@ -9610,6 +9611,34 @@ void ResourceManager::process_lpi_vote_streams(struct xml_userdata *data,
 
 }
 
+void ResourceManager::process_deepsleep_support_streams(struct xml_userdata *data,
+                                                          const XML_Char *tag_name)
+{
+    if (data->offs <= 0 || data->resourcexml_parsed)
+        return;
+
+    data->data_buf[data->offs] = '\0';
+
+    if (data->tag == TAG_DS_STREAM_TYPE) {
+        std::string stream_name(data->data_buf);
+        PAL_DBG(LOG_TAG, "Stream name to be added : %s", stream_name.c_str());
+        uint32_t st = usecaseIdLUT.at(stream_name);
+        ds_streams_.push_back(st);
+        PAL_DBG(LOG_TAG, "Stream type added : %d", st);
+    }
+
+    if (!strcmp(tag_name, "ds_stream_type")) {
+        data->tag = TAG_DEEPSLEEP_SUPPORT_STREAMS;
+    } else if (!strcmp(tag_name, "deepsleep_support_streams")) {
+        data->tag = TAG_RESOURCE_MANAGER_INFO;
+    }
+}
+
+bool ResourceManager::isStreamSupportedInDeepsleep(uint32_t type)
+{
+    return (find(ds_streams_.begin(), ds_streams_.end(), type) != ds_streams_.end());
+}
+
 uint32_t ResourceManager::palFormatToBitwidthLookup(const pal_audio_fmt_t format)
 {
     audio_bit_width_t bit_width_ret = AUDIO_BIT_WIDTH_DEFAULT_16;
@@ -10085,6 +10114,10 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         data->tag = TAG_LPI_VOTE_STREAM;
     } else if (!strcmp(tag_name, "low_power_vote_streams")) {
          data->tag = TAG_SLEEP_MONITOR_LPI_STREAM;
+    } else if (!strcmp(tag_name, "ds_stream_type")) {
+        data->tag = TAG_DS_STREAM_TYPE;
+    } else if (!strcmp(tag_name, "deepsleep_support_streams")) {
+        data->tag = TAG_DEEPSLEEP_SUPPORT_STREAMS;
     } else if (!strcmp(tag_name, "custom-config")) {
         process_custom_config(attr);
         data->inCustomConfig = 1;
@@ -10159,6 +10192,7 @@ void ResourceManager::endTag(void *userdata, const XML_Char *tag_name)
     process_device_info(data,tag_name);
     process_input_streams(data,tag_name);
     process_lpi_vote_streams(data, tag_name);
+    process_deepsleep_support_streams(data, tag_name);
     process_config_volume(data, tag_name);
     process_config_lpm(data, tag_name);
 

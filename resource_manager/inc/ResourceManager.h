@@ -155,6 +155,8 @@ typedef enum {
     TAG_CUSTOMCONFIG,
     TAG_LPI_VOTE_STREAM,
     TAG_SLEEP_MONITOR_LPI_STREAM,
+    TAG_DS_STREAM_TYPE,
+    TAG_DEEPSLEEP_SUPPORT_STREAMS,
     TAG_CONFIG_VOLUME,
     TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAM,
     TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAMS,
@@ -540,6 +542,7 @@ protected:
     static std::vector<struct pal_amp_db_and_gain_table> gainLvlMap;
     static SndCardMonitor *sndmon;
     static std::vector <uint32_t> lpi_vote_streams_;
+    static std::vector <uint32_t> ds_streams_;
     /* condition variable for which ssrHandlerLoop will wait */
     static std::condition_variable cv;
     static std::mutex cvMutex;
@@ -802,6 +805,7 @@ public:
     static void process_config_volume(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_lpm(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_lpi_vote_streams(struct xml_userdata *data, const XML_Char *tag_name);
+    static void process_deepsleep_support_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_kvinfo(const XML_Char **attr, bool overwrite);
     static void process_voicemode_info(const XML_Char **attr);
     static void process_gain_db_to_level_map(struct xml_userdata *data, const XML_Char **attr);
@@ -905,6 +909,7 @@ public:
                              const struct pal_stream_attributes *sAttr,
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
+    bool isStreamSupportedInDeepsleep(uint32_t type);
 };
 
 #endif
