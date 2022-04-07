@@ -47,7 +47,6 @@ public:
              const uint32_t no_of_devices,
              const struct modifier_kv *modifiers, const uint32_t no_of_modifiers,
              const std::shared_ptr<ResourceManager> rm); //make this just pass parameters to Stream and avoid duplicating code between StreamPCM and StreamCompress
-   //StreamPCM();
    ~StreamPCM();
    int32_t open() override;
    int32_t close() override;
@@ -83,6 +82,8 @@ public:
    static int32_t isBitWidthSupported(uint32_t bitWidth);
    static void handleSessionCallBack(uint64_t hdl, uint32_t event_id, void *data,
                                                            uint32_t event_size);
+private:
+   bool isMMap = false;
 };
 
 #endif//STREAMPCM_H_
