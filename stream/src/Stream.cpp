@@ -1320,6 +1320,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
         uint32_t tmp = numDev;
 
+        mDevices[i]->getDeviceAttributes(&dAttr);
         if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP || curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE)
             isCurDeviceA2dp = true;
 
@@ -1467,7 +1468,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             mStreamMutex.unlock();
             return -EINVAL;
         }
-        dev->insertStreamDeviceAttr(&newDevices[i], streamHandle);
+	//TODO
+        //dev->insertStreamDeviceAttr(&newDevices[i], streamHandle);
         mPalDevices.push_back(dev);
     }
 

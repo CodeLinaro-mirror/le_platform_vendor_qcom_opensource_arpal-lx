@@ -940,6 +940,9 @@ int32_t StreamPCM::write(struct pal_buffer* buf)
 {
     int32_t status = 0;
     int32_t size = 0;
+    bool isA2dp = false;
+    bool isSpkr = false;
+    bool isA2dpSuspended = false;
     uint32_t frameSize = 0;
     uint32_t byteWidth = 0;
     uint32_t sampleRate = 0;
