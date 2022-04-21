@@ -152,6 +152,7 @@ public:
         uint32_t &sr_tag, uint32_t &ch_tag, uint32_t &bitwidth_tag);
     virtual uint32_t getMIID(const char *backendName __unused, uint32_t tagId __unused, uint32_t *miid __unused) { return -EINVAL; }
     int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
+    int setEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
     int rwACDBParameters(void *payload, uint32_t sampleRate, bool isParamWrite);
     int rwACDBParamTunnel(void *payload, pal_device_id_t palDeviceId,
         pal_stream_type_t palStreamType, uint32_t sampleRate, uint32_t instanceId,
@@ -167,6 +168,10 @@ public:
     virtual int checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
                                  Stream *s, bool is_enable);
     virtual void AdmRoutingChange(Stream *s __unused) {  };
+private:
+    uint32_t getModuleInfo(const char *control, uint32_t tagId, uint32_t *miid, struct mixer_ctl **ctl, int *device);
+    int setEffectParametersTKV(Stream *s, effect_pal_payload_t *effectPayload);
+    int setEffectParametersNonTKV(Stream *s, effect_pal_payload_t *effectPayload);
 };
 
 #endif //SESSION_H

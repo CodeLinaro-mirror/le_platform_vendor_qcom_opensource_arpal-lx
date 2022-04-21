@@ -9055,7 +9055,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         if (increaseStreamUserCounter(*sIter) < 0)
                             continue;
                         unlockActiveStream();
-                        status = (*sIter)->setParameters(param_id, param_payload);
+                        status = (*sIter)->setEffectParameters(param_payload);
                         lockActiveStream();
                         decreaseStreamUserCounter(*sIter);
                         if (status) {

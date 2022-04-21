@@ -25,6 +25,9 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SESSION_AGM_H
@@ -110,7 +113,7 @@ public:
         std::shared_ptr<Device> deviceToDisconnect __unused) {return 0;};
     uint32_t getMIID(const char *backendName __unused, uint32_t tagId __unused, uint32_t *miid __unused)
                      {return 0;};
-    struct mixer_ctl* getFEMixerCtl(const char *controlName __unused, int *device __unused) {return 0;}
+    struct mixer_ctl* getFEMixerCtl(const char *controlName __unused, int *device __unused, pal_stream_direction_t dir __unused) {return 0;}
     session_callback sessionCb;
     uint64_t cbCookie;
     int32_t sessionId;

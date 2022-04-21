@@ -258,6 +258,7 @@ public:
     bool checkStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type);
     int32_t getEffectParameters(void *effect_query);
+    int32_t setEffectParameters(void *effect_param);
     int32_t rwACDBParameters(void *payload, uint32_t sampleRate,
                                 bool isParamWrite);
     stream_state_t getCurState() { return currentState; }
