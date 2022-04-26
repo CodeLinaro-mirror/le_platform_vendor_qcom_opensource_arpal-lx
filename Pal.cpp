@@ -217,7 +217,7 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
     /* Allow only deepsleep_support_streams(from RM-XML) while in DS state */
     if (!rm->isStreamSupportedInDeepsleep(attributes->type)) {
         PowerStateMonitor *psm = PowerStateMonitor::getInstance();
-        if (psm && psm->getPsmDeepsleepState()) {
+        if (psm && psm->getPsmDeepsleepState() == PSM_DS_STATE_ENTRY) {
             PAL_ERR(LOG_TAG, "In DEEPSLEEP state, stream type %d, open not allowed", attributes->type);
             status = -EINVAL;
             usleep(PSM_DS_RECOVERY_US);

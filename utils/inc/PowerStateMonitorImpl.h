@@ -38,6 +38,8 @@
 #include <vendor/qti/hardware/powerstateservice/1.0/IPowerStateService.h>
 #include <vendor/qti/hardware/powerstateservice/1.0/IPowerStateCallback.h>
 
+#include "PowerStateCommon.h"
+
 using ::android::Mutex;
 using ::android::sp;
 using ::android::wp;
@@ -47,7 +49,6 @@ using ::android::hidl::base::V1_0::IBase;
 using ::vendor::qti::hardware::powerstateservice::V1_0::state;
 using ::vendor::qti::hardware::powerstateservice::V1_0::IPowerStateService;
 using ::vendor::qti::hardware::powerstateservice::V1_0::IPowerStateCallback;
-
 
 class PowerStateMonitorImpl : public IPowerStateCallback {
 public:
