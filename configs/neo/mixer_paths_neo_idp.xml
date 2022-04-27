@@ -2621,9 +2621,9 @@
         <ctl name="TX SMIC MUX0" value="SWR_MIC4" />
         <ctl name="TX SMIC MUX1" value="SWR_MIC8" />
         <ctl name="DMIC1 ChMap" value="SWRM_TX2_CH1" />
-        <ctl name="DMIC3 ChMap" value="SWRM_TX3_CH1" />
-        <ctl name="TX_DMIC1_MIXER Switch" value="1" />
-        <ctl name="TX_DMIC4_MIXER Switch" value="1" />
+        <ctl name="DMIC4 ChMap" value="SWRM_TX3_CH1" />
+        <ctl name="DMIC1_MIXER Switch" value="1" />
+        <ctl name="DMIC4_MIXER Switch" value="1" />
     </path>
 
     <path name="speaker-dmic-endfire">
