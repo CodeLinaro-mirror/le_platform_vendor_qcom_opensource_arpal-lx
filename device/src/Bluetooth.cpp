@@ -45,6 +45,7 @@
 #include <regex>
 
 #define PARAM_ID_RESET_PLACEHOLDER_MODULE 0x08001173
+#define BLE_STRAEMMAP_OUT_DIRECTION 0
 #define BT_IPC_SOURCE_LIB                 "btaudio_offload_if.so"
 #define BT_IPC_SINK_LIB                   "libbthost_if_sink.so"
 #define MIXER_SET_FEEDBACK_CHANNEL        "BT set feedback channel"
@@ -670,6 +671,8 @@ void Bluetooth::startAbr()
     size_t paramSize = 0;
     PayloadBuilder* builder = NULL;
     bool isDeviceLocked = false;
+    audio_lc3_codec_cfg_t* bt_ble_codec = NULL;
+    lc3_stream_map_t* bt_ble_streamMap = NULL;
 
     memset(&fbDevice, 0, sizeof(fbDevice));
     memset(&sAttr, 0, sizeof(sAttr));
@@ -920,23 +923,47 @@ void Bluetooth::startAbr()
                 goto disconnect_fe;
             }
 
-            ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf, (codecType == DEC ? ENC : DEC));
-            if (ret) {
-                PAL_ERR(LOG_TAG, "getPluginPayload failed");
-                goto disconnect_fe;
-            }
+            if (isEncDecConfigured) {
+                ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf,
+                                      (codecType == DEC ? ENC : DEC));
+                if (ret) {
+                    PAL_ERR(LOG_TAG, "getPluginPayload failed");
+                    goto disconnect_fe;
+                }
+            } else {
+                /* In case of BLE stereorecording/voice_call_decode_session, only decoder
+                 * path configs are present so use the same config for RX feeedback path too
+                 */
+                bt_ble_codec = (audio_lc3_codec_cfg_t*)calloc(1, sizeof(audio_lc3_codec_cfg_t));
+                if (bt_ble_codec == NULL) {
+                    PAL_ERR(LOG_TAG, "fail to allocate memory");
+                    goto free_fe;
+                }
+                memcpy(bt_ble_codec, codecInfo, sizeof(audio_lc3_codec_cfg_t));
+                memcpy(&bt_ble_codec->enc_cfg.toAirConfig, &bt_ble_codec->dec_cfg.fromAirConfig,
+                       sizeof(lc3_cfg_t));
 
-            /* In case of BLE stereo recording usecase, only decoder path configs are present
-             * so use the same config for RX feedback path too*/
-            if (!out_buf->sample_rate) {
+                bt_ble_codec->enc_cfg.stream_map_size = bt_ble_codec->dec_cfg.stream_map_size;
 
-                codec->close_plugin(codec);
-                codec = NULL;
-                dlclose(pluginLibHandle);
-                pluginLibHandle = NULL;
+                bt_ble_streamMap = (lc3_stream_map_t*)calloc(1,
+                    sizeof(lc3_stream_map_t) * bt_ble_codec->enc_cfg.stream_map_size);
+                if (bt_ble_streamMap == NULL) {
+                    PAL_ERR(LOG_TAG, "fail to allocate memory");
+                    goto free_fe;
+                }
 
-                ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf, (codecType == DEC ? DEC : ENC));
+                memcpy(bt_ble_streamMap, bt_ble_codec->dec_cfg.streamMapIn,
+                    sizeof(lc3_stream_map_t) * bt_ble_codec->enc_cfg.stream_map_size);
+                bt_ble_codec->enc_cfg.streamMapOut = (lc3_stream_map_t*)bt_ble_streamMap;
 
+                for (int i = 0; i < bt_ble_codec->enc_cfg.stream_map_size; i++) {
+                    bt_ble_codec->enc_cfg.streamMapOut[i].direction = BLE_STRAEMMAP_OUT_DIRECTION;
+                }
+
+                codecInfo = (void*)bt_ble_codec;
+
+                ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf,
+                                       (codecType == DEC ? ENC : DEC));
                 if (ret) {
                     PAL_ERR(LOG_TAG, "getPluginPayload failed");
                     goto free_fe;
@@ -1088,9 +1115,12 @@ void Bluetooth::startAbr()
                     PAL_ERR(LOG_TAG, "Error: Dev setParam failed for %d", fbDevice.id);
                     goto disconnect_fe;
                 }
-                free(fbDev->customPayload);
-                fbDev->customPayload = NULL;
-                fbDev->customPayloadSize = 0;
+
+                if (fbDev->customPayload) {
+                    free(fbDev->customPayload);
+                    fbDev->customPayload = NULL;
+                    fbDev->customPayloadSize = 0;
+                }
             }
         }
     }
@@ -1131,7 +1161,8 @@ start_pcm:
     }
     if ((codecFormat == CODEC_TYPE_LC3) &&
         (fbDevice.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
-         fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_SCO)) {
+         fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
+         fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_BLE)) {
         fbDev->isConfigured = true;
         fbDev->deviceStartStopCount++;
         fbDev->deviceCount++;
@@ -1155,6 +1186,14 @@ free_fe:
     rm->freeFrontEndIds(fbpcmDevIds, sAttr, dir);
     fbpcmDevIds.clear();
 done:
+    if (bt_ble_codec) {
+        free(bt_ble_codec);
+        bt_ble_codec = NULL;
+    }
+    if (bt_ble_streamMap) {
+        free(bt_ble_streamMap);
+        bt_ble_streamMap = NULL;
+    }
     if (isDeviceLocked) {
         isDeviceLocked = false;
         fbDev->unlockDeviceMutex();
@@ -1228,8 +1267,9 @@ void Bluetooth::stopAbr()
     }
     if ((codecFormat == CODEC_TYPE_LC3) &&
         (deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
-         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET) &&
-        fbDev) {
+         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
+         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE) &&
+         fbDev) {
         if ((fbDev->deviceStartStopCount > 0) &&
             (--fbDev->deviceStartStopCount == 0)) {
             fbDev->isConfigured = false;
@@ -1399,6 +1439,7 @@ int BtA2dp::close_audio_source()
     param_bt_a2dp.reconfig = false;
     param_bt_a2dp.latency = 0;
     a2dpState = A2DP_STATE_DISCONNECTED;
+    isConfigured = false;
 
     return 0;
 }
@@ -1598,6 +1639,7 @@ int BtA2dp::close_audio_sink()
     param_bt_a2dp.reconfig = false;
     param_bt_a2dp.latency = 0;
     a2dpState = A2DP_STATE_DISCONNECTED;
+    isConfigured = false;
 
     return 0;
 }
@@ -1626,12 +1668,6 @@ int BtA2dp::start()
     int status = 0;
     mDeviceMutex.lock();
 
-    if (customPayload)
-        free(customPayload);
-
-    customPayload = NULL;
-    customPayloadSize = 0;
-
     status = (a2dpRole == SOURCE) ? startPlayback() : startCapture();
     if (status) {
         goto exit;
@@ -1650,6 +1686,11 @@ int BtA2dp::start()
         startAbr();
 
 exit:
+    if (customPayload) {
+        free(customPayload);
+        customPayload = NULL;
+        customPayloadSize = 0;
+    }
     mDeviceMutex.unlock();
     return status;
 }
@@ -1737,15 +1778,17 @@ int BtA2dp::startPlayback()
 
         /* Update Device GKV based on Encoder type */
         updateDeviceMetadata();
-        ret = configureA2dpEncoderDecoder();
-        if (ret) {
-            PAL_ERR(LOG_TAG, "unable to configure DSP encoder");
-            if (audio_source_stop_api) {
-                audio_source_stop_api(get_session_type());
-            } else {
-                audio_source_stop();
+        if (!isConfigured) {
+            ret = configureA2dpEncoderDecoder();
+            if (ret) {
+                PAL_ERR(LOG_TAG, "unable to configure DSP encoder");
+                if (audio_source_stop_api) {
+                    audio_source_stop_api(get_session_type());
+                } else {
+                    audio_source_stop();
+                }
+                return ret;
             }
-            return ret;
         }
 
         /* Query and cache the a2dp latency */
@@ -1803,7 +1846,10 @@ int BtA2dp::stopPlayback()
         } else {
             PAL_VERBOSE(LOG_TAG, "stop steam to BT IPC lib successful");
         }
-        isConfigured = false;
+
+        if (deviceStartStopCount == 0) {
+            isConfigured = false;
+        }
         a2dpState = A2DP_STATE_STOPPED;
         codecInfo = NULL;
 

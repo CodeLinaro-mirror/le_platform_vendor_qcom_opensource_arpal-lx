@@ -8574,6 +8574,8 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
                 dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
             } else if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE)) {
                 dattr.id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
+            } else {
+                goto exit;
             }
             dev = Device::getInstance(&dattr , rm);
             if (dev) {
@@ -8597,6 +8599,8 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
                 dattr.id = PAL_DEVICE_IN_BLUETOOTH_A2DP;
             } else if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_BLE)) {
                 dattr.id = PAL_DEVICE_IN_BLUETOOTH_BLE;
+            } else {
+                goto exit;
             }
             dev = Device::getInstance(&dattr, rm);
             if (!dev) {
