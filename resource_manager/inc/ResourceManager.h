@@ -152,9 +152,12 @@ typedef enum {
     TAG_INSTREAM,
     TAG_POLICIES,
     TAG_ECREF,
+    TAG_VI_CHMAP,
     TAG_CUSTOMCONFIG,
     TAG_LPI_VOTE_STREAM,
     TAG_SLEEP_MONITOR_LPI_STREAM,
+    TAG_DS_STREAM_TYPE,
+    TAG_DEEPSLEEP_SUPPORT_STREAMS,
     TAG_CONFIG_VOLUME,
     TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAM,
     TAG_CONFIG_VOLUME_SET_PARAM_SUPPORTED_STREAMS,
@@ -485,7 +488,7 @@ protected:
     bool is_charger_online_;
     bool is_concurrent_boost_state_;
     bool current_concurrent_state_;
-    bool is_limiter_configured_;
+    bool is_ICL_config_;
     pal_speaker_rotation_type rotation_type_;
     bool isDeviceSwitch = false;
     static std::mutex mResourceManagerMutex;
@@ -540,6 +543,7 @@ protected:
     static std::vector<struct pal_amp_db_and_gain_table> gainLvlMap;
     static SndCardMonitor *sndmon;
     static std::vector <uint32_t> lpi_vote_streams_;
+    static std::vector <uint32_t> ds_streams_;
     /* condition variable for which ssrHandlerLoop will wait */
     static std::condition_variable cv;
     static std::mutex cvMutex;
@@ -572,6 +576,7 @@ protected:
     std::array<std::shared_ptr<nonTunnelInstMap_t>, DEFAULT_NT_SESSION_TYPE_COUNT> mNTStreamInstancesList;
     int32_t scoOutConnectCount = 0;
     int32_t scoInConnectCount = 0;
+    static std::vector<int> spViChannelMapCfg;
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -689,6 +694,7 @@ public:
                      size_t payload_size, pal_device_id_t pal_device_id,
                      pal_stream_type_t pal_stream_type);
     int setSessionParamConfig(uint32_t param_id, Stream *stream, int tag);
+    int handleChargerEvent(Stream *stream, int tag);
     int rwParameterACDB(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
                      pal_stream_type_t pal_stream_type, uint32_t sample_rate,
@@ -718,6 +724,7 @@ public:
     int getStreamPpTag(std::vector <int> &tag);
     int getDevicePpTag(std::vector <int> &tag);
     int getDeviceDirection(uint32_t beDevId);
+    void getSpViChannelMapCfg(int32_t *channelMap, uint32_t numOfChannels);
     const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes,
                                                 int lDirection);
     const std::vector<int> allocateFrontEndExtEcIds ();
@@ -748,7 +755,7 @@ public:
     bool GetChargingState() const { return charging_state_; }
     bool getChargerOnlineState(void) const { return is_charger_online_; }
     bool getConcurrentBoostState(void) const { return is_concurrent_boost_state_; }
-    bool getLimiterConfigureStatus(void) const { return is_limiter_configured_; }
+    bool getInputCurrentLimitorConfigStatus(void) const { return is_ICL_config_; }
     bool CheckForForcedTransitToNonLPI();
     void GetVoiceUIProperties(struct pal_st_properties *qstp);
     int HandleDetectionStreamAction(pal_stream_type_t type, int32_t action, void *data);
@@ -802,6 +809,7 @@ public:
     static void process_config_volume(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_config_lpm(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_lpi_vote_streams(struct xml_userdata *data, const XML_Char *tag_name);
+    static void process_deepsleep_support_streams(struct xml_userdata *data, const XML_Char *tag_name);
     static void process_kvinfo(const XML_Char **attr, bool overwrite);
     static void process_voicemode_info(const XML_Char **attr);
     static void process_gain_db_to_level_map(struct xml_userdata *data, const XML_Char **attr);
@@ -905,6 +913,7 @@ public:
                              const struct pal_stream_attributes *sAttr,
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
+    bool isStreamSupportedInDeepsleep(uint32_t type);
 };
 
 #endif

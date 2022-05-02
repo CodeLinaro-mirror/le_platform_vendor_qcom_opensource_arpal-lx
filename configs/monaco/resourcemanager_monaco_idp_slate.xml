@@ -149,6 +149,9 @@
         <stream_type>PAL_STREAM_ACD</stream_type>
         <stream_type>PAL_STREAM_ULTRASOUND</stream_type>
     </low_power_vote_streams>
+    <deepsleep_support_streams>
+        <ds_stream_type>PAL_STREAM_VOICE_UI</ds_stream_type>
+    </deepsleep_support_streams>
     <spkr_temp_ctls>
         <temp_ctrl spkr_posn="SPKR_RIGHT" ctrl="BB_TEMP"/>
     </spkr_temp_ctls>
@@ -296,6 +299,15 @@
             <bit_width>16</bit_width>
             <samplerate>48000</samplerate>
             <snd_device_name>vi-feedback</snd_device_name>
+            <!--Add the supported channel_map depending on number of channels -->
+            <!--channel 0 -> Vsen Left  -->
+            <!--channel 1 -> Isen Left  -->
+            <!--channel 2 -> Vsen Right -->
+            <!--channel 3 -> Isen Right -->
+            <sp_vi_ch_map>
+                <channel>2</channel>
+                <channel>1</channel>
+            </sp_vi_ch_map>
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>

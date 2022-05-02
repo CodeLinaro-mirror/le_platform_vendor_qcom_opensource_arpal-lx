@@ -480,6 +480,7 @@ void str_parms_destroy(struct str_parms *str_parms){return;}
 #endif
 
 std::vector<uint32_t> ResourceManager::lpi_vote_streams_;
+std::vector<uint32_t> ResourceManager::ds_streams_;
 std::vector<deviceIn> ResourceManager::deviceInfo;
 std::vector<tx_ecinfo> ResourceManager::txEcInfo;
 struct vsid_info ResourceManager::vsidInfo;
@@ -492,6 +493,7 @@ std::map<uint32_t, uint32_t> ResourceManager::btSlimClockSrcMap;
 
 std::shared_ptr<group_dev_config_t> ResourceManager::activeGroupDevConfig = nullptr;
 std::map<group_dev_config_idx_t, std::shared_ptr<group_dev_config_t>> ResourceManager::groupDevConfigMap;
+std::vector<int> ResourceManager::spViChannelMapCfg = {};
 
 #define MAKE_STRING_FROM_ENUM(string) { {#string}, string }
 std::map<std::string, uint32_t> ResourceManager::btFmtTable = {
@@ -1378,6 +1380,7 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote)
   2. Force Device switch from spkr->spkr, to disable PA.
   3. Audio notifies charger driver about concurrency.
   4. StreamDevConnect to enable PA.
+  5. Config ICL for low gain for SPKR.
 */
 int ResourceManager::handlePBChargerInsertion(Stream *stream)
 {
@@ -1441,9 +1444,7 @@ exit:
 /*
   Playback is going on and charger Removal occurs, Below
   steps avoid HW fault in FET.
-  1. Mute PA by muting particular stream (writing 0 buffers).
-  2. Force Device Switch from spkr->spkr to Unvote and Vote for Boost vdd.
-  3. Unmute PA.
+  1. Force Device Switch from spkr->spkr to Unvote and Vote for Boost vdd.
 */
 
 int ResourceManager::handlePBChargerRemoval(Stream *stream)
@@ -1460,12 +1461,6 @@ int ResourceManager::handlePBChargerRemoval(Stream *stream)
         goto exit;
     }
 
-    status = stream->mute(true);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "Failed to set Mute with status %d", status);
-        goto exit;
-    }
-
     newDevAttr.id = PAL_DEVICE_OUT_SPEAKER;
     dev = Device::getInstance(&newDevAttr, rm);
 
@@ -1478,20 +1473,40 @@ int ResourceManager::handlePBChargerRemoval(Stream *stream)
         goto exit;
     }
 
-    mResourceManagerMutex.unlock();
     status = forceDeviceSwitch(dev, &newDevAttr);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Failed to do Force Device switch %d", status);
         goto exit;
     }
 
-    status = stream->mute(false);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "Setting UnMute failed with status %d", status);
+    status = rm->chargerListenerSetBoostState(false, PB_ON_CHARGER_REMOVE);
+exit:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int ResourceManager::handleChargerEvent(Stream *stream, int tag)
+{
+    int status = 0;
+    PAL_DBG(LOG_TAG, "Enter: tag %s", tag == CHARGE_CONCURRENCY_ON_TAG ?
+    "CHARGE_CONCURRENCY_ON_TAG" : "CHARGE_CONCURRENCY_OFF_TAG");
+
+    if (!stream) {
+        PAL_ERR(LOG_TAG, "No Stream opened");
+        status = -EINVAL;
         goto exit;
     }
 
-    status = rm->chargerListenerSetBoostState(false, PB_ON_CHARGER_REMOVE);
+    if (!is_concurrent_boost_state_ && tag == CHARGE_CONCURRENCY_ON_TAG)
+        status = handlePBChargerInsertion(stream);
+    else if (is_concurrent_boost_state_ && tag == CHARGE_CONCURRENCY_OFF_TAG)
+        status = handlePBChargerRemoval(stream);
+    else
+        PAL_DBG(LOG_TAG, "Concurrency state unchanged");
+
+    if (0 != status)
+        PAL_ERR(LOG_TAG, "Failed to notify PMIC: %d", status);
+
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
@@ -1520,24 +1535,14 @@ int ResourceManager::setSessionParamConfig(uint32_t param_id, Stream *stream, in
     switch (param_id) {
         case PAL_PARAM_ID_CHARGER_STATE:
         {
-            if (is_concurrent_boost_state_) {
-                status = session->setConfig(stream, MODULE, tag);
-                if (0 != status) {
-                    PAL_ERR(LOG_TAG, "Failed to setConfig with status %d", status);
-                    goto exit;
-                }
-                is_limiter_configured_ = (tag == CHARGE_CONCURRENCY_ON_TAG) ? true : false ;
+            if (!is_concurrent_boost_state_) goto exit;
+
+            status = session->setConfig(stream, MODULE, tag);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to setConfig with status %d", status);
+                goto exit;
             }
-
-            if (!is_concurrent_boost_state_ && tag == CHARGE_CONCURRENCY_ON_TAG)
-                status = handlePBChargerInsertion(stream);
-            else if (is_concurrent_boost_state_ && tag == CHARGE_CONCURRENCY_OFF_TAG)
-                status = handlePBChargerRemoval(stream);
-            else
-                PAL_DBG(LOG_TAG, "Concurrency state unchanged");
-
-            if (0 != status)
-                PAL_ERR(LOG_TAG, "Failed to notify PMIC: %d", status);
+            is_ICL_config_ = (tag == CHARGE_CONCURRENCY_ON_TAG) ? true : false ;
         }
         break;
         default:
@@ -1661,7 +1666,7 @@ int ResourceManager::chargerListenerSetBoostState(bool state, charger_boost_mode
             break;
             case CONCURRENCY_PB_STOPS:
                 if (!state && is_concurrent_boost_state_) {
-                     is_limiter_configured_ = false;
+                     is_ICL_config_ = false;
                      goto notify_charger;
                  }
             break;
@@ -1685,7 +1690,7 @@ exit:
 void ResourceManager::chargerListenerFeatureInit()
 {
     is_concurrent_boost_state_ = false;
-    is_limiter_configured_ = false;
+    is_ICL_config_ = false;
     ResourceManager::chargerListenerInit(onChargerListenerStatusChanged);
 }
 
@@ -5578,6 +5583,26 @@ int ResourceManager::getDeviceDirection(uint32_t beDevId)
     return dir;
 }
 
+void ResourceManager::getSpViChannelMapCfg(int32_t *channelMap, uint32_t numOfChannels)
+{
+    int i = 0;
+
+    if (!channelMap)
+        return;
+
+    if (!spViChannelMapCfg.empty() && (spViChannelMapCfg.size() == numOfChannels)) {
+        for (i = 0; i < spViChannelMapCfg.size(); i++) {
+            channelMap[i] = spViChannelMapCfg[i];
+        }
+        return;
+    }
+
+    PAL_DBG(LOG_TAG, "sp_vi_ch_map info is not updated from Rm.xml");
+    for (i = 0; i < numOfChannels; i++) {
+        channelMap[i] = i+1;
+    }
+}
+
 int ResourceManager::getNumFEs(const pal_stream_type_t sType) const
 {
     int n = 1;
@@ -7968,8 +7993,16 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         }
                         stream = static_cast<Stream*>(activestreams[0]);
                         mResourceManagerMutex.unlock();
-                        status = setSessionParamConfig(param_id, stream, tag);
-                         mResourceManagerMutex.lock();
+                        /*
+                         When charger is offline, reconfig ICL at normal gain first then
+                         handle charger event, Otherwise for charger online case handle
+                         charger event and then set config as part of device switch.
+                        */
+                        if (tag == CHARGE_CONCURRENCY_OFF_TAG)
+                            status = setSessionParamConfig(param_id, stream, tag);
+                        if (0 == status)
+                            status = handleChargerEvent(stream, tag);
+                        mResourceManagerMutex.lock();
                         if (0 != status)
                             PAL_ERR(LOG_TAG, "SetSession Param config failed %d", status);
                         break;
@@ -8025,6 +8058,13 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 PAL_ERR(LOG_TAG, "set Parameter %d failed\n", param_id);
                 goto exit;
             }
+
+            /*
+             * Create audio patch request is not expected for HFP client call.
+             * Do not move active streams to sco device.
+             */
+            if (param_bt_sco->is_bt_hfp)
+                goto exit;
 
             /* When BT_SCO = ON received, make sure route all the active streams to
              * SCO devices in order to avoid any potential delay with create audio
@@ -9625,6 +9665,34 @@ void ResourceManager::process_lpi_vote_streams(struct xml_userdata *data,
 
 }
 
+void ResourceManager::process_deepsleep_support_streams(struct xml_userdata *data,
+                                                          const XML_Char *tag_name)
+{
+    if (data->offs <= 0 || data->resourcexml_parsed)
+        return;
+
+    data->data_buf[data->offs] = '\0';
+
+    if (data->tag == TAG_DS_STREAM_TYPE) {
+        std::string stream_name(data->data_buf);
+        PAL_DBG(LOG_TAG, "Stream name to be added : %s", stream_name.c_str());
+        uint32_t st = usecaseIdLUT.at(stream_name);
+        ds_streams_.push_back(st);
+        PAL_DBG(LOG_TAG, "Stream type added : %d", st);
+    }
+
+    if (!strcmp(tag_name, "ds_stream_type")) {
+        data->tag = TAG_DEEPSLEEP_SUPPORT_STREAMS;
+    } else if (!strcmp(tag_name, "deepsleep_support_streams")) {
+        data->tag = TAG_RESOURCE_MANAGER_INFO;
+    }
+}
+
+bool ResourceManager::isStreamSupportedInDeepsleep(uint32_t type)
+{
+    return (find(ds_streams_.begin(), ds_streams_.end(), type) != ds_streams_.end());
+}
+
 uint32_t ResourceManager::palFormatToBitwidthLookup(const pal_audio_fmt_t format)
 {
     audio_bit_width_t bit_width_ret = AUDIO_BIT_WIDTH_DEFAULT_16;
@@ -9783,6 +9851,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
             deviceInfo[size].rx_dev_ids.push_back(rxDeviceId);
             deviceInfo[size].ec_ref_count_map.insert({rxDeviceId, str_list});
         }
+    } else if (data->tag == TAG_VI_CHMAP) {
+        if (!strcmp(tag_name, "channel")) {
+            spViChannelMapCfg.push_back(atoi(data->data_buf));
+        }
     } else if (data->tag == TAG_CUSTOMCONFIG) {
         if (!strcmp(tag_name, "snd_device_name")) {
             std::string sndDev(data->data_buf);
@@ -9834,6 +9906,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         data->tag = TAG_USECASE;
     } else if (!strcmp(tag_name, "ec_rx_device")) {
         data->tag = TAG_ECREF;
+    } else if (!strcmp(tag_name, "sp_vi_ch_map")) {
+        data->tag = TAG_IN_DEVICE;
     } else if (!strcmp(tag_name, "resource_manager_info")) {
         data->tag = TAG_RESOURCE_ROOT;
         data->resourcexml_parsed = true;
@@ -10094,12 +10168,18 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         data->tag = TAG_ECREF;
     } else if (!strcmp(tag_name, "ec_rx_device")) {
         data->tag = TAG_ECREF;
+    } else if(!strcmp(tag_name, "sp_vi_ch_map")) {
+        data->tag = TAG_VI_CHMAP;
     } else if (!strcmp(tag_name, "sidetone_mode")) {
         data->tag = TAG_USECASE;
     } else if (!strcmp(tag_name, "stream_type")) {
         data->tag = TAG_LPI_VOTE_STREAM;
     } else if (!strcmp(tag_name, "low_power_vote_streams")) {
          data->tag = TAG_SLEEP_MONITOR_LPI_STREAM;
+    } else if (!strcmp(tag_name, "ds_stream_type")) {
+        data->tag = TAG_DS_STREAM_TYPE;
+    } else if (!strcmp(tag_name, "deepsleep_support_streams")) {
+        data->tag = TAG_DEEPSLEEP_SUPPORT_STREAMS;
     } else if (!strcmp(tag_name, "custom-config")) {
         process_custom_config(attr);
         data->inCustomConfig = 1;
@@ -10174,6 +10254,7 @@ void ResourceManager::endTag(void *userdata, const XML_Char *tag_name)
     process_device_info(data,tag_name);
     process_input_streams(data,tag_name);
     process_lpi_vote_streams(data, tag_name);
+    process_deepsleep_support_streams(data, tag_name);
     process_config_volume(data, tag_name);
     process_config_lpm(data, tag_name);
 
