@@ -391,7 +391,7 @@ int Bluetooth::configureA2dpEncoderDecoder()
             builder->payloadRATConfig(&paramData, &paramSize, ratMiid, &codecConfig);
             if (paramSize) {
                 dev->updateCustomPayload(paramData, paramSize);
-                delete [] paramData;
+                free(paramData);
                 paramData = NULL;
                 paramSize = 0;
             } else {
@@ -507,7 +507,7 @@ int Bluetooth::configureA2dpEncoderDecoder()
     builder->payloadRATConfig(&paramData, &paramSize, ratMiid, &codecConfig);
     if (paramSize) {
         dev->updateCustomPayload(paramData, paramSize);
-        delete [] paramData;
+        free(paramData);
         paramData = NULL;
         paramSize = 0;
     } else {

@@ -1549,7 +1549,6 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
     /*special cases to update attrs for hot plug devices*/
     switch (deviceattr->id) {
         case PAL_DEVICE_IN_WIRED_HEADSET:
-
             status = (HeadsetMic::checkAndUpdateSampleRate(&deviceattr->config.sample_rate));
             if (status) {
                 PAL_ERR(LOG_TAG, "failed to update samplerate/bitwidth");
@@ -1644,7 +1643,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             deviceattr->config.ch_info = sAttr->in_media_config.ch_info;
             if (isPalPCMFormat(sAttr->in_media_config.aud_fmt_id))
                 deviceattr->config.bit_width =
-                          palFormatToBitwidthTable[sAttr->in_media_config.aud_fmt_id];
+                          palFormatToBitwidthLookup(sAttr->in_media_config.aud_fmt_id);
             else
                 deviceattr->config.bit_width = sAttr->in_media_config.bit_width;
             deviceattr->config.aud_fmt_id = sAttr->in_media_config.aud_fmt_id;
@@ -1677,7 +1676,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     deviceattr->config.sample_rate = proxyIn_dattr.config.sample_rate;
                     if (isPalPCMFormat(proxyIn_dattr.config.aud_fmt_id))
                         deviceattr->config.bit_width =
-                                  palFormatToBitwidthTable[proxyIn_dattr.config.aud_fmt_id];
+                                  palFormatToBitwidthLookup(proxyIn_dattr.config.aud_fmt_id);
                     else
                         deviceattr->config.bit_width = proxyIn_dattr.config.bit_width;
                     deviceattr->config.aud_fmt_id = proxyIn_dattr.config.aud_fmt_id;
@@ -7563,6 +7562,27 @@ void ResourceManager::process_lpi_vote_streams(struct xml_userdata *data,
 
 }
 
+uint32_t ResourceManager::palFormatToBitwidthLookup(const pal_audio_fmt_t format)
+{
+    audio_bit_width_t bit_width_ret = AUDIO_BIT_WIDTH_DEFAULT_16;
+    switch (format) {
+        case PAL_AUDIO_FMT_PCM_S8:
+            bit_width_ret = AUDIO_BIT_WIDTH_8;
+            break;
+        case PAL_AUDIO_FMT_PCM_S24_3LE:
+        case PAL_AUDIO_FMT_PCM_S24_LE:
+            bit_width_ret = AUDIO_BIT_WIDTH_24;
+            break;
+        case PAL_AUDIO_FMT_PCM_S32_LE:
+            bit_width_ret = AUDIO_BIT_WIDTH_32;
+            break;
+        default:
+            break;
+    }
+
+    return static_cast<uint32_t>(bit_width_ret);
+};
+
 void ResourceManager::process_device_info(struct xml_userdata *data, const XML_Char *tag_name)
 {
 
@@ -8110,6 +8130,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
     std::vector <std::tuple<Stream *, struct pal_device *>> StreamDevConnect;
     pal_device_info devInfo;
     std::string key;
+    memset(&newDevAttr, 0, sizeof(struct pal_device));
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -8204,10 +8225,11 @@ int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
     std::string key(incomingDev->custom_config.custom_key);
     std::vector <struct pal_device> palDevices;
 
+    memset(&devInfo, 0, sizeof(pal_device_info));
+
     if (!incomingDev || !currentStrAttr) {
         PAL_ERR(LOG_TAG, "invalid dev or stream cannot get device attr");
-        status = -EINVAL;
-        goto exit;
+        return -EINVAL;
     }
 
     /*get the incoming stream dev info*/
@@ -8248,7 +8270,6 @@ int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
     }
     stream_count++;
 
-exit:
     getSndDeviceName(dev_id, CurrentSndDeviceName);
     PAL_DBG(LOG_TAG,"dev attr configured are, ch %d, sr %d, bit_width %d, fmt %d, sndDev %s",
             incomingDev->config.ch_info.channels,
@@ -8256,6 +8277,8 @@ exit:
             incomingDev->config.bit_width,
             incomingDev->config.aud_fmt_id,
             CurrentSndDeviceName);
+
+exit:
     return status;
 }
 
@@ -8268,6 +8291,10 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
     char activeSndDeviceName[DEVICE_NAME_MAX_SIZE] = {0};
 
     dev = Device::getInstance(curDevAttr, rm);
+    if (!dev) {
+        PAL_ERR(LOG_TAG, "No device instance found");
+        goto exit;
+    }
     getSndDeviceName(dev->getSndDeviceId(),activeSndDeviceName);
 
     if (inDevAttr->config.sample_rate != curDevAttr->config.sample_rate) {
@@ -8290,5 +8317,7 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
                 activeSndDeviceName);
         ret = true;
     }
+
+exit:
     return ret;
 }

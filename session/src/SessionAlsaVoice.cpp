@@ -985,10 +985,9 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
         goto exit;
     }
 
-    PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
-
 exit:
 if (paramData) {
+    PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
     free(paramData);
 }
     PAL_DBG(LOG_TAG,"Exit status:%d ", status);
@@ -1528,10 +1527,11 @@ int SessionAlsaVoice::setECRef(Stream *s, std::shared_ptr<Device> rx_dev __unuse
     int32_t extEcbackendId;
     std::vector <std::string> extEcbackendNames;
     struct pal_device device;
-    struct pal_device rxDevAttr;
+    struct pal_device rxDevAttr = {};
     struct pal_device_info rxDevInfo;
     int dev_id = 0;
 
+    memset(&rxDevAttr, 0, sizeof(struct pal_device));
     status = s->getAssociatedDevices(associatedDevices);
     if (0 != status) {
         PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");

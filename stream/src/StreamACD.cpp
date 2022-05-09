@@ -51,6 +51,20 @@ StreamACD::StreamACD(struct pal_stream_attributes *sattr,
     paused_ = false;
     device_opened_ = false;
     currentState = STREAM_IDLE;
+    exit_thread_ = false;
+    acd_idle_ = nullptr;
+    acd_loaded_ = nullptr;
+    acd_active = nullptr;
+    acd_detected_ = nullptr;
+    acd_ssr_ = nullptr;
+    acd_states_ = {};
+    use_lpi_ = false;
+    cached_event_data_ = nullptr;
+    callback_ = nullptr;
+    cookie_ = 0;
+    cur_state_ = nullptr;
+    prev_state_ = nullptr;
+    state_for_restore_ = ACD_STATE_NONE;
 
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
@@ -102,7 +116,6 @@ StreamACD::StreamACD(struct pal_stream_attributes *sattr,
         throw std::runtime_error("ACD not enabled, exiting");
     }
 
-    exit_thread_ = false;
     notification_thread_handler_ = std::thread(EventNotificationThread, this);
     if (!notification_thread_handler_.joinable()) {
         PAL_ERR(LOG_TAG, "Error:%d failed to create notification thread",
@@ -126,8 +139,6 @@ StreamACD::StreamACD(struct pal_stream_attributes *sattr,
 
     // Set initial state
     cur_state_ = acd_idle_;
-    prev_state_ = nullptr;
-    state_for_restore_ = ACD_STATE_NONE;
 
     // Print the concurrency feature flags supported
     PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,voip conc enable %d",
@@ -488,8 +499,8 @@ void StreamACD::CacheEventData(struct acd_context_event *event)
 
         cached_event_data_ = (struct pal_st_recognition_event *)realloc(cached_event_data_, new_event_size);
         if (!cached_event_data_) {
-            PAL_ERR(LOG_TAG, "failed to allocate memory for cached_event_data_");
-            return;
+            PAL_ERR(LOG_TAG, "Error:%d Failed to reallocate new memory space for cached_event_data_", -ENOMEM);
+            goto exit;
         }
         cached_event_data_->data_size += event->num_contexts * sizeof(struct acd_per_context_event_info);
         per_context_info = (uint8_t *) ((uint8_t *) current_context_event +
@@ -511,7 +522,10 @@ void StreamACD::CacheEventData(struct acd_context_event *event)
         }
         PopulateCallbackPayload(event, cached_event_data_);
     }
+
+exit:
     PAL_DBG(LOG_TAG, "Exit");
+    return;
 }
 
 void StreamACD::SendCachedEventData()
