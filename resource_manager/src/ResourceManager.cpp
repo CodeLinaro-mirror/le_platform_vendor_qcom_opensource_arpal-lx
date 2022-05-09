@@ -192,6 +192,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -238,6 +240,8 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_HEARING_AID,          0},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       0},
     {PAL_DEVICE_OUT_ULTRASOUND,           1},
+    {PAL_DEVICE_OUT_A2B_SPKR,             0},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -285,6 +289,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -505,6 +511,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "none" }}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "none" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -7835,6 +7843,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                    goto exit;
                 }
                 if ((PAL_DEVICE_OUT_SPEAKER == deviceId) ||
+                    (PAL_DEVICE_OUT_A2B_SPKR == deviceId) ||
+                    (PAL_DEVICE_OUT_A2B2_SPKR == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADSET == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADPHONE == deviceId)) {
                     status = getActiveStream_l(active_devices[i].first, activestreams);

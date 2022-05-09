@@ -74,6 +74,8 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         PAL_VERBOSE(LOG_TAG, "handset device");
         return Handset::getInstance(device, Rm);
     case PAL_DEVICE_OUT_SPEAKER:
+    case PAL_DEVICE_OUT_A2B_SPKR:
+    case PAL_DEVICE_OUT_A2B2_SPKR:
         PAL_VERBOSE(LOG_TAG, "speaker device");
         return Speaker::getInstance(device, Rm);
     case PAL_DEVICE_IN_VI_FEEDBACK:
@@ -159,6 +161,8 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         PAL_VERBOSE(LOG_TAG, "handset device");
         return Handset::getObject();
     case PAL_DEVICE_OUT_SPEAKER:
+    case PAL_DEVICE_OUT_A2B_SPKR:
+    case PAL_DEVICE_OUT_A2B2_SPKR:
         PAL_VERBOSE(LOG_TAG, "speaker device");
         return Speaker::getObject();
     case PAL_DEVICE_OUT_WIRED_HEADSET:
