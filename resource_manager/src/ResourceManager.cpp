@@ -493,6 +493,7 @@ std::map<uint32_t, uint32_t> ResourceManager::btSlimClockSrcMap;
 
 std::shared_ptr<group_dev_config_t> ResourceManager::activeGroupDevConfig = nullptr;
 std::map<group_dev_config_idx_t, std::shared_ptr<group_dev_config_t>> ResourceManager::groupDevConfigMap;
+std::vector<int> ResourceManager::spViChannelMapCfg = {};
 
 #define MAKE_STRING_FROM_ENUM(string) { {#string}, string }
 std::map<std::string, uint32_t> ResourceManager::btFmtTable = {
@@ -5582,6 +5583,26 @@ int ResourceManager::getDeviceDirection(uint32_t beDevId)
     return dir;
 }
 
+void ResourceManager::getSpViChannelMapCfg(int32_t *channelMap, uint32_t numOfChannels)
+{
+    int i = 0;
+
+    if (!channelMap)
+        return;
+
+    if (!spViChannelMapCfg.empty() && (spViChannelMapCfg.size() == numOfChannels)) {
+        for (i = 0; i < spViChannelMapCfg.size(); i++) {
+            channelMap[i] = spViChannelMapCfg[i];
+        }
+        return;
+    }
+
+    PAL_DBG(LOG_TAG, "sp_vi_ch_map info is not updated from Rm.xml");
+    for (i = 0; i < numOfChannels; i++) {
+        channelMap[i] = i+1;
+    }
+}
+
 int ResourceManager::getNumFEs(const pal_stream_type_t sType) const
 {
     int n = 1;
@@ -8038,6 +8059,13 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 goto exit;
             }
 
+            /*
+             * Create audio patch request is not expected for HFP client call.
+             * Do not move active streams to sco device.
+             */
+            if (param_bt_sco->is_bt_hfp)
+                goto exit;
+
             /* When BT_SCO = ON received, make sure route all the active streams to
              * SCO devices in order to avoid any potential delay with create audio
              * patch request for SCO devices.
@@ -9823,6 +9851,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
             deviceInfo[size].rx_dev_ids.push_back(rxDeviceId);
             deviceInfo[size].ec_ref_count_map.insert({rxDeviceId, str_list});
         }
+    } else if (data->tag == TAG_VI_CHMAP) {
+        if (!strcmp(tag_name, "channel")) {
+            spViChannelMapCfg.push_back(atoi(data->data_buf));
+        }
     } else if (data->tag == TAG_CUSTOMCONFIG) {
         if (!strcmp(tag_name, "snd_device_name")) {
             std::string sndDev(data->data_buf);
@@ -9874,6 +9906,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         data->tag = TAG_USECASE;
     } else if (!strcmp(tag_name, "ec_rx_device")) {
         data->tag = TAG_ECREF;
+    } else if (!strcmp(tag_name, "sp_vi_ch_map")) {
+        data->tag = TAG_IN_DEVICE;
     } else if (!strcmp(tag_name, "resource_manager_info")) {
         data->tag = TAG_RESOURCE_ROOT;
         data->resourcexml_parsed = true;
@@ -10134,6 +10168,8 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         data->tag = TAG_ECREF;
     } else if (!strcmp(tag_name, "ec_rx_device")) {
         data->tag = TAG_ECREF;
+    } else if(!strcmp(tag_name, "sp_vi_ch_map")) {
+        data->tag = TAG_VI_CHMAP;
     } else if (!strcmp(tag_name, "sidetone_mode")) {
         data->tag = TAG_USECASE;
     } else if (!strcmp(tag_name, "stream_type")) {
