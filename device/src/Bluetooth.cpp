@@ -669,6 +669,7 @@ void Bluetooth::startAbr()
     size_t paramSize = 0;
     PayloadBuilder* builder = NULL;
     bool isDeviceLocked = false;
+    audio_lc3_codec_cfg_t* bt_ble_codec = NULL;
 
     memset(&fbDevice, 0, sizeof(fbDevice));
     memset(&sAttr, 0, sizeof(sAttr));
@@ -919,23 +920,24 @@ void Bluetooth::startAbr()
                 goto disconnect_fe;
             }
 
-            ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf, (codecType == DEC ? ENC : DEC));
-            if (ret) {
-                PAL_ERR(LOG_TAG, "getPluginPayload failed");
-                goto disconnect_fe;
-            }
+            if (isEncDecConfigured) {
+                ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf,
+                                      (codecType == DEC ? ENC : DEC));
+                if (ret) {
+                    PAL_ERR(LOG_TAG, "getPluginPayload failed");
+                    goto free_fe;
+                }
+            } else {
+                /* In case of BLE stereorecording/voice_call_decode_session, only decoder
+                 * path configs are present so use the same config for RX feeedback path too
+                 */
+                bt_ble_codec = (audio_lc3_codec_cfg_t*)codecInfo;
 
-            /* In case of BLE stereo recording usecase, only decoder path configs are present
-             * so use the same config for RX feedback path too*/
-            if (!out_buf->sample_rate) {
+                memcpy(&bt_ble_codec->enc_cfg.toAirConfig, &bt_ble_codec->dec_cfg.fromAirConfig,
+                       sizeof(lc3_cfg_t));
 
-                codec->close_plugin(codec);
-                codec = NULL;
-                dlclose(pluginLibHandle);
-                pluginLibHandle = NULL;
-
-                ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf, (codecType == DEC ? DEC : ENC));
-
+                ret = getPluginPayload(&pluginLibHandle, &codec, &out_buf,
+                                       (codecType == DEC ? ENC : DEC));
                 if (ret) {
                     PAL_ERR(LOG_TAG, "getPluginPayload failed");
                     goto free_fe;
