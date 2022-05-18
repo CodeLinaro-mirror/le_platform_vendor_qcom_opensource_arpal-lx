@@ -38,12 +38,113 @@
 #include "PalCommon.h"
 #include "SndCardMonitor.h"
 
+#ifdef PLATFORM_AUTO
+#define SNDCARD_PATH "/proc/asound/cards"
+#else
 #define SNDCARD_PATH "/sys/kernel/snd_card/card_state"
+#endif
+
 #define MAX_SLEEP_RETRY 100
 
 static int fd = -1;
 static int exit_thread = 0; //by default exit thread is made false
 
+#ifdef PLATFORM_AUTO
+char* SndCardMonitor::readState(int fd)
+{
+    struct stat buf;
+    char *state = NULL;
+
+    if (fstat(fd, &buf) < 0)
+        return NULL;
+
+    off_t pos = lseek(fd, 0, SEEK_CUR);
+    off_t avail = buf.st_size - pos;
+    if (avail <= 0) {
+        PAL_ERR(LOG_TAG, "avail %ld", avail);
+        return NULL;
+    }
+
+    state = (char *)calloc(avail+1, sizeof(char));
+    if (!state)
+        return NULL;
+
+    ssize_t bytes = read(fd, state, avail);
+    if (bytes <= 0)
+        return NULL;
+
+    // trim trailing whitespace
+    while (bytes && isspace(*(state+bytes-1))) {
+        *(state + bytes - 1) = '\0';
+        --bytes;
+    }
+    lseek(fd, 0, SEEK_SET);
+    return state;
+}
+#endif
+
+#ifdef PLATFORM_AUTO
+void SndCardMonitor::monitorThreadLoop()
+{
+    struct pollfd poll_fds;
+    int rv = 0;
+    int tries = MAX_SLEEP_RETRY;
+    char *sndcard_state = NULL;
+    char path[128] = {0};
+
+    card_status_t status = CARD_STATUS_NONE;
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    // TODO: Needs update if we support more than one snd card.
+    snprintf(path, sizeof(path), "/proc/asound/card%d/state", 0);
+    while(--tries) {
+        if (exit_thread == 1)
+            break;
+        if ((fd = open(path, O_RDONLY)) < 0) {
+            PAL_ERR(LOG_TAG, "Open failed snd sysfs node");
+        }
+        else {
+            PAL_INFO(LOG_TAG, "snd sysfs node open successful");
+            break;
+        }
+        usleep(500000);
+    }
+    if (fd == -1)
+        goto Done;
+
+    while(1) {
+        poll_fds.fd = fd;
+        poll_fds.events = POLLERR | POLLPRI;
+        poll_fds.revents = 0;
+
+        PAL_INFO(LOG_TAG, "waiting sys_notify event\n");
+        if (( rv = poll( &poll_fds, 1, -1)) < 0 ) {
+             PAL_ERR(LOG_TAG, "snd sysfs node poll error\n");
+        } else if ((poll_fds.revents & POLLPRI)) {
+            sndcard_state = readState(poll_fds.fd);
+            PAL_INFO(LOG_TAG, "sndcardstate=%s\n", sndcard_state);
+
+            if (sndcard_state == NULL) {
+                PAL_ERR(LOG_TAG, "sndcard null");
+                break;
+            }
+
+            if (strstr(sndcard_state, "OFFLINE"))
+                status = CARD_STATUS_OFFLINE;
+            else if (strstr(sndcard_state, "ONLINE"))
+                status = CARD_STATUS_ONLINE;
+            else {
+                PAL_ERR(LOG_TAG, "unknown state, %s", sndcard_state);
+                break;
+            }
+
+            rm->ssrHandler(status);
+            free(sndcard_state);
+        }
+    }
+Done:
+    return;
+}
+#else
 void SndCardMonitor::monitorThreadLoop()
 {
     struct pollfd poll_fds;
@@ -99,6 +200,7 @@ void SndCardMonitor::monitorThreadLoop()
 Done:
     return;
 }
+#endif
 
 SndCardMonitor::SndCardMonitor(int sndNum)
 {

@@ -24,6 +24,10 @@ ifeq ($(ENABLE_HYP),true)
 LOCAL_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
 endif
 
+ifeq ($(PRODUCT_NAME), msmnile_gvmgh)
+  LOCAL_CFLAGS += -DPLATFORM_AUTO
+endif
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/device/inc \
