@@ -629,6 +629,8 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
         setSlotMask(rm, sAttr, dAttr, pcmDevIds);
     }
 
+    #ifndef REMOVE_PSPD_MFC_CONFIG
+
     /* Prepare PSPD MFC payload */
     /* Get PSPD MFC MIID and configure to match to device config */
     /* This has to be done after sending all mixer controls and before connect */
@@ -701,7 +703,7 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
         if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT))
             status = 0;
     }
-
+    #endif
 exit:
     if (builder) {
         delete builder;

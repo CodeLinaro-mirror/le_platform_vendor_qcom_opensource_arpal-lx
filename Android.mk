@@ -20,6 +20,10 @@ LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
+ifeq ($(ENABLE_HYP),true)
+LOCAL_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
+endif
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/device/inc \
