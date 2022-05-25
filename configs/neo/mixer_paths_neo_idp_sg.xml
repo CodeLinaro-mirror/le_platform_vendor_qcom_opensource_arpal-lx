@@ -59,8 +59,8 @@
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                     -->
 <mixer>
     <!-- These are the initial mixer settings -->
-    <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="0" />
     <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="0" />
+    <ctl name="WSA2_AIF_VI Mixer WSA2_SPKR_VI_1" value="0" />
     <!-- HFP start -->
     <!-- HFP end -->
     <!-- echo reference -->
@@ -112,11 +112,13 @@
     <!-- Codec controls -->
     <!-- WSA controls -->
     <ctl name="WSA RX0 MUX" value="ZERO" />
+    <ctl name="WSA2 RX0 MUX" value="ZERO" />
     <ctl name="WSA RX1 MUX" value="ZERO" />
     <ctl name="WSA_RX0 INP0" value="ZERO" />
+    <ctl name="WSA2_RX0 INP0" value="ZERO" />
     <ctl name="WSA_RX1 INP0" value="ZERO" />
-    <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="0" />
     <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="0" />
+    <ctl name="WSA2_AIF_VI Mixer WSA2_SPKR_VI_1" value="0" />
     <ctl name="SpkrLeft COMP Switch" value="0" />
     <ctl name="SpkrRight COMP Switch" value="0" />
     <ctl name="SpkrLeft VISENSE Switch" value="0" />
@@ -1958,11 +1960,11 @@
     </path>
 
     <path name="speaker">
-        <ctl name="WSA RX0 MUX" value="AIF1_PB" />
+        <ctl name="WSA2 RX0 MUX" value="AIF1_PB" />
         <ctl name="WSA RX1 MUX" value="AIF1_PB" />
-        <ctl name="WSA_RX0 INP0" value="RX0" />
+        <ctl name="WSA2_RX0 INP0" value="RX0" />
         <ctl name="WSA_RX1 INP0" value="RX1" />
-        <ctl name="WSA_COMP1 Switch" value="1" />
+        <ctl name="WSA2_COMP1 Switch" value="1" />
         <ctl name="WSA_COMP2 Switch" value="1" />
         <ctl name="SpkrLeft COMP Switch" value="1" />
         <ctl name="SpkrLeft VISENSE Switch" value="1" />
@@ -2081,8 +2083,8 @@
     </path>
 
     <path name="speaker-protected">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
         <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
+        <ctl name="WSA2_AIF_VI Mixer WSA2_SPKR_VI_1" value="1" />
         <path name="speaker" />
     </path>
 
@@ -2121,16 +2123,16 @@
     </path>
 
     <path name="vi-feedback">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
         <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
+        <ctl name="WSA2_AIF_VI Mixer WSA2_SPKR_VI_1" value="1" />
     </path>
 
     <path name="vi-feedback-mono-1">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
     </path>
 
     <path name="vi-feedback-mono-2">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
+        <ctl name="WSA2_AIF_VI Mixer WSA2_SPKR_VI_1" value="1" />
     </path>
 
     <path name="handset">
