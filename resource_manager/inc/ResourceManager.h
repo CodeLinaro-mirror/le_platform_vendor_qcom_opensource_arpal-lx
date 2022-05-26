@@ -84,9 +84,17 @@ typedef enum {
 #endif
 #else
 #ifdef __LP64__
+#if defined(AUTO_GVMQ)
+#define ADM_LIBRARY_PATH "/vendor/lib64/libadm_ar.so"
+#else
 #define ADM_LIBRARY_PATH "/vendor/lib64/libadm.so"
+#endif
+#else
+#if defined(AUTO_GVMQ)
+#define ADM_LIBRARY_PATH "/vendor/lib/libadm_ar.so"
 #else
 #define ADM_LIBRARY_PATH "/vendor/lib/libadm.so"
+#endif
 #endif
 #endif
 
