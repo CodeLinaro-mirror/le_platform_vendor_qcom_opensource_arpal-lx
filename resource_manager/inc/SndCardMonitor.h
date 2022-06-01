@@ -42,6 +42,9 @@ class SndCardMonitor
 {
 private :
     std::thread mThread;
+#ifdef PLATFORM_AUTO
+    char* readState(int fd);
+#endif
     void monitorThreadLoop();
 
 public :
