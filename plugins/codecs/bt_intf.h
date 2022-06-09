@@ -99,6 +99,14 @@ typedef struct bt_enc_payload {
     uint32_t  num_blks;
     bool is_enc_config_set;
     bool is_dec_config_set;
+    uint32_t bitrate;
+    uint32_t bitrate_mode;
+    uint32_t mtu;
+    uint32_t congestion_buffer_duration_ms;
+    uint32_t delay_buffer_duration_ms;
+    uint32_t frame_size_mode;
+    uint32_t frame_size_value;
+    uint32_t jitter_allowance_in_ms;
     custom_block_t *blocks[];
 } bt_enc_payload_t;
 
