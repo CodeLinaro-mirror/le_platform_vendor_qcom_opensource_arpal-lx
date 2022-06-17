@@ -54,16 +54,18 @@ void PowerStateMonitorImpl::PowerStateServiceDeathRecipient::serviceDied(
 void PowerStateMonitorImpl::handlePowerStateServiceDeath(
     uint64_t cookie, const wp<IBase>& who)
 {
+    Mutex::Autolock lock(mPssMutex);
+    if (mPssHandler.get() == nullptr)
+        return;
+
     ALOGD("PowerStateService HAL %p died. cookie: %llu, who: %p",
             mPssHandler.get(), static_cast<unsigned long long>(cookie), &who);
 
-    Mutex::Autolock lock(mPssMutex);
-    if (mPssHandler.get() != nullptr) {
-        mPssHandler->unlinkToDeath(mPssDeathRecipient);
-        ALOGD("Unlink %p from PSS death", mPssDeathRecipient.get());
-        mPssHandler = nullptr;
-    }
+    mPsmDsState = PSM_DS_STATE_INVALID;
+    mPssHandler->unlinkToDeath(mPssDeathRecipient);
+    ALOGD("Unlink %p from PSS death", mPssDeathRecipient.get());
     /* TODO: Send notification to the client of PSM (SND MONITOR) */
+    mPssHandler = nullptr;
 }
 
 /*
@@ -71,10 +73,16 @@ void PowerStateMonitorImpl::handlePowerStateServiceDeath(
  */
 bool PowerStateMonitorImpl::attachToPowerStateServiceHal()
 {
-    bool retVal = false;
+    Return<bool> retVal = false;
     sp<IPowerStateService> pss_handle = nullptr;
     int count = 0;
 
+    /* Check if it is already attached */
+    {
+        Mutex::Autolock lock(mPssMutex);
+        if (mPssHandler.get() != nullptr)
+            return true;
+    }
     /* Get PowerStateService handle */
     do {
         /* Get a power state HAL instance */
@@ -95,51 +103,60 @@ bool PowerStateMonitorImpl::attachToPowerStateServiceHal()
 
     if (retVal == false) {
         ALOGE("Failed to connect to powerStateService HAL, Terminating...");
-        return false;
+        goto exit;
     }
 
-    Mutex::Autolock lock(mPssMutex);
-    mPssHandler = pss_handle;
+    {
+        Mutex::Autolock lock(mPssMutex);
+        /* Initialize the handler */
+        mPssHandler = pss_handle;
 
-    /* Link to PowerStateService Death recipient */
-    auto retl = mPssHandler->linkToDeath(mPssDeathRecipient, /*cookie=*/ 0);
-    if (!retl.isOk() || retl == false) {
-        ALOGE("Failed to link %p to powerStateService deathRecipient", (void *)mPssDeathRecipient.get());
-        return false;
-    } else {
-        ALOGD("Linked %p to powerStateService deathRecipient", (void *)mPssDeathRecipient.get());
-    }
+        /* Link to PowerStateService Death recipient */
+        retVal = pss_handle->linkToDeath(mPssDeathRecipient, /*cookie=*/ 0);
+        if (!retVal.isOk() || retVal == false) {
+            ALOGE("Failed to link %p to powerStateService deathRecipient",
+                (void *)mPssDeathRecipient.get());
+            goto exit;
+        } else {
+            ALOGD("Linked %p to powerStateService deathRecipient", (void *)mPssDeathRecipient.get());
+        }
 
-    /* TODO:
-     * PowerStateService (PSS) doesn't provide proper return value when client
-     * is already registered. This is needed incase PAL restarted
-     */
-    mPssHandler->unregisterDeepSleepClient(mPsmHandler, mPssAudioClient.c_str());
+        /* TODO:
+         * PowerStateService (PSS) doesn't provide proper return value when client
+         * is already registered. Need to take care when PAL restarted
+         */
 
-    /* Register to PowerStateService */
-    auto retr = mPssHandler->registerDeepSleepClient(mPsmHandler, mPssAudioClient.c_str());
-    if (!retr.isOk() || retr == false) {
-        ALOGE("Failed to register %s to powerStateService HAL", mPssAudioClient.c_str());
-        mPssHandler->unlinkToDeath(mPssDeathRecipient);
-        return false;
-    } else {
-        ALOGI("Registered %s to powerStateService HAL", mPssAudioClient.c_str());
+        /* Register to PowerStateService */
+        retVal = pss_handle->registerDeepSleepClient(mPsmHandler, mPssAudioClient.c_str());
+        if (!retVal.isOk() || retVal == false) {
+            ALOGE("Failed to register %s to powerStateService HAL", mPssAudioClient.c_str());
+            pss_handle->unlinkToDeath(mPssDeathRecipient);
+            goto exit;
+        } else {
+            ALOGI("Registered %s to powerStateService HAL", mPssAudioClient.c_str());
+        }
     }
 
     return true;
+
+exit:
+    mPssHandler = nullptr;
+    pss_handle = nullptr;
+    return false;
 }
 
 bool PowerStateMonitorImpl::dettachFromPowerStateServiceHal()
 {
     Mutex::Autolock lock(mPssMutex);
-    if (mPssHandler.get() != nullptr) {
-        ALOGI("Unregister %s from powerStateService HAL", mPssAudioClient.c_str());
-        mPssHandler->unregisterDeepSleepClient(mPsmHandler, mPssAudioClient.c_str());
-        ALOGD("Unlink %p from powerStateService deathRecipient", (void *)mPssDeathRecipient.get());
-        mPssHandler->unlinkToDeath(mPssDeathRecipient);
-        ALOGD("Disconnected from powerStateService HAL %p", (void *)mPssHandler.get());
-        mPssHandler = nullptr;
-    }
+    if (mPssHandler.get() == nullptr)
+        return false;
+
+    ALOGI("Unregister %s from powerStateService HAL", mPssAudioClient.c_str());
+    mPssHandler->unregisterDeepSleepClient(mPsmHandler, mPssAudioClient.c_str());
+    ALOGD("Unlink %p from powerStateService deathRecipient", (void *)mPssDeathRecipient.get());
+    mPssHandler->unlinkToDeath(mPssDeathRecipient);
+    ALOGD("Disconnected from powerStateService HAL %p", (void *)mPssHandler.get());
+    mPssHandler = nullptr;
 
     return true;
 }
@@ -151,16 +168,22 @@ int PowerStateMonitorImpl::getPowerStateMonitorDsState()
 
 Return<bool> PowerStateMonitorImpl::notifyDeepSleepEvent(state parameter)
 {
+    /* Check if it is valid case */
+    {
+        Mutex::Autolock lock(mPssMutex);
+        if (mPssHandler.get() == nullptr)
+            return false;
+    }
     ALOGD("Power Service Deep Sleep Event: Parameter: %d", parameter);
 
     switch (parameter) {
         case state::DEEP_SLEEP_ENTER:
             ALOGD("DEEP_SLEEP_ENTER");
-            mPsmDsState = 1;
+            mPsmDsState = PSM_DS_STATE_ENTRY;
             break;
         case state::DEEP_SLEEP_EXIT:
             ALOGD("DEEP_SLEEP_EXIT");
-            mPsmDsState = 0;
+            mPsmDsState = PSM_DS_STATE_EXIT;
             break;
         default:
             ALOGE("Deepsleep: Unkown");
@@ -168,8 +191,14 @@ Return<bool> PowerStateMonitorImpl::notifyDeepSleepEvent(state parameter)
     return true;
 }
 
-Return<bool> PowerStateMonitorImpl::notifyHibernateEvent(state parameter) {
-
+Return<bool> PowerStateMonitorImpl::notifyHibernateEvent(state parameter)
+{
+    /* Check if it is valid case */
+    {
+        Mutex::Autolock lock(mPssMutex);
+        if (mPssHandler.get() == nullptr)
+            return false;
+    }
     ALOGD("Power Service Hibernate Event. Parameter: %d", parameter);
 
     switch (parameter) {
@@ -188,10 +217,9 @@ Return<bool> PowerStateMonitorImpl::notifyHibernateEvent(state parameter) {
 PowerStateMonitorImpl::PowerStateMonitorImpl()
     : mPssDeathRecipient(new PowerStateServiceDeathRecipient(this))
 {
-    srand(getpid());
-    mPssAudioClient = PSS_AUDIO_CLIENT_PREFIX + std::to_string(rand());
+    mPssAudioClient = PSS_AUDIO_CLIENT_PREFIX + std::to_string(getpid());
 
-    mPsmDsState = 0;
+    mPsmDsState = PSM_DS_STATE_INVALID;
 }
 
 PowerStateMonitorImpl *PowerStateMonitorImpl::getInstance()
@@ -205,5 +233,5 @@ PowerStateMonitorImpl *PowerStateMonitorImpl::getInstance()
 PowerStateMonitorImpl::~PowerStateMonitorImpl()
 {
     mPssAudioClient = "";
-    mPsmDsState = 0;
+    mPsmDsState = PSM_DS_STATE_INVALID;
 }
