@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamUltraSound"
@@ -109,7 +114,7 @@ void StreamUltraSound::HandleEvent(uint32_t event_id, void *data, uint32_t event
 }
 
 void StreamUltraSound::HandleCallBack(uint64_t hdl, uint32_t event_id,
-                                      void *data, uint32_t event_size) {
+                                      void *data, uint32_t event_size, uint32_t miid __unused) {
     StreamUltraSound *StreamUPD = nullptr;
     PAL_DBG(LOG_TAG, "Enter, event detected on SPF, event id = 0x%x, event size =%d",
                       event_id, event_size);

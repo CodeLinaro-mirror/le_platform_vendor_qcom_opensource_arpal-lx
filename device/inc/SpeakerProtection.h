@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SPEAKER_PROT
@@ -136,7 +141,7 @@ public:
     void updateSPcustomPayload();
     static int32_t spkrProtSetR0T0Value(vi_r0t0_cfg_t r0t0Array[]);
     static void handleSPCallback (uint64_t hdl, uint32_t event_id, void *event_data,
-                                  uint32_t event_size);
+                                  uint32_t event_size, uint32_t miid);
     void updateCpsCustomPayload(int miid);
     int getCpsDevNumber(std::string mixer);
     int32_t getCalibrationData(void **param);
