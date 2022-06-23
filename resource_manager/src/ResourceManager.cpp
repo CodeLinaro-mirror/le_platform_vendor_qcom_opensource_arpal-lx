@@ -6270,7 +6270,7 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
                                    inStrAttr);
                 mActiveStreamMutex.unlock();
             }
-            if (doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr)) {
+            if (inStrAttr->type != PAL_STREAM_LOOPBACK && doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr)) {
                 mActiveStreamMutex.lock();
                 streamDevDisconnect.push_back(elem);
                 streamDevConnect.push_back({std::get<0>(elem), inDevAttr});
