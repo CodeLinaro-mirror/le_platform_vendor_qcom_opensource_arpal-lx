@@ -7416,7 +7416,8 @@ exit:
 int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
                                   size_t payload_size __unused,
                                   pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
+                                  pal_stream_type_t pal_stream_type,
+                                  char* address)
 {
     int status = -EINVAL;
 
@@ -7427,7 +7428,7 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             bool match = false;
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
-                match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
                 if (match) {
                     status = (*sIter)->getEffectParameters(param_payload);
                     break;
@@ -8012,7 +8013,8 @@ exit:
 int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                                   size_t payload_size __unused,
                                   pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
+                                  pal_stream_type_t pal_stream_type,
+                                  char* address)
 {
     int status = -EINVAL;
 
@@ -8027,8 +8029,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
                 if ((*sIter) != NULL) {
-                    match = (*sIter)->checkStreamMatch(pal_device_id,
-                                                       pal_stream_type);
+                    match = (*sIter)->checkBusStreamMatch(pal_device_id,
+                                                       pal_stream_type, address);
                     if (match) {
                         status = (*sIter)->setParameters(param_id, param_payload);
                         if (status) {

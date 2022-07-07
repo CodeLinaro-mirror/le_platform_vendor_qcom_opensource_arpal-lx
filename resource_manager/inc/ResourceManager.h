@@ -666,7 +666,7 @@ public:
                      size_t payload_size);
     int setParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
-                     pal_stream_type_t pal_stream_type);
+                     pal_stream_type_t pal_stream_type, char* address);
     int setDeviceParamConfig(uint32_t param_id, std::shared_ptr<Device> dev,
                              int tag);
     int rwParameterACDB(uint32_t param_id, void *param_payload,
@@ -677,7 +677,7 @@ public:
                      size_t *payload_size, void *query = nullptr);
     int getParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
-                     pal_stream_type_t pal_stream_type);
+                     pal_stream_type_t pal_stream_type, char* address);
     int getVirtualSndCard();
     int getHwSndCard();
     int getPcmDeviceId(int deviceId);

@@ -550,11 +550,13 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie);
   *
   * \param[in] dir - param read or write
   *
+  * \param[in] address - BUS device address
+  *
   * \return 0 on success, error code otherwise
   */
 int32_t pal_gef_rw_param(uint32_t param_id, void *param_payload,
                       size_t payload_size, pal_device_id_t pal_device_id,
-                      pal_stream_type_t pal_stream_type, unsigned int dir);
+                      pal_stream_type_t pal_stream_type, unsigned int dir, char* address);
 
 /**
   * \brief Set and get pal parameters for generic effect framework with ACDB
