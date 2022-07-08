@@ -2376,15 +2376,16 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             }
             break;
         default:
-            /*
-             * Sending volume minimum as we want to ramp up instead of ramping
-             * down while setting the desired volume. Thus avoiding glitch
-             * TODO: Decide what to send as ckv in graph open
-             */
-            keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
-            PAL_DBG(LOG_TAG, "Entered default %x %x", VOLUME, LEVEL_15);
             break;
      }
+     /*
+      * Sending volume minimum as we want to ramp up instead of ramping
+      * down while setting the desired volume. Thus avoiding glitch
+      * TODO: Decide what to send as ckv in graph open
+      */
+      keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
+      PAL_DBG(LOG_TAG, "Entered default %x %x", VOLUME, LEVEL_15);
+
 exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
