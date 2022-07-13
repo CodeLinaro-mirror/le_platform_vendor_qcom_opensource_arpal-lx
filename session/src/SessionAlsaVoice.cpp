@@ -29,7 +29,7 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -103,6 +103,53 @@ SessionAlsaVoice::~SessionAlsaVoice()
 {
    delete builder;
 
+}
+
+struct mixer_ctl* SessionAlsaVoice::getFEMixerCtl(const char *controlName, int *device, pal_stream_direction_t dir)
+{
+    std::ostringstream CntrlName;
+    struct mixer_ctl *ctl;
+    char *stream = (char*)"VOICEMMODE1p";
+
+    if (dir == PAL_AUDIO_OUTPUT) {
+        if (pcmDevRxIds.size()) {
+            *device = pcmDevRxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            return NULL;
+        }
+    } else if (dir == PAL_AUDIO_INPUT) {
+        if (pcmDevTxIds.size()) {
+            *device = pcmDevTxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            return NULL;
+        }
+    }
+
+    if (vsid == VOICEMMODE1 ||
+        vsid == VOICELBMMODE1) {
+        if (dir == PAL_AUDIO_INPUT) {
+            stream = (char*)"VOICEMMODE1c";
+        } else {
+            stream = (char*)"VOICEMMODE1p";
+        }
+    } else {
+        if (dir == PAL_AUDIO_INPUT) {
+            stream = (char*)"VOICEMMODE2c";
+        } else {
+            stream = (char*)"VOICEMMODE2p";
+        }
+    }
+
+    CntrlName << stream << " " << controlName;
+    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
+        return NULL;
+    }
+
+    return ctl;
 }
 
 uint32_t SessionAlsaVoice::getMIID(const char *backendName, uint32_t tagId, uint32_t *miid)

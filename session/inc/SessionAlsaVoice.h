@@ -29,7 +29,7 @@
 
 /*
 Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 
 Redistribution and use in source and binary forms, with or without
 modification, are permitted (subject to the limitations in the
@@ -132,6 +132,7 @@ private:
                           int size, int dir);
     char* getMixerVoiceStream(Stream *s, int dir);
     uint32_t getMIID(const char *backendName, uint32_t tagId, uint32_t *miid) override;
+    struct mixer_ctl* getFEMixerCtl(const char *controlName, int *device, pal_stream_direction_t dir) override;
     int setSidetone(int deviceId, Stream * s, bool enable);
     int setHWSidetone(Stream * s, bool enable);
     int getTXDeviceId(Stream *s, int *id);
