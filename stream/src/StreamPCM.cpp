@@ -794,7 +794,9 @@ int32_t StreamPCM::write(struct pal_buffer* buf)
     for (int i = 0; i < mDevices.size(); i++) {
         if (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP)
             isA2dp = true;
-        if (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)
+        if ((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER) ||
+            (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_A2B_SPKR) ||
+            (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_A2B2_SPKR))
             isSpkr = true;
     }
 
