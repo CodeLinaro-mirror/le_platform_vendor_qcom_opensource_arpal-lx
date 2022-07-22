@@ -11936,7 +11936,9 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
     if (((inDevAttr->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) &&
         (curDevAttr->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP)) ||
         ((inDevAttr->id == PAL_DEVICE_OUT_BLUETOOTH_BLE) &&
-        (curDevAttr->id == PAL_DEVICE_OUT_BLUETOOTH_BLE))) {
+        (curDevAttr->id == PAL_DEVICE_OUT_BLUETOOTH_BLE)) ||
+        ((inDevAttr->id == PAL_DEVICE_IN_BLUETOOTH_BLE) &&
+        (curDevAttr->id == PAL_DEVICE_IN_BLUETOOTH_BLE))) {
         pal_param_bta2dp_t *param_bt_a2dp = nullptr;
 
         if (isDeviceAvailable(inDevAttr->id)) {
