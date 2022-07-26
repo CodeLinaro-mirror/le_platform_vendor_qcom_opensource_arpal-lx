@@ -712,7 +712,6 @@
             <name>PAL_STREAM_DEEP_BUFFER</name>
                 <policies>
                     <ec_ref>
-                        <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
                         <disabled_stream>PAL_STREAM_GENERIC</disabled_stream>
                     </ec_ref>
                 </policies>
