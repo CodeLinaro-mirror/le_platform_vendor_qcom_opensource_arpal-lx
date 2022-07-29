@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: PayloadBuilder"
 #include "ResourceManager.h"
 #include "PayloadBuilder.h"
@@ -2054,7 +2061,7 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                 PAL_INFO(LOG_TAG, "devicePP_type:%s", s->getDevicePPSelector().c_str());
                 break;
             case STREAM_TYPE_SEL:
-			    PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
+                PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
                 filled_selector_pairs.push_back(std::make_pair(selector_type,
                     streamNameLUT.at(sattr->type)));
                 PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
@@ -2085,7 +2092,7 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                     PAL_INFO(LOG_TAG,"hfp loopback stream, skip bus_addr_sel");
                     break;
                 }
-                if (sattr && strlen(sattr->bus_addr)) {
+                if (sattr && sattr->bus_addr && strlen(sattr->bus_addr)) {
                     filled_selector_pairs.push_back(
                         std::make_pair(BUS_ADDRESS_SEL,
                         sattr->bus_addr));
@@ -2626,7 +2633,7 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
            status = -EINVAL;
        }
        *gsltag = TAG_STREAM_PUSH_PULL_CHMIXER_COEFF;
-	break;
+       break;
     case MUTE_TAG:
        tkv.push_back(std::make_pair(MUTE,ON));
        *gsltag = TAG_MUTE;

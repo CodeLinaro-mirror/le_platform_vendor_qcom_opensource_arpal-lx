@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef RESOURCE_MANAGER_H
 #define RESOURCE_MANAGER_H
 #include <algorithm>
@@ -441,6 +448,7 @@ private:
     ssize_t getAvailableNTStreamInstance(const pal_stream_attributes attr);
     static int openControlPlugin(plugin_t *plugin, plugin_control_name_t control);
     int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
+    static int closeControlPlugin(plugin_t *plugin, plugin_control_name_t control);
 
 protected:
     std::list <Stream*> mActiveStreams;
@@ -881,6 +889,7 @@ public:
     static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
     int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
     int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
+    int controlPluginSetParam(plugin_control_name_t control, void* payload, size_t size);
 };
 
 #endif
