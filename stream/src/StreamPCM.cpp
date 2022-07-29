@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: StreamPCM"
 
 #include "StreamPCM.h"
@@ -877,9 +884,45 @@ int32_t  StreamPCM::getCallBack(pal_stream_callback * /*cb*/)
     return 0;
 }
 
-int32_t StreamPCM::getParameters(uint32_t /*param_id*/, void ** /*payload*/)
+int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
 {
-    return 0;
+    int32_t status = 0;
+    pal_param_payload *param_payload = nullptr;
+    effect_pal_payload_t *effectPalPayload = nullptr;
+
+    PAL_DBG(LOG_TAG, "Enter, get parameter %u, session handle - %p", param_id, session);
+
+    if (!payload)
+    {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "wrong params");
+        goto exit;
+    }
+
+    mStreamMutex.lock();
+    PAL_DBG(LOG_TAG, "Enter, get parameter %u", param_id);
+    switch (param_id) {
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+            param_payload = (pal_param_payload *)(*payload);
+
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+            status = session->getParameters(this, effectPalPayload->tag, param_id, payload);
+            if (status) {
+               PAL_ERR(LOG_TAG, "getParameters %d failed with %d", param_id, status);
+            }
+            break;
+        }
+        default:
+            PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
+            status = -EINVAL;
+            break;
+    }
+
+    mStreamMutex.unlock();
+exit:
+    PAL_DBG(LOG_TAG, "exit, session parameter %u get with status %d", param_id, status);
+    return status;
 }
 
 int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)

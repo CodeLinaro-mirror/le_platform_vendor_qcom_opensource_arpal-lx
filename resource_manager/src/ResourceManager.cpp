@@ -329,6 +329,7 @@ const std::map<std::string, plugin_control_name_t> controlNameMap {
     {std::string{"PLUGIN_CONTROL_HD_VOICE"}, PLUGIN_CONTROL_HD_VOICE},
     {std::string{"PLUGIN_CONTROL_AUDIO_BUFFER"}, PLUGIN_CONTROL_AUDIO_BUFFER},
     {std::string{"PLUGIN_CONTROL_AUDIO_LATENCY"}, PLUGIN_CONTROL_AUDIO_LATENCY},
+    {std::string{"PLUGIN_CONTROL_KV_PARAM"}, PLUGIN_CONTROL_KV_PARAM},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -8014,6 +8015,17 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+            mResourceManagerMutex.unlock();
+            status = rm->controlPluginSetParam(PLUGIN_CONTROL_KV_PARAM, param_payload, payload_size);
+            mResourceManagerMutex.lock();
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"controlPluginSetParam Failed \n");
+                goto exit;
+            }
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
@@ -10266,6 +10278,34 @@ exit:
     return status;
 }
 
+int ResourceManager::closeControlPlugin(plugin_t *plugin, plugin_control_name_t control)
+{
+    int status = 0;
+
+    PAL_DBG(LOG_TAG,"Enter");
+
+    if (!plugin) {
+        PAL_ERR(LOG_TAG,"Invalid plugin handle");
+        status = -EINVAL;
+        goto exit;
+    }
+    if (control < PLUGIN_CONTROL_MAX) {
+        if (plugin && plugin->handle) {
+            dlclose(plugin->handle);
+            plugin->handle = NULL;
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"unsupported pluggin Control %d for plugin %s", control,
+                plugin->name.c_str());
+        status = -EINVAL;
+        goto exit;
+    }
+
+exit:
+    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    return status;
+}
+
 int ResourceManager::getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn)
 {
     int status = 0;
@@ -10358,3 +10398,36 @@ exit:
     return status;
 }
 
+int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* payload, size_t playload_size) {
+    int status = 0;
+    int i = 0;
+    Stream *s = NULL;
+
+    if (control >= PLUGIN_CONTROL_MAX) {
+        PAL_ERR(LOG_TAG,"control plugin is out of range");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    for (i = 0; i < ControlInfo.size(); i++) {
+        if (control == ControlInfo[i].name) {
+            /* if plugin is not already loaded, load it*/
+            if (ControlInfo[i].plugins[0].handle) {
+                status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+            } else {
+                PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
+                PAL_DBG(LOG_TAG, "loading plugin %s for control %d", ControlInfo[i].plugins[0].name.c_str(), control);
+                if (!openControlPlugin(&(ControlInfo[i].plugins[0]), control)) {
+                    status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+                    closeControlPlugin(&(ControlInfo[i].plugins[0]), control);
+                } else {
+                    PAL_ERR(LOG_TAG,"control plugin failed to load");
+                    status = -EINVAL;
+                }
+            }
+            break;
+        }
+    }
+exit:
+    return status;
+}
