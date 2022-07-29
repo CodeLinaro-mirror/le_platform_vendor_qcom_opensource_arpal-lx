@@ -35,6 +35,10 @@ ifeq ($(PRODUCT_NAME), msmnile_gvmgh)
   LOCAL_CFLAGS += -DPLATFORM_AUTO
 endif
 
+ifeq ($(AUDIO_ENABLE_SHARED_MEM_FEATURE), true)
+  LOCAL_CFLAGS += -DENABLE_SHARED_MEM
+endif
+
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/device/inc \

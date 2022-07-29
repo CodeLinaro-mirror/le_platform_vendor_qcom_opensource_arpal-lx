@@ -36,6 +36,7 @@
 #include <agm/agm_api.h>
 #include <sstream>
 #include <system/audio.h>
+#include <sys/mman.h>
 
 #include "PluginControlIntf.h"
 #include "SessionAlsaUtils.h"
@@ -649,7 +650,475 @@ void get_render_latency(Stream* s, void **payload)
      }
 }
 
+int shmem_buff_load_parameter(pal_stream_handle_t *stream_handle, pal_shmem_info buff_info)
+{
+    int status = 0;
+    uint8_t *payload = NULL;
+    pal_param_payload *pal_payload = NULL;
+    effect_pal_payload_t *effect_payload = NULL;
+    pal_effect_custom_payload_t *customPayload = NULL;
+    pal_load_persist_dummy_t *custom_payload = NULL;
+    uint32_t payload_size;
+
+    payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_persist_dummy_t);
+    payload = (uint8_t *) calloc (1, payload_size);
+    if (!payload) {
+        PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+        status = -ENOMEM;
+        return status;
+    }
+
+    pal_payload = (pal_param_payload *) payload;
+    pal_payload->payload_size = sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_persist_dummy_t);
+
+    effect_payload = (effect_pal_payload_t *)(payload + sizeof(pal_param_payload));
+    effect_payload->isTKV = PARAM_NONTKV;
+    effect_payload->tag = TEST_SHARED_MEM_TAG;
+    effect_payload->payloadSize = sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_persist_dummy_t);
+
+    customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+    customPayload->paramId = CAPI_V2_PARAM_ID_LOAD_PERSIST_DUMMY;
+
+    custom_payload = (pal_load_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+    custom_payload->size = buff_info.size;
+    custom_payload->spf_mem_handle = buff_info.spf_mem_handle;
+    custom_payload->spf_mem_addr_lsw = (uint32_t)buff_info.spf_addr;
+    custom_payload->spf_mem_addr_msw = (uint32_t)(buff_info.spf_addr >> 32);
+
+    status = pal_stream_set_param(stream_handle, PAL_PARAM_ID_UIEFFECT, pal_payload);
+    if (status) {
+        PAL_ERR(LOG_TAG, "pal_stream_set_param failed");
+        free(payload);
+        return status;
+    }
+
+    free(payload);
+    return 0;
+}
+
+int shmem_buff_set_persist_parameter(pal_stream_handle_t *stream_handle, uint8_t *payload)
+{
+    int status = 0;
+    pal_param_payload *pal_payload;
+    effect_pal_payload_t *effect_payload = NULL;
+    pal_effect_custom_payload_t *customPayload;
+
+    pal_payload = (pal_param_payload *) payload;
+    pal_payload->payload_size = sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_set_persist_dummy_t);
+
+    effect_payload = (effect_pal_payload_t *)(payload + sizeof(pal_param_payload));
+    effect_payload->isTKV = PARAM_NONTKV;
+    effect_payload->tag = TEST_SHARED_MEM_TAG;
+    effect_payload->payloadSize = sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_set_persist_dummy_t);
+
+    customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+    customPayload->paramId = CAPI_V2_PARAM_ID_LOAD_SET_PERSIST_DUMMY;
+
+    status = pal_stream_set_param(stream_handle, PAL_PARAM_ID_UIEFFECT, pal_payload);
+    if (status) {
+         PAL_ERR(LOG_TAG, "pal_stream_set_param failed");
+         return status;
+    }
+
+    return status;
+}
+
+int shmem_buff_set_parameter(pal_stream_handle_t *stream_handle, uint8_t *payload)
+{
+    int status = 0;
+    pal_param_payload *pal_payload;
+    effect_pal_payload_t *effect_payload = NULL;
+    pal_effect_custom_payload_t *customPayload;
+
+    pal_payload = (pal_param_payload *) payload;
+    pal_payload->payload_size = sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_get_persist_dummy_t);
+
+    effect_payload = (effect_pal_payload_t *)(payload + sizeof(pal_param_payload));
+    effect_payload->isTKV = PARAM_NONTKV;
+    effect_payload->tag = TEST_SHARED_MEM_TAG;
+    effect_payload->payloadSize = sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_get_persist_dummy_t);
+
+    customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+    customPayload->paramId = CAPI_V2_PARAM_ID_LOAD_GET_PERSIST_DUMMY;
+
+    status = pal_stream_set_param(stream_handle, PAL_PARAM_ID_UIEFFECT, pal_payload);
+    if (status) {
+         PAL_ERR(LOG_TAG, "pal_stream_set_param failed");
+         return status;
+    }
+
+    return status;
+}
+
+int shmem_buff_get_parameter(pal_stream_handle_t *stream_handle, uint8_t *payload, uint32_t size)
+{
+    int status = 0;
+    pal_param_payload *pal_payload;
+    effect_pal_payload_t *effect_payload = NULL;
+    pal_effect_custom_payload_t *customPayload;
+
+    pal_payload = (pal_param_payload *) payload;
+    pal_payload->payload_size = sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + size;
+
+    effect_payload = (effect_pal_payload_t *)(payload + sizeof(pal_param_payload));
+    effect_payload->isTKV = PARAM_NONTKV;
+    effect_payload->tag = TEST_SHARED_MEM_TAG;
+    effect_payload->payloadSize = sizeof(pal_effect_custom_payload_t) + size;
+
+    customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+    customPayload->paramId = CAPI_V2_PARAM_ID_LOAD_GET_PERSIST_DUMMY;
+
+    status = pal_stream_get_param(stream_handle, PAL_PARAM_ID_STREAM_SHMEM_GET_PARAM, &pal_payload);
+    if (status) {
+         PAL_ERR(LOG_TAG, "pal_stream_get_param failed");
+         return status;
+    }
+
+    return status;
+}
+
 /*interface function definition*/
+
+__attribute__ ((visibility ("default")))
+int plugin_init(plugin_control_name_t control)
+{
+
+    PAL_DBG(LOG_TAG,"Enter with control %d", control);
+    struct pal_stream_attributes stream_attr;
+    int status;
+    int channels = NUMBER_OF_CHANNEL;
+    struct pal_shmem_info buff_info;
+    struct pal_channel_info ch_info;
+    struct pal_device devices[1] = {};
+    pal_stream_handle_t *pal_stream_handle;
+    Stream *s = NULL;
+    Session *sess = nullptr;
+    int deviceId;
+
+    switch (control) {
+
+        case PLUGIN_CONTROL_SHMEM_ALLOC:
+            ch_info.channels = channels;
+            ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+            ch_info.ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+
+            stream_attr.type = PAL_STREAM_LOW_LATENCY;
+            stream_attr.out_media_config.sample_rate = SAMPLE_RATE;
+            stream_attr.out_media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+            stream_attr.out_media_config.bit_width = BIT_WIDTH;
+            stream_attr.out_media_config.ch_info = ch_info;
+            stream_attr.direction = PAL_AUDIO_OUTPUT;
+
+            devices[0].id = PAL_DEVICE_OUT_SPEAKER;
+            devices[0].config.sample_rate = SAMPLE_RATE;
+            devices[0].config.bit_width = BIT_WIDTH;
+            devices[0].config.ch_info = ch_info;
+            devices[0].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+
+            status = pal_stream_open(&stream_attr,
+                    1,
+                    devices,
+                    0,
+                    NULL,
+                    NULL,
+                    0,
+                    &pal_stream_handle);
+
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "failed to open pal stream ");
+                status = -EINVAL;
+            }
+
+            status = pal_stream_start(pal_stream_handle);
+
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "failed to start pal stream ");
+                status = -EINVAL;
+            }
+
+            s = reinterpret_cast<Stream *>(pal_stream_handle);
+
+            status = s->getAssociatedSession(&sess);
+
+            if (status || !sess) {
+                PAL_ERR(LOG_TAG,"failed to get session");
+            }
+
+            status = sess->getPCMDeviceID(s, &deviceId);
+
+            if (status) {
+                PAL_ERR(LOG_TAG,"failed to get device id");
+            }
+
+            buff_info.size = 32*1024*1024;
+            buff_info.fd = 0;
+            buff_info.spf_addr = 0;
+            buff_info.spf_mem_handle = 0;
+            buff_info.cache = PAL_SHMEM_MAP_UNCACHED;
+
+            status = SessionAlsaUtils::shmem_buff_alloc(&buff_info, deviceId, sizeof(struct pal_shmem_info));
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "Shared memory buffer allocation failed");
+                status = -EINVAL;
+                break;
+            }
+            PAL_INFO(LOG_TAG, "Recieved values of fd is %d, value of spf handle is %x spf_addr=0x%llx", buff_info.fd, buff_info.spf_mem_handle, buff_info.spf_addr);
+
+            /*
+             * Test 1: Client modify uncached shared memory and verify change on spf side using set/get persist
+             * Test 2: Client modify uncached shared memory on spf and verify change at HLOS side by mmap of data fd
+             * Test 3: Client modify uncached shared memory at HLOS side and verify change on spf side
+             */
+            {
+                uint32_t *p;
+                p = (uint32_t *)mmap(NULL, buff_info.size, PROT_READ | PROT_WRITE, MAP_SHARED, buff_info.fd, 0);
+                if (p == NULL)
+                {
+                    PAL_ERR(LOG_TAG,"Error: mmap return NULL");
+                    status = -ENOMEM;
+                    goto exit;
+                }
+
+                {
+                    status = shmem_buff_load_parameter(pal_stream_handle, buff_info);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "shmem_buff_load_parameter failed");
+                        goto exit;
+                    }
+                    else
+                        PAL_INFO(LOG_TAG, "shmem_buff_load_parameter is successful");
+                }
+
+                PAL_INFO(LOG_TAG,"%s 1st Test Case set persist get persist", __func__);
+                {
+                    uint32_t num = 0;
+                    uint32_t i = 0;
+
+                    num = 1024;
+
+                    for(i = 0; i < num; i++)
+                    {
+                        uint8_t *payload = NULL;
+                        uint32_t payload_size;
+                        pal_load_set_persist_dummy_t *set_shmem = nullptr;
+                        payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_set_persist_dummy_t);
+                        payload = (uint8_t *) calloc (1, payload_size);
+                        if (!payload) {
+                            PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+                            status = -ENOMEM;
+                            goto exit;
+                        }
+                        set_shmem = (pal_load_set_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+                        set_shmem->effective = 1;
+                        set_shmem->index = i;
+                        set_shmem->value = i;
+                        PAL_INFO(LOG_TAG,"%s effective=%d index=0x%x value[%d]=0x%x", __func__, set_shmem->effective, set_shmem->index, i, set_shmem->value);
+                        status = shmem_buff_set_persist_parameter(pal_stream_handle, payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "shmem_buff_set_persist_parameter failed");
+                            free(payload);
+                            status = -EINVAL;
+                            goto exit;
+                        }
+                        else
+                            PAL_INFO(LOG_TAG, "shmem_buff_set_persist_parameter is successful");
+
+                        free(payload);
+                    }
+
+                    {
+                        uint8_t *payload = NULL;
+                        uint32_t payload_size;
+                        pal_load_get_persist_dummy_t *set_shmem1 = nullptr;
+                        payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_get_persist_dummy_t);
+                        payload = (uint8_t *) calloc (1, payload_size);
+                        if (!payload) {
+                            PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+                            status = -ENOMEM;
+                            goto exit;
+                        }
+                        set_shmem1 = (pal_load_get_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+                        set_shmem1->index = 0;
+                        set_shmem1->num = num;
+                        status = shmem_buff_set_parameter(pal_stream_handle, payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "shmem_buff_set_parameter failed");
+                            free(payload);
+                            status = -EINVAL;
+                            goto exit;
+                        }
+                        else
+                            PAL_INFO(LOG_TAG, "shmem_buff_set_parameter is successful");
+
+                        free(payload);
+                    }
+
+                    {
+                        uint8_t *payload = NULL;
+                        uint32_t payload_size;
+                        pal_load_get_persist_dummy_t *get_shmem = nullptr;
+
+                        uint32_t gpd_size = sizeof(pal_load_get_persist_dummy_t)+(num*sizeof(uint32_t));
+
+                        payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + gpd_size;
+                        payload = (uint8_t *) calloc (1, payload_size);
+                        if (!payload) {
+                            PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+                            status = -ENOMEM;
+                            goto exit;
+                        }
+                        get_shmem = (pal_load_get_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+                        status = shmem_buff_get_parameter(pal_stream_handle, payload, gpd_size);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "shmem_buff_get_parameter failed");
+                            free(payload);
+                            status = -EINVAL;
+                            goto exit;
+                        }
+                        else{
+                            for(i = 0; i < get_shmem->num; i++)
+                                PAL_INFO(LOG_TAG,"%s index=%d num=0x%x array[%d]=0x%x", __func__, get_shmem->index, get_shmem->num, i, get_shmem->array[i]);
+                            PAL_INFO(LOG_TAG, "shmem_buff_get_parameter is successful");
+                        }
+                        free(payload);
+                    }
+                }
+
+                PAL_INFO(LOG_TAG,"%s 2nd Test Case set persist Read from virtual", __func__);
+                {
+                    uint32_t num = 0;
+                    uint32_t i = 0, count = 0;
+                    num = 1024;
+
+                    for(i = 0; i < num; i++)
+                    {
+                        uint8_t *payload = NULL;
+                        uint32_t payload_size;
+                        pal_load_set_persist_dummy_t *set_shmem = nullptr;
+                        payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_set_persist_dummy_t);
+                        payload = (uint8_t *) calloc (1, payload_size);
+                        if (!payload) {
+                            PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+                            status = -ENOMEM;
+                            goto exit;
+                        }
+                        set_shmem = (pal_load_set_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+                        set_shmem->effective = 1;
+                        set_shmem->index = i;
+                        set_shmem->value = i * 2;
+                        PAL_INFO(LOG_TAG,"%s effective=%d index=0x%x value[%d]=0x%x", __func__, set_shmem->effective, set_shmem->index, i, set_shmem->value);
+                        status = shmem_buff_set_persist_parameter(pal_stream_handle, payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "shmem_buff_set_persist_parameter failed");
+                            free(payload);
+                            status = -EINVAL;
+                            goto exit;
+                        }
+                        else
+                            PAL_INFO(LOG_TAG, "shmem_buff_set_persist_parameter is successful");
+
+                        free(payload);
+                    }
+
+                    {
+                        /*Use this data as buffer address in userspace*/
+                        for(i = 0; i < num; i++ ) {
+                            if(p[i] != i * 2) {
+                                count++;
+                                PAL_ERR(LOG_TAG,"%s set data is not matching with p[%d]=0x%x", __func__, i, p[i]);
+                            }
+                        }
+                        if(count == 0)
+                            PAL_INFO(LOG_TAG, "Test case 2 passed");
+                    }
+                }
+
+                PAL_INFO(LOG_TAG,"%s 3rd Test Case Write to virtual and get param", __func__);
+                {
+                    uint32_t num = 0;
+                    uint32_t i = 0, count = 0;
+                    num = 1024;
+                    {
+                        /*Use this data as buffer address in userspace*/
+                        for(i = 0; i < num; i++ ){
+                            p[i] = i;
+                        }
+                    }
+
+                    {
+                        uint8_t *payload = NULL;
+                        uint32_t payload_size;
+                        pal_load_get_persist_dummy_t *set_shmem1 = nullptr;
+                        payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_get_persist_dummy_t);
+                        payload = (uint8_t *) calloc (1, payload_size);
+                        if (!payload) {
+                            PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+                            status = -ENOMEM;
+                            goto exit;
+                        }
+                        set_shmem1 = (pal_load_get_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+                        set_shmem1->index = 0;
+                        set_shmem1->num = num;
+                        status = shmem_buff_set_parameter(pal_stream_handle, payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "shmem_buff_set_parameter failed");
+                            free(payload);
+                            status = -EINVAL;
+                            goto exit;
+                        }
+                        else
+                            PAL_INFO(LOG_TAG, "shmem_buff_set_parameter is successful");
+
+                        free(payload);
+                    }
+
+                    {
+                        uint8_t *payload = NULL;
+                        uint32_t payload_size;
+                        pal_load_get_persist_dummy_t *get_shmem = nullptr;
+
+                        uint32_t gpd_size = sizeof(pal_load_get_persist_dummy_t)+(num*sizeof(uint32_t));
+
+                        payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + gpd_size;
+                        payload = (uint8_t *) calloc (1, payload_size);
+                        if (!payload) {
+                            PAL_ERR(LOG_TAG,"%s calloc failed for size %d", __func__, payload_size);
+                            status = -ENOMEM;
+                            goto exit;
+                        }
+                        get_shmem = (pal_load_get_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+                        status = shmem_buff_get_parameter(pal_stream_handle, payload, gpd_size);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "shmem_buff_get_parameter failed");
+                            free(payload);
+                            status = -EINVAL;
+                            goto exit;
+                        }
+                        else{
+                            for(i = 0; i < get_shmem->num; i++){
+                                if(p[i] != get_shmem->array[i]) {
+                                    count++;
+                                    PAL_ERR(LOG_TAG,"%s mismatch in data for index=%d num=0x%x p[%d]=0x%x array[%d]=0x%x", __func__, get_shmem->index, get_shmem->num, i, p[i], i, get_shmem->array[i]);
+                                }
+                            }
+                            if(count == 0)
+                                PAL_INFO(LOG_TAG, "Test case 3 passed");
+                        }
+                        free(payload);
+                    }
+                }
+exit:
+                munmap(p, buff_info.size);
+            }
+            break;
+        default:
+            PAL_ERR(LOG_TAG,"control not supported in this plugin");
+            status = -EINVAL;
+            break;
+    }
+    PAL_DBG(LOG_TAG,"Exit with status: %d", status);
+    return status;
+}
 
 __attribute__ ((visibility ("default")))
 int plugin_get(Stream* s, plugin_control_name_t control, void **payload,

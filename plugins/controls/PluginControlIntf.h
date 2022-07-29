@@ -47,6 +47,7 @@ typedef enum{
     PLUGIN_CONTROL_HD_VOICE,
     PLUGIN_CONTROL_AUDIO_BUFFER,
     PLUGIN_CONTROL_AUDIO_LATENCY,
+    PLUGIN_CONTROL_SHMEM_ALLOC,
     PLUGIN_CONTROL_MAX,
 } plugin_control_name_t;
 
@@ -67,6 +68,7 @@ typedef int (*plugin_set_control_fn_t) (Stream* s, plugin_control_name_t control
 
 typedef int (*plugin_get_control_fn_t) (Stream* s, plugin_control_name_t control,
                                 void **payload, size_t *payload_size);
+typedef int (*plugin_init_control_fn_t) (plugin_control_name_t control);
 
 
 #endif /* _PLUGIN_CONTROL_INTF_H_ */

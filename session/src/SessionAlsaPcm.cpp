@@ -2255,6 +2255,7 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     uint8_t *payloadData = NULL;
     size_t payloadSize = 0;
     size_t configSize = 0;
+    pal_effect_custom_payload_t *customPayload = nullptr;
     int device = pcmDevIds.at(0);
     uint32_t miid = 0;
     const char *control = "getParam";
@@ -2309,6 +2310,19 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
                 configSize + sizeof(struct apm_module_param_data_t));
             break;
         }
+        case PAL_PARAM_ID_STREAM_SHMEM_GET_PARAM:
+        {
+            pal_param_payload *param_payload = NULL;
+            effect_pal_payload_t *effectPalPayload = nullptr;
+            param_payload = (pal_param_payload *)(*payload);
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+
+            customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
+            configSize = effectPalPayload->payloadSize - sizeof(uint32_t);
+            builder->payloadQuery(&payloadData, &payloadSize, miid,
+                        customPayload->paramId, effectPalPayload->payloadSize - sizeof(uint32_t));
+            break;
+        }
         default:
             status = EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -2328,16 +2342,25 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     }
 
     ptr = (uint8_t *)payloadData + sizeof(struct apm_module_param_data_t);
-    config = (uint8_t *)calloc(1, configSize);
-    if (!config) {
-        PAL_ERR(LOG_TAG, "Failed to allocate memory for config");
-        status = -ENOMEM;
-        goto exit;
+
+    /*
+     * Already allocated memory for config for PAL_PARAM_ID_STREAM_SHMEM_GET_PARAM in
+     * PAL plugin. copy payload return to customPayload->data
+     */
+    if(param_id == PAL_PARAM_ID_STREAM_SHMEM_GET_PARAM){
+        config = (uint8_t *)customPayload->data;
+        ar_mem_cpy(config, configSize, ptr, configSize);
     }
-
-    ar_mem_cpy(config, configSize, ptr, configSize);
-    *payload = (void *)config;
-
+    else {
+        config = (uint8_t *)calloc(1, configSize);
+        if (!config) {
+            PAL_ERR(LOG_TAG, "Failed to allocate memory for config");
+            status = -ENOMEM;
+            goto exit;
+        }
+        ar_mem_cpy(config, configSize, ptr, configSize);
+        *payload = (void *)config;
+    }
 
 exit:
     freeCustomPayload(&payloadData, &payloadSize);

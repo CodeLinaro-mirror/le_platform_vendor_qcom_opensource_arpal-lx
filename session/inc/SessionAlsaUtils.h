@@ -158,6 +158,7 @@ public:
                         uint32_t instanceId, bool isParamWrite);
    static int mixerWriteDatapathParams(struct mixer *mixer, int device,
                                         void *payload, int size);
+   static int shmem_buff_alloc(pal_shmem_info* payload, int devId, int size);
 
 };
 

@@ -2405,3 +2405,57 @@ unsigned int SessionAlsaUtils::bytesToFrames(size_t bufSizeInBytes, unsigned int
     return (bufSizeInBytes * 8)/(ch*bits);
 }
 
+int SessionAlsaUtils::shmem_buff_alloc(pal_shmem_info* payload, int devId, int size)
+{
+    int status = 0;
+    struct mixer_ctl *ctl;
+    std::ostringstream CntrlName;
+    const char *control = "getShmemInfo";
+    const char *stream = "PCM";
+    struct mixer *mixer;
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    struct agm_shmem_info buf_info;
+
+    PAL_DBG(LOG_TAG, "Enter shmem_buff_alloc");
+    rm = ResourceManager::getInstance();
+    status = rm->getVirtualAudioMixer(&mixer);
+    if (status) {
+        PAL_ERR(LOG_TAG, "mixer error");
+        goto error;
+    }
+
+    CntrlName << stream << devId << " " << control;
+    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
+        status = -ENOENT;
+        goto error;
+    }
+
+    size = sizeof(struct agm_shmem_info);
+    buf_info.size = payload->size;
+    buf_info.cache = payload->cache;
+
+    status = mixer_ctl_set_array(ctl, &buf_info, size);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "set control failed status = %d", status);
+        goto error;
+    }
+
+    status = mixer_ctl_get_array(ctl, &buf_info, size);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "Get control failed status = %d", status);
+        goto error;
+    }
+
+    payload->fd = buf_info.ion_fd;
+    payload->spf_addr = buf_info.spf_addr;
+    payload->spf_mem_handle = buf_info.spf_mem_handle;
+    return 0;
+
+error:
+    payload->fd = 0;
+    payload->spf_addr = 0;
+    payload->spf_mem_handle = 0;
+    return status;
+}

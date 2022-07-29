@@ -2041,7 +2041,7 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
                 PAL_INFO(LOG_TAG, "devicePP_type:%s", s->getDevicePPSelector().c_str());
                 break;
             case STREAM_TYPE_SEL:
-			    PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
+                PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
                 filled_selector_pairs.push_back(std::make_pair(selector_type,
                     streamNameLUT.at(sattr->type)));
                 PAL_INFO(LOG_TAG, "stream type: %d", sattr->type);
@@ -2069,10 +2069,10 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
             case BUS_ADDRESS_SEL:
                 PAL_INFO(LOG_TAG, "BUS_ADDRESS_SEL, sttr.type=%d\n", sattr->type);
                 if (sattr->type == PAL_STREAM_LOOPBACK) {
-                    PAL_INFO(LOG_TAG,"hfp loopback stream, skip bus_addr_sel");
+                    PAL_INFO(LOG_TAG," skip bus_addr_sel");
                     break;
                 }
-                if (sattr && strlen(sattr->bus_addr)) {
+                if (sattr && sattr->bus_addr && strlen(sattr->bus_addr)) {
                     filled_selector_pairs.push_back(
                         std::make_pair(BUS_ADDRESS_SEL,
                         sattr->bus_addr));
@@ -2613,7 +2613,7 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
            status = -EINVAL;
        }
        *gsltag = TAG_STREAM_PUSH_PULL_CHMIXER_COEFF;
-	break;
+       break;
     case MUTE_TAG:
        tkv.push_back(std::make_pair(MUTE,ON));
        *gsltag = TAG_MUTE;
