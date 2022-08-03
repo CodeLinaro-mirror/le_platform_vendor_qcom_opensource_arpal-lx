@@ -83,7 +83,7 @@ public:
    static int32_t isBitWidthSupported(uint32_t bitWidth);
 
 private:
-   uint32_t volRampPeriodms;
+    uint32_t volRampPeriodms;
 };
 
 #endif//STREAMPCM_H_
