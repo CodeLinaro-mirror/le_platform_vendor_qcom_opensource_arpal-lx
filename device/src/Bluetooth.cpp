@@ -465,7 +465,89 @@ int Bluetooth::configureA2dpEncoderDecoder()
     } else { /* codecFormat != CODEC_TYPE_LC3 */
         // Bypass COP V0 DEPACKETIZER Module Configuration for TX path
         if (codecType == DEC)
-            goto done;
+        {
+            if (codecFormat == CODEC_TYPE_SBC || codecFormat == CODEC_TYPE_AAC)
+            {
+                status = session->getMIID(backEndName.c_str(), MODULE_CONGESTION_BUFFER, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            MODULE_CONGESTION_BUFFER, status);
+                    goto error;
+                }
+
+                builder->payloadCABConfig(&paramData, &paramSize, miid, out_buf);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid CAB module param size");
+                    goto error;
+                }
+
+                status = session->getMIID(backEndName.c_str(), MODULE_JITTER_BUFFER, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            MODULE_JITTER_BUFFER, status);
+                    goto error;
+                }
+
+                builder->payloadJBMConfig(&paramData, &paramSize, miid, out_buf);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid JBM module param size");
+                    goto error;
+                }
+
+                status = session->getMIID(backEndName.c_str(), codecTagId, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            codecTagId, status);
+                    goto error;
+                }
+
+                builder->payloadPcmCnvConfig(&paramData, &paramSize, miid, &codecConfig, false);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid Output format Config module param size");
+                    goto error;
+                }
+
+                status = session->getMIID(backEndName.c_str(), BT_PCM_CONVERTER, &cnvMiid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            BT_PCM_CONVERTER, status);
+                    goto error;
+                }
+
+                builder->payloadPcmCnvConfig(&paramData, &paramSize, cnvMiid, &codecConfig, false);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid PCM CNV module param size");
+                    goto error;
+                }
+                goto done;
+            } else {
+                goto done;
+            }
+        }
 
         /* COP v0 PACKETIZER Module Configuration */
         status = session->getMIID(backEndName.c_str(), COP_PACKETIZER_V0, &copMiid);
@@ -1069,6 +1151,7 @@ clear_source_a2dpsuspend_flag_t BtA2dp::clear_source_a2dpsuspend_flag = nullptr;
 audio_get_enc_config_t BtA2dp::audio_get_enc_config = nullptr;
 audio_source_check_a2dp_ready_t BtA2dp::audio_source_check_a2dp_ready = nullptr;
 audio_is_tws_mono_mode_enable_t BtA2dp::audio_is_tws_mono_mode_enable = nullptr;
+
 audio_sink_get_a2dp_latency_t BtA2dp::audio_sink_get_a2dp_latency = nullptr;
 audio_sink_start_t BtA2dp::audio_sink_start = nullptr;
 audio_sink_stop_t BtA2dp::audio_sink_stop = nullptr;
@@ -1077,6 +1160,9 @@ audio_sink_session_setup_complete_t BtA2dp::audio_sink_session_setup_complete = 
 audio_sink_check_a2dp_ready_t BtA2dp::audio_sink_check_a2dp_ready = nullptr;
 audio_is_scrambling_enabled_t BtA2dp::audio_is_scrambling_enabled = nullptr;
 audio_sink_suspend_t BtA2dp::audio_sink_suspend = nullptr;
+btsink_audio_pre_init_t BtA2dp::btsink_audio_pre_init = nullptr;
+audio_sink_open_t BtA2dp::audio_sink_open = nullptr;
+audio_sink_close_t BtA2dp::audio_sink_close = nullptr;
 
 
 BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
@@ -1230,6 +1316,10 @@ void BtA2dp::init_a2dp_sink()
             PAL_ERR(LOG_TAG, "DLOPEN failed for %s", BT_IPC_SINK_LIB);
 #endif
         } else {
+            btsink_audio_pre_init = (btsink_audio_pre_init_t)
+                  dlsym(bt_lib_sink_handle, "bt_audio_pre_init");
+            audio_sink_open = (audio_sink_open_t)
+                  dlsym(bt_lib_sink_handle, "audio_stream_open");
             audio_sink_start = (audio_sink_start_t)
                           dlsym(bt_lib_sink_handle, "audio_sink_start_capture");
             audio_get_dec_config = (audio_get_dec_config_t)
@@ -1240,19 +1330,71 @@ void BtA2dp::init_a2dp_sink()
                           dlsym(bt_lib_sink_handle, "audio_sink_check_a2dp_ready");
             audio_sink_session_setup_complete = (audio_sink_session_setup_complete_t)
                           dlsym(bt_lib_sink_handle, "audio_sink_session_setup_complete");
+            audio_sink_close = (audio_sink_close_t)
+                  dlsym(bt_lib_sink_handle, "audio_stream_close");
+
+            if (bt_lib_sink_handle && btsink_audio_pre_init) {
+                PAL_DBG(LOG_TAG, "calling BT module preinit");
+                btsink_audio_pre_init();
+            }
+            open_a2dp_sink();
         }
     }
 }
 
+void BtA2dp::open_a2dp_sink()
+{
+    int ret = 0;
+
+    PAL_DBG(LOG_TAG, "Open A2DP sink start");
+    if (bt_lib_sink_handle && audio_sink_open) {
+        if (a2dpState == A2DP_STATE_DISCONNECTED) {
+            PAL_DBG(LOG_TAG, "calling BT stream open");
+            ret = audio_sink_open();
+            if (ret != 0) {
+                PAL_ERR(LOG_TAG, "Failed to open source stream for a2dp: status %d", ret);
+                return;
+            }
+            a2dpState = A2DP_STATE_CONNECTED;
+        } else {
+            PAL_DBG(LOG_TAG, "Called a2dp open with improper state %d", a2dpState);
+        }
+    }
+}
+
+int BtA2dp::close_audio_sink()
+{
+    PAL_VERBOSE(LOG_TAG, "Enter");
+
+    if (!(bt_lib_sink_handle && audio_sink_close)) {
+        PAL_ERR(LOG_TAG, "a2dp source handle is not identified, Ignoring close request");
+        return -ENOSYS;
+    }
+
+    if (a2dpState != A2DP_STATE_DISCONNECTED) {
+        PAL_DBG(LOG_TAG, "calling BT source stream close");
+        if (audio_sink_close() == false)
+            PAL_ERR(LOG_TAG, "failed close a2dp source control path from BT library");
+    }
+    totalActiveSessionRequests = 0;
+    param_bt_a2dp.a2dp_suspended = false;
+    param_bt_a2dp.reconfig = false;
+    param_bt_a2dp.latency = 0;
+    a2dpState = A2DP_STATE_DISCONNECTED;
+
+    return 0;
+}
+
 bool BtA2dp::a2dp_send_sink_setup_complete()
 {
-    uint64_t system_latency = 0;
+    uint64_t system_latency = 200;
     bool is_complete = false;
 
-    /* TODO : Replace this with call to plugin */
-    system_latency = 200;
-
-    if (audio_sink_session_setup_complete(system_latency) == 0) {
+    if (pluginCodec) {
+        system_latency = pluginCodec->plugin_get_codec_latency(pluginCodec, 0);
+    }
+    if (audio_sink_session_setup_complete &&
+        audio_sink_session_setup_complete(system_latency) == 0) {
         is_complete = true;
     }
     return is_complete;
@@ -1549,7 +1691,7 @@ int BtA2dp::startCapture()
     }
 
     if (!isDummySink) {
-        if (!a2dp_send_sink_setup_complete()) {
+        if (a2dp_send_sink_setup_complete()) {
             PAL_DBG(LOG_TAG, "sink_setup_complete not successful");
             ret = -ETIMEDOUT;
         }
@@ -1621,19 +1763,31 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
         if (device_connection->connection_state == true) {
             if (a2dpRole == SOURCE)
                 open_a2dp_source();
-            else {
-                a2dpState = A2DP_STATE_CONNECTED;
+            else if (a2dpRole == SINK) {
+                if (isDummySink == false) {
+                    open_a2dp_sink();
+                }
+                else
+                {
+                    a2dpState = A2DP_STATE_CONNECTED;
+                }
             }
         } else {
             if (a2dpRole == SOURCE) {
                 status = close_audio_source();
-            } else {
-                totalActiveSessionRequests = 0;
-                param_bt_a2dp.a2dp_suspended = false;
-                param_bt_a2dp.a2dp_capture_suspended = false;
-                param_bt_a2dp.reconfig = false;
-                param_bt_a2dp.latency = 0;
-                a2dpState = A2DP_STATE_DISCONNECTED;
+            } else if (a2dpRole == SINK) {
+                if (isDummySink == false) {
+                    close_audio_sink();
+		}
+                else
+                {
+                    totalActiveSessionRequests = 0;
+                    param_bt_a2dp.a2dp_suspended = false;
+                    param_bt_a2dp.a2dp_capture_suspended = false;
+                    param_bt_a2dp.reconfig = false;
+                    param_bt_a2dp.latency = 0;
+                    a2dpState = A2DP_STATE_DISCONNECTED;
+                }
             }
         }
         break;
