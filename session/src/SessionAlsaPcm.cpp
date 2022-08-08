@@ -333,6 +333,8 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
             case DEVICE_HW_ENDPOINT_TX:
             case BT_PLACEHOLDER_DECODER:
             case COP_DEPACKETIZER_V2:
+            case MODULE_CONGESTION_BUFFER:
+            case MODULE_JITTER_BUFFER:
                 if (!pcmDevTxIds.size()){
                     PAL_ERR(LOG_TAG, "pcmDevTxIds not found \n");
                     status = -EINVAL;

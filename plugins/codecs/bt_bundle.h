@@ -53,6 +53,11 @@
  * BT IPC library to configure DSP encoder
  */
 
+#define DEFUALT_DECODER_FRAME_SIZE_SAMPLE 1024
+#define DEFUALT_JITTER_BUFFER_DURATION 200
+#define FRAME_SIZE_MODE_IN_DURATION_US 1
+#define FRAME_SIZE_MODE_IN_SAMPLES 2
+
 #define MAX_ABR_QUALITY_LEVELS 5
 typedef struct bit_rate_level_map_s {
     uint32_t link_quality_level;
@@ -145,5 +150,29 @@ typedef struct audio_ldac_encoder_config_s {
     bool     is_abr_enabled;
     struct quality_level_to_bitrate_info level_to_bitrate_map;
 } audio_ldac_encoder_config_t;
+
+
+typedef struct {
+    uint32_t bitrate;
+    uint32_t bitrate_mode; // 0 - unknown, 1 - avg, 2 - max
+    uint32_t mtu;
+} audio_sink_buffer_config_t;
+
+typedef struct {
+    audio_sink_buffer_config_t snk_buffer;
+    uint32_t obj_type; /* LC*/
+    uint16_t format_flag; /* LATM */
+    uint16_t channels; /* 1-Mono, 2-Stereo */
+    uint32_t sampling_rate;
+    uint32_t bits_per_sample;
+} audio_aac_decoder_config_t;
+
+
+typedef struct {
+    audio_sink_buffer_config_t snk_buffer;
+    uint16_t sampling_rate; /*44.1khz,48khz*/
+    uint8_t channels; /*0(Mono),1(Dual_mono),2(Stereo),3(JS)*/
+    uint32_t bits_per_sample; /* 16 bit */
+} audio_sbc_decoder_config_t;
 
 #endif /* _BT_PLUGIN_BUNDLE_H_ */

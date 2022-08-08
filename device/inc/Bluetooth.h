@@ -71,11 +71,14 @@ typedef bool (*audio_is_tws_mono_mode_enable_t)(void);
 typedef int (*audio_sink_start_t)(void);
 typedef int (*audio_sink_stop_t)(void);
 typedef void * (*audio_get_dec_config_t)(audio_format_t *codec_format);
-typedef void * (*audio_sink_session_setup_complete_t)(uint64_t system_latency);
+typedef int (*audio_sink_session_setup_complete_t)(uint64_t system_latency);
 typedef int (*audio_sink_check_a2dp_ready_t)(void);
 typedef uint16_t (*audio_sink_get_a2dp_latency_t)(void);
 typedef bool (*audio_is_scrambling_enabled_t)(void);
 typedef int (*audio_sink_suspend_t)(void);
+typedef void (*btsink_audio_pre_init_t)(void);
+typedef int (*audio_sink_open_t)(void);
+typedef int (*audio_sink_close_t)(void);
 
 // Abstract base class
 class Bluetooth : public Device
@@ -145,6 +148,9 @@ private:
     static audio_sink_get_a2dp_latency_t        audio_sink_get_a2dp_latency;
 
     static void                                 *bt_lib_sink_handle;
+    static btsink_audio_pre_init_t              btsink_audio_pre_init;
+    static audio_sink_open_t                    audio_sink_open;
+    static audio_sink_close_t                   audio_sink_close;
     static audio_sink_start_t                   audio_sink_start;
     static audio_sink_stop_t                    audio_sink_stop;
     static audio_get_dec_config_t               audio_get_dec_config;
@@ -169,7 +175,10 @@ private:
     int close_audio_source();
 
     void init_a2dp_sink();
+    void open_a2dp_sink();
+    int close_audio_sink();
     bool a2dp_send_sink_setup_complete(void);
+
     using Bluetooth::init;
     void init();
 
