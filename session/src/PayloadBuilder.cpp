@@ -2374,6 +2374,8 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             } else if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_8K) {
                 keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
             }
+            keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
+            PAL_DBG(LOG_TAG, "Entered loopback %x %x", VOLUME, LEVEL_15);
             break;
         default:
             /*

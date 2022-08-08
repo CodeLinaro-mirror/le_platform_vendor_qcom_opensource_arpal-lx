@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: ResourceManager"
 #include "ResourceManager.h"
 #include "Session.h"
@@ -3919,7 +3926,11 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
 void ResourceManager::mixerEventWaitThreadLoop(
     std::shared_ptr<ResourceManager> rm) {
     int ret = 0;
+#ifdef LINUX_ENABLED
+    struct ctl_event mixer_event = {0, {.data8 = {0}}};
+#else
     struct snd_ctl_event mixer_event = {0, {.data8 = {0}}};
+#endif
     struct mixer *mixer = nullptr;
 
     ret = rm->getVirtualAudioMixer(&mixer);
@@ -6278,7 +6289,7 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
                                    inStrAttr);
                 mActiveStreamMutex.unlock();
             }
-            if (doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr)) {
+            if (inStrAttr->type != PAL_STREAM_LOOPBACK && doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr)) {
                 mActiveStreamMutex.lock();
                 streamDevDisconnect.push_back(elem);
                 streamDevConnect.push_back({std::get<0>(elem), inDevAttr});
@@ -7416,7 +7427,8 @@ exit:
 int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
                                   size_t payload_size __unused,
                                   pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
+                                  pal_stream_type_t pal_stream_type,
+                                  char* address)
 {
     int status = -EINVAL;
 
@@ -7427,7 +7439,7 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             bool match = false;
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
-                match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
                 if (match) {
                     status = (*sIter)->getEffectParameters(param_payload);
                     break;
@@ -8012,7 +8024,8 @@ exit:
 int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                                   size_t payload_size __unused,
                                   pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
+                                  pal_stream_type_t pal_stream_type,
+                                  char* address)
 {
     int status = -EINVAL;
 
@@ -8027,8 +8040,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
                 if ((*sIter) != NULL) {
-                    match = (*sIter)->checkStreamMatch(pal_device_id,
-                                                       pal_stream_type);
+                    match = (*sIter)->checkBusStreamMatch(pal_device_id,
+                                                       pal_stream_type, address);
                     if (match) {
                         status = (*sIter)->setParameters(param_id, param_payload);
                         if (status) {
