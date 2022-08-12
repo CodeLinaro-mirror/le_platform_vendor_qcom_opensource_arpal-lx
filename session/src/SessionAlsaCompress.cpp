@@ -1239,6 +1239,11 @@ int SessionAlsaCompress::start(Stream * s)
                     (sizeof(struct pal_channel_vol_kv) * (s->mVolumeData->no_of_volpair)));
             volPayload = new uint8_t[sizeof(pal_param_payload) +
                 volSize]();
+            if (!volPayload){
+                    PAL_ERR(LOG_TAG, "volpayload memory allocation failed");
+                    status = -ENOMEM;
+                    goto exit;
+            }
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
             memcpy(pld->payload, s->mVolumeData, volSize);
