@@ -7791,16 +7791,14 @@ int32_t ResourceManager::a2dpResume(pal_device_id_t dev_id)
         (*sIter)->lockStreamMutex();
         if (std::find((*sIter)->suspendedDevIds.begin(), (*sIter)->suspendedDevIds.end(),
                     a2dpDattr.id) != (*sIter)->suspendedDevIds.end()) {
-            if (!(*sIter)->isStopped()) {
                 std::vector<std::shared_ptr<Device>> devices;
                 (*sIter)->getAssociatedDevices(devices);
-                if (devices.size() > 0) {
-                    for (auto device: devices) {
-                        if ((device->getSndDeviceId() > PAL_DEVICE_OUT_MIN &&
-                            device->getSndDeviceId() < PAL_DEVICE_OUT_MAX) &&
-                            ((*sIter)->suspendedDevIds.size() == 1 /* non combo */)) {
-                            streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
-                        }
+            if (devices.size() > 0) {
+                for (auto device: devices) {
+                    if ((device->getSndDeviceId() > PAL_DEVICE_OUT_MIN &&
+                        device->getSndDeviceId() < PAL_DEVICE_OUT_MAX) &&
+                        ((*sIter)->suspendedDevIds.size() == 1 /* non combo */)) {
+                        streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
                     }
                 }
             }

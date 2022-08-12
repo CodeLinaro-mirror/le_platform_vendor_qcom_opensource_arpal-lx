@@ -1922,8 +1922,6 @@ int BtA2dp::startCapture()
 
     PAL_DBG(LOG_TAG, "a2dp_start_capture start");
 
-    codecFormat = CODEC_TYPE_INVALID;
-
     if (!isDummySink) {
         if (!(bt_lib_sink_handle && (audio_sink_start_api ||
             audio_sink_start) && audio_get_dec_config)) {
@@ -1932,6 +1930,7 @@ int BtA2dp::startCapture()
         }
 
         if (a2dpState != A2DP_STATE_STARTED  && !totalActiveSessionRequests) {
+            codecFormat = CODEC_TYPE_INVALID;
             PAL_DBG(LOG_TAG, "calling BT module stream start");
             /* This call indicates BT IPC lib to start capture */
             if (audio_sink_start_api) {
@@ -1978,6 +1977,7 @@ int BtA2dp::startCapture()
         }
 
         if (a2dpState != A2DP_STATE_STARTED  && !totalActiveSessionRequests) {
+            codecFormat = CODEC_TYPE_INVALID;
             PAL_DBG(LOG_TAG, "calling BT module stream start");
             /* This call indicates BT IPC lib to start */
             if (audio_sink_start_api) {
@@ -2021,10 +2021,9 @@ int BtA2dp::startCapture()
             ret = -ETIMEDOUT;
         }
     }
-    if (a2dpState != A2DP_STATE_STARTED  && !totalActiveSessionRequests) {
-        totalActiveSessionRequests++;
-        a2dpState = A2DP_STATE_STARTED;
-    }
+
+    a2dpState = A2DP_STATE_STARTED;
+    totalActiveSessionRequests++;
 
     PAL_DBG(LOG_TAG, "start A2DP sink total active sessions :%d",
                       totalActiveSessionRequests);
