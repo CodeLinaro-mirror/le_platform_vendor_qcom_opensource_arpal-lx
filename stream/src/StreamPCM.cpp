@@ -1127,7 +1127,7 @@ int32_t StreamPCM::flush()
          goto exit;
     }
 
-    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD) {
+    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD && mStreamAttr->type != PAL_STREAM_PLAYBACK_BUS ) {
          PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD stream, ignore");
          goto exit;
     }
