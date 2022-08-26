@@ -72,6 +72,8 @@
 #define BUS_SYS_NOTIFICATION "BUS01_SYS_NOTIFICATION"
 #define BUS_NAV_GUIDANCE     "BUS02_NAV_GUIDANCE"
 #define BUS_PHONE            "BUS03_PHONE"
+#define BUS_FRONT_PASSENGER  "BUS08_FRONT_PASSENGER"
+#define BUS_REAR_SEAT        "BUS16_REAR_SEAT"
 
 /**
 * Following are the default defined period sizes
@@ -554,7 +556,9 @@ uint32_t get_buffer_size(pal_stream_attributes streamAttributes_) {
     } else if (streamAttributes_.type == PAL_STREAM_PLAYBACK_BUS) {
         if ((strcmp(streamAttributes_.bus_addr, BUS_MEDIA) == 0)
             || (strcmp(streamAttributes_.bus_addr, BUS_SYS_NOTIFICATION) == 0)
-            || (strcmp(streamAttributes_.bus_addr, BUS_NAV_GUIDANCE) == 0)) {
+            || (strcmp(streamAttributes_.bus_addr, BUS_NAV_GUIDANCE) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_FRONT_PASSENGER) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_REAR_SEAT) == 0)) {
             return pcm_buffer_size(streamAttributes_);
         } else if(strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0) {
             return LOW_LATENCY_PLAYBACK_PERIOD_SIZE *
@@ -626,11 +630,13 @@ void get_render_latency(Stream* s, void **payload)
               break;
          case PAL_STREAM_PLAYBACK_BUS:
               {
-                  if((strcmp(streamAttributes_.bus_addr, BUS_MEDIA) == 0) ||
-                      (strcmp(streamAttributes_.bus_addr, BUS_NAV_GUIDANCE) == 0)) {
+                  if ((strcmp(streamAttributes_.bus_addr, BUS_MEDIA) == 0) ||
+                      (strcmp(streamAttributes_.bus_addr, BUS_NAV_GUIDANCE) == 0) ||
+                      (strcmp(streamAttributes_.bus_addr, BUS_FRONT_PASSENGER) == 0) ||
+                      (strcmp(streamAttributes_.bus_addr, BUS_REAR_SEAT) == 0)) {
                       **latency = DEEP_BUFFER_DELAY;
-                  } else if((strcmp(streamAttributes_.bus_addr, BUS_SYS_NOTIFICATION) == 0) ||
-                      (strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0)) {
+                  } else if ((strcmp(streamAttributes_.bus_addr, BUS_SYS_NOTIFICATION) == 0) ||
+                             (strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0)) {
                       **latency = LOW_LATENCY_DELAY;
                   }
                   //TODO: Customers should add handling of additional BUS devices here if added.

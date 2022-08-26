@@ -447,8 +447,9 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         if (ResourceManager::isSpeakerProtectionEnabled) {
             PAL_DBG(LOG_TAG, "Speaker protection enabled");
             for (int i = 0; i < associatedDevices.size(); i++) {
-                if (associatedDevices[i]->getSndDeviceId() ==
-                            PAL_DEVICE_OUT_SPEAKER) {
+                if ((associatedDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER) ||
+                    (associatedDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_A2B_SPKR) ||
+                    (associatedDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_A2B2_SPKR)) {
                     status = builder->populateCalKeyVector(streamHandle, emptyKV,
                                     SPKR_PROT_ENABLE);
                     if (status != 0) {

@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: ResourceManager"
 #include "ResourceManager.h"
 #include "Session.h"
@@ -192,6 +199,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -238,6 +247,8 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_HEARING_AID,          0},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       0},
     {PAL_DEVICE_OUT_ULTRASOUND,           1},
+    {PAL_DEVICE_OUT_A2B_SPKR,             0},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -285,6 +296,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -505,6 +518,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "none" }}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "none" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -3911,7 +3926,11 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
 void ResourceManager::mixerEventWaitThreadLoop(
     std::shared_ptr<ResourceManager> rm) {
     int ret = 0;
+#ifdef LINUX_ENABLED
+    struct ctl_event mixer_event = {0, {.data8 = {0}}};
+#else
     struct snd_ctl_event mixer_event = {0, {.data8 = {0}}};
+#endif
     struct mixer *mixer = nullptr;
 
     ret = rm->getVirtualAudioMixer(&mixer);
@@ -6270,7 +6289,7 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
                                    inStrAttr);
                 mActiveStreamMutex.unlock();
             }
-            if (doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr)) {
+            if (inStrAttr->type != PAL_STREAM_LOOPBACK && doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr)) {
                 mActiveStreamMutex.lock();
                 streamDevDisconnect.push_back(elem);
                 streamDevConnect.push_back({std::get<0>(elem), inDevAttr});
@@ -7408,7 +7427,8 @@ exit:
 int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
                                   size_t payload_size __unused,
                                   pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
+                                  pal_stream_type_t pal_stream_type,
+                                  char* address)
 {
     int status = -EINVAL;
 
@@ -7419,7 +7439,7 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             bool match = false;
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
-                match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
                 if (match) {
                     status = (*sIter)->getEffectParameters(param_payload);
                     break;
@@ -7835,6 +7855,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                    goto exit;
                 }
                 if ((PAL_DEVICE_OUT_SPEAKER == deviceId) ||
+                    (PAL_DEVICE_OUT_A2B_SPKR == deviceId) ||
+                    (PAL_DEVICE_OUT_A2B2_SPKR == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADSET == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADPHONE == deviceId)) {
                     status = getActiveStream_l(active_devices[i].first, activestreams);
@@ -8002,7 +8024,8 @@ exit:
 int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                                   size_t payload_size __unused,
                                   pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
+                                  pal_stream_type_t pal_stream_type,
+                                  char* address)
 {
     int status = -EINVAL;
 
@@ -8017,8 +8040,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
                 if ((*sIter) != NULL) {
-                    match = (*sIter)->checkStreamMatch(pal_device_id,
-                                                       pal_stream_type);
+                    match = (*sIter)->checkBusStreamMatch(pal_device_id,
+                                                       pal_stream_type, address);
                     if (match) {
                         status = (*sIter)->setParameters(param_id, param_payload);
                         if (status) {

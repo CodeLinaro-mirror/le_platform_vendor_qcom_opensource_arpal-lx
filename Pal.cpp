@@ -955,7 +955,7 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
 
 int32_t pal_gef_rw_param(uint32_t param_id, void *param_payload,
                       size_t payload_size, pal_device_id_t pal_device_id,
-                      pal_stream_type_t pal_stream_type, unsigned int dir)
+                      pal_stream_type_t pal_stream_type, unsigned int dir, char* address)
 {
     int status = 0;
     std::shared_ptr<ResourceManager> rm = NULL;
@@ -967,14 +967,14 @@ int32_t pal_gef_rw_param(uint32_t param_id, void *param_payload,
     if (rm) {
         if (GEF_PARAM_WRITE == dir) {
             status = rm->setParameter(param_id, param_payload, payload_size,
-                                        pal_device_id, pal_stream_type);
+                                        pal_device_id, pal_stream_type, address);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to set global parameter %u, status %d",
                         param_id, status);
             }
         } else {
             status = rm->getParameter(param_id, param_payload, payload_size,
-                                        pal_device_id, pal_stream_type);
+                                        pal_device_id, pal_stream_type, address);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to set global parameter %u, status %d",
                         param_id, status);

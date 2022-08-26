@@ -2374,6 +2374,8 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             } else if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_8K) {
                 keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
             }
+            keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
+            PAL_DBG(LOG_TAG, "Entered loopback %x %x", VOLUME, LEVEL_15);
             break;
         default:
             /*
@@ -2444,13 +2446,17 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
             case PAL_STREAM_PCM_OFFLOAD:
             case PAL_STREAM_COMPRESSED:
             case PAL_STREAM_PLAYBACK_BUS:
-                if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
+                if ((dAttr.id == PAL_DEVICE_OUT_SPEAKER) ||
+                    (dAttr.id == PAL_DEVICE_OUT_A2B_SPKR) ||
+                    (dAttr.id == PAL_DEVICE_OUT_A2B2_SPKR)) {
                     PAL_INFO(LOG_TAG,"SpeakerProt Status[%d], RAS Status[%d]\n",
                             rm->isSpeakerProtectionEnabled, rm->isRasEnabled);
                 }
                 if (rm->isSpeakerProtectionEnabled == true &&
                     rm->isRasEnabled == true &&
-                    dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
+                    ((dAttr.id == PAL_DEVICE_OUT_SPEAKER) ||
+                    (dAttr.id == PAL_DEVICE_OUT_A2B_SPKR) ||
+                    (dAttr.id == PAL_DEVICE_OUT_A2B2_SPKR))) {
                     if (dAttr.config.ch_info.channels == 2) {
                         PAL_INFO(LOG_TAG,"Enabling RAS - device channels[%d]\n",
                                 dAttr.config.ch_info.channels);
@@ -2463,6 +2469,8 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 }
 
                 if ((dAttr.id == PAL_DEVICE_OUT_SPEAKER) ||
+                    (dAttr.id == PAL_DEVICE_OUT_A2B_SPKR) ||
+                    (dAttr.id == PAL_DEVICE_OUT_A2B2_SPKR) ||
                     (dAttr.id == PAL_DEVICE_OUT_WIRED_HEADSET) ||
                     (dAttr.id == PAL_DEVICE_OUT_WIRED_HEADPHONE)) {
                     PAL_DBG(LOG_TAG, "Entered default %x %x", GAIN, GAIN_0);
@@ -2529,7 +2537,9 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
                 PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
                 return status;
             }
-            if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
+            if ((dAttr.id == PAL_DEVICE_OUT_SPEAKER) ||
+                (dAttr.id == PAL_DEVICE_OUT_A2B_SPKR) ||
+                (dAttr.id == PAL_DEVICE_OUT_A2B2_SPKR)) {
                 if (dAttr.config.ch_info.channels > 1) {
                     PAL_DBG(LOG_TAG, "Multi channel speaker");
                     ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));

@@ -3,7 +3,7 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: pal
-Description: pal library
+Name: default_plugin_controls
+Description: default_plugin_controls library
 Version: @VERSION@
 Libs: -L${libdir}

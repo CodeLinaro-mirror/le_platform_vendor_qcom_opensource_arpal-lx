@@ -19,6 +19,13 @@ LOCAL_CFLAGS        += -D_GNU_SOURCE
 LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
+ifeq ($(PRODUCT_NAME), msmnile_gvmq)
+LOCAL_CFLAGS        += -DAUTO_GVMQ
+endif
+ifeq ($(PRODUCT_NAME), msmnile_au)
+  LOCAL_CFLAGS   += -DAUTO_AU
+  LOCAL_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
+endif
 
 ifeq ($(ENABLE_HYP),true)
 LOCAL_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
@@ -131,7 +138,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 #if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
 #This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
+ifneq ($(filter 11 R 12, $(PLATFORM_VERSION)),)
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
