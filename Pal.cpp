@@ -580,12 +580,11 @@ int32_t pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
     if (0 != status) {
         PAL_ERR(LOG_TAG,"controlPluginGet Failed \n");
     }
-
-    *buffersize = buff_data->buffer_size;
-    *buffcount = buff_data->buffer_count;
-
-    if(buff_data)
+    if (buff_data) {
+        *buffersize = buff_data->buffer_size;
+        *buffcount = buff_data->buffer_count;
         free(buff_data);
+    }
 
     return status;
 }
