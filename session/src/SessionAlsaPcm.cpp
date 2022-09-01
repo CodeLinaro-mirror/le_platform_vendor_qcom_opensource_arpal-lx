@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -25,6 +24,40 @@
  * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
@@ -140,12 +173,36 @@ int SessionAlsaPcm::open(Stream * s)
             goto exit;
         }
     } else {
-        pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RX_HOSTLESS);
-        pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TX_HOSTLESS);
-        if (!pcmDevRxIds.size() || !pcmDevTxIds.size()) {
-            PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
-            status = -EINVAL;
-            goto exit;
+        if ((sAttr.type == PAL_STREAM_LOOPBACK) &&
+            (sAttr.info.opt_stream_info.loopback_type ==
+             PAL_STREAM_LOOPBACK_PLAYBACK_ONLY)) {
+            // Loopback for RX path
+            pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RX_HOSTLESS);
+            if (!pcmDevRxIds.size()) {
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds for RX loopback failed");
+                status = -EINVAL;
+                goto exit;
+            }
+        }
+        else if ((sAttr.type == PAL_STREAM_LOOPBACK) &&
+                 (sAttr.info.opt_stream_info.loopback_type ==
+                  PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+            // Loopback for TX path
+            pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TX_HOSTLESS);
+            if (!pcmDevTxIds.size()) {
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
+                status = -EINVAL;
+                goto exit;
+            }
+        }
+        else {
+            pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RX_HOSTLESS);
+            pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TX_HOSTLESS);
+            if (!pcmDevRxIds.size() || !pcmDevTxIds.size()) {
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
+                status = -EINVAL;
+                goto exit;
+            }
         }
     }
     frontEndIdAllocated = true;
@@ -185,13 +242,33 @@ int SessionAlsaPcm::open(Stream * s)
             }
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
-            status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, pcmDevTxIds,
-                    rxAifBackEnds, txAifBackEnds);
-            if (status) {
-                PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
-                rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
-                rm->freeFrontEndIds(pcmDevTxIds, sAttr, TX_HOSTLESS);
-                frontEndIdAllocated = false;
+            if (sAttr.info.opt_stream_info.loopback_type ==
+                    PAL_STREAM_LOOPBACK_CAPTURE_ONLY) {
+                status = SessionAlsaUtils::open(s, rm, pcmDevTxIds, txAifBackEnds);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
+                    rm->freeFrontEndIds(pcmDevIds, sAttr, TX_HOSTLESS);
+                    frontEndIdAllocated = false;
+                }
+            }
+            else if (sAttr.info.opt_stream_info.loopback_type ==
+                        PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) {
+                status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, rxAifBackEnds);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
+                    rm->freeFrontEndIds(pcmDevIds, sAttr, RX_HOSTLESS);
+                    frontEndIdAllocated = false;
+                }
+            }
+            else {
+                status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, pcmDevTxIds,
+                        rxAifBackEnds, txAifBackEnds);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
+                    rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
+                    rm->freeFrontEndIds(pcmDevTxIds, sAttr, TX_HOSTLESS);
+                    frontEndIdAllocated = false;
+                }
             }
             break;
         default:
@@ -263,12 +340,22 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, uint32_t tag1,
             }
             status = SessionAlsaUtils::getTagMetadata(tagsent, tkv, tagConfig);
             if (0 != status) {
+                if (tagConfig)
+                    free(tagConfig);
                 goto exit;
             }
-            tagCntrlName << stream << pcmDevIds.at(0) << " " << setParamTagControl;
+            if (pcmDevIds.size() > 0) {
+                tagCntrlName << stream << pcmDevIds.at(0) << " " << setParamTagControl;
+            } else {
+                PAL_ERR(LOG_TAG, "pcmDevIds not found.");
+                status = -EINVAL;
+                goto exit;
+            }
             ctl = mixer_get_ctl_by_name(mixer, tagCntrlName.str().data());
             if (!ctl) {
                 PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", tagCntrlName.str().data());
+                if (tagConfig)
+                    free(tagConfig);
                 return -ENOENT;
             }
 
@@ -276,11 +363,11 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, uint32_t tag1,
             status = mixer_ctl_set_array(ctl, tagConfig, sizeof(struct agm_tag_config) + tkv_size);
             if (status != 0) {
                 PAL_ERR(LOG_TAG, "failed to set the tag calibration %d", status);
+                if (tagConfig)
+                    free(tagConfig);
                 goto exit;
             }
             ctl = NULL;
-            if (tagConfig)
-                free(tagConfig);
             tkv.clear();
             break;
         default:
@@ -290,6 +377,9 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, uint32_t tag1,
 
 exit:
     PAL_DBG(LOG_TAG, "exit status: %d ", status);
+    if (tagConfig) {
+        free(tagConfig);
+    }
     return status;
 }
 
@@ -350,7 +440,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
             case BT_PLACEHOLDER_DECODER:
             case COP_DEPACKETIZER_V2:
                 if (!pcmDevTxIds.size()){
-                    PAL_ERR(LOG_TAG, "pcmDevTxIds not found \n");
+                    PAL_ERR(LOG_TAG, "pcmDevTxIds not found.");
                     status = -EINVAL;
                     goto exit;
                 }
@@ -362,7 +452,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
             case COP_PACKETIZER_V0:
             case MODULE_SP:
                 if (!pcmDevRxIds.size()){
-                    PAL_ERR(LOG_TAG, "pcmDevRxIds not found \n");
+                    PAL_ERR(LOG_TAG, "pcmDevRxIds not found.");
                     status = -EINVAL;
                     goto exit;
                 }
@@ -370,10 +460,21 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
                 break;
             case RAT_RENDER:
             case BT_PCM_CONVERTER:
-                if(strstr(backendName,"TX"))
+                if(strstr(backendName,"TX")) {
+                    if (!pcmDevTxIds.size()) {
+                        PAL_ERR(LOG_TAG, "pcmDevTxIds not found.");
+                        status = -EINVAL;
+                        goto exit;
+                    }
                     device = pcmDevTxIds.at(0);
-                else
+                } else {
+                    if (!pcmDevRxIds.size()) {
+                        PAL_ERR(LOG_TAG, "pcmDevRxIds not found.");
+                        status = -EINVAL;
+                        goto exit;
+                    }
                     device = pcmDevRxIds.at(0);
+                }
                 break;
             default:
                 PAL_INFO(LOG_TAG, "Unsupported loopback tag info %x",tagId);
@@ -382,7 +483,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
         }
     } else {
         if (!pcmDevIds.size()){
-            PAL_ERR(LOG_TAG, "pcmDevIds not found \n");
+            PAL_ERR(LOG_TAG, "pcmDevIds not found.");
             status = -EINVAL;
             goto exit;
         }
@@ -505,6 +606,18 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 
             status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
+
+                if ((sAttr.info.opt_stream_info.loopback_type ==
+                                PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
+                    (sAttr.info.opt_stream_info.loopback_type ==
+                                PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+                    // Currently Playback only and Capture only loopback don't
+                    // support volume
+                    PAL_DBG(LOG_TAG, "RX/TX only Loopback don't support volume");
+                    status = -EINVAL;
+                    goto exit;
+                }
+
                 if (pcmDevRxIds.size() > 0)
                     calCntrlName << stream << pcmDevRxIds.at(0) << " " << setCalibrationControl;
             } else {
@@ -595,9 +708,17 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             }
 
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                if (pcmDevRxIds.size() > 0)
+                    tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
             } else {
-                tagCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setParamTagControl;
+                if (pcmDevIds.size() > 0)
+                    tagCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setParamTagControl;
+            }
+
+            if (tagCntrlName.str().length() == 0) {
+                PAL_ERR(LOG_TAG, "Invalid tagCntrlName.");
+                status = -EINVAL;
+                goto exit;
             }
 
             ctl = mixer_get_ctl_by_name(mixer, tagCntrlName.str().data());
@@ -695,29 +816,30 @@ void SessionAlsaPcm::releaseAdmFocus(Stream *s)
 
 int SessionAlsaPcm::start(Stream * s)
 {
-    struct pcm_config config;
-    struct pal_stream_attributes sAttr;
+    struct pcm_config config = {};
+    struct pal_stream_attributes sAttr = {};
     int32_t status = 0;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct pal_device dAttr;
-    struct pal_media_config codecConfig;
-    struct sessionToPayloadParam streamData;
+    struct pal_device dAttr = {};
+    struct pal_media_config codecConfig = {};
+    struct sessionToPayloadParam streamData = {};
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
     uint32_t miid;
     int payload_size = 0;
-    struct agm_event_reg_cfg event_cfg;
+    struct agm_event_reg_cfg event_cfg = {};
     struct agm_event_reg_cfg *acd_event_cfg = nullptr;
     int tagId = 0;
     int DeviceId;
-    struct disable_lpm_info lpm_info;
+    struct disable_lpm_info lpm_info = {};
     bool isStreamAvail = false;
-    struct volume_set_param_info vol_set_param_info;
+    struct volume_set_param_info vol_set_param_info = {};
     uint16_t volSize = 0;
     uint8_t *volPayload = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter");
 
+    memset(&dAttr, 0, sizeof(struct pal_device));
     rm->voteSleepMonitor(s, true);
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
@@ -749,9 +871,13 @@ int SessionAlsaPcm::start(Stream * s)
         config.start_threshold = 0;
         config.stop_threshold = 0;
         config.silence_threshold = 0;
-
         switch(sAttr.direction) {
             case PAL_AUDIO_INPUT:
+                if (pcmDevIds.size() == 0) {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
+                    goto exit;
+                }
                 if(SessionAlsaUtils::isMmapUsecase(sAttr)) {
                     config.start_threshold = 0;
                     config.stop_threshold = INT32_MAX;
@@ -777,6 +903,11 @@ int SessionAlsaPcm::start(Stream * s)
                 }
                 break;
             case PAL_AUDIO_OUTPUT:
+                if (pcmDevIds.size() == 0) {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
+                    goto exit;
+                }
                 if(SessionAlsaUtils::isMmapUsecase(sAttr)) {
                     config.start_threshold = config.period_size * 8;
                     config.stop_threshold = INT32_MAX;
@@ -802,31 +933,39 @@ int SessionAlsaPcm::start(Stream * s)
                 }
                 break;
             case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
-                pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
-                if (!pcmRx) {
-                    PAL_ERR(LOG_TAG, "pcm-rx open failed");
-                    status = errno;
-                    goto exit;
-                }
+                if (!pcmDevRxIds.empty()) {
+                    pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
+                    if (!pcmRx) {
+                        PAL_ERR(LOG_TAG, "pcm-rx open failed");
+                        status = errno;
+                        goto exit;
+                    }
 
-                if (!pcm_is_ready(pcmRx)) {
-                    PAL_ERR(LOG_TAG, "pcm-rx open not ready");
-                    status = errno;
-                    goto exit;
+                    if (!pcm_is_ready(pcmRx)) {
+                        PAL_ERR(LOG_TAG, "pcm-rx open not ready");
+                        status = errno;
+                        goto exit;
+                    }
                 }
-                pcmTx = pcm_open(rm->getVirtualSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
-                if (!pcmTx) {
-                    PAL_ERR(LOG_TAG, "pcm-tx open failed");
-                    status = errno;
-                    goto exit;
-                }
+                if (!pcmDevTxIds.empty()) {
+                    pcmTx = pcm_open(rm->getVirtualSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
+                    if (!pcmTx) {
+                        PAL_ERR(LOG_TAG, "pcm-tx open failed");
+                        status = errno;
+                        goto exit;
+                    }
 
-                if (!pcm_is_ready(pcmTx)) {
-                    PAL_ERR(LOG_TAG, "pcm-tx open not ready");
-                    status = errno;
-                    goto exit;
+                    if (!pcm_is_ready(pcmTx)) {
+                        PAL_ERR(LOG_TAG, "pcm-tx open not ready");
+                        status = errno;
+                        goto exit;
+                    }
                 }
                 break;
+            default :
+                PAL_ERR(LOG_TAG, "Exit pcm open failed. Invalid direction");
+                status = -EINVAL;
+                goto exit;
         }
         mState = SESSION_OPENED;
 
@@ -841,6 +980,11 @@ int SessionAlsaPcm::start(Stream * s)
         event_cfg.is_register = 1;
         event_cfg.event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
         event_cfg.module_instance_id = svaMiid;
+        if (pcmDevIds.size() == 0) {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            status = -EINVAL;
+            goto exit;
+        }
         SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
             (void *)&event_cfg, payload_size);
 
@@ -860,6 +1004,11 @@ int SessionAlsaPcm::start(Stream * s)
         event_cfg.is_register = 1;
         event_cfg.event_id = EVENT_ID_GENERIC_US_DETECTION;
         tagId = ULTRASOUND_DETECTION_MODULE;
+        if (!pcmDevTxIds.size()) {
+            PAL_ERR(LOG_TAG, "pcmDevTxIds not found.");
+            status = -EINVAL;
+            goto exit;
+        }
         DeviceId = pcmDevTxIds.at(0);
         SessionAlsaUtils::registerMixerEvent(mixer, DeviceId,
                 txAifBackEnds[0].second.data(), tagId, (void *)&event_cfg,
@@ -875,6 +1024,11 @@ int SessionAlsaPcm::start(Stream * s)
 
     switch (sAttr.direction) {
         case PAL_AUDIO_INPUT:
+            if (pcmDevIds.size() == 0) {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
+            }
             if ((sAttr.type != PAL_STREAM_VOICE_UI) &&
                 (sAttr.type != PAL_STREAM_ACD) &&
                 (sAttr.type != PAL_STREAM_CONTEXT_PROXY) &&
@@ -1086,6 +1240,11 @@ set_mixer:
             break;
         case PAL_AUDIO_OUTPUT:
             if (sAttr.type == PAL_STREAM_VOICE_CALL_MUSIC) {
+                if (pcmDevIds.size() == 0) {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
+                    goto exit;
+                }
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
                                                                 "ZERO", RAT_RENDER, &miid);
                 if (status != 0) {
@@ -1134,6 +1293,11 @@ set_mixer:
                     goto exit;
                 }
                 if (customPayload) {
+                    if (pcmDevIds.size() == 0) {
+                        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                        status = -EINVAL;
+                        goto exit;
+                    }
                     status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
                                                      customPayload, customPayloadSize);
                     freeCustomPayload();
@@ -1195,6 +1359,35 @@ set_mixer:
                     PAL_ERR(LOG_TAG,"setMixerParameter failed for MSPP module");
                     goto pcm_start;
                 }
+
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
+                                                                rxAifBackEnds[0].second.data(), TAG_PAUSE, &miid);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG,"get Soft Pause ModuleInstanceId failed");
+                    goto pcm_start;
+                }
+                PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
+
+                builder->payloadSoftPauseConfig(&payload, &payloadSize, miid, MSPP_SOFT_PAUSE_DELAY);
+                if (payloadSize && payload) {
+                    status = updateCustomPayload(payload, payloadSize);
+                    free(payload);
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                        goto pcm_start;
+                    }
+                }
+                status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
+                                                             customPayload, customPayloadSize);
+                if (customPayload) {
+                    free(customPayload);
+                    customPayload = NULL;
+                    customPayloadSize = 0;
+                }
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG,"setMixerParameter failed for soft Pause module");
+                    goto pcm_start;
+                }
             }
 
 pcm_start:
@@ -1231,6 +1424,11 @@ pcm_start:
                 event_cfg.event_config_payload_size = 0;
                 event_cfg.is_register = 1;
 
+                if (pcmDevIds.size() == 0) {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
+                    goto exit;
+                }
                 status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
                             rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)&event_cfg,
                             payload_size);
@@ -1266,6 +1464,11 @@ pcm_start:
                     goto exit;
                 }
                 if (customPayload) {
+                    if (!pcmDevRxIds.size()) {
+                        PAL_ERR(LOG_TAG, "pcmDevRxIds not found.");
+                        status = -EINVAL;
+                        goto exit;
+                    }
                     status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevRxIds.at(0),
                                                              customPayload, customPayloadSize);
                     freeCustomPayload();
@@ -1412,9 +1615,10 @@ int SessionAlsaPcm::stop(Stream * s)
                 event_cfg.event_id = EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE;
                 event_cfg.event_config_payload_size = 0;
                 event_cfg.is_register = 0;
-                SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-                        rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)&event_cfg,
-                        payload_size);
+                if (pcmDevIds.size() > 0)
+                    SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                            rxAifBackEnds[0].second.data(), TAG_PAUSE, (void *)&event_cfg,
+                            payload_size);
                 isPauseRegistrationDone = false;
             }
             break;
@@ -1445,6 +1649,11 @@ int SessionAlsaPcm::stop(Stream * s)
         event_cfg.is_register = 0;
         event_cfg.event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
         event_cfg.module_instance_id = svaMiid;
+        if (!pcmDevIds.size()) {
+            PAL_ERR(LOG_TAG, "pcmDevIds not found.");
+            status = -EINVAL;
+            goto exit;
+        }
         SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
             (void *)&event_cfg, payload_size);
 
@@ -1464,6 +1673,11 @@ int SessionAlsaPcm::stop(Stream * s)
         event_cfg.is_register = 0;
         event_cfg.event_id = EVENT_ID_GENERIC_US_DETECTION;
         tagId = ULTRASOUND_DETECTION_MODULE;
+        if (!pcmDevTxIds.size()) {
+            PAL_ERR(LOG_TAG, "pcmDevTxIds not found.");
+            status = -EINVAL;
+            goto exit;
+        }
         DeviceId = pcmDevTxIds.at(0);
         RegisterForEvents = false;
         SessionAlsaUtils::registerMixerEvent(mixer, DeviceId,
@@ -1481,9 +1695,14 @@ int SessionAlsaPcm::stop(Stream * s)
         event_cfg.event_config_payload_size = 0;
         event_cfg.is_register = 0;
         if (!txAifBackEnds.empty()) {
-           SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-               txAifBackEnds[0].second.data(), CONTEXT_DETECTION_ENGINE, (void *)&event_cfg,
-               payload_size);
+            if (!pcmDevIds.size()) {
+                PAL_ERR(LOG_TAG, "pcmDevIds not found.");
+                status = -EINVAL;
+                goto exit;
+            }
+            SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                    txAifBackEnds[0].second.data(), CONTEXT_DETECTION_ENGINE, (void *)&event_cfg,
+                    payload_size);
         }
     } else if(sAttr.type == PAL_STREAM_CONTEXT_PROXY) {
         status = register_asps_event(0);
@@ -1649,8 +1868,11 @@ int SessionAlsaPcm::close(Stream * s)
                 status = errno;
                PAL_ERR(LOG_TAG, "pcm_close - tx failed %d", status);
             }
-            rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
-            rm->freeFrontEndIds(pcmDevTxIds, sAttr, TX_HOSTLESS);
+
+            if (pcmDevRxIds.size())
+                rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
+            if (pcmDevTxIds.size())
+                rm->freeFrontEndIds(pcmDevTxIds, sAttr, TX_HOSTLESS);
             pcmRx = NULL;
             pcmTx = NULL;
             break;
@@ -1893,10 +2115,9 @@ int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, in
 int SessionAlsaPcm::write(Stream *s, int tag, struct pal_buffer *buf, int * size,
                           int flag)
 {
-    int status = 0, bytesWritten = 0, bytesRemaining = 0, offset = 0;
-    uint32_t sizeWritten = 0;
+    int status = 0;
+    size_t bytesWritten = 0, bytesRemaining = 0, offset = 0, sizeWritten = 0;
     struct pal_stream_attributes sAttr;
-
 
     PAL_VERBOSE(LOG_TAG, "Enter buf:%p tag:%d flag:%d", buf, tag, flag);
 
@@ -2080,11 +2301,17 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 customPayloadSize += paramSize;
                 PAL_INFO(LOG_TAG, "customPayloadSize = %zu", customPayloadSize);
             } else {
-                status = SessionAlsaUtils::setMixerParameter(mixer,
-                    pcmDevIds.at(0), paramData, paramSize);
-                if (status) {
-                    PAL_ERR(LOG_TAG, "Failed to set mixer param, status = %d",
-                        status);
+                if (pcmDevIds.size() > 0) {
+                    status = SessionAlsaUtils::setMixerParameter(mixer,
+                        pcmDevIds.at(0), paramData, paramSize);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set mixer param, status = %d",
+                            status);
+                        goto exit;
+                    }
+                } else {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
                     goto exit;
                 }
             }
@@ -2190,7 +2417,8 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set volume config status=%d\n", status);
-                freeCustomPayload(&paramData, &paramSize);
+                delete [] paramData;
+                paramSize = 0;
             }
             return 0;
         }
@@ -2344,7 +2572,7 @@ exit:
 int SessionAlsaPcm::register_asps_event(uint32_t reg)
 {
     int32_t status = 0;
-    struct agm_event_reg_cfg *event_cfg;
+    struct agm_event_reg_cfg *event_cfg = nullptr;
     uint32_t payload_size = sizeof(struct agm_event_reg_cfg);
     event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
     if (!event_cfg) {
@@ -2355,7 +2583,11 @@ int SessionAlsaPcm::register_asps_event(uint32_t reg)
     event_cfg->is_register = reg;
     event_cfg->event_id = EVENT_ID_ASPS_GET_SUPPORTED_CONTEXT_IDS;
     event_cfg->module_instance_id = ASPS_MODULE_INSTANCE_ID;
-
+    if (pcmDevIds.size() == 0) {
+        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+        status = -EINVAL;
+        return status;
+    }
     SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
             (void *)event_cfg, payload_size);
 
@@ -2370,6 +2602,7 @@ int SessionAlsaPcm::register_asps_event(uint32_t reg)
     event_cfg->event_id = EVENT_ID_ASPS_CLOSE_ALL;
     SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
             (void *)event_cfg, payload_size);
+    free(event_cfg);
     return status;
 }
 
@@ -2443,6 +2676,11 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
                 goto exit;
             }
         } else {
+            if (pcmDevIds.size() == 0) {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
+            }
             status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
             if (status) {
                 PAL_ERR(LOG_TAG, "Failed to disable EC Ref, status %d", status);
@@ -2461,6 +2699,11 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         if (rxDevInfo.isExternalECRefEnabledFlag) {
             // reset EC if internal EC is being used
             if (ecRefDevId != PAL_DEVICE_OUT_MIN && !rm->isExternalECRefEnabled(ecRefDevId)) {
+                if (pcmDevIds.size() == 0) {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
+                    goto exit;
+                }
                 status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
                 if (status) {
                     PAL_ERR(LOG_TAG, "Failed to reset before set ext EC, status %d", status);
@@ -2495,11 +2738,21 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
                         }
                     }
                 }
+                if (pcmDevIds.size() == 0) {
+                    PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                    status = -EINVAL;
+                    goto exit;
+                }
                 status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
                 if (status) {
                     PAL_ERR(LOG_TAG, "Failed to reset before set ext EC, status %d", status);
                     goto exit;
                 }
+            }
+            if (pcmDevIds.size() == 0) {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
             }
             status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0),
                     backendNames[0].c_str());
@@ -2532,7 +2785,7 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     uint8_t *payloadData = NULL;
     size_t payloadSize = 0;
     size_t configSize = 0;
-    int device = pcmDevIds.at(0);
+    int device = 0;
     uint32_t miid = 0;
     const char *control = "getParam";
     const char *stream = "PCM";
@@ -2540,7 +2793,14 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     std::ostringstream CntrlName;
     PAL_DBG(LOG_TAG, "Enter.");
 
-    CntrlName << stream << pcmDevIds.at(0) << " " << control;
+    if (pcmDevIds.size() > 0) {
+        device = pcmDevIds.at(0);
+        CntrlName << stream << pcmDevIds.at(0) << " " << control;
+    } else {
+        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+        status = -EINVAL;
+        goto exit;
+    }
     ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
     if (!ctl) {
         PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
@@ -2633,6 +2893,11 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
 {
     int status = 0;
 
+    if (pcmDevIds.size() == 0) {
+        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+        status = -EINVAL;
+        return status;
+    }
     if (!spr_miid) {
         status = SessionAlsaUtils::getModuleInstanceId(mixer,
                 pcmDevIds.at(0), rxAifBackEnds[0].second.data(),
@@ -2697,10 +2962,24 @@ int SessionAlsaPcm::getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint
         return status;
     }
 
-    if(sAttr.type == PAL_STREAM_ULTRASOUND)
-       DeviceId = pcmDevTxIds.at(0);
-    else
-       DeviceId = pcmDevIds.at(0);
+    if(sAttr.type == PAL_STREAM_ULTRASOUND) {
+        if (pcmDevTxIds.size() > 0) {
+            DeviceId = pcmDevTxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            status = -EINVAL;
+            return status;
+        }
+    } else {
+        if (pcmDevIds.size() > 0) {
+            DeviceId = pcmDevIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            status = -EINVAL;
+            return status;
+        }
+
+    }
 
     status = SessionAlsaUtils::getTagsWithModuleInfo(mixer, DeviceId,
                                   txAifBackEnds[0].second.data(), payload);
@@ -2767,6 +3046,11 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
             sAttr.type, sAttr.flags);
          return -ENOSYS;
      }
+
+    if (pcmDevIds.size() == 0) {
+        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+        return -EINVAL;
+    }
 
     if (mState == SESSION_IDLE) {
         s->getBufInfo(&in_buf_size,&in_buf_count,&out_buf_size,&out_buf_count);
@@ -2933,9 +3217,12 @@ void SessionAlsaPcm::retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struc
                     tx_devs[i]->getPALDeviceName().c_str(), status);
         }
     }
-
-    pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0),
+    if (pcmDevIds.size() > 0) {
+        pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0),
                        pcm_flags, config);
+    } else {
+        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+    }
 }
 
  int SessionAlsaPcm::GetMmapPosition(Stream *s, struct pal_mmap_position *position)
@@ -3047,7 +3334,13 @@ int SessionAlsaPcm::openGraph(Stream *s) {
         config.stop_threshold = 0;
         config.silence_threshold = 0;
 
-        pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0), PCM_IN, &config);
+        if (pcmDevIds.size() > 0) {
+            pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0), PCM_IN, &config);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            status = -EINVAL;
+            goto exit;
+        }
 
         if (!pcm) {
             PAL_ERR(LOG_TAG, "pcm open failed");

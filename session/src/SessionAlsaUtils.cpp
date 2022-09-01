@@ -1,6 +1,5 @@
 /*
 * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
-* Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
@@ -26,6 +25,40 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 */
 
 #define LOG_TAG "PAL: SessionAlsaUtils"
@@ -305,10 +338,15 @@ struct mixer_ctl *SessionAlsaUtils::getFeMixerControl(struct mixer *am, std::str
         uint32_t idx)
 {
     std::ostringstream cntrlName;
+    struct mixer_ctl *ctl = NULL;
 
     cntrlName << feName << feCtrlNames[idx];
     PAL_DBG(LOG_TAG, "mixer control %s", cntrlName.str().data());
-    return mixer_get_ctl_by_name(am, cntrlName.str().data());
+    ctl = mixer_get_ctl_by_name(am, cntrlName.str().data());
+    if (!ctl)
+        PAL_FATAL(LOG_TAG, "invalid mixer control: %s", cntrlName.str().data());
+
+    return ctl;
 }
 
 struct mixer_ctl *SessionAlsaUtils::getBeMixerControl(struct mixer *am, std::string beName,
@@ -373,16 +411,33 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         PAL_ERR(LOG_TAG, "get stream KV failed %d", status);
         goto exit;
     }
-    if (sAttr.type != PAL_STREAM_ACD &&
-        sAttr.type != PAL_STREAM_CONTEXT_PROXY &&
-        sAttr.type != PAL_STREAM_SENSOR_PCM_DATA) {
-        status = builder->populateStreamCkv(streamHandle, streamCKV, 0,
-                (struct pal_volume_data **)nullptr);
-        if (status) {
-            PAL_ERR(LOG_TAG, "get stream ckv failed %d", status);
-            goto exit;
-        }
+
+    switch (sAttr.type) {
+        case PAL_STREAM_ACD :
+        case PAL_STREAM_CONTEXT_PROXY :
+        case PAL_STREAM_SENSOR_PCM_DATA:
+            // No need to set volume ckv
+        break;
+        case PAL_STREAM_LOOPBACK:
+            if ((sAttr.info.opt_stream_info.loopback_type ==
+                            PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
+                (sAttr.info.opt_stream_info.loopback_type ==
+                            PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+                // Will continue without setting volume CKV
+                break;
+            }
+            [[fallthrough]]; //Intentional fallthrough
+        default:
+            // Set the volume CKV
+            status = builder->populateStreamCkv(streamHandle, streamCKV, 0,
+                    (struct pal_volume_data **)nullptr);
+            if (status) {
+                PAL_ERR(LOG_TAG, "get stream ckv failed %d", status);
+                goto exit;
+            }
+
     }
+
     if ((streamKV.size() > 0) || (streamCKV.size() > 0)) {
         getAgmMetaData(streamKV, streamCKV, (struct prop_data *)streamPropId,
                 streamMetaData);
@@ -523,8 +578,10 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
 
         deviceKV.clear();
         streamDeviceKV.clear();
-        free(streamDeviceMetaData.buf);
-        free(deviceMetaData.buf);
+        if (streamDeviceMetaData.buf)
+            free(streamDeviceMetaData.buf);
+        if (deviceMetaData.buf)
+            free(deviceMetaData.buf);
         streamDeviceMetaData.buf = nullptr;
         deviceMetaData.buf = nullptr;
     }

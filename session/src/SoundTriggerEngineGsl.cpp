@@ -390,6 +390,7 @@ SoundTriggerEngineGsl::SoundTriggerEngineGsl(
     dev_disconnect_count_ = 0;
     lpi_miid_ = 0;
     nlpi_miid_ = 0;
+    ec_ref_count_ = 0;
 
     UpdateState(ENG_IDLE);
 
@@ -659,7 +660,7 @@ int32_t SoundTriggerEngineGsl::AddSoundModel(Stream *s, uint8_t *data,
         return 0;
     }
 
-    if (!is_qcva_uuid_) {
+    if (!is_qcva_uuid_ && !vui_intf_->IsQCWakeUpConfigUsed()) {
         vui_intf_->GetSoundModelInfo(st)->SetModelData(data, data_size);
         *eng_sm_info_ = *(vui_intf_->GetSoundModelInfo(st));
         vui_intf_->SetSoundModelInfo(eng_sm_info_);
@@ -1382,6 +1383,8 @@ exit:
 
 int32_t SoundTriggerEngineGsl::UnloadSoundModel(Stream *s) {
     int32_t status = 0;
+    uint32_t model_id = 0;
+    StreamSoundTrigger *st = dynamic_cast<StreamSoundTrigger *>(s);
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -1411,6 +1414,13 @@ exit:
         PAL_INFO(LOG_TAG, "Update the status in case of SSR");
         status = 0;
     }
+
+    model_id = st->GetModelId();
+    auto iter = std::find(updated_cfg_.begin(), updated_cfg_.end(), model_id);
+    if (iter != updated_cfg_.end()) {
+        updated_cfg_.erase(iter);
+    }
+
     PAL_DBG(LOG_TAG, "Exit, status = %d", status);
     return status;
 }
@@ -1832,8 +1842,7 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
         pdk_wakeup_config_.mode = recognition_mode;
         pdk_wakeup_config_.num_keywords = num_conf_levels;
         pdk_wakeup_config_.model_id = st->GetModelId();
-        pdk_wakeup_config_.custom_payload_size = sizeof(uint32_t) * 2 +
-        pdk_wakeup_config_.num_keywords * sizeof(uint32_t);
+        pdk_wakeup_config_.custom_payload_size = 0;
 
         if (mid_wakeup_cfg_.find(st->GetModelId()) != mid_wakeup_cfg_.end() &&
             std::find(updated_cfg_.begin(), updated_cfg_.end(), st->GetModelId())
@@ -1864,7 +1873,7 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
         }
     } else if (!CheckIfOtherStreamsAttached(s)) {
         wakeup_config_.mode = recognition_mode;
-        wakeup_config_.custom_payload_size = config->data_size;
+        wakeup_config_.custom_payload_size = 0;
         wakeup_config_.num_active_models = num_conf_levels;
         wakeup_config_.reserved = 0;
         for (int i = 0; i < wakeup_config_.num_active_models; i++) {
@@ -1878,7 +1887,7 @@ int32_t SoundTriggerEngineGsl::UpdateConfLevels(
         /* Update recognition mode considering all streams */
         if (wakeup_config_.mode != recognition_mode)
             wakeup_config_.mode |= recognition_mode;
-            wakeup_config_.custom_payload_size = config->data_size;
+            wakeup_config_.custom_payload_size = 0;
             wakeup_config_.num_active_models = eng_sm_info_->GetConfLevelsSize();
             wakeup_config_.reserved = 0;
             for (int i = 0; i < wakeup_config_.num_active_models; i++) {
@@ -2235,12 +2244,31 @@ void SoundTriggerEngineGsl::SetCaptureRequested(bool is_requested) {
 }
 
 int32_t SoundTriggerEngineGsl::setECRef(Stream *s, std::shared_ptr<Device> dev, bool is_enable) {
+
+    int32_t status = 0;
+
     if (!session_) {
         PAL_ERR(LOG_TAG, "Invalid session");
         return -EINVAL;
     }
+    PAL_DBG(LOG_TAG, "Enter, EC ref count : %d, enable : %d", ec_ref_count_, is_enable);
+    std::unique_lock<std::mutex> lck(ec_ref_mutex_);
+    if (is_enable) {
+        ec_ref_count_++;
+        if (ec_ref_count_ == 1)
+            status = session_->setECRef(s, dev, is_enable);
+    } else {
+        if (ec_ref_count_ > 0) {
+            ec_ref_count_--;
+            if (ec_ref_count_ == 0)
+                status = session_->setECRef(s, dev, is_enable);
+        } else {
+            PAL_DBG(LOG_TAG, "Skipping EC disable, as ref count is 0");
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit, EC ref count : %d", ec_ref_count_);
 
-    return session_->setECRef(s, dev, is_enable);
+    return status;
 }
 
 int32_t SoundTriggerEngineGsl::UpdateSessionPayload(st_param_id_type_t param) {

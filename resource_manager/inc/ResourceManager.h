@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -80,6 +79,7 @@
 #include <queue>
 #include <deque>
 #include <unordered_map>
+#include <vui_dmgr_audio_intf.h>
 #include "PalDefs.h"
 #include "ChargerListener.h"
 #include "SndCardMonitor.h"
@@ -116,15 +116,23 @@ typedef enum {
 #if LINUX_ENABLED
 #if defined(__LP64__)
 #define ADM_LIBRARY_PATH "/usr/lib64/libadm.so"
+#define VUI_DMGR_LIB_PATH "/usr/lib64/libvui_dmgr_client.so"
 #else
 #define ADM_LIBRARY_PATH "/usr/lib/libadm.so"
+#define VUI_DMGR_MANAGER_LIB_PATH "/usr/lib/libvui_dmgr_client.so"
 #endif
 #else
 #ifdef __LP64__
 #define ADM_LIBRARY_PATH "/vendor/lib64/libadm.so"
+#define VUI_DMGR_LIB_PATH "/vendor/lib64/libvui_dmgr_client.so"
 #else
 #define ADM_LIBRARY_PATH "/vendor/lib/libadm.so"
+#define VUI_DMGR_LIB_PATH "/vendor/lib/libvui_dmgr_client.so"
 #endif
+#endif
+
+#ifdef SOC_PERIPHERAL_PROT
+#define SOC_PERIPHERAL_LIBRARY_PATH "/vendor/lib64/libPeripheralStateUtils.so"
 #endif
 
 using InstanceListNode_t = std::vector<std::pair<int32_t, bool>> ;
@@ -392,6 +400,13 @@ typedef void (*adm_request_focus_v2_t)(void *, void*, long);
 typedef void (*adm_on_routing_change_t)(void *, void*);
 typedef int (*adm_request_focus_v2_1_t)(void *, void*, long);
 
+
+#ifdef SOC_PERIPHERAL_PROT
+typedef int32_t (*getPeripheralStatusFnPtr)(void *context);
+typedef void* (*registerPeripheralCBFnPtr)(uint32_t peripheral, PeripheralStateCB NotifyEvent);
+typedef int32_t (*deregisterPeripheralCBFnPtr)(void *context);
+#endif
+
 class Device;
 class Stream;
 class StreamPCM;
@@ -505,7 +520,7 @@ protected:
     std::vector <pal_device_id_t> avail_devices_;
     std::map<Stream*, uint32_t> mActiveStreamUserCounter;
     bool bOverwriteFlag;
-    bool screen_state_;
+    bool screen_state_ = true;
     bool charging_state_;
     bool is_charger_online_;
     bool is_concurrent_boost_state_;
@@ -609,7 +624,7 @@ public:
     static bool isSpeakerProtectionEnabled;
     static bool isHandsetProtectionEnabled;
     static bool isChargeConcurrencyEnabled;
-    static bool isCpsEnabled;
+    static int cpsMode;
     static bool isVbatEnabled;
     static bool isRasEnabled;
     static bool isGaplessEnabled;
@@ -645,12 +660,18 @@ public:
     /*variable to store MSPP linear gain*/
     pal_param_mspp_linear_gain_t linear_gain;
 #ifdef SOC_PERIPHERAL_PROT
+    static std::thread socPerithread;
     static bool isTZSecureZone;
     static void *tz_handle;
     static int deregPeripheralCb(void *cntxt);
     static int registertoPeripheral(uint32_t pUID);
     static int32_t secureZoneEventCb(const uint32_t peripheral,
                                            const uint8_t secureState);
+    static void loadSocPeripheralLib();
+    static void *socPeripheralLibHdl;
+    static getPeripheralStatusFnPtr mGetPeripheralState;
+    static registerPeripheralCBFnPtr mRegisterPeripheralCb;
+    static deregisterPeripheralCBFnPtr mDeregisterPeripheralCb;
 #endif
     uint64_t cookie;
     int initSndMonitor();
@@ -675,6 +696,14 @@ public:
     static cl_set_boost_state_t cl_set_boost_state;
     static std::shared_ptr<group_dev_config_t> activeGroupDevConfig;
     static std::shared_ptr<group_dev_config_t> currentGroupDevConfig;
+
+    static void *vui_dmgr_lib_handle;
+    static vui_dmgr_init_t vui_dmgr_init;
+    static vui_dmgr_deinit_t vui_dmgr_deinit;
+    static void voiceuiDmgrManagerInit();
+    static void voiceuiDmgrManagerDeInit();
+    static int32_t voiceuiDmgrPalCallback(int32_t param_id, void *payload, size_t payload_size);
+    int32_t voiceuiDmgrRestartUseCases(vui_dmgr_param_restart_usecases_t *uc_info);
 
     /* checks config for both stream and device */
     bool isStreamSupported(struct pal_stream_attributes *attributes,

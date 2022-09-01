@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -123,6 +122,24 @@ struct volume_ctrl_gain_ramp_params_t
    uint32_t step_us;
    uint32_t ramping_curve;
 };
+
+/* ID to configure downstream delay */
+#define PARAM_ID_SOFT_PAUSE_DOWNSTREAM_DELAY 0x0800103E
+
+struct pause_downstream_delay_t
+{
+     uint32_t delay_ms;
+     /**< Specifies the downstream delay from the stream to the device leg.
+
+          @values 0 through 65535 milliseconds (Default = 25) */
+
+     /*#< @h2xmle_description {Specifies the downstream delay from the stream to
+                               the device leg (in milliseconds).}
+          @h2xmle_range       {0..65535}
+          @h2xmle_default     {25} */
+};
+typedef struct pause_downstream_delay_t pause_downstream_delay_t;
+
 
 /* ID of the Output Media Format parameters used by MODULE_ID_MFC */
 #define PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x08001024
@@ -2372,7 +2389,7 @@ std::vector<std::pair<selector_type_t, std::string>> PayloadBuilder::getSelector
     if (!s) {
         PAL_ERR(LOG_TAG, "stream is NULL");
         filled_selector_pairs.clear();
-        goto exit;
+        goto free_sattr;
     }
 
     status = s->getStreamAttributes(sattr);
@@ -2933,13 +2950,13 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
     status = s->getAssociatedDevices(associatedDevices);
     if (0 != status) {
        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-       goto exit;
+       goto free_sattr;
     }
     for (int i = 0; i < associatedDevices.size();i++) {
         status = associatedDevices[i]->getDeviceAttributes(&dAttr);
         if (0 != status) {
             PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-            goto exit;
+            goto free_sattr;
         }
 
         switch (sattr->type) {
@@ -3103,14 +3120,14 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
         status = s->getAssociatedDevices(associatedDevices);
         if (0 != status) {
             PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-            return status;
+            goto error_1;
         }
 
         for (int i = 0; i < associatedDevices.size(); i++) {
             status = associatedDevices[i]->getDeviceAttributes(&dAttr);
             if (0 != status) {
                 PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-                return status;
+                goto error_1;
             }
             if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
                 if (dAttr.config.ch_info.channels > 1) {
@@ -3129,14 +3146,14 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
         status = s->getAssociatedDevices(associatedDevices);
         if (0 != status) {
             PAL_ERR(LOG_TAG,"%s: getAssociatedDevices Failed \n", __func__);
-            return status;
+            goto error_1;
         }
 
         for (int i = 0; i < associatedDevices.size(); i++) {
             status = associatedDevices[i]->getDeviceAttributes(&dAttr);
             if (0 != status) {
                 PAL_ERR(LOG_TAG,"%s: getAssociatedDevices Failed \n", __func__);
-                return status;
+                goto error_1;
             }
             if (dAttr.id == PAL_DEVICE_IN_VI_FEEDBACK) {
                 if (dAttr.config.ch_info.channels > 1) {
@@ -3618,7 +3635,6 @@ void PayloadBuilder::payloadSPConfig(uint8_t** payload, size_t* size, uint32_t m
                 header = (struct apm_module_param_data_t*) payloadInfo;
             }
         break;
-#if 0
         case PARAM_ID_CPS_LPASS_HW_INTF_CFG:
             {
                 lpass_swr_hw_reg_cfg_t *data = NULL;
@@ -3671,7 +3687,6 @@ void PayloadBuilder::payloadSPConfig(uint8_t** payload, size_t* size, uint32_t m
                                 (sizeof(cps_reg_wr_values_t) * data->num_spkr));
             }
         break;
-#endif
         case PARAM_ID_CPS_CHANNEL_MAP :
             {
                 param_id_cps_ch_map_t *spConf;
@@ -3756,6 +3771,45 @@ void PayloadBuilder::payloadMSPPConfig(uint8_t** payload, size_t* size,
     ar_mem_cpy(payloadInfo + sizeof(struct apm_module_param_data_t),
                      customPayloadSize,
                      mspp_payload,
+                     customPayloadSize);
+
+    *size = payloadSize;
+    *payload = payloadInfo;
+}
+
+void PayloadBuilder::payloadSoftPauseConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, uint32_t delayMs)
+{
+    struct apm_module_param_data_t* header = NULL;
+    uint8_t* payloadInfo = NULL;
+    uint32_t param_id = 0;
+    size_t payloadSize = 0, customPayloadSize = 0;
+    pause_downstream_delay_t *pause_payload;
+
+    param_id = PARAM_ID_SOFT_PAUSE_DOWNSTREAM_DELAY;
+    customPayloadSize = sizeof(pause_downstream_delay_t);
+
+    payloadSize = PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
+                                        + customPayloadSize);
+    payloadInfo = (uint8_t *)calloc(1, (size_t)payloadSize);
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "failed to allocate memory.");
+        return;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = param_id;
+    header->error_code = 0x0;
+    header->param_size = customPayloadSize;
+
+    pause_payload =
+        (pause_downstream_delay_t *)(payloadInfo +
+         sizeof(struct apm_module_param_data_t));
+    pause_payload->delay_ms = delayMs;
+    ar_mem_cpy(payloadInfo + sizeof(struct apm_module_param_data_t),
+                     customPayloadSize,
+                     pause_payload,
                      customPayloadSize);
 
     *size = payloadSize;

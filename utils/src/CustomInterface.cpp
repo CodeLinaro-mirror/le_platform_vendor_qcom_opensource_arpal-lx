@@ -46,6 +46,10 @@ CustomInterface::CustomInterface(std::shared_ptr<VUIStreamConfig> sm_cfg) {
     sm_cfg_ = sm_cfg;
     hist_duration_ = 0;
     preroll_duration_ = 0;
+    st_conf_levels_ = nullptr;
+    st_conf_levels_v2_ = nullptr;
+    custom_event_ = nullptr;
+    custom_event_size_ = 0;
 
     /*
      * Check property vendor.audio.use_qc_wakeup_config
@@ -62,7 +66,16 @@ CustomInterface::CustomInterface(std::shared_ptr<VUIStreamConfig> sm_cfg) {
 }
 
 CustomInterface::~CustomInterface() {
-
+    if (custom_event_)
+        free(custom_event_);
+    if (st_conf_levels_) {
+        free(st_conf_levels_);
+        st_conf_levels_ = nullptr;
+    }
+    if (st_conf_levels_v2_) {
+        free(st_conf_levels_v2_);
+        st_conf_levels_v2_ = nullptr;
+    }
 }
 
 int32_t CustomInterface::ParseSoundModel(std::shared_ptr<VUIStreamConfig> sm_cfg,
@@ -183,7 +196,6 @@ error_exit:
     }
     model_list.clear();
 
-exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -330,18 +342,16 @@ int32_t CustomInterface::ParseRecognitionConfig(Stream *s,
 
     if (use_qc_wakeup_config_) {
         // construct custom config
-        if (wakeup_config.mode != recognition_mode) {
-            wakeup_config.mode |= recognition_mode;
-            wakeup_config.custom_payload_size = config->data_size;
-            wakeup_config.num_active_models = num_conf_levels;
-            wakeup_config.reserved = 0;
-            for (int i = 0; i < wakeup_config.num_active_models; i++) {
+        wakeup_config.mode |= recognition_mode;
+        wakeup_config.custom_payload_size = config->data_size;
+        wakeup_config.num_active_models = num_conf_levels;
+        wakeup_config.reserved = 0;
+        for (int i = 0; i < wakeup_config.num_active_models; i++) {
             wakeup_config.confidence_levels[i] = conf_levels[i];
             wakeup_config.keyword_user_enables[i] =
                 (wakeup_config.confidence_levels[i] == 100) ? 0 : 1;
             PAL_INFO(LOG_TAG, "cf levels[%d] = %d", i,
                     wakeup_config.confidence_levels[i]);
-            }
         }
 
         fixed_wakeup_payload_size =
@@ -350,6 +360,12 @@ int32_t CustomInterface::ParseRecognitionConfig(Stream *s,
         wakeup_payload_size = fixed_wakeup_payload_size +
             wakeup_config.num_active_models * 2;
         wakeup_payload = (uint8_t *)calloc(1, wakeup_payload_size);
+        if (!wakeup_payload) {
+            PAL_ERR(LOG_TAG, "Failed to allocate memory for wakeup payload");
+            status = -ENOMEM;
+            goto error_exit;
+        }
+
         ar_mem_cpy(wakeup_payload, fixed_wakeup_payload_size,
             &wakeup_config, fixed_wakeup_payload_size);
         confidence_level = wakeup_payload +
@@ -365,6 +381,8 @@ int32_t CustomInterface::ParseRecognitionConfig(Stream *s,
                 i, confidence_level[i], i, kw_user_enable[i]);
         }
 
+        if (sm_info_map_[s]->wakeup_config)
+            free(sm_info_map_[s]->wakeup_config);
         sm_info_map_[s]->wakeup_config = wakeup_payload;
         sm_info_map_[s]->wakeup_config_size = wakeup_payload_size;
 
@@ -382,9 +400,12 @@ int32_t CustomInterface::ParseRecognitionConfig(Stream *s,
 
         ar_mem_cpy(conf_levels, num_conf_levels,
             (uint8_t *)config + config->data_offset, num_conf_levels);
+        if (sm_info_map_[s]->wakeup_config)
+            free(sm_info_map_[s]->wakeup_config);
         sm_info_map_[s]->wakeup_config = conf_levels;
         sm_info_map_[s]->wakeup_config_size = num_conf_levels;
     }
+    goto exit;
 
 error_exit:
     if (st_conf_levels_) {
@@ -444,8 +465,18 @@ void CustomInterface::SetSecondStageDetLevels(Stream *s,
                                               listen_model_indicator_enum type,
                                               uint32_t level) {
 
+    bool sec_det_level_exist = false;
+
     if (sm_info_map_.find(s) != sm_info_map_.end() && sm_info_map_[s]) {
-        sm_info_map_[s]->sec_det_level.push_back(std::make_pair(type, level));
+        for (auto &iter: sm_info_map_[s]->sec_det_level) {
+            if (iter.first == type) {
+                iter.second = level;
+                sec_det_level_exist = true;
+                break;
+            }
+        }
+        if (!sec_det_level_exist)
+            sm_info_map_[s]->sec_det_level.push_back(std::make_pair(type, level));
     } else {
         PAL_ERR(LOG_TAG, "Stream not registered to interface");
     }
@@ -454,12 +485,24 @@ void CustomInterface::SetSecondStageDetLevels(Stream *s,
 int32_t CustomInterface::ParseDetectionPayload(void *event, uint32_t size) {
     int32_t status = 0;
 
-    if (!IS_MODULE_TYPE_PDK(module_type_)) {
-        status = ParseDetectionPayloadGMM(event);
-        CheckAndSetDetectionConfLevels(GetDetectedStream());
+    if (use_qc_wakeup_config_) {
+        if (!IS_MODULE_TYPE_PDK(module_type_)) {
+            status = ParseDetectionPayloadGMM(event);
+            CheckAndSetDetectionConfLevels(GetDetectedStream());
+        } else {
+            status = ParseDetectionPayloadPDK(event);
+        }
     } else {
-        status = ParseDetectionPayloadPDK(event);
+        custom_event_ = (uint8_t *)realloc(custom_event_, size);
+        if (!custom_event_) {
+            PAL_ERR(LOG_TAG, "Failed to allocate memory for detection payload");
+            return -ENOMEM;
+        }
+
+        ar_mem_cpy(custom_event_, size, event, size);
+        custom_event_size_ = size;
     }
+
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to parse detection payload, status %d",
                 status);
@@ -708,7 +751,8 @@ int32_t CustomInterface::GenerateCallbackEvent(Stream *s,
                 ((uint64_t)det_ev_info->detection_timestamp_msw << 32));
         }
     } else if (sm_info->type == PAL_SOUND_MODEL_TYPE_GENERIC) {
-        event_size = sizeof(struct pal_st_generic_recognition_event);
+        event_size = sizeof(struct pal_st_generic_recognition_event) +
+                     custom_event_size_;
         generic_event = (struct pal_st_generic_recognition_event *)
                        calloc(1, event_size);
         if (!generic_event) {
@@ -736,6 +780,10 @@ int32_t CustomInterface::GenerateCallbackEvent(Stream *s,
         (*event)->media_config.ch_info.channels =
             strAttr.in_media_config.ch_info.channels;
         (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+        // Filling Opaque data
+        opaque_data = (uint8_t *)generic_event +
+                       generic_event->common.data_offset;
+        ar_mem_cpy(opaque_data, custom_event_size_, custom_event_, custom_event_size_);
     }
     *size = event_size;
 exit:
@@ -765,15 +813,14 @@ int32_t CustomInterface::ParseOpaqueConfLevels(
         conf_levels = (struct st_confidence_levels_info *)
             ((char *)opaque_conf_levels + sizeof(struct st_param_header));
 
+        st_conf_levels_ = (struct st_confidence_levels_info *)realloc(st_conf_levels_,
+                sizeof(struct st_confidence_levels_info));
         if (!st_conf_levels_) {
-             st_conf_levels_ = (struct st_confidence_levels_info *)calloc(1,
-                                 sizeof(struct st_confidence_levels_info));
-             if (!st_conf_levels_) {
-                 PAL_ERR(LOG_TAG, "failed to alloc stream conf_levels_");
-                 status = -ENOMEM;
-                 goto exit;
-             }
+            PAL_ERR(LOG_TAG, "failed to alloc stream conf_levels_");
+            status = -ENOMEM;
+            goto exit;
         }
+
         /* Cache to use during detection event processing */
         ar_mem_cpy((uint8_t *)st_conf_levels_, sizeof(struct st_confidence_levels_info),
             (uint8_t *)conf_levels, sizeof(struct st_confidence_levels_info));
@@ -805,15 +852,14 @@ int32_t CustomInterface::ParseOpaqueConfLevels(
         conf_levels_v2 = (struct st_confidence_levels_info_v2 *)
             ((char *)opaque_conf_levels + sizeof(struct st_param_header));
 
+        st_conf_levels_v2_ = (struct st_confidence_levels_info_v2 *)realloc(st_conf_levels_v2_,
+            sizeof(struct st_confidence_levels_info_v2));
         if (!st_conf_levels_v2_) {
-            st_conf_levels_v2_ = (struct st_confidence_levels_info_v2 *)calloc(1,
-                sizeof(struct st_confidence_levels_info_v2));
-            if (!st_conf_levels_v2_) {
-                PAL_ERR(LOG_TAG, "failed to alloc stream conf_levels_");
-                status = -ENOMEM;
-                goto exit;
-            }
+            PAL_ERR(LOG_TAG, "failed to alloc stream conf_levels_");
+            status = -ENOMEM;
+            goto exit;
         }
+
         /* Cache to use during detection event processing */
         ar_mem_cpy((uint8_t *)st_conf_levels_v2_, sizeof(struct st_confidence_levels_info_v2),
             (uint8_t *)conf_levels_v2, sizeof(struct st_confidence_levels_info_v2));
@@ -1626,7 +1672,7 @@ void CustomInterface::PackEventConfLevels(struct sound_model_info *sm_info,
                             sm_info->info->GetConfLevelsSize(), j);
 
                     PAL_INFO(LOG_TAG, "First stage KW Conf levels[%d]-%d",
-                        j, sm_info->info->GetDetConfLevels()[j])
+                        j, sm_info->info->GetDetConfLevels()[j]);
 
                     num_user_levels =
                         conf_levels_v2->conf_levels[i].kw_levels[j].num_user_levels;
@@ -1641,7 +1687,7 @@ void CustomInterface::PackEventConfLevels(struct sound_model_info *sm_info,
                                 sm_info->info->GetConfLevelsSize(), user_id);
 
                         PAL_INFO(LOG_TAG, "First stage User Conf levels[%d]-%d",
-                            k, sm_info->info->GetDetConfLevels()[user_id])
+                            k, sm_info->info->GetDetConfLevels()[user_id]);
                     }
                 }
             } else if (conf_levels_v2->conf_levels[i].sm_id & ST_SM_ID_SVA_S_STAGE_KWD ||
@@ -1766,3 +1812,4 @@ void CustomInterface::CheckAndSetDetectionConfLevels(Stream *s) {
         PAL_INFO(LOG_TAG, "det_cf_levels[%d]-%d", i,
             sm_info_map_[s]->info->GetDetConfLevels()[i]);
 }
+

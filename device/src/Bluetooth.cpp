@@ -1175,6 +1175,7 @@ void Bluetooth::stopAbr()
     struct mixer_ctl *btSetFeedbackChannelCtrl = NULL;
     struct mixer *hwMixerHandle = NULL;
     int dir, ret = 0;
+    bool isfbDeviceLocked = false;
 
     mAbrMutex.lock();
     if (!fbPcm) {
@@ -1199,6 +1200,10 @@ void Bluetooth::stopAbr()
     sAttr.type = PAL_STREAM_LOW_LATENCY;
     sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
 
+    if (fbDev) {
+        fbDev->lockDeviceMutex();
+        isfbDeviceLocked = true;
+    }
     pcm_stop(fbPcm);
     pcm_close(fbPcm);
     fbPcm = NULL;
@@ -1250,6 +1255,11 @@ free_fe:
         fbpcmDevIds.clear();
     }
     isAbrEnabled = false;
+
+    if (isfbDeviceLocked) {
+        isfbDeviceLocked = false;
+        fbDev->unlockDeviceMutex();
+    }
     mAbrMutex.unlock();
 }
 
@@ -1640,38 +1650,42 @@ int BtA2dp::start()
 
     status = (a2dpRole == SOURCE) ? startPlayback() : startCapture();
     if (status) {
+        mDeviceMutex.unlock();
         goto exit;
     }
 
     if (totalActiveSessionRequests == 1) {
         status = configureSlimbusClockSrc();
         if (status) {
+            mDeviceMutex.unlock();
             goto exit;
         }
     }
 
     status = Device::start_l();
 
-    if (!status && isAbrEnabled)
-        startAbr();
-
-exit:
     if (customPayload) {
         free(customPayload);
         customPayload = NULL;
         customPayloadSize = 0;
     }
     mDeviceMutex.unlock();
+
+    if (!status && isAbrEnabled)
+        startAbr();
+
+exit:
     return status;
 }
 
 int BtA2dp::stop()
 {
     int status = 0;
-    mDeviceMutex.lock();
 
     if (isAbrEnabled)
         stopAbr();
+
+    mDeviceMutex.lock();
 
     Device::stop_l();
 
@@ -1875,8 +1889,6 @@ int BtA2dp::startCapture()
 
     PAL_DBG(LOG_TAG, "a2dp_start_capture start");
 
-    codecFormat = CODEC_TYPE_INVALID;
-
     if (!isDummySink) {
         if (!(bt_lib_sink_handle && (audio_sink_start_api ||
             audio_sink_start) && audio_get_dec_config)) {
@@ -1885,6 +1897,7 @@ int BtA2dp::startCapture()
         }
 
         if (a2dpState != A2DP_STATE_STARTED  && !totalActiveSessionRequests) {
+            codecFormat = CODEC_TYPE_INVALID;
             PAL_DBG(LOG_TAG, "calling BT module stream start");
             /* This call indicates BT IPC lib to start capture */
             if (audio_sink_start_api) {
@@ -1927,10 +1940,11 @@ int BtA2dp::startCapture()
         if (param_bt_a2dp.a2dp_capture_suspended) {
             // session will be restarted after suspend completion
             PAL_INFO(LOG_TAG, "a2dp start capture requested during suspend state");
-            return 0;
+            return -EINVAL;
         }
 
         if (a2dpState != A2DP_STATE_STARTED  && !totalActiveSessionRequests) {
+            codecFormat = CODEC_TYPE_INVALID;
             PAL_DBG(LOG_TAG, "calling BT module stream start");
             /* This call indicates BT IPC lib to start */
             if (audio_sink_start_api) {
@@ -1974,10 +1988,9 @@ int BtA2dp::startCapture()
             ret = -ETIMEDOUT;
         }
     }
-    if (a2dpState != A2DP_STATE_STARTED  && !totalActiveSessionRequests) {
-        totalActiveSessionRequests++;
-        a2dpState = A2DP_STATE_STARTED;
-    }
+
+    a2dpState = A2DP_STATE_STARTED;
+    totalActiveSessionRequests++;
 
     PAL_DBG(LOG_TAG, "start A2DP sink total active sessions :%d",
                       totalActiveSessionRequests);

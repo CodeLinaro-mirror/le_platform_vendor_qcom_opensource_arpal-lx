@@ -67,6 +67,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
     currentState = STREAM_IDLE;
     //Modify cached values only at time of SSR down.
     cachedState = STREAM_IDLE;
+    cookie_ = 0;
     bool isDeviceConfigUpdated = false;
 
     PAL_DBG(LOG_TAG, "Enter");
@@ -287,7 +288,6 @@ int32_t  StreamCommon::close()
     }
     PAL_VERBOSE(LOG_TAG, "closed the devices successfully");
     currentState = STREAM_IDLE;
-    cachedState = currentState;
     rm->checkAndSetDutyCycleParam();
 
     mStreamMutex.unlock();
@@ -336,11 +336,9 @@ int32_t StreamCommon::start()
         mStreamMutex.unlock();
         rm->lockActiveStream();
         mStreamMutex.lock();
-        if (!isDevRegistered) {
-            for (int i = 0; i < mDevices.size(); i++) {
+        for (int i = 0; i < mDevices.size(); i++) {
+            if (!rm->isDeviceActive_l(mDevices[i], this))
                 rm->registerDevice(mDevices[i], this);
-            }
-            isDevRegistered = true;
         }
         rm->unlockActiveStream();
         rm->checkAndSetDutyCycleParam();
@@ -421,11 +419,9 @@ int32_t StreamCommon::stop()
         rm->lockActiveStream();
         mStreamMutex.lock();
         currentState = STREAM_STOPPED;
-        if (isDevRegistered) {
-            for (int i = 0; i < mDevices.size(); i++) {
+        for (int i = 0; i < mDevices.size(); i++) {
+            if (rm->isDeviceActive_l(mDevices[i], this))
                 rm->deregisterDevice(mDevices[i], this);
-            }
-            isDevRegistered = false;
         }
         rm->unlockActiveStream();
         PAL_VERBOSE(LOG_TAG, "In %s, device count - %zu",
@@ -453,7 +449,6 @@ int32_t StreamCommon::stop()
         PAL_ERR(LOG_TAG, "Error:Stream should be in start/pause state, %d", currentState);
         status = -EINVAL;
     }
-    cachedState = currentState;
     PAL_DBG(LOG_TAG, "Exit. status %d, state %d", status, currentState);
 
     mStreamMutex.unlock();

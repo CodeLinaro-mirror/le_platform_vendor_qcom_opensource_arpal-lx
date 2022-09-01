@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2016, 2018-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -25,6 +24,40 @@
  * BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
@@ -578,6 +611,7 @@ int USBCardConfig::getCapability(usb_usecase_type_t type,
 
         /* Add to list if every field is valid */
         usb_device_config_list_.push_back(usb_device_info);
+        format_list_map.insert( std::pair<int, std::shared_ptr<USBDeviceConfig>>(usb_device_info->getBitWidth(),usb_device_info));
     }
 
      usb_info_dump(read_buf, type);
@@ -651,43 +685,128 @@ unsigned int USBCardConfig::getFormatByBitWidth(int bitwidth) {
     return default_format;
 }
 
-unsigned int USBCardConfig::readDefaultFormat(bool is_playback) {
-    int bitwidth = getMaxBitWidth(is_playback);
-
-    return getFormatByBitWidth(bitwidth);
-}
-
-unsigned int USBCardConfig::readDefaultSampleRate(bool is_playback) {
-    unsigned int sample_rate = 0;
+unsigned int USBCardConfig::readSupportedFormat(bool is_playback, uint32_t *format) {
+    int i = 0;
+    unsigned int bw;
+    unsigned int bitWidth[MAX_SUPPORTED_FORMATS + 1];
     typename std::vector<std::shared_ptr<USBDeviceConfig>>::iterator iter;
+    bool insert;
 
     for (iter = usb_device_config_list_.begin();
          iter != usb_device_config_list_.end(); iter++) {
-             if ((*iter)->getType() == is_playback){
-                 sample_rate = (*iter)->getDefaultRate();
-                 break;
-             }
-         }
+        insert = true;
+        if ((*iter)->getType() == is_playback) {
+            bw = (*iter)->getBitWidth();
+            for (int j = 0; j < i; j++) {
+                if (bw == bitWidth[j]) {
+                    insert = false;
+                    break;
+                }
+            }
+            if (insert) {
+                bitWidth[i] = bw;
+                PAL_DBG(LOG_TAG, "%s supported bw %d", is_playback ? "P" : "C", bitWidth[i]);
+                i++;
+                if (i == (MAX_SUPPORTED_FORMATS + 1)) {
+                    PAL_ERR(LOG_TAG, "reached the maximum num of formats");
+                    break;
+                }
+            }
+        }
+    }
+    /* sort the bit width with descending order */
+    for (int j = 0; j < i - 1; j++) {
+        unsigned int temp_bw;
+        for (int k = j + 1; k < i; k++) {
+            if (bitWidth[j] <  bitWidth[k]) {
+                temp_bw = bitWidth[j];
+                bitWidth[j] = bitWidth[k];
+                bitWidth[k] = temp_bw;
+            }
+        }
+    }
+    /* convert bw to format */
+    for (int j = 0; j < i; j++)
+        format[j] = getFormatByBitWidth(bitWidth[j]);
 
-    return sample_rate;
+    return 0;
 }
 
-unsigned int USBCardConfig::readDefaultChannelMask(bool is_playback) {
-    unsigned int ret = 0;
+unsigned int USBCardConfig::readSupportedSampleRate(bool is_playback, uint32_t *sample_rate) {
+    usb_usecase_type_t type = is_playback ? USB_PLAYBACK : USB_CAPTURE;
+
+    typename std::vector<std::shared_ptr<USBDeviceConfig>>::iterator iter;
+
+    for (iter = usb_device_config_list_.begin();
+        iter != usb_device_config_list_.end(); iter++) {
+        if ((*iter)->getType() == is_playback){
+            usb_supported_sample_rates_mask_[type] |= (*iter)->getSRMask(type);
+        }
+    }
+#define _MIN(x, y) (((x) <= (y)) ? (x) : (y))
+    PAL_DBG(LOG_TAG, "supported_sample_rates_mask_ 0x%x", usb_supported_sample_rates_mask_[type]);
+    uint32_t bm = usb_supported_sample_rates_mask_[type];
+    uint32_t tries = _MIN(MAX_SUPPORTED_SAMPLE_RATES, (uint32_t)__builtin_popcount(bm));
+#undef _MIN
+
+    int i = 0;
+    while (tries) {
+        int idx = __builtin_ffs(bm) - 1;
+        sample_rate[i++] = USBDeviceConfig::supported_sample_rates_[idx];
+        bm &= ~(1<<idx);
+        tries--;
+    }
+
+    for (int j = 0; j < i; j++)
+        PAL_DBG(LOG_TAG, "%s %d", is_playback ? "P" : "C", sample_rate[j]);
+
+    return 0;
+}
+
+unsigned int USBCardConfig::readSupportedChannelMask(bool is_playback, uint32_t *channel) {
+
     int channels = getMaxChannels(is_playback);
+    int channel_count;
+    uint32_t num_masks = 0;
 
     if (channels > MAX_HIFI_CHANNEL_COUNT)
         channels = MAX_HIFI_CHANNEL_COUNT;
 
     if (is_playback) {
-        if (channels >= DEFAULT_CHANNEL_COUNT)
-            ret = out_chn_mask_[channels - DEFAULT_CHANNEL_COUNT];
+        // start from 2 channels as framework currently doesn't support mono.
+        if (channels >= 2) {
+            channel[num_masks++] = audio_channel_out_mask_from_count(2);
+        }
+        for (channel_count = 2;
+                channel_count <= channels && num_masks < MAX_SUPPORTED_CHANNEL_MASKS;
+                ++channel_count) {
+            channel[num_masks++] =
+                    audio_channel_mask_for_index_assignment_from_count(channel_count);
+        }
     } else {
-        if (channels >= MIN_CHANNEL_COUNT)
-            ret = in_chn_mask_[channels - MIN_CHANNEL_COUNT];
+        // For capture we report all supported channel masks from 1 channel up.
+        channel_count = MIN_CHANNEL_COUNT;
+        // audio_channel_in_mask_from_count() does the right conversion to either positional or
+        // indexed mask
+        for ( ; channel_count <= channels && num_masks < MAX_SUPPORTED_CHANNEL_MASKS; channel_count++) {
+            audio_channel_mask_t mask = AUDIO_CHANNEL_NONE;
+            if (channel_count <= 2) {
+                mask = audio_channel_in_mask_from_count(channel_count);
+                channel[num_masks++] = mask;
+            }
+            const audio_channel_mask_t index_mask =
+                    audio_channel_mask_for_index_assignment_from_count(channel_count);
+            if (mask != index_mask && num_masks < MAX_SUPPORTED_CHANNEL_MASKS) { // ensure index mask added.
+                channel[num_masks++] = index_mask;
+            }
+        }
     }
 
-    return ret;
+    for (size_t i = 0; i < num_masks; ++i) {
+        PAL_DBG(LOG_TAG, "%s supported ch %d channel[%zu] %08x num_masks %d",
+              is_playback ? "P" : "C", channels, i, channel[i], num_masks);
+    }
+    return num_masks;
 }
 
 bool USBCardConfig::readDefaultJackStatus(bool is_playback) {
@@ -708,9 +827,9 @@ bool USBCardConfig::readDefaultJackStatus(bool is_playback) {
 int USBCardConfig::readSupportedConfig(struct dynamic_media_config *config, bool is_playback, int usb_card)
 {
     const char* suffix;
-    config->format = readDefaultFormat(is_playback);
-    config->sample_rate = readDefaultSampleRate(is_playback);
-    config->mask = readDefaultChannelMask(is_playback);
+    readSupportedFormat(is_playback, config->format);
+    readSupportedSampleRate(is_playback, config->sample_rate);
+    readSupportedChannelMask(is_playback, config->mask);
     suffix = is_playback ? USB_OUT_JACK_SUFFIX : USB_IN_JACK_SUFFIX;
     config->jack_status = getJackConnectionStatus(usb_card, suffix);
     PAL_DBG(LOG_TAG, "config->jack_status = %d", config->jack_status);
@@ -722,100 +841,150 @@ int USBCardConfig::readBestConfig(struct pal_media_config *config,
                                 struct pal_stream_attributes *sattr, bool is_playback,
                                 struct pal_device_info *devinfo, bool uhqa)
 {
-    typename std::vector<std::shared_ptr<USBDeviceConfig>>::iterator iter;
-    USBDeviceConfig *candidate_config = nullptr;
+    std::shared_ptr<USBDeviceConfig> candidate_config = nullptr;
     int max_bit_width = 0;
     int bitwidth = 16;
+    int candidate_sr = 0;
     int ret = -EINVAL;
     struct pal_media_config media_config;
+    std::map<int, std::shared_ptr<USBDeviceConfig>> candidate_list;
     int target_bit_width = devinfo->bit_width == 0 ?
                            config->bit_width : devinfo->bit_width;
 
-    for (iter = usb_device_config_list_.begin();
-         iter != usb_device_config_list_.end(); iter++) {
-        if ((*iter)->getType() == is_playback) {
-            if (is_playback) {
-                PAL_INFO(LOG_TAG, "USB output uhqa = %d", uhqa);
-                media_config = sattr->out_media_config;
-            } else {
-                PAL_INFO(LOG_TAG, "USB input uhqa = %d", uhqa);
-                media_config = sattr->in_media_config;
-            }
+    int target_sample_rate = devinfo->samplerate == 0 ?
+                           config->sample_rate : devinfo->samplerate;
 
-             // 1. search for matching bitwidth
-             // only one bitwidth for one usb device config.
-            bitwidth = (*iter)->getBitWidth();
-            if (bitwidth == target_bit_width) {
-                config->bit_width = bitwidth;
-
-                if (!config->bit_width && !max_bit_width)
-                    continue;
-                else if (!config->bit_width && max_bit_width)
-                    config->bit_width = max_bit_width;
-
-                PAL_INFO(LOG_TAG, "found matching BitWidth = %d", config->bit_width);
-                /* 2. sample rate: Check if the custom sample rate set for device in RM.xml
-                is supported and then set it, otherwise set the rate based on stream attribute */
-                if (uhqa && is_playback) {
-                    ret = (*iter)->isCustomRateSupported(SAMPLINGRATE_192K, &config->sample_rate);
-                    if (ret != 0)
-                        ret = (*iter)->isCustomRateSupported(SAMPLINGRATE_96K, &config->sample_rate);
-                }
-                if (ret != 0)
-                    ret = (*iter)->isCustomRateSupported(devinfo->samplerate, &config->sample_rate);
-                if (ret != 0)
-                    ret = (*iter)->getBestRate(media_config.sample_rate,
-                                    &config->sample_rate);
-                PAL_INFO(LOG_TAG, "found matching SampleRate = %d", config->sample_rate);
-                // 3. get channel
-                ret = (*iter)->getBestChInfo(&media_config.ch_info,
-                                    &config->ch_info);
-                PAL_INFO(LOG_TAG, "found matching Channels = %d", config->ch_info.channels);
-                break;
-            } else {
-                // if bit width does not match, use highest width.
-                PAL_VERBOSE(LOG_TAG, "stream channels = %d usb device chn = %d",
-                            media_config.ch_info.channels,
-                            (*iter)->getChannels());
-                if (bitwidth > max_bit_width) {
-                    PAL_VERBOSE(LOG_TAG, "bitwidth %d > max_bit_width %d",
-                                    bitwidth, max_bit_width);
-                    max_bit_width = bitwidth;
-                    candidate_config = (*iter).get();
-                } else if (bitwidth == max_bit_width &&
-                    (*iter)->getChannels() == media_config.ch_info.channels) {
-                    PAL_INFO(LOG_TAG, "bitwidth and chn both match.");
-                    candidate_config = (*iter).get();
-                }
-            }
-        }
+    if (is_playback) {
+        PAL_INFO(LOG_TAG, "USB output uhqa = %d", uhqa);
+        media_config = sattr->out_media_config;
+    } else {
+        PAL_INFO(LOG_TAG, "USB input uhqa = %d", uhqa);
+        media_config = sattr->in_media_config;
     }
-    if (iter == usb_device_config_list_.end()) {
-        if (candidate_config) {
-            PAL_INFO(LOG_TAG, "Target bitwidth of %d is not supported by USB. Use USB width of %d",
+
+    if (format_list_map.count(target_bit_width) == 0) {
+        /* if bit width does not match, use highest width. */
+        int size = format_list_map.size();
+        auto max_fmt = format_list_map.rbegin();
+        max_bit_width = max_fmt->first;
+        config->bit_width = max_bit_width;
+        PAL_INFO(LOG_TAG, "Target bitwidth of %d is not supported by USB. Use USB width of %d",
                          target_bit_width, max_bit_width);
 
-            config->bit_width = max_bit_width;
+        auto fmt_iter = format_list_map.equal_range(max_bit_width);
+        /*
+         * sample rate: if uhqa is set, try to search if 192K/96K is supported,
+         * otherwise, try to match the sample rate value set in rm.xml
+         */
+        for (auto iter = fmt_iter.first; iter != fmt_iter.second; ++iter) {
+            auto cfg_iter = iter->second;
+            if(cfg_iter->getType() != is_playback)
+                continue;
+
             if (uhqa && is_playback) {
-                ret = candidate_config->isCustomRateSupported(SAMPLINGRATE_192K,
+                ret = cfg_iter->isCustomRateSupported(SAMPLINGRATE_192K,
                                  &config->sample_rate);
-                if (ret != 0)
-                    ret = candidate_config->isCustomRateSupported(SAMPLINGRATE_96K,
+                if (ret == 0) {
+                    candidate_config = cfg_iter;
+                    PAL_INFO(LOG_TAG, "found matching profile for 192K");
+                    goto getBestCh;
+                } else {
+                    ret = cfg_iter->isCustomRateSupported(SAMPLINGRATE_96K,
                                  &config->sample_rate);
+                    if (ret == 0) {
+                        candidate_config = cfg_iter;
+                        PAL_INFO(LOG_TAG, "found matching profile for 96K");
+                    }
+                }
             }
-            if (ret != 0)
-                ret = candidate_config->isCustomRateSupported(devinfo->samplerate,
-                                 &config->sample_rate);
-            if (ret != 0)
-                ret = candidate_config->getBestRate(media_config.sample_rate,
+        }
+        if (!candidate_config) {
+            for (auto iter = fmt_iter.first; iter != fmt_iter.second; ++iter) {
+                auto cfg_iter = iter->second;
+                if(cfg_iter->getType() != is_playback)
+                    continue;
+
+                ret = cfg_iter->isCustomRateSupported(target_sample_rate,
                                 &config->sample_rate);
-            ret = candidate_config->getBestChInfo(&media_config.ch_info,
-                                &config->ch_info);
-        } else {
-            PAL_ERR(LOG_TAG, "%s is not supported.", is_playback?"playback":"capture");
-            ret = -EINVAL;
+                if (ret == 0) {
+                    PAL_INFO(LOG_TAG, "found matching SampleRate = %d", config->sample_rate);
+                    candidate_config = cfg_iter;
+                    goto getBestCh;
+                }
+
+                ret = cfg_iter->getBestRate(media_config.sample_rate, candidate_sr,
+                                        &config->sample_rate);
+                candidate_list.insert(std::pair<int, std::shared_ptr<USBDeviceConfig>>(config->sample_rate, cfg_iter));
+                candidate_config = candidate_list[config->sample_rate];
+                candidate_sr = config->sample_rate;
+            }
+        }
+    } else {
+        config->bit_width = target_bit_width;
+        PAL_INFO(LOG_TAG, "found matching BitWidth = %d", config->bit_width);
+        /* bit width matches. */
+        auto fmt_iter = format_list_map.equal_range(target_bit_width);
+        /*
+         * sample rate: if uhqa is set, try to search if 192K/96K is supported,
+         * otherwise, try to match the sample rate value set in rm.xml
+         */
+        for (auto iter = fmt_iter.first; iter != fmt_iter.second; ++iter) {
+            auto cfg_iter = iter->second;
+            if(cfg_iter->getType() != is_playback)
+                continue;
+
+            if (uhqa && is_playback) {
+                ret = cfg_iter->isCustomRateSupported(SAMPLINGRATE_192K,
+                                 &config->sample_rate);
+                if (ret == 0) {
+                    candidate_config = cfg_iter;
+                    PAL_INFO(LOG_TAG, "found matching profile for 192K");
+                    goto getBestCh;
+                } else {
+                    ret = cfg_iter->isCustomRateSupported(SAMPLINGRATE_96K,
+                                 &config->sample_rate);
+                    if (ret == 0) {
+                        candidate_config = cfg_iter;
+                        PAL_INFO(LOG_TAG, "found matching profile for 96K");
+                    }
+                }
+            }
+        }
+        if (!candidate_config) {
+            PAL_INFO(LOG_TAG,"devinfo->samplerate=%d",target_sample_rate);
+            for (auto iter = fmt_iter.first; iter != fmt_iter.second; ++iter) {
+                auto cfg_iter = iter->second;
+                if(cfg_iter->getType() != is_playback)
+                    continue;
+
+                ret = cfg_iter->isCustomRateSupported(target_sample_rate, &config->sample_rate);
+                if (ret == 0) {
+                    PAL_INFO(LOG_TAG, "found matching SampleRate = %d", config->sample_rate);
+                    candidate_config = cfg_iter;
+                    goto getBestCh;
+                }
+
+                ret = cfg_iter->getBestRate(media_config.sample_rate, candidate_sr,
+                                        &config->sample_rate);
+                candidate_list.insert(std::pair<int, std::shared_ptr<USBDeviceConfig>>(config->sample_rate, cfg_iter));
+                candidate_config = candidate_list[config->sample_rate];
+                candidate_sr = config->sample_rate;
+            }
         }
     }
+
+    PAL_INFO(LOG_TAG, "found nearest SampleRate = %d", config->sample_rate);
+
+getBestCh:
+        if (candidate_config) {
+            // 3. get channel
+            ret = candidate_config->getBestChInfo(&media_config.ch_info,
+                                &config->ch_info);
+            PAL_INFO(LOG_TAG, "found matching Channels = %d", config->ch_info.channels);
+         } else {
+            PAL_ERR(LOG_TAG, "%s is not supported.", is_playback ? "playback" :"capture");
+            ret = -EINVAL;
+         }
     return ret;
 }
 
@@ -886,10 +1055,10 @@ int USBDeviceConfig::isCustomRateSupported(int requested_rate, unsigned int *bes
 }
 
 // return 0 if match, else return -EINVAL with default sample rate
-int USBDeviceConfig::getBestRate(int requested_rate, unsigned int *best_rate) {
+int USBDeviceConfig::getBestRate(int requested_rate, int candidate_rate, unsigned int *best_rate) {
     int i = 0;
     int nearestRate = 0;
-    int diff = requested_rate;
+    int diff = requested_rate > candidate_rate ? requested_rate : candidate_rate;
     int cur_rate = 0;
 
     for (i = 0; i < rate_size_; i++) {
@@ -903,11 +1072,13 @@ int USBDeviceConfig::getBestRate(int requested_rate, unsigned int *best_rate) {
                 diff = abs(double(requested_rate - cur_rate));
             }
         }
-        PAL_VERBOSE(LOG_TAG, "nearestRate %d, requested_rate %d", nearestRate, requested_rate);
+    }
+    if (abs(double(requested_rate - candidate_rate)) < diff) {
+        nearestRate = candidate_rate;
     }
     if (nearestRate == 0)
         nearestRate = rates_[0];
-
+    PAL_VERBOSE(LOG_TAG, "nearestRate %d, requested_rate %d", nearestRate, requested_rate);
     *best_rate = nearestRate;
 
     return 0;

@@ -25,6 +25,39 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "PAL: SessionAlsaCompress"
@@ -40,6 +73,9 @@
 #include <mutex>
 #include <fstream>
 #include <agm/agm_api.h>
+
+#define CHS_2 2
+#define AACObjHE_PS 29
 
 void SessionAlsaCompress::updateCodecOptions(
     pal_param_payload *param_payload, pal_stream_direction_t stream_direction) {
@@ -700,6 +736,7 @@ SessionAlsaCompress::SessionAlsaCompress(std::shared_ptr<ResourceManager> Rm)
 SessionAlsaCompress::~SessionAlsaCompress()
 {
     delete builder;
+    compressDevIds.clear();
 }
 
 int SessionAlsaCompress::open(Stream * s)
@@ -1096,6 +1133,7 @@ int SessionAlsaCompress::setConfig(Stream * s, configType type, int tag)
 
             status = SessionAlsaUtils::getTagMetadata(tagsent, tkv, tagConfig);
             if (0 != status) {
+                free(tagConfig);
                 goto exit;
             }
             //TODO: how to get the id '5'
@@ -1103,6 +1141,8 @@ int SessionAlsaCompress::setConfig(Stream * s, configType type, int tag)
             ctl = mixer_get_ctl_by_name(mixer, tagCntrlName.str().data());
             if (!ctl) {
                 PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", tagCntrlName.str().data());
+                if (tagConfig)
+                    free(tagConfig);
                 return -ENOENT;
             }
             PAL_VERBOSE(LOG_TAG, "mixer control: %s\n", tagCntrlName.str().data());
@@ -1142,6 +1182,8 @@ int SessionAlsaCompress::setConfig(Stream * s, configType type, int tag)
             ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
             if (!ctl) {
                 PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
+                if (calConfig)
+                    free(calConfig);
                 return -ENOENT;
             }
             PAL_VERBOSE(LOG_TAG, "mixer control: %s\n", calCntrlName.str().data());
@@ -1213,24 +1255,25 @@ int SessionAlsaCompress::configureEarlyEOSDelay(void)
 
 int SessionAlsaCompress::start(Stream * s)
 {
-    struct compr_config compress_config;
-    struct pal_stream_attributes sAttr;
+    struct compr_config compress_config = {};
+    struct pal_stream_attributes sAttr = {};
     int32_t status = 0;
     size_t in_buf_size, in_buf_count, out_buf_size, out_buf_count;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct pal_device dAttr;
-    struct volume_set_param_info vol_set_param_info;
+    struct pal_device dAttr = {};
+    struct volume_set_param_info vol_set_param_info = {};
     bool isStreamAvail = false;
     uint16_t volSize = 0;
     uint8_t *volPayload = nullptr;
     uint32_t miid;
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
-    struct sessionToPayloadParam streamData;
+    struct sessionToPayloadParam streamData = {};
     memset(&streamData, 0, sizeof(struct sessionToPayloadParam));
 
     PAL_DBG(LOG_TAG, "Enter");
 
+    memset(&dAttr, 0, sizeof(struct pal_device));
     rm->voteSleepMonitor(s, true);
     s->getStreamAttributes(&sAttr);
     getSndCodecParam(codec, sAttr);
@@ -1241,6 +1284,13 @@ int SessionAlsaCompress::start(Stream * s)
         case PAL_AUDIO_OUTPUT:
             /** create an offload thread for posting callbacks */
             worker_thread = std::make_unique<std::thread>(offloadThreadLoop, this);
+
+            if (SND_AUDIOCODEC_AAC == codec.id &&
+                codec.ch_in < CHS_2 &&
+                codec.options.generic.reserved[0] == AACObjHE_PS) {
+                codec.ch_in = CHS_2;
+                codec.ch_out = codec.ch_in;
+            }
             compress_config.fragment_size = out_buf_size;
             compress_config.fragments = out_buf_count;
             compress_config.codec = &codec;
@@ -1251,6 +1301,13 @@ int SessionAlsaCompress::start(Stream * s)
             if (!compress) {
                 PAL_ERR(LOG_TAG, "compress open failed");
                 status = -EINVAL;
+                {
+                    // send the exit command to the waiting thread
+                    auto msg = std::make_shared<offload_msg>(OFFLOAD_CMD_EXIT);
+                    std::lock_guard<std::mutex> lock(cv_mutex_);
+                    msg_queue_.push(msg);
+                    cv_.notify_all();
+                }
                 worker_thread->join();
                 worker_thread.reset(NULL);
                 goto exit;
@@ -1360,7 +1417,7 @@ int SessionAlsaCompress::start(Stream * s)
                         volStatus = updateCustomPayload(payload, payloadSize);
                         free(payload);
                         if (0 != volStatus) {
-                            PAL_ERR(LOG_TAG,"Preetam updateCustomPayload Failed\n");
+                            PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
                             break;
                         }
                     }
@@ -1372,7 +1429,36 @@ int SessionAlsaCompress::start(Stream * s)
                         customPayloadSize = 0;
                     }
                     if (volStatus != 0) {
-                        PAL_ERR(LOG_TAG,"Preetam setMixerParameter failed for MSPP module");
+                        PAL_ERR(LOG_TAG,"setMixerParameter failed for MSPP module");
+                        break;
+                    }
+
+                    //to set soft pause delay for MSPP use case.
+                    status = SessionAlsaUtils::getModuleInstanceId(mixer, compressDevIds.at(0),
+                                                                    rxAifBackEnds[0].second.data(), TAG_PAUSE, &miid);
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG,"get Soft Pause ModuleInstanceId failed");
+                        break;
+                    }
+
+                    builder->payloadSoftPauseConfig(&payload, &payloadSize, miid, MSPP_SOFT_PAUSE_DELAY);
+                    if (payloadSize && payload) {
+                        status = updateCustomPayload(payload, payloadSize);
+                        free(payload);
+                        if (0 != status) {
+                            PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                            break;
+                        }
+                    }
+                    status = SessionAlsaUtils::setMixerParameter(mixer, compressDevIds.at(0),
+                                                                 customPayload, customPayloadSize);
+                    if (customPayload) {
+                        free(customPayload);
+                        customPayload = NULL;
+                        customPayloadSize = 0;
+                    }
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG,"setMixerParameter failed for soft Pause module");
                         break;
                     }
                 }
@@ -1659,6 +1745,7 @@ int SessionAlsaCompress::close(Stream * s)
             }
 
             rm->freeFrontEndIds(compressDevIds, sAttr, 0);
+            compress = NULL;
             freeCustomPayload();
             break;
 
@@ -1973,7 +2060,8 @@ int SessionAlsaCompress::setParameters(Stream *s __unused, int tagId, uint32_t p
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set volume config status=%d\n", status);
-                freeCustomPayload(&alsaParamData, &alsaPayloadSize);
+                delete [] alsaParamData;
+                alsaPayloadSize = 0;
             }
         }
         break;
