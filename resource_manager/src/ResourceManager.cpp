@@ -1259,6 +1259,11 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                 PAL_INFO(LOG_TAG, "%d state already handled", state);
             } else if (state == CARD_STATUS_OFFLINE) {
                 for (auto str: rm->mActiveStreams) {
+                    ret = increaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
+                        continue;
+                    }
                     ret = str->ssrDownHandler();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Ssr down handling failed for %pK ret %d",
@@ -1269,6 +1274,10 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                         ret = voteSleepMonitor(str, false);
                         if (ret)
                             PAL_DBG(LOG_TAG, "Failed to unvote for stream type %d", type);
+                    }
+                    ret = decreaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
                 }
                 if (isContextManagerEnabled) {
@@ -1292,10 +1301,19 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
 
                 SoundTriggerCaptureProfile = GetCaptureProfileByPriority(nullptr);
                 for (auto str: rm->mActiveStreams) {
+                    ret = increaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
+                        continue;
+                    }
                     ret = str->ssrUpHandler();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Ssr up handling failed for %pK ret %d",
                                           str, ret);
+                    }
+                    ret = decreaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
                 }
                 prevState = state;
