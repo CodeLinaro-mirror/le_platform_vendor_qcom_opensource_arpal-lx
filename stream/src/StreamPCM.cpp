@@ -769,6 +769,11 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
                     vol_set_param_info.streams_.end());
         if (isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) {
             uint8_t *volPayload = new uint8_t[sizeof(pal_param_payload) + volSize]();
+            if (!volPayload){
+                    PAL_ERR(LOG_TAG, "volpayload memory allocation failed");
+                    status = -ENOMEM;
+                    goto exit;
+            }
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
             memcpy(pld->payload, mVolumeData, volSize);
