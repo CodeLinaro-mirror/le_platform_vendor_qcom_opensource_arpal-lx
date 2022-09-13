@@ -29,20 +29,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
 */
 
-#ifndef __POWER_STATE_MONITOR_H__
-#define __POWER_STATE_MONITOR_H__
+#ifndef __POWER_STATE_COMMON_H__
+#define __POWER_STATE_COMMON_H__
 
-#include "PowerStateCommon.h"
+#define PSM_DS_RECOVERY_US    500000
 
-class PowerStateMonitor {
-public:
-    ~PowerStateMonitor() = default;
-
-    static PowerStateMonitor *getInstance();
-
-    bool attachToPowerStateMonitor();
-    bool dettachFromPowerStateMonitor();
-    int getPsmDeepsleepState();
+enum PsmDsStates {
+    PSM_DS_STATE_INVALID = -1,
+    PSM_DS_STATE_EXIT    = 0,
+    PSM_DS_STATE_ENTRY   = 1,
 };
 
-#endif //__POWER_STATE_MONITOR_H__
+#endif //__POWER_STATE_COMMON_H__

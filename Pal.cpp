@@ -217,7 +217,7 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
     /* Allow only deepsleep_support_streams(from RM-XML) while in DS state */
     if (!rm->isStreamSupportedInDeepsleep(attributes->type)) {
         PowerStateMonitor *psm = PowerStateMonitor::getInstance();
-        if (psm && psm->getPsmDeepsleepState()) {
+        if (psm && psm->getPsmDeepsleepState() == PSM_DS_STATE_ENTRY) {
             PAL_ERR(LOG_TAG, "In DEEPSLEEP state, stream type %d, open not allowed", attributes->type);
             status = -EINVAL;
             usleep(PSM_DS_RECOVERY_US);
@@ -695,6 +695,7 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     struct pal_device_info devinfo = {};
     struct pal_device *pDevices = NULL;
     std::vector <std::shared_ptr<Device>> aDevices;
+    std::vector <struct pal_device> palDevices;
 
     if (!stream_handle) {
         status = -EINVAL;
@@ -736,21 +737,31 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     }
 
     s->getAssociatedDevices(aDevices);
+    s->getAssociatedPalDevices(palDevices);
     if (!aDevices.empty()) {
         std::set<pal_device_id_t> activeDevices;
         std::set<pal_device_id_t> newDevices;
-        struct pal_device curDevAttr;
         bool force_switch = s->isA2dpMuted();
 
         for (auto &dev : aDevices) {
             activeDevices.insert((pal_device_id_t)dev->getSndDeviceId());
-            // check if custom key matches for same pal device
+            // check if custom key matches for stream associated pal device
             for (int i = 0; i < no_of_devices; i++) {
                 if (dev->getSndDeviceId() == devices[i].id) {
-                    dev->getDeviceAttributes(&curDevAttr);
-                    if (strcmp(devices[i].custom_config.custom_key,
-                            curDevAttr.custom_config.custom_key) != 0) {
-                        PAL_DBG(LOG_TAG, "diff custom key found, force device switch");
+                    s->getAssociatedPalDevices(palDevices);
+                    if (palDevices.size() != 0) {
+                        for (auto palDev: palDevices) {
+                            if (palDev.id == devices[i].id) {
+                                if (strcmp(devices[i].custom_config.custom_key,
+                                    palDev.custom_config.custom_key) != 0) {
+                                    PAL_DBG(LOG_TAG, "diff custom key found, force device switch");
+                                    force_switch = true;
+                                }
+                                break;
+                            }
+                        }
+                    } else {
+                        // pal device hasn't been enabled for this stream yet
                         force_switch = true;
                     }
                     break;
@@ -762,8 +773,10 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
         if (!force_switch) {
             for (int i = 0; i < no_of_devices; i++) {
                 newDevices.insert(devices[i].id);
-                if (devices[i].id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) {
-                    PAL_DBG(LOG_TAG, "always switch device for a2dp");
+                if ((devices[i].id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
+                    (devices[i].id == PAL_DEVICE_OUT_BLUETOOTH_SCO) ||
+                    (devices[i].id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)) {
+                    PAL_DBG(LOG_TAG, "always switch device for bt device");
                     force_switch = true;
                     break;
                 }

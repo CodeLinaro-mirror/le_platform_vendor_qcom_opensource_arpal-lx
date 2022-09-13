@@ -291,10 +291,15 @@ exit:
 
 struct mixer_ctl* SessionAlsaPcm::getFEMixerCtl(const char *controlName, int *device)
 {
-    *device = pcmDevIds.at(0);
     std::ostringstream CntrlName;
     struct mixer_ctl *ctl;
 
+    if (pcmDevIds.size() == 0) {
+        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+        return nullptr;
+    }
+
+    *device = pcmDevIds.at(0);
     CntrlName << "PCM" <<pcmDevIds.at(0) << " " << controlName;
     ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
     if (!ctl) {
@@ -934,7 +939,7 @@ int SessionAlsaPcm::start(Stream * s)
                             streamData.numChannel = codecConfig.ch_info.channels;
                         } else {
                             streamData.sampleRate = dAttr.config.sample_rate;
-                            streamData.bitWidth   = 0xFFFF;
+                            streamData.bitWidth   = AUDIO_BIT_WIDTH_DEFAULT_16;
                             streamData.numChannel = 0xFFFF;
                         }
 
@@ -2178,6 +2183,8 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
     std::vector <std::string> backendNames;
     struct pal_device rxDevAttr = {};
     struct pal_device_info rxDevInfo = {};
+    std::vector <std::shared_ptr<Device>> tx_devs;
+    std::shared_ptr<Device> ec_rx_dev = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!s) {
@@ -2227,6 +2234,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         } else if (rx_dev && ecRefDevId != rx_dev->getSndDeviceId()) {
             PAL_DBG(LOG_TAG, "Invalid rx dev %d for disabling EC ref, "
                 "rx dev %d already enabled", rx_dev->getSndDeviceId(), ecRefDevId);
+            status = -EINVAL;
             goto exit;
         }
 
@@ -2272,6 +2280,28 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
                 PAL_ERR(LOG_TAG, "Cannot be set internal EC with external EC connected");
                 status = -EINVAL;
                 goto exit;
+            }
+            // reset EC if different EC device is being used
+            if (ecRefDevId != PAL_DEVICE_OUT_MIN && ecRefDevId != rx_dev->getSndDeviceId()) {
+                PAL_DBG(LOG_TAG, "EC ref is enabled with %d, reset EC first", ecRefDevId);
+                rxDevAttr.id = ecRefDevId;
+                ec_rx_dev = Device::getInstance(&rxDevAttr, rm);
+
+                s->getAssociatedDevices(tx_devs);
+                if (tx_devs.size()) {
+                    for (int i = 0; i < tx_devs.size(); ++i) {
+                        status = rm->updateECDeviceMap_l(ec_rx_dev, tx_devs[i], s, 0, true);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "Failed to update EC Device map for device %s, status: %d",
+                                    tx_devs[i]->getPALDeviceName().c_str(), status);
+                        }
+                    }
+                }
+                status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0), "ZERO");
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to reset before set ext EC, status %d", status);
+                    goto exit;
+                }
             }
             status = SessionAlsaUtils::setECRefPath(mixer, pcmDevIds.at(0),
                     backendNames[0].c_str());
@@ -2587,15 +2617,21 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
 
         pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0),
                              pcm_flags, &config);
-        if (!pcm) {
-            PAL_ERR(LOG_TAG, "pcm open failed");
+
+        if ((!pcm || !pcm_is_ready(pcm)) && ecRefDevId != PAL_DEVICE_OUT_MIN) {
+           PAL_ERR(LOG_TAG, "Failed to open EC graph")
+           retryOpenWithoutEC(s, pcm_flags, &config);
+        }
+
+        if(!pcm) {
+            PAL_ERR(LOG_TAG, "pcm open failed, status : %d", errno);
             step = "open";
             status = errno;
             goto exit;
         }
 
         if (!pcm_is_ready(pcm)) {
-            PAL_ERR(LOG_TAG, "pcm open not ready");
+            PAL_ERR(LOG_TAG, "pcm open not ready, status : %d", errno);
             pcm = nullptr;
             step = "open";
             status = errno;
@@ -2673,6 +2709,36 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
      }
      return status;
  }
+
+void SessionAlsaPcm::retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struct pcm_config *config)
+{
+    int status = 0;
+    struct pal_device rxDevAttr = {};
+    std::shared_ptr<Device> rx_dev;
+    std::vector <std::shared_ptr<Device>> tx_devs;
+
+    rxDevAttr.id = ecRefDevId;
+    rx_dev = Device::getInstance(&rxDevAttr, rm);
+    status = setECRef(s, rx_dev, false);
+    if (status) {
+        PAL_ERR(LOG_TAG, "Failed to reset EC, status : %d", status);
+    }
+    s->getAssociatedDevices(tx_devs);
+    if (!tx_devs.size()) {
+        PAL_ERR(LOG_TAG, "No tx device is associated with this stream");
+        return;
+    }
+    for (int i = 0; i < tx_devs.size(); ++i) {
+        status = rm->updateECDeviceMap_l(rx_dev, tx_devs[i], s, 0, false);
+        if (status) {
+            PAL_ERR(LOG_TAG, "Failed to update EC Device map for device %s, status: %d",
+                    tx_devs[i]->getPALDeviceName().c_str(), status);
+        }
+    }
+
+    pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0),
+                       pcm_flags, config);
+}
 
  int SessionAlsaPcm::GetMmapPosition(Stream *s, struct pal_mmap_position *position)
  {

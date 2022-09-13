@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -151,6 +152,7 @@ typedef enum {
     TAG_INSTREAM,
     TAG_POLICIES,
     TAG_ECREF,
+    TAG_VI_CHMAP,
     TAG_CUSTOMCONFIG,
     TAG_LPI_VOTE_STREAM,
     TAG_SLEEP_MONITOR_LPI_STREAM,
@@ -574,6 +576,7 @@ protected:
     std::array<std::shared_ptr<nonTunnelInstMap_t>, DEFAULT_NT_SESSION_TYPE_COUNT> mNTStreamInstancesList;
     int32_t scoOutConnectCount = 0;
     int32_t scoInConnectCount = 0;
+    static std::vector<int> spViChannelMapCfg;
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -654,6 +657,9 @@ public:
     int registerMixerEventCallback(const std::vector<int> &DevIds,
                                    session_callback callback,
                                    uint64_t cookie, bool is_register);
+    int updateECDeviceMap_l(std::shared_ptr<Device> rx_dev,
+                            std::shared_ptr<Device> tx_dev,
+                            Stream *tx_str, int count, bool is_txstop);
     bool isDeviceActive(pal_device_id_t deviceId);
     bool isDeviceActive(std::shared_ptr<Device> d, Stream *s);
     bool isDeviceActive_l(std::shared_ptr<Device> d, Stream *s);
@@ -718,6 +724,7 @@ public:
     int getStreamPpTag(std::vector <int> &tag);
     int getDevicePpTag(std::vector <int> &tag);
     int getDeviceDirection(uint32_t beDevId);
+    void getSpViChannelMapCfg(int32_t *channelMap, uint32_t numOfChannels);
     const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes,
                                                 int lDirection);
     const std::vector<int> allocateFrontEndExtEcIds ();
@@ -744,6 +751,7 @@ public:
     bool IsTransitToNonLPIOnChargingSupported();
     bool IsDedicatedBEForUPDEnabled();
     void GetSoundTriggerConcurrencyCount(pal_stream_type_t type, int32_t *enable_count, int32_t *disable_count);
+    void GetSoundTriggerConcurrencyCount_l(pal_stream_type_t type, int32_t *enable_count, int32_t *disable_count);
     bool GetChargingState() const { return charging_state_; }
     bool getChargerOnlineState(void) const { return is_charger_online_; }
     bool getConcurrentBoostState(void) const { return is_concurrent_boost_state_; }
