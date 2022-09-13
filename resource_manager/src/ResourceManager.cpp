@@ -7402,7 +7402,7 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
         {
             PAL_INFO(LOG_TAG, "get parameter for sndcard state");
             *param_payload = (uint8_t*)&rm->cardState;
-            *payload_size = sizeof(rm->cardState);
+            *payload_size = sizeof(card_status_t);
             break;
         }
         case PAL_PARAM_ID_HIFI_PCM_FILTER:
@@ -10248,8 +10248,10 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
 
 exit:
     if (status) {
-        dlclose(plugin->handle);
-        plugin->handle = NULL;
+        if (plugin && plugin->handle) {
+            dlclose(plugin->handle);
+            plugin->handle = NULL;
+        }
     }
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
