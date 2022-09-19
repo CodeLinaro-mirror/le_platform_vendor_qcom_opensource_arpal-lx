@@ -1176,7 +1176,7 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
         goto exit;
     }
 
-    if (!paramData)
+    if (paramData)
         PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
 
 exit:
