@@ -65,7 +65,7 @@ exit:
 
 int ChargerListenerImpl::getInitialStatus()
 {
-    char state[MAX_BUFFER_LEN];
+    char state[MAX_BUFFER_LEN] = {0};
     int status = 0;
     int charger_state;
     bool concurrent_state;
@@ -106,7 +106,7 @@ int ChargerListenerImpl::getInitialStatus()
 
 void ChargerListenerImpl::getStateUpdate(int type)
 {
-    char state[MAX_BUFFER_LEN];
+    char state[MAX_BUFFER_LEN] = {0};
     bool  concurrent_state;
     int charger_state, status = 0;
 

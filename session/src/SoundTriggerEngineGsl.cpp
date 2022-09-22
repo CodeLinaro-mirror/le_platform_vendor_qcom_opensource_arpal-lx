@@ -2779,6 +2779,10 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(st_param_id_type_t param) {
                 size_t wakeup_payload_size = fixed_wakeup_payload_size +
                     wakeup_config_.num_active_models * 2;
                 uint8_t *wakeup_payload = new uint8_t[wakeup_payload_size];
+                if (!wakeup_payload){
+                    PAL_ERR(LOG_TAG, "payload memory allocation failed");
+                    return -ENOMEM;
+                }
                 ar_mem_cpy(wakeup_payload, fixed_wakeup_payload_size,
                     &wakeup_config_, fixed_wakeup_payload_size);
                 uint8_t *confidence_level = wakeup_payload +
@@ -2806,8 +2810,8 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(st_param_id_type_t param) {
                                       sizeof(uint32_t));
                 uint8_t *wakeup_payload = new uint8_t[payloadSize];
                 if (!wakeup_payload){
-                    PAL_ERR(LOG_TAG, "payload malloc failed %s", strerror(errno));
-                    return -EINVAL;
+                    PAL_ERR(LOG_TAG, "payload memory allocation failed");
+                    return -ENOMEM;
                 }
                 ar_mem_cpy(wakeup_payload, fixedConfigVoiceWakeupSize,
                            &pdk_wakeup_config_, fixedConfigVoiceWakeupSize);
