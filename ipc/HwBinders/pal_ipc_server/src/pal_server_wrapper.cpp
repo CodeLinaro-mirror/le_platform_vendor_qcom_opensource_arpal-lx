@@ -504,6 +504,11 @@ Return<void> PAL::ipc_pal_stream_open(const hidl_vec<PalStreamAttributes>& attr_
     memcpy(&attr->out_media_config.ch_info.ch_map, &attr_hidl.data()->out_media_config.ch_info.ch_map,
            sizeof(uint8_t [64]));
 
+    if (noOfDevices > devs_hidl.size()) {
+        ALOGE("Invalid number of devices.");
+        goto exit;
+    }
+
     if (devs_hidl.size()) {
         PalDevice *dev_hidl = NULL;
         devices = (struct pal_device *)calloc (1,
@@ -981,6 +986,17 @@ Return<int32_t> PAL::ipc_pal_set_param(uint32_t paramId,
                                        uint32_t size)
 {   uint32_t ret = -EINVAL;
     uint8_t *payLoad;
+    uint32_t size_p;
+    if (payload_hidl == NULL) {
+        ALOGE("vector payload_hidl is null");
+        return ret;
+    }
+    size_p = payload_hidl.size() * sizeof(uint8_t);
+    if (size_p < size) {
+        ALOGE("%s: , size of hidl data %d is less than the size of payload data %d",
+                __func__, size_p, size);
+        return ret;
+    }
     payLoad = (uint8_t*) calloc (1, size);
     if (!payLoad) {
         ALOGE("Not enough memory for payLoad");

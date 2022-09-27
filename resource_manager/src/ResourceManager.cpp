@@ -642,12 +642,13 @@ pal_stream_type_t ResourceManager::getStreamType(std::string stream_name)
 int32_t ResourceManager::secureZoneEventCb(const uint32_t peripheral,
                                            const uint8_t secureState) {
     struct mixer_ctl *ctl;
+    int ret = 0;
 
-   PAL_INFO(LOG_TAG,"Received Notification from TZ... secureState: %d", secureState);
+    PAL_INFO(LOG_TAG,"Received Notification from TZ... secureState: %d", secureState);
 
     ctl = mixer_get_ctl_by_name(audio_hw_mixer, "VOTE Against Sleep");
     if (!ctl) {
-       PAL_ERR(LOG_TAG, "Invalid mixer control");
+       PAL_ERR(LOG_TAG, "Invalid mixer control: VOTE Against Sleep");
        return -ENOENT;
     }
 
@@ -655,32 +656,44 @@ int32_t ResourceManager::secureZoneEventCb(const uint32_t peripheral,
         case STATE_SECURE:
             ResourceManager::isTZSecureZone = true;
             PAL_DBG(LOG_TAG, "Enter Secure zone successfully, vote for LPASS core");
-            mixer_ctl_set_enum_by_string(ctl, "Enable");
+            ret = mixer_ctl_set_enum_by_string(ctl, "Enable");
+            if (ret)
+                PAL_ERR(LOG_TAG, "Could not Enable ctl for mixer cmd - %s ret %d\n",
+                        "VOTE Against Sleep", ret);
             break;
         case STATE_POST_CHANGE:
             PAL_DBG(LOG_TAG, "Entered Secure zone successfully, unvote for LPASS core");
-            mixer_ctl_set_enum_by_string(ctl, "Disable");
+            ret = mixer_ctl_set_enum_by_string(ctl, "Disable");
+            if (ret)
+                PAL_ERR(LOG_TAG, "Could not Disable ctl for mixer cmd - %s ret %d\n",
+                        "VOTE Against Sleep", ret);
             break;
         case STATE_PRE_CHANGE:
             PAL_DBG(LOG_TAG, "Before the exit from secure zone, vote for LPASS core");
-            mixer_ctl_set_enum_by_string(ctl, "Enable");
+            ret = mixer_ctl_set_enum_by_string(ctl, "Enable");
+            if (ret)
+                PAL_ERR(LOG_TAG, "Could not Enable ctl for mixer cmd - %s ret %d\n",
+                        "VOTE Against Sleep", ret);
             break;
         case STATE_NONSECURE:
             ResourceManager::isTZSecureZone = false;
             PAL_DBG(LOG_TAG, "Exited Secure zone successfully, unvote for LPASS core");
-            mixer_ctl_set_enum_by_string(ctl, "Disable");
+            ret = mixer_ctl_set_enum_by_string(ctl, "Disable");
+            if (ret)
+                PAL_ERR(LOG_TAG, "Could not Disable ctl for mixer cmd - %s ret %d\n",
+                        "VOTE Against Sleep", ret);
             break;
         case STATE_RESET_CONNECTION:
             /* Handling the state where connection got broken to get
                 state change notification */
             PAL_INFO(LOG_TAG, "ssgtzd link got broken..re-registering to TZ");
-            registertoPeripheral(CPeripheralAccessControl_AUDIO_UID);
+            ret = registertoPeripheral(CPeripheralAccessControl_AUDIO_UID);
             break;
         default :
             PAL_ERR(LOG_TAG, "Invalid secureState = %d", secureState);
             return -EINVAL;
     }
-    return 0;
+    return ret;
 }
 #endif
 
@@ -3356,21 +3369,26 @@ int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
 
 int ResourceManager::initStreamUserCounter(Stream *s)
 {
+    lockActiveStream();
     mActiveStreamUserCounter.insert(std::make_pair(s, 0));
+    unlockActiveStream();
     return 0;
 }
 
 int ResourceManager::deinitStreamUserCounter(Stream *s)
 {
     std::map<Stream *, uint32_t>::iterator it;
+    lockActiveStream();
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
         PAL_INFO(LOG_TAG, "stream %p is to be erased.", s);
         mActiveStreamUserCounter.erase(it);
+        unlockActiveStream();
         return 0;
     } else {
         PAL_ERR(LOG_TAG, "stream %p is not found.", s);
+        unlockActiveStream();
         return -EINVAL;
     }
 }
@@ -3783,23 +3801,24 @@ int ResourceManager::checkandEnableEC_l(std::shared_ptr<Device> d, Stream *s, bo
         status = checkandEnableECForTXStream_l(d, s, enable);
     } else if (sAttr.direction == PAL_AUDIO_OUTPUT) {
         status = checkandEnableECForRXStream_l(d, s, enable);
-    } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
-               sAttr.type == PAL_STREAM_VOICE_CALL) {
+    } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT) {
         if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
-            status = s->setECRef_l(d, enable);
-            s->getAssociatedDevices(tx_devices);
-            if (status || tx_devices.empty()) {
-                PAL_ERR(LOG_TAG, "Failed to set EC Ref with status %d"
-                        "or tx_devices with size %zu", status, tx_devices.size());
-                if (status == -ENODEV) {
-                    status = 0;
-                    PAL_VERBOSE(LOG_TAG, "Failed to enable EC Ref because of -ENODEV");
-                }
-            } else {
-                for (auto& tx_device: tx_devices) {
-                    if (tx_device->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
-                        tx_device->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
-                        updateECDeviceMap(d, tx_device, s, enable ? 1 : 0, false);
+            if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+                status = s->setECRef_l(d, enable);
+                s->getAssociatedDevices(tx_devices);
+                if (status || tx_devices.empty()) {
+                    PAL_ERR(LOG_TAG, "Failed to set EC Ref with status %d"
+                            "or tx_devices with size %zu", status, tx_devices.size());
+                    if (status == -ENODEV) {
+                        status = 0;
+                        PAL_VERBOSE(LOG_TAG, "Failed to enable EC Ref because of -ENODEV");
+                    }
+                } else {
+                    for (auto& tx_device: tx_devices) {
+                        if (tx_device->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
+                            tx_device->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
+                            updateECDeviceMap(d, tx_device, s, enable ? 1 : 0, false);
+                        }
                     }
                 }
             }
@@ -4788,9 +4807,9 @@ void ResourceManager::GetConcurrencyInfo(pal_stream_type_t st_type,
             *conc_en = false;
         }
     } else if (dir == PAL_AUDIO_INPUT &&
-               (in_type == PAL_STREAM_LOW_LATENCY ||
-                in_type == PAL_STREAM_COMPRESSED ||
-                in_type == PAL_STREAM_DEEP_BUFFER)) {
+               (in_type != PAL_STREAM_ACD &&
+                in_type != PAL_STREAM_SENSOR_PCM_DATA &&
+                in_type != PAL_STREAM_VOICE_UI)) {
         *tx_conc = true;
         if (!audio_capture_conc_enable) {
             PAL_DBG(LOG_TAG, "pause on audio capture concurrency");
@@ -4832,25 +4851,9 @@ void ResourceManager::HandleStreamPauseResume(pal_stream_type_t st_type, bool ac
 
 /* This function should be called with mActiveStreamMutex lock acquired */
 void ResourceManager::handleConcurrentStreamSwitch(std::vector<pal_stream_type_t>& st_streams,
-    bool stream_active, bool is_deferred)
+    bool stream_active)
 {
     std::shared_ptr<CaptureProfile> cap_prof_priority = nullptr;
-
-    if(!is_deferred) {
-        if (isAnyVUIStreamBuffering()) {
-            if (stream_active)
-                deferredSwitchState =
-                    (deferredSwitchState == DEFER_NLPI_LPI_SWITCH) ? NO_DEFER :
-                    DEFER_LPI_NLPI_SWITCH;
-            else
-                deferredSwitchState =
-                    (deferredSwitchState == DEFER_LPI_NLPI_SWITCH) ? NO_DEFER :
-                    DEFER_NLPI_LPI_SWITCH;
-            PAL_INFO(LOG_TAG, "VUI stream is in buffering state, defer %s switch deferred state:%d",
-                stream_active? "LPI->NLPI": "NLPI->LPI", deferredSwitchState);
-            return;
-        }
-    }
 
     for (pal_stream_type_t st_stream_type : st_streams) {
         // update use_lpi_ for SVA/ACD/Sensor PCM Data streams
@@ -4888,12 +4891,29 @@ void ResourceManager::handleConcurrentStreamSwitch(std::vector<pal_stream_type_t
     }
 }
 
+bool ResourceManager::checkAndUpdateDeferSwitchState(bool stream_active)
+{
+    if (isAnyVUIStreamBuffering()) {
+        if (stream_active)
+            deferredSwitchState =
+                (deferredSwitchState == DEFER_NLPI_LPI_SWITCH) ? NO_DEFER :
+                 DEFER_LPI_NLPI_SWITCH;
+        else
+            deferredSwitchState =
+                (deferredSwitchState == DEFER_LPI_NLPI_SWITCH) ? NO_DEFER :
+                 DEFER_NLPI_LPI_SWITCH;
+        PAL_INFO(LOG_TAG, "VUI stream is in buffering state, defer %s switch deferred state:%d",
+                 stream_active? "LPI->NLPI": "NLPI->LPI", deferredSwitchState);
+        return true;
+    }
+    return false;
+}
+
 
 void ResourceManager::handleDeferredSwitch()
 {
     bool active = false;
     std::vector<pal_stream_type_t> st_streams;
-
     mActiveStreamMutex.lock();
 
     PAL_DBG(LOG_TAG, "enter, isAnyVUIStreambuffering:%d deferred state:%d",
@@ -4905,6 +4925,8 @@ void ResourceManager::handleDeferredSwitch()
         else if (deferredSwitchState == DEFER_NLPI_LPI_SWITCH)
             active = false;
 
+        use_lpi_ = !active;
+
         if (active_streams_st.size())
             st_streams.push_back(PAL_STREAM_VOICE_UI);
         if (active_streams_acd.size())
@@ -4912,7 +4934,7 @@ void ResourceManager::handleDeferredSwitch()
         if (active_streams_sensor_pcm_data.size())
             st_streams.push_back(PAL_STREAM_SENSOR_PCM_DATA);
 
-        handleConcurrentStreamSwitch(st_streams, active, true);
+        handleConcurrentStreamSwitch(st_streams, active);
         // reset the defer switch state after handling LPI/NLPI switch
         deferredSwitchState = NO_DEFER;
     }
@@ -4942,6 +4964,7 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
 {
     std::vector<pal_stream_type_t> st_streams;
     bool do_st_stream_switch = false;
+    bool use_lpi_temp = use_lpi_;
 
     mActiveStreamMutex.lock();
     PAL_DBG(LOG_TAG, "Enter, stream type %d, direction %d, active %d", type, dir, active);
@@ -4962,7 +4985,6 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
             HandleStreamPauseResume(st_stream_type, active);
             continue;
         }
-
         if (st_stream_conc_en && (st_stream_tx_conc || st_stream_rx_conc)) {
             if (!IsLPISupported(st_stream_type) ||
                 !isNLPISwitchSupported(st_stream_type)) {
@@ -4971,19 +4993,21 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
             } else if (active) {
                 if ((PAL_STREAM_VOICE_UI == st_stream_type && ++concurrencyEnableCount == 1) ||
                     (PAL_STREAM_ACD == st_stream_type && ++ACDConcurrencyEnableCount == 1) ||
-                    (PAL_STREAM_SENSOR_PCM_DATA == st_stream_type && ++SNSPCMDataConcurrencyEnableCount == 1))
-                    if (use_lpi_) {
+                    (PAL_STREAM_SENSOR_PCM_DATA == st_stream_type && ++SNSPCMDataConcurrencyEnableCount == 1)) {
+                    if (use_lpi_temp) {
                         do_st_stream_switch = true;
-                        use_lpi_ = false;
+                        use_lpi_temp = false;
                     }
+                }
             } else {
                 if ((PAL_STREAM_VOICE_UI == st_stream_type && --concurrencyEnableCount == 0) ||
                     (PAL_STREAM_ACD == st_stream_type && --ACDConcurrencyEnableCount == 0) ||
-                    (PAL_STREAM_SENSOR_PCM_DATA == st_stream_type && --SNSPCMDataConcurrencyEnableCount == 0))
+                    (PAL_STREAM_SENSOR_PCM_DATA == st_stream_type && --SNSPCMDataConcurrencyEnableCount == 0)) {
                     if (!(active_streams_st.size() && charging_state_ && IsTransitToNonLPIOnChargingSupported())) {
                         do_st_stream_switch = true;
-                        use_lpi_ = true;
+                        use_lpi_temp = true;
                     }
+                }
             }
         }
     }
@@ -4996,8 +5020,14 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
     if (SNSPCMDataConcurrencyEnableCount < 0)
         SNSPCMDataConcurrencyEnableCount = 0;
 
-    if (do_st_stream_switch)
-        handleConcurrentStreamSwitch(st_streams, active, false);
+    if (do_st_stream_switch) {
+        if (checkAndUpdateDeferSwitchState(active)) {
+            PAL_DBG(LOG_TAG, "Switch is deferred");
+        } else {
+            use_lpi_ = use_lpi_temp;
+            handleConcurrentStreamSwitch(st_streams, active);
+        }
+    }
 
     mActiveStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit");
@@ -5996,10 +6026,19 @@ int ResourceManager::getHwSndCard()
 
 int ResourceManager::getSndDeviceName(int deviceId, char *device_name)
 {
+    std::string backEndName;
     if (isValidDevId(deviceId)) {
         strlcpy(device_name, sndDeviceNameLUT[deviceId].second.c_str(), DEVICE_NAME_MAX_SIZE);
-        if (isVbatEnabled && deviceId == PAL_DEVICE_OUT_SPEAKER && !strstr(device_name, VBAT_BCL_SUFFIX))
+        if (isVbatEnabled && (deviceId == PAL_DEVICE_OUT_SPEAKER ||
+                              deviceId == PAL_DEVICE_OUT_ULTRASOUND_DEDICATED) &&
+                                !strstr(device_name, VBAT_BCL_SUFFIX)) {
+            if (deviceId == PAL_DEVICE_OUT_ULTRASOUND_DEDICATED) {
+                getBackendName(deviceId, backEndName);
+                if (!(strstr(backEndName.c_str(), "CODEC_DMA-LPAIF_WSA-RX")))
+                    return 0;
+            }
             strlcat(device_name, VBAT_BCL_SUFFIX, DEVICE_NAME_MAX_SIZE);
+        }
     } else {
         strlcpy(device_name, "", DEVICE_NAME_MAX_SIZE);
         PAL_ERR(LOG_TAG, "Invalid device id %d", deviceId);
@@ -6948,8 +6987,7 @@ int32_t ResourceManager::streamDevDisconnect_l(std::vector <std::tuple<Stream *,
 
     /* disconnect active list from the current devices they are attached to */
     for (sIter = streamDevDisconnectList.begin(); sIter != streamDevDisconnectList.end(); sIter++) {
-        if ((std::get<0>(*sIter) != NULL) && isStreamActive(std::get<0>(*sIter), mActiveStreams) &&
-            (!(std::get<0>(*sIter)->isStopped()))) {
+        if ((std::get<0>(*sIter) != NULL) && isStreamActive(std::get<0>(*sIter), mActiveStreams)) {
             status = (std::get<0>(*sIter))->disconnectStreamDevice_l(std::get<0>(*sIter), (pal_device_id_t)std::get<1>(*sIter));
             if (status) {
                 PAL_ERR(LOG_TAG, "failed to disconnect stream %pK from device %d",
@@ -6973,8 +7011,7 @@ int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, st
     PAL_DBG(LOG_TAG, "Enter");
     /* connect active list from the current devices they are attached to */
     for (sIter = streamDevConnectList.begin(); sIter != streamDevConnectList.end(); sIter++) {
-        if ((std::get<0>(*sIter) != NULL) && isStreamActive(std::get<0>(*sIter), mActiveStreams) &&
-            (!(std::get<0>(*sIter)->isStopped()))) {
+        if ((std::get<0>(*sIter) != NULL) && isStreamActive(std::get<0>(*sIter), mActiveStreams)) {
             status = std::get<0>(*sIter)->connectStreamDevice_l(std::get<0>(*sIter), std::get<1>(*sIter));
             if (status) {
                 PAL_ERR(LOG_TAG,"failed to connect stream %pK from device %d",
@@ -8104,13 +8141,11 @@ int32_t ResourceManager::a2dpResume(pal_device_id_t dev_id)
     for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
         if (std::find((*sIter)->suspendedDevIds.begin(), (*sIter)->suspendedDevIds.end(),
                     a2dpDattr.id) != (*sIter)->suspendedDevIds.end()) {
-            if (!(*sIter)->isStopped()) {
-                restoredStreams.push_back((*sIter));
-                if ((*sIter)->suspendedDevIds.size() == 1 /* none combo */) {
-                    streamDevDisconnect.push_back({(*sIter), activeDattr.id});
-                }
-                streamDevConnect.push_back({(*sIter), &a2dpDattr});
+            restoredStreams.push_back((*sIter));
+            if ((*sIter)->suspendedDevIds.size() == 1 /* none combo */) {
+                streamDevDisconnect.push_back({(*sIter), activeDattr.id});
             }
+            streamDevConnect.push_back({(*sIter), &a2dpDattr});
         }
     }
 
@@ -8118,33 +8153,32 @@ int32_t ResourceManager::a2dpResume(pal_device_id_t dev_id)
     for (sIter = orphanStreams.begin(); sIter != orphanStreams.end(); sIter++) {
         if (std::find((*sIter)->suspendedDevIds.begin(), (*sIter)->suspendedDevIds.end(),
                     a2dpDattr.id) != (*sIter)->suspendedDevIds.end()) {
-            if (!(*sIter)->isStopped()) {
-                restoredStreams.push_back((*sIter));
-                streamDevConnect.push_back({(*sIter), &a2dpDattr});
-            }
+            restoredStreams.push_back((*sIter));
+            streamDevConnect.push_back({(*sIter), &a2dpDattr});
         }
     }
 
     // retry all streams which failed to switch to desired device previously.
     for (sIter = retryStreams.begin(); sIter != retryStreams.end(); sIter++) {
+        (*sIter)->lockStreamMutex();
         if (std::find((*sIter)->suspendedDevIds.begin(), (*sIter)->suspendedDevIds.end(),
                     a2dpDattr.id) != (*sIter)->suspendedDevIds.end()) {
-            if (!(*sIter)->isStopped()) {
-                std::vector<std::shared_ptr<Device>> devices;
-                (*sIter)->getAssociatedDevices(devices);
-                if (devices.size() > 0) {
-                    for (auto device: devices) {
-                        if ((device->getSndDeviceId() > PAL_DEVICE_OUT_MIN &&
-                            device->getSndDeviceId() < PAL_DEVICE_OUT_MAX) &&
-                            ((*sIter)->suspendedDevIds.size() == 1 /* non combo */)) {
-                            streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
-                        }
+            std::vector<std::shared_ptr<Device>> devices;
+            (*sIter)->getAssociatedDevices(devices);
+            if (devices.size() > 0) {
+                for (auto device: devices) {
+                    if ((device->getSndDeviceId() > PAL_DEVICE_OUT_MIN &&
+                        device->getSndDeviceId() < PAL_DEVICE_OUT_MAX) &&
+                        ((*sIter)->suspendedDevIds.size() == 1 /* non combo */)) {
+                        streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
                     }
                 }
-                restoredStreams.push_back((*sIter));
-                streamDevConnect.push_back({(*sIter), &a2dpDattr});
             }
+
+            restoredStreams.push_back((*sIter));
+            streamDevConnect.push_back({(*sIter), &a2dpDattr});
         }
+        (*sIter)->unlockStreamMutex();
     }
 
     if (restoredStreams.empty()) {
@@ -9406,7 +9440,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     if (match) {
                         increaseStreamUserCounter(*sIter);
                         unlockActiveStream();
-                        status = (*sIter)->setParameters(param_id, param_payload);
+                        status = (*sIter)->setEffectParameters(param_payload);
                         lockActiveStream();
                         decreaseStreamUserCounter(*sIter);
                         if (status) {
@@ -9592,17 +9626,18 @@ void ResourceManager::onChargingStateChange()
 {
     std::vector<pal_stream_type_t> st_streams;
     bool need_switch = false;
+    bool use_lpi_temp = false;
 
     // no need to handle car mode if no Voice Stream exists
     if (active_streams_st.size() == 0)
         return;
 
     if (charging_state_ && use_lpi_) {
-        use_lpi_ = false;
+        use_lpi_temp = false;
         need_switch = true;
     } else if (!charging_state_ && !use_lpi_) {
         if (!concurrencyEnableCount) {
-            use_lpi_ = true;
+            use_lpi_temp = true;
             need_switch = true;
         }
     }
@@ -9615,7 +9650,10 @@ void ResourceManager::onChargingStateChange()
         if (active_streams_sensor_pcm_data.size())
             st_streams.push_back(PAL_STREAM_SENSOR_PCM_DATA);
 
-        handleConcurrentStreamSwitch(st_streams, !use_lpi_, false);
+        if (!checkAndUpdateDeferSwitchState(!use_lpi_temp)) {
+            use_lpi_ = use_lpi_temp;
+            handleConcurrentStreamSwitch(st_streams, !use_lpi_);
+        }
     }
 }
 
@@ -9634,7 +9672,7 @@ void ResourceManager::onVUIStreamRegistered()
 
     if (use_lpi_) {
         use_lpi_ = false;
-        handleConcurrentStreamSwitch(st_streams, !use_lpi_, false);
+        handleConcurrentStreamSwitch(st_streams, !use_lpi_);
     }
 }
 
@@ -9653,7 +9691,7 @@ void ResourceManager::onVUIStreamDeregistered()
 
     if (!use_lpi_ && !concurrencyEnableCount) {
         use_lpi_ = true;
-        handleConcurrentStreamSwitch(st_streams, !use_lpi_, false);
+        handleConcurrentStreamSwitch(st_streams, !use_lpi_);
     }
 }
 

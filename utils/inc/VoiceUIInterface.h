@@ -279,6 +279,18 @@ class VoiceUIInterface {
     uint32_t GetFTRTDataSize() { return ftrt_size_; }
 
     /*
+     * @brief Get lab read offset
+     * @caller StreamSoundTrigger
+     */
+    uint32_t GetReadOffset() { return read_offset_; }
+
+    /*
+     * @brief Set lab read offset
+     * @caller StreamSoundTrigger
+     */
+    void SetReadOffset(uint32_t offset) { read_offset_ = offset; }
+
+    /*
      * @brief transfer duration(us) to bytes based on sm config
      *
      * @param[in]  input_us  duration in us
@@ -296,9 +308,11 @@ class VoiceUIInterface {
 
     SoundModelInfo *sound_model_info_;
 
-    uint32_t start_index_;
-    uint32_t end_index_;
-    uint32_t ftrt_size_;
+    uint32_t start_index_ = 0;
+    uint32_t end_index_ = 0;
+    uint32_t ftrt_size_ = 0;
+    uint32_t read_offset_ = 0;
 };
 
 #endif
+
