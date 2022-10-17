@@ -7402,7 +7402,7 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
         {
             PAL_INFO(LOG_TAG, "get parameter for sndcard state");
             *param_payload = (uint8_t*)&rm->cardState;
-            *payload_size = sizeof(rm->cardState);
+            *payload_size = sizeof(card_status_t);
             break;
         }
         case PAL_PARAM_ID_HIFI_PCM_FILTER:
@@ -7439,7 +7439,12 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             bool match = false;
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
-                match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
+                if (address) {
+                    match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
+                } else {
+                    //non bus usecase
+                    match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                }
                 if (match) {
                     status = (*sIter)->getEffectParameters(param_payload);
                     break;
@@ -8040,8 +8045,12 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
                 if ((*sIter) != NULL) {
-                    match = (*sIter)->checkBusStreamMatch(pal_device_id,
-                                                       pal_stream_type, address);
+                    if (address) {
+                        match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
+                    } else {
+                        //non bus usecase
+                        match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                    }
                     if (match) {
                         status = (*sIter)->setParameters(param_id, param_payload);
                         if (status) {
@@ -10248,8 +10257,10 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
 
 exit:
     if (status) {
-        dlclose(plugin->handle);
-        plugin->handle = NULL;
+        if (plugin && plugin->handle) {
+            dlclose(plugin->handle);
+            plugin->handle = NULL;
+        }
     }
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;

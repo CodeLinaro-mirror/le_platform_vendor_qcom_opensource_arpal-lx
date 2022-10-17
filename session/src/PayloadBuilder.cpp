@@ -1738,7 +1738,20 @@ int PayloadBuilder::populateStreamKV(Stream* s, std::vector<std::pair<int,int>> 
                 loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
             retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
         } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
-           /* no StreamKV for HFP TX */
+            /* no StreamKV for HFP TX */
+        } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_FM) {
+            /* no StreamKV FM TX */
+            PAL_DBG(LOG_TAG, "stream type %d", sattr->type);
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "RX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+                loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs, sattr->type, all_streams, keyVectorRx);
+
+            filled_selector_pairs.clear();
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "TX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+                loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
         } else {
             selector_names = retrieveSelectors(sattr->type, all_streams);
             if (selector_names.empty() != true)
