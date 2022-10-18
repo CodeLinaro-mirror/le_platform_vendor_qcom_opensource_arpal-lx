@@ -2401,6 +2401,8 @@
         <ctl name="VA DEC1 MUX" value="MSM_DMIC" />
         <ctl name="VA DMIC MUX0" value="DMIC1" />
         <ctl name="VA DMIC MUX1" value="DMIC3" />
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
     </path>
 
     <path name="va-mic-tmic">
@@ -2449,6 +2451,8 @@
         <ctl name="VA DEC1 MUX" value="MSM_DMIC" />
         <ctl name="VA DMIC MUX0" value="DMIC1" />
         <ctl name="VA DMIC MUX1" value="DMIC3" />
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
     </path>
 
     <path name="va-mic-tmic-lpi">
@@ -2520,6 +2524,8 @@
         <ctl name="TX DMIC MUX1" value="DMIC1" />
         <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
         <ctl name="TX DMIC MUX2" value="DMIC3" />
+        <ctl name="TX_DEC1 Volume" value="102" />
+        <ctl name="TX_DEC2 Volume" value="102" />
     </path>
 
     <path name="speaker-dmic-endfire">
