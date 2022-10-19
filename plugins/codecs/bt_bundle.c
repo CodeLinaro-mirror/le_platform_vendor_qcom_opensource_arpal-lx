@@ -276,6 +276,7 @@ static int aac_pack_dec_config(bt_codec_t *codec , void *src , void **dst) {
         blk[i] = (custom_block_t *)calloc(1, sizeof(custom_block_t));
         if (!blk[i]) {
             ret = -ENOMEM;
+            ALOGE("%s: fail to allocate memory", __func__);
             goto free_payload;
         }
     }
@@ -286,6 +287,11 @@ static int aac_pack_dec_config(bt_codec_t *codec , void *src , void **dst) {
     // PARAM_ID_MEDIA_FORMAT ->payload_media_fmt_aac_t
 
     media_fmt_aac = (payload_media_fmt_aac_t*) calloc(1,sizeof(payload_media_fmt_aac_t));
+    if (!media_fmt_aac) {
+        ret = -ENOMEM;
+        ALOGE("%s: fail to allocate memory", __func__);
+        goto free_payload;
+    }
     media_fmt_aac->aac_fmt_flag = aac_bt_cfg->format_flag;
 
     switch(aac_bt_cfg->obj_type) {
@@ -330,7 +336,7 @@ free_payload:
     }
     if (dec_payload)
         free(dec_payload);
-    return 0;
+    return ret;
 }
 
 static int sbc_pack_enc_config(bt_codec_t *codec, void *src, void **dst)
