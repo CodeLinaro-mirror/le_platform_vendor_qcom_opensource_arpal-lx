@@ -629,8 +629,6 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
         setSlotMask(rm, sAttr, dAttr, pcmDevIds);
     }
 
-    #ifndef REMOVE_PSPD_MFC_CONFIG
-
     /* Prepare PSPD MFC payload */
     /* Get PSPD MFC MIID and configure to match to device config */
     /* This has to be done after sending all mixer controls and before connect */
@@ -658,19 +656,35 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
             mfcData.numChannel = codecConfig.ch_info.channels;
             mfcData.rotation_type = PAL_SPEAKER_ROTATION_LR;
             mfcData.ch_info = nullptr;
-        } else {
-            mfcData.bitWidth = dAttr.config.bit_width;
-            if (!devicePPMFCSet && rm->activeGroupDevConfig->devpp_mfc_cfg.sample_rate)
-                mfcData.sampleRate = rm->activeGroupDevConfig->devpp_mfc_cfg.sample_rate;
-            else
-                mfcData.sampleRate = dAttr.config.sample_rate;
-            if (!devicePPMFCSet && rm->activeGroupDevConfig->devpp_mfc_cfg.channels)
-                mfcData.numChannel = rm->activeGroupDevConfig->devpp_mfc_cfg.channels;
-            else
-                mfcData.numChannel = dAttr.config.ch_info.channels;
-            mfcData.rotation_type = PAL_SPEAKER_ROTATION_LR;
-            mfcData.ch_info = nullptr;
-        }
+
+            builder->payloadMFCConfig((uint8_t**)&payload, &payloadSize, miid, &mfcData);
+            if (!payloadSize) {
+                PAL_ERR(LOG_TAG, "payloadMFCConfig failed\n");
+                status = -EINVAL;
+                goto exit;
+            }
+
+            status = updateCustomPayload(payload, payloadSize);
+            freeCustomPayload(&payload, &payloadSize);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+                goto exit;
+            }
+            goto exit;
+        } // PAL_DEVICE_OUT_BLUETOOTH_A2DP & PAL_DEVICE_OUT_BLUETOOTH_SCO
+
+#ifndef REMOVE_PSPD_MFC_CONFIG
+        mfcData.bitWidth = dAttr.config.bit_width;
+        if (!devicePPMFCSet && rm->activeGroupDevConfig->devpp_mfc_cfg.sample_rate)
+            mfcData.sampleRate = rm->activeGroupDevConfig->devpp_mfc_cfg.sample_rate;
+        else
+            mfcData.sampleRate = dAttr.config.sample_rate;
+        if (!devicePPMFCSet && rm->activeGroupDevConfig->devpp_mfc_cfg.channels)
+            mfcData.numChannel = rm->activeGroupDevConfig->devpp_mfc_cfg.channels;
+        else
+            mfcData.numChannel = dAttr.config.ch_info.channels;
+        mfcData.rotation_type = PAL_SPEAKER_ROTATION_LR;
+        mfcData.ch_info = nullptr;
 
         if ((PAL_DEVICE_OUT_SPEAKER == dAttr.id) &&
             (2 == dAttr.config.ch_info.channels)) {
@@ -698,12 +712,13 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
             PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
             goto exit;
         }
+#endif
     } else {
         PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
         if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT))
             status = 0;
     }
-    #endif
+
 exit:
     if (builder) {
         delete builder;
