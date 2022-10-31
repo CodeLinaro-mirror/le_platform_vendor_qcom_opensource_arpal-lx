@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Device"
@@ -35,6 +39,8 @@
 #include "SessionAlsaUtils.h"
 #include "Device.h"
 #include "Speaker.h"
+#include "A2BSpeaker.h"
+#include "A2B2Speaker.h"
 #include "SpeakerProtection.h"
 #include "Headphone.h"
 #include "USBAudio.h"
@@ -74,10 +80,14 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         PAL_VERBOSE(LOG_TAG, "handset device");
         return Handset::getInstance(device, Rm);
     case PAL_DEVICE_OUT_SPEAKER:
-    case PAL_DEVICE_OUT_A2B_SPKR:
-    case PAL_DEVICE_OUT_A2B2_SPKR:
         PAL_VERBOSE(LOG_TAG, "speaker device");
         return Speaker::getInstance(device, Rm);
+    case PAL_DEVICE_OUT_A2B_SPKR:
+        PAL_VERBOSE(LOG_TAG, "a2bspeaker device");
+        return A2BSpeaker::getInstance(device, Rm);
+    case PAL_DEVICE_OUT_A2B2_SPKR:
+        PAL_VERBOSE(LOG_TAG, "a2b2speaker device");
+        return A2B2Speaker::getInstance(device, Rm);
     case PAL_DEVICE_IN_VI_FEEDBACK:
         PAL_VERBOSE(LOG_TAG, "speaker feedback device");
         return SpeakerFeedback::getInstance(device, Rm);
@@ -161,10 +171,14 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         PAL_VERBOSE(LOG_TAG, "handset device");
         return Handset::getObject();
     case PAL_DEVICE_OUT_SPEAKER:
-    case PAL_DEVICE_OUT_A2B_SPKR:
-    case PAL_DEVICE_OUT_A2B2_SPKR:
         PAL_VERBOSE(LOG_TAG, "speaker device");
         return Speaker::getObject();
+    case PAL_DEVICE_OUT_A2B_SPKR:
+        PAL_VERBOSE(LOG_TAG, "a2bspeaker device");
+        return A2BSpeaker::getObject();
+    case PAL_DEVICE_OUT_A2B2_SPKR:
+        PAL_VERBOSE(LOG_TAG, "a2b2speaker device");
+        return A2B2Speaker::getObject();
     case PAL_DEVICE_OUT_WIRED_HEADSET:
     case PAL_DEVICE_OUT_WIRED_HEADPHONE:
         PAL_VERBOSE(LOG_TAG, "headphone device");
