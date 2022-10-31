@@ -3371,6 +3371,7 @@ int ResourceManager::initStreamUserCounter(Stream *s)
 {
     lockActiveStream();
     mActiveStreamUserCounter.insert(std::make_pair(s, 0));
+    s->initStreamSmph();
     unlockActiveStream();
     return 0;
 }
@@ -3383,7 +3384,9 @@ int ResourceManager::deinitStreamUserCounter(Stream *s)
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
         PAL_INFO(LOG_TAG, "stream %p is to be erased.", s);
+        s->waitStreamSmph();
         mActiveStreamUserCounter.erase(it);
+        s->deinitStreamSmph();
         unlockActiveStream();
         return 0;
     } else {
@@ -4809,6 +4812,7 @@ void ResourceManager::GetConcurrencyInfo(pal_stream_type_t st_type,
     } else if (dir == PAL_AUDIO_INPUT &&
                (in_type != PAL_STREAM_ACD &&
                 in_type != PAL_STREAM_SENSOR_PCM_DATA &&
+                in_type != PAL_STREAM_CONTEXT_PROXY  &&
                 in_type != PAL_STREAM_VOICE_UI)) {
         *tx_conc = true;
         if (!audio_capture_conc_enable) {
@@ -8234,8 +8238,9 @@ int32_t ResourceManager::a2dpCaptureSuspend(pal_device_id_t dev_id)
     std::shared_ptr<Device> a2dpDev = nullptr;
     struct pal_device a2dpDattr;
     struct pal_device handsetmicDattr;
-    struct pal_device_info devinfo = {};
+    std::vector <Stream*> activeA2dpStreams;
     std::vector <Stream*> activeStreams;
+    std::shared_ptr<Device> handsetmicDev = nullptr;
     std::vector <Stream*>::iterator sIter;
 
     PAL_DBG(LOG_TAG, "enter");
@@ -8248,27 +8253,47 @@ int32_t ResourceManager::a2dpCaptureSuspend(pal_device_id_t dev_id)
         goto exit;
     }
 
-    getActiveStream_l(activeStreams, a2dpDev);
-    if (activeStreams.size() == 0) {
+    getActiveStream_l(activeA2dpStreams, a2dpDev);
+    if (activeA2dpStreams.size() == 0) {
         PAL_DBG(LOG_TAG, "no active streams found");
         goto exit;
     }
 
-    for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
+    // force switch to handset_mic
+    handsetmicDattr.id = PAL_DEVICE_IN_HANDSET_MIC;
+    handsetmicDev = Device::getInstance(&handsetmicDattr, rm);
+    if (!handsetmicDev) {
+        PAL_ERR(LOG_TAG, "Getting handset-mic device instance failed");
+        goto exit;
+    }
+    getActiveStream_l(activeStreams, handsetmicDev);
+    if (activeStreams.size() == 0) {
+        // No active streams on handset-mic, get default dev info
+        pal_device_info devInfo;
+        memset(&devInfo, 0, sizeof(pal_device_info));
+        status = getDeviceConfig(&handsetmicDattr, NULL);
+        if (!status) {
+            // get the default device info and update snd name
+            getDeviceInfo(handsetmicDattr.id, (pal_stream_type_t)0,
+                handsetmicDattr.custom_config.custom_key, &devInfo);
+            updateSndName(handsetmicDattr.id, devInfo.sndDevName);
+        }
+    } else {
+        // activestream found on handset-mic
+        status = handsetmicDev->getDeviceAttributes(&handsetmicDattr);
+    }
+
+    for (sIter = activeA2dpStreams.begin(); sIter != activeA2dpStreams.end(); sIter++) {
         if (!((*sIter)->a2dpMuted)) {
             (*sIter)->mute_l(true);
             (*sIter)->a2dpMuted = true;
         }
     }
 
-    // force switch to handset_mic
-    handsetmicDattr.id = PAL_DEVICE_IN_HANDSET_MIC;
-    getDeviceConfig(&handsetmicDattr, NULL);
-
-    PAL_DBG(LOG_TAG, "selecting hadset_mic and muting stream");
+    PAL_DBG(LOG_TAG, "selecting handset_mic and muting stream");
     forceDeviceSwitch(a2dpDev, &handsetmicDattr);
 
-    for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
+    for (sIter = activeA2dpStreams.begin(); sIter != activeA2dpStreams.end(); sIter++) {
         (*sIter)->suspendedDevIds.clear();
         (*sIter)->suspendedDevIds.push_back(a2dpDattr.id);
     }
@@ -8281,8 +8306,8 @@ exit:
 int32_t ResourceManager::a2dpCaptureResume(pal_device_id_t dev_id)
 {
     int status = 0;
-    std::shared_ptr<Device> handsetmicDev = nullptr;
-    struct pal_device handsetmicDattr;
+    std::shared_ptr<Device> activeDev = nullptr;
+    struct pal_device activeDattr;
     struct pal_device a2dpDattr;
     struct pal_device_info devinfo = {};
     std::vector <Stream*>::iterator sIter;
@@ -8295,8 +8320,8 @@ int32_t ResourceManager::a2dpCaptureResume(pal_device_id_t dev_id)
 
     PAL_DBG(LOG_TAG, "enter");
 
-    handsetmicDattr.id = PAL_DEVICE_IN_HANDSET_MIC;
-    handsetmicDev = Device::getInstance(&handsetmicDattr, rm);
+    activeDattr.id = PAL_DEVICE_IN_HANDSET_MIC;
+    activeDev = Device::getInstance(&activeDattr, rm);
     a2dpDattr.id = dev_id;
 
     status = getDeviceConfig(&a2dpDattr, NULL);
@@ -8305,7 +8330,19 @@ int32_t ResourceManager::a2dpCaptureResume(pal_device_id_t dev_id)
     }
 
     mActiveStreamMutex.lock();
-    getActiveStream_l(activeStreams, handsetmicDev);
+    getActiveStream_l(activeStreams, activeDev);
+
+    /* No-Streams active on Handset-mic - possibly streams are
+     * associated speaker-mic device (due to camorder app UC) and
+     * device switch did not happen for all the streams
+     */
+    if (activeStreams.empty()) {
+        // Hence try to check speaker-mic device as well.
+        activeDattr.id = PAL_DEVICE_IN_SPEAKER_MIC;
+        activeDev = Device::getInstance(&activeDattr, rm);
+        getActiveStream_l(activeStreams, activeDev);
+    }
+
     getOrphanStream_l(orphanStreams, retryStreams);
     if (activeStreams.empty() && orphanStreams.empty()) {
         PAL_DBG(LOG_TAG, "no active streams found");
@@ -8319,7 +8356,7 @@ int32_t ResourceManager::a2dpCaptureResume(pal_device_id_t dev_id)
         if (std::find((*sIter)->suspendedDevIds.begin(), (*sIter)->suspendedDevIds.end(),
                     a2dpDattr.id) != (*sIter)->suspendedDevIds.end()) {
             restoredStreams.push_back((*sIter));
-            streamDevDisconnect.push_back({ (*sIter), handsetmicDattr.id });
+            streamDevDisconnect.push_back({ (*sIter), activeDattr.id });
             streamDevConnect.push_back({ (*sIter), &a2dpDattr });
         }
     }
@@ -8528,7 +8565,8 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                 if (match) {
-                    increaseStreamUserCounter(*sIter);
+                    if (increaseStreamUserCounter(*sIter) < 0)
+                        continue;
                     unlockActiveStream();
                     status = (*sIter)->getEffectParameters(param_payload);
                     lockActiveStream();
@@ -9438,7 +9476,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     match = (*sIter)->checkStreamMatch(pal_device_id,
                                                        pal_stream_type);
                     if (match) {
-                        increaseStreamUserCounter(*sIter);
+                        if (increaseStreamUserCounter(*sIter) < 0)
+                            continue;
                         unlockActiveStream();
                         status = (*sIter)->setEffectParameters(param_payload);
                         lockActiveStream();
