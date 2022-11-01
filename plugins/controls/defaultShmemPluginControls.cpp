@@ -176,7 +176,7 @@ static int32_t alloc_shmem(pal_shmem_info *buf_info, uint32_t shmem_size, pal_sh
         status = -EINVAL;
         return status;
     }
-    PAL_DBG(LOG_TAG,"Received values of fd is %d, value of spf handle is %x [%x %x]\n", buf_info->fd, buf_info->spf_mem_handle, buf_info->spf_mem_addr_lsw, buf_info->spf_mem_addr_msw);
+    PAL_INFO(LOG_TAG,"Received values: fd %d, value of spf handle %x, spf_mem_addr [%x %x]\n", buf_info->fd, buf_info->spf_mem_handle, buf_info->spf_mem_addr_lsw, buf_info->spf_mem_addr_msw);
     PAL_DBG(LOG_TAG,"Exit with status: %d\n", status);
     return status;
 }
@@ -380,9 +380,9 @@ int32_t SPF_get_shmem(pal_stream_handle_t *stream_handle, uint32_t index, uint32
             status = -EINVAL;
             return status;
         }
-        else{
+        else
             PAL_DBG(LOG_TAG,"shmem_buff_get_parameter is successful\n");
-        }
+
         free(payload);
     }
     return status;
@@ -652,9 +652,8 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                                 goto cleanup;
                             }
                             for (j = 0; j < numOf_element; j++) {
-                                PAL_DBG(LOG_TAG,"j=%d numOf_element=%d array[%d]=%d number=%d\n", j, numOf_element, j, get_shmem->array[j], number);
                                 if (get_shmem->array[j] != number) {
-                                    PAL_INFO(LOG_TAG,"HLOS write value %d is not matching with SPF read value[%d] %d\n", number, j, get_shmem->array[j]);
+                                    PAL_ERR(LOG_TAG,"HLOS write value %d is not matching with SPF read value[%d] %d\n", number, j, get_shmem->array[j]);
                                     count++;
                                 }
                             }
