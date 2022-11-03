@@ -714,9 +714,8 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
         }
 #endif
     } else {
-        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
-        if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT))
-            status = 0;
+        PAL_INFO(LOG_TAG, "PSPD MFC doesn't exist for stream %d \n", sAttr.type);
+        status = 0;
     }
 
 exit:
