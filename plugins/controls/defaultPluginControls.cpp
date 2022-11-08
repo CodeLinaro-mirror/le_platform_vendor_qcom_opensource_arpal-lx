@@ -791,9 +791,6 @@ int plugin_set(Stream* s, plugin_control_name_t control, void *payload,
         status = -EINVAL;
     }
 exit:
-    if (voldata) {
-        free(voldata);
-    }
     PAL_DBG(LOG_TAG,"Exit with status: %d", status);
     return status;
 }
