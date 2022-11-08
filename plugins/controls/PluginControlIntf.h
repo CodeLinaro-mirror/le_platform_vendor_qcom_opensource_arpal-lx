@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef _PLUGIN_CONTROL_INTF_H_
 #define _PLUGIN_CONTROL_INTF_H_
 
@@ -38,7 +45,7 @@
 #define CONTROL_PLUGIN_GET_MINOR_VERSION(ver) ((ver) & 0x00ff)
 
 #define CONTROL_PLUGIN_MAJOR_VER 1
-#define CONTROL_PLUGIN_MINOR_VER 1
+#define CONTROL_PLUGIN_MINOR_VER 2
 #define CONTROL_PLUGIN_VERSION MAKE_PLUGIN_INTF_VERSION(CONTROL_PLUGIN_MAJOR_VER,CONTROL_PLUGIN_MINOR_VER)
 
 typedef enum{
@@ -47,6 +54,7 @@ typedef enum{
     PLUGIN_CONTROL_HD_VOICE,
     PLUGIN_CONTROL_AUDIO_BUFFER,
     PLUGIN_CONTROL_AUDIO_LATENCY,
+    PLUGIN_CONTROL_KV_PARAM,
     PLUGIN_CONTROL_MAX,
 } plugin_control_name_t;
 
