@@ -41,12 +41,6 @@
 #include "sp_rx.h"
 #include "fluence_ffv_common_calibration.h"
 
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-#define USECASE_XML_FILE "/etc/usecaseKvManager.xml"
-#else
-#define USECASE_XML_FILE "/vendor/etc/usecaseKvManager.xml"
-#endif
-
 #define PARAM_ID_CHMIXER_COEFF 0x0800101F
 #define CUSTOM_STEREO_NUM_OUT_CH 0x0002
 #define CUSTOM_STEREO_NUM_IN_CH 0x0002

@@ -18,6 +18,9 @@ LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
 LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
+LOCAL_CFLAGS        += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
+LOCAL_CFLAGS        += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
+LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 ifeq ($(PRODUCT_NAME), msmnile_gvmq)
 LOCAL_CFLAGS        += -DAUTO_GVMQ
