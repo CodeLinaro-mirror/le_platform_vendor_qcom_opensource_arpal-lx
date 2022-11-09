@@ -1460,3 +1460,28 @@ int32_t StreamPCM::GetMmapPosition(struct pal_mmap_position *position)
     return status;
 }
 
+int32_t StreamPCM::getAvailableFrameCount(uint32_t *frame_count)
+{
+    pal_stream_attributes sAttr;
+    if (!frame_count)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    int32_t ret = getStreamAttributes(&sAttr);
+    if (ret)
+    {
+        PAL_ERR(LOG_TAG, "getStreamAttributes failed with err %d", ret);
+        goto end;
+    }
+
+    ret = session->getAvailableFrameCount(frame_count, sAttr.direction);
+    if (ret)
+        PAL_ERR(LOG_TAG, "session getAvailableFrameCount failed with err %d", ret);
+
+end:
+    mStreamMutex.unlock();
+    return ret;
+}
