@@ -138,7 +138,17 @@ libar_pal_la_CPPFLAGS += $(GLIB_CFLAGS) -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat 
 libar_pal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 
 if COMPILE_COMPRESS
-libar_pal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR
+    libar_pal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR
+endif
+
+if VENDOR_PARTITION
+    libar_pal_la_CPPFLAGS += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
+    libar_pal_la_CPPFLAGS += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
+    libar_pal_la_CPPFLAGS += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
+else
+    libar_pal_la_CPPFLAGS += -DVENDOR_CONFIG_PATH=\"/etc\"
+    libar_pal_la_CPPFLAGS += -DSNDPARSER=\"/etc/card-defs.xml\"
+    libar_pal_la_CPPFLAGS += -DUSECASE_XML_FILE=\"/etc/usecaseKvManager.xml\"
 endif
 
 lib_LTLIBRARIES        += libaudiocl.la

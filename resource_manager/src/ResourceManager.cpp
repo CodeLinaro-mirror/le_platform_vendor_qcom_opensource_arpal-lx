@@ -81,12 +81,6 @@
 
 #define VBAT_BCL_SUFFIX "-vbat"
 
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-#define SNDPARSER "/etc/card-defs.xml"
-#else
-#define SNDPARSER "/vendor/etc/card-defs.xml"
-#endif
-
 #if defined(ADSP_SLEEP_MONITOR)
 #include <adsp_sleepmon.h>
 #endif
@@ -9935,13 +9929,8 @@ void ResourceManager::getVendorConfigPath (char* config_file_path, int path_size
 {
    char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
    if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-       /* Audio configs are stored in /etc */
-       snprintf(config_file_path, path_size, "%s", "/etc");
-#else
-       /* Audio configs are stored in /vendor/etc */
-       snprintf(config_file_path, path_size, "%s", "/vendor/etc");
-#endif
+       /* Audio configs are stored in VENDOR_CONFIG_PATH */
+       snprintf(config_file_path, path_size, "%s", VENDOR_CONFIG_PATH);
     } else {
        /* Audio configs are stored in /vendor/etc/audio/sku_${vendor_sku} */
        snprintf(config_file_path, path_size,
