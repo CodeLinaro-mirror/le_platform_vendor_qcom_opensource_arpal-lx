@@ -201,6 +201,7 @@ public:
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int32_t GetMmapPosition(struct pal_mmap_position *position __unused) {return -EINVAL;}
     virtual int32_t getTagsWithModuleInfo(size_t *size __unused, uint8_t *payload __unused) {return -EINVAL;};
+    virtual int32_t getAvailableFrameCount(uint32_t *frame_count __unused) {return -EINVAL;}
     int32_t getStreamAttributes(struct pal_stream_attributes *sattr);
     int32_t getModifiers(struct modifier_kv *modifiers,uint32_t *noOfModifiers);
     const std::string& getStreamSelector() const;

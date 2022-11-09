@@ -521,6 +521,16 @@ int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
                               struct pal_mmap_position *position);
 
 /**
+  * \brief Get available frame count for sink or source.
+  *
+  * \param[in] stream_handle - Valid stream handle obtained from pal_stream_open
+  * \param[out] frame_count - Buffer to store the frame count
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_stream_get_available_frame_count(pal_stream_handle_t *stream_handle, uint32_t *frame_count);
+
+/**
   * \brief Register global callback to pal.
   *        This can be used to inform client about any information
   *        needed even before stream is created.
