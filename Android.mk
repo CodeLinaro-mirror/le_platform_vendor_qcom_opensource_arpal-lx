@@ -35,9 +35,10 @@ ifeq ($(PRODUCT_NAME), msmnile_gvmgh)
   LOCAL_CFLAGS += -DPLATFORM_AUTO
 endif
 
-ifeq ($(AUDIO_ENABLE_SHARED_MEM_FEATURE), true)
-  LOCAL_CFLAGS += -DENABLE_SHARED_MEM
+ifeq ($(PRODUCT_NAME), msmnile_gvmq)
+  LOCAL_CFLAGS += -DPLATFORM_AUTO
 endif
+
 
 LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/stream/inc \
@@ -89,6 +90,8 @@ LOCAL_SRC_FILES := \
     device/src/USBAudio.cpp \
     device/src/Device.cpp \
     device/src/Speaker.cpp \
+    device/src/A2BSpeaker.cpp \
+    device/src/A2B2Speaker.cpp \
     device/src/Bluetooth.cpp \
     device/src/SpeakerMic.cpp \
     device/src/HeadsetMic.cpp \

@@ -1,5 +1,5 @@
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = pal.pc
+pkgconfig_DATA = ar-pal.pc
 EXTRA_DIST = $(pkgconfig_DATA)
 
 
@@ -126,6 +126,7 @@ AM_CPPFLAGS += -I $(top_srcdir)/session/inc
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
+AM_CPPFLAGS += -I $(top_srcdir)/plugins/controls
 AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/
 AM_CPPFLAGS += -I ${PKG_CONFIG_SYSROOT_DIR}/${includedir}/capiv2_api/
@@ -139,6 +140,7 @@ AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result
 AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DCONFIG_GSL
+AM_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
 
 pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamCompress.cpp \
@@ -196,25 +198,25 @@ acl_sources = ${top_srcdir}/utils/src/ChargerListener.cpp
 endif
 
 library_include_HEADERS = $(h_sources)
-library_includedir = $(includedir)/pal
+library_includedir = $(includedir)
 
-lib_LTLIBRARIES     = libpal.la
-libpal_la_SOURCES   = $(pal_sources)
-libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress
-libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
-libpal_la_CPPFLAGS += -std=c++14
-libpal_la_LDFLAGS   = -shared -avoid-version
-libpal_la_CPPFLAGS += $(GLIB_CFLAGS) -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
-libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
+lib_LTLIBRARIES        = libar-pal.la
+libar_pal_la_SOURCES   = $(pal_sources)
+libar_pal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress -lagmclient
+libar_pal_la_CPPFLAGS := $(AM_CPPFLAGS)
+libar_pal_la_CPPFLAGS += -std=c++14
+libar_pal_la_LDFLAGS   = -shared -avoid-version
+libar_pal_la_CPPFLAGS += $(GLIB_CFLAGS) -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
+libar_pal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 if BUILDSYSTEM_OPENWRT
-libpal_la_LIBADD += -lglib-2.0
+libar_pal_la_LIBADD   += -lglib-2.0
 endif
 
 if COMPILE_COMPRESS
-libpal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR
+libar_pal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR
 endif
 
-lib_LTLIBRARIES     += libaudiocl.la
+lib_LTLIBRARIES        += libaudiocl.la
 libaudiocl_la_SOURCES   = $(acl_sources)
 libaudiocl_la_LIBADD    = $(GLIB_LIBS)
 libaudiocl_la_CPPFLAGS := $(AM_CPPFLAGS)

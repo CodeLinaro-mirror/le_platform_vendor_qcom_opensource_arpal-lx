@@ -462,9 +462,11 @@ int32_t StreamCommon::setVolume(struct pal_volume_data *volume)
     }
 
 exit:
-    PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
+    if (volume != NULL) {
+        PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
                       (volume->no_of_volpair), (volume->volume_pair->channel_mask),
                       (volume->volume_pair->vol));
+    }
     return status;
 }
 
