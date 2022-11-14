@@ -90,6 +90,8 @@ LOCAL_SRC_FILES := \
     device/src/USBAudio.cpp \
     device/src/Device.cpp \
     device/src/Speaker.cpp \
+    device/src/A2BSpeaker.cpp \
+    device/src/A2B2Speaker.cpp \
     device/src/Bluetooth.cpp \
     device/src/SpeakerMic.cpp \
     device/src/HeadsetMic.cpp \
@@ -123,7 +125,8 @@ LOCAL_SRC_FILES := \
     utils/src/SoundTriggerPlatformInfo.cpp \
     utils/src/ACDPlatformInfo.cpp \
     utils/src/PalRingBuffer.cpp \
-    utils/src/SoundTriggerUtils.cpp
+    utils/src/SoundTriggerUtils.cpp \
+    utils/src/SharedMemoryUtils.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \
