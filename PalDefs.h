@@ -55,15 +55,6 @@ extern "C" {
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
 
-#define CAPI_V2_PARAM_ID_LOAD_PERSIST_DUMMY     0x080012AA
-#define CAPI_V2_PARAM_ID_LOAD_GET_PERSIST_DUMMY 0x080012AB
-#define CAPI_V2_PARAM_ID_LOAD_SET_PERSIST_DUMMY 0x080012AC
-#define CAPI_V2_PARAM_ID_LOAD_CACHE_OP          0x080012AD
-#define TEST_SHARED_MEM_TAG                     0xC00FF019
-#define SAMPLE_RATE                             48000
-#define NUMBER_OF_CHANNEL                       2
-#define BIT_WIDTH                               16
-
 /** Audio stream handle */
 typedef uint64_t pal_stream_handle_t;
 
@@ -901,7 +892,6 @@ typedef enum {
     PAL_PARAM_ID_VOLUME_USING_SET_PARAM = 55,
     PAL_PARAM_ID_UHQA_FLAG = 56,
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
-    PAL_PARAM_ID_STREAM_SHMEM_GET_PARAM = 58,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1380,64 +1370,6 @@ struct pal_event_read_write_done_payload {
     uint32_t md_status; /**< meta-data status as defined in ar_osal_error.h */
     struct pal_buffer buff; /**< buffer that was passed to pal_stream_read/pal_stream_write */
 };
-
-/** enum for shmem cache type*/
-typedef enum pal_shmem_cache_type {
-    /** 0  cached.*/
-    PAL_SHMEM_MAP_CACHED = 0x0,
-    /** 4  uncached.*/
-    PAL_SHMEM_MAP_UNCACHED = 0x4
-} pal_shmem_cache_type_t;
-
-struct pal_shmem_info
-{
-    /** spf_addr <msw,lsw> populated from ipa */
-    uint64_t spf_addr;
-    /** fd to the virtual address of the shared memory */
-    uint32_t fd;
-    /** Memory handle to the shared memory */
-    uint32_t spf_mem_handle;
-    /** Contains the size of shared memory to be allocated */
-    uint32_t size;
-    /** Tells the type of caching that shared memory would present of type */
-    pal_shmem_cache_type_t cache;
-};
-
-/** @h2xmlp_parameter   {"AUDIO_LOAD_PERSIST_DUMMY", CAPI_V2_PARAM_ID_LOAD_PERSIST_DUMMY}
-    @h2xmlp_description {set shared memory info} */
-typedef struct {
-    /** Memory handle to the shared memory */
-    uint32_t spf_mem_handle;
-    /** Lower 32 bits of the address of the buffer containing the data */
-    uint32_t spf_mem_addr_lsw;
-    /** Upper 32 bits of the address of the buffer containing the data */
-    uint32_t spf_mem_addr_msw;
-    /** Contains the size of allocated shared memory */
-    uint32_t size;
-    uint32_t is_ref_counted;
-} pal_load_persist_dummy_t;
-
-/** @h2xmlp_parameter   {"AUDIO_LOAD_GET_PERSIST_DUMMY", CAPI_V2_PARAM_ID_LOAD_GET_PERSIST_DUMMY}
-    @h2xmlp_description {read partial payload of persist dummy parameter. Set index and num than read back, array should contain the result.} */
-typedef struct {
-    uint32_t index;
-    /**< @h2xmle_description  {persist dummy parameter is interpreted as uint32_t[], start reading uint32_t values at index of the persist dummy array} */
-    uint32_t num;
-    /**< @h2xmle_description  {number of elements in array} */
-    uint32_t array[0];
-     /**< @h2xmle_variableArraySize {num}
-          @h2xmle_description  {variable array with num elements} */
-} pal_load_get_persist_dummy_t;
-
-/** @h2xmlp_parameter   {"AUDIO_LOAD_SET_PERSIST_DUMMY", CAPI_V2_PARAM_ID_LOAD_SET_PERSIST_DUMMY}
-    @h2xmlp_description {write to persist dummy parameter} */
-typedef struct {
-    uint32_t effective;
-    /**< @h2xmle_rangeList{"No"=0; "Yes"=1} */
-    uint32_t index;
-    /**< @h2xmle_description  {persist dummy parameter is interpreted as uint32_t[]} */
-    uint32_t value;
-} pal_load_set_persist_dummy_t;
 
 /** @brief Callback function prototype to be given for
  *         pal_open_stream.

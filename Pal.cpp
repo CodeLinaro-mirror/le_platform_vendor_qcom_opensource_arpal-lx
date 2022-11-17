@@ -95,13 +95,6 @@ int32_t pal_init(void)
 
     ri->init();
 
-/* Enable shared memory feature*/
-#ifdef ENABLE_SHARED_MEM
-    PAL_DBG(LOG_TAG, "calling pal_plugin_init");
-    ri->pal_plugin_init(PLUGIN_CONTROL_SHMEM_ALLOC);
-    PAL_DBG(LOG_TAG, "calling pal_plugin_init Done");
-#endif
-
     ret = ri->initContextManager();
     if (ret != 0) {
         PAL_ERR(LOG_TAG, "ContextManager init failed, error:%d", ret);

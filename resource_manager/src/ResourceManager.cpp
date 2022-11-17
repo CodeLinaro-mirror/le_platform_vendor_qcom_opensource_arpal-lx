@@ -329,7 +329,6 @@ const std::map<std::string, plugin_control_name_t> controlNameMap {
     {std::string{"PLUGIN_CONTROL_HD_VOICE"}, PLUGIN_CONTROL_HD_VOICE},
     {std::string{"PLUGIN_CONTROL_AUDIO_BUFFER"}, PLUGIN_CONTROL_AUDIO_BUFFER},
     {std::string{"PLUGIN_CONTROL_AUDIO_LATENCY"}, PLUGIN_CONTROL_AUDIO_LATENCY},
-    {std::string{"PLUGIN_CONTROL_SHMEM_ALLOC"}, PLUGIN_CONTROL_SHMEM_ALLOC},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -10248,12 +10247,6 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
                 status = -EINVAL;
                 goto exit;
             }
-            plugin->ops.init_control = (plugin_init_control_fn_t)dlsym(plugin->handle, "plugin_init");
-            if (!plugin->ops.init_control) {
-                PAL_ERR(LOG_TAG, "dlsym to open fn failed for plugin %s, err = '%s'", plugin->name.c_str(), dlerror());
-                status = -EINVAL;
-                goto  exit;
-            }
         }
     } else {
         PAL_ERR(LOG_TAG,"unsupported pluggin Control %d for plugin %s", control,
@@ -10365,15 +10358,3 @@ exit:
     return status;
 }
 
-int ResourceManager:: pal_plugin_init(plugin_control_name_t control){
-    int status = 0;
-    plugin_fn_ops_t plugin_ops;
-
-    if (!getControlPluginOps(control, PAL_STREAM_DEEP_BUFFER, &plugin_ops)) {
-        status = plugin_ops.init_control(control);
-    } else {
-        PAL_ERR(LOG_TAG,"control plugin failed to load");
-        status = -EINVAL;
-    }
-     return status;
-}

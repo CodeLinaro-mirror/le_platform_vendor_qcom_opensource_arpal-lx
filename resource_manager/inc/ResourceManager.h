@@ -287,7 +287,6 @@ struct tx_ecinfo {
 struct plugin_fn_ops{
     plugin_set_control_fn_t set_control;
     plugin_get_control_fn_t get_control;
-    plugin_init_control_fn_t init_control;
 }typedef plugin_fn_ops_t;
 
 struct plugin_t {
@@ -882,7 +881,6 @@ public:
     static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
     int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
     int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
-    int pal_plugin_init(plugin_control_name_t control);
 };
 
 #endif
