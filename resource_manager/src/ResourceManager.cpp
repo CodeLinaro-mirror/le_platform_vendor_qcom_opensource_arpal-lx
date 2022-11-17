@@ -10387,7 +10387,7 @@ exit:
     return status;
 }
 
-int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* payload, size_t playload_size) {
+int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* payload, size_t payload_size) {
     int status = 0;
     int i = 0;
     Stream *s = NULL;
@@ -10402,12 +10402,12 @@ int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* 
         if (control == ControlInfo[i].name) {
             /* if plugin is not already loaded, load it*/
             if (ControlInfo[i].plugins[0].handle) {
-                status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+                status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, payload_size);
             } else {
                 PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
                 PAL_DBG(LOG_TAG, "loading plugin %s for control %d", ControlInfo[i].plugins[0].name.c_str(), control);
                 if (!openControlPlugin(&(ControlInfo[i].plugins[0]), control)) {
-                    status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+                    status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, payload_size);
                     closeControlPlugin(&(ControlInfo[i].plugins[0]), control);
                 } else {
                     PAL_ERR(LOG_TAG,"control plugin failed to load");
