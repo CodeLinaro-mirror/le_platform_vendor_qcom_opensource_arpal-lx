@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -231,6 +232,11 @@ int32_t SoundTriggerEngineGsl::StartBuffering(Stream *s) {
         PAL_DBG(LOG_TAG, "DSP output data stored in: dsp_output_%d.bin",
             dsp_output_cnt);
         dsp_output_cnt++;
+    }
+
+    if (mmap_buffer_size_ != 0) {
+        read_offset = FrameToBytes(mmap_write_position_);
+        PAL_DBG(LOG_TAG, "Start lab reading from offset %zu", read_offset);
     }
 
     ATRACE_ASYNC_BEGIN("stEngine: read FTRT data", (int32_t)module_type_);
@@ -2005,34 +2011,13 @@ int32_t SoundTriggerEngineGsl::RestartRecognition(Stream *s) {
         custom_detection_event_size = 0;
     }
 
-    /*
-     * TODO: This sequence RESET->STOP->START is currently required from spf
-     * as ENGINE_RESET alone can't reset the graph (including DAM etc..) ready
-     * for next detection.
-     */
     status = UpdateSessionPayload(ENGINE_RESET);
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to reset engine, status = %d",
                 status);
     }
 
-    status = session_->stop(s);
-    if (!status) {
-        exit_buffering_ = false;
-        UpdateState(ENG_LOADED);
-        status = session_->start(s);
-        if (status) {
-            PAL_ERR(LOG_TAG, "start session failed, status = %d",
-                    status);
-        } else {
-            UpdateState(ENG_ACTIVE);
-        }
-    } else {
-        PAL_ERR(LOG_TAG, "stop session failed, status = %d",
-                status);
-    }
-
-    // Update mmap write position after restart
+    // Update mmap write position after engine reset
     if (mmap_buffer_size_) {
         status = session_->GetMmapPosition(s, &mmap_pos);
         if (!status) {
@@ -2042,7 +2027,16 @@ int32_t SoundTriggerEngineGsl::RestartRecognition(Stream *s) {
         } else {
             PAL_ERR(LOG_TAG, "Failed to get write position");
         }
+        // reset wall clk in agm pcm plugin
+        status = session_->ResetMmapBuffer(s);
+        if (status)
+            PAL_ERR(LOG_TAG, "Failed to reset mmap buffer, status %d", status);
+        mmap_write_position_ = mmap_write_position_ % BytesToFrames(mmap_buffer_size_);
+        PAL_DBG(LOG_TAG, "Reset mmap write position to %u", mmap_write_position_);
     }
+
+    exit_buffering_ = false;
+    UpdateState(ENG_ACTIVE);
 
     if (status == -ENETRESET) {
         PAL_INFO(LOG_TAG, "Update the status in case of SSR");
