@@ -1,81 +1,7 @@
 pkgconfigdir = $(libdir)/pkgconfig
-pkgconfig_DATA = pal.pc
+pkgconfig_DATA = ar-pal.pc
 EXTRA_DIST = $(pkgconfig_DATA)
 
-
-if BUILDSYSTEM_OPENWRT
-h_sources = ./stream/inc/Stream.h \
-            ./stream/inc/StreamCompress.h \
-            ./stream/inc/StreamPCM.h \
-            ./stream/inc/StreamSoundTrigger.h \
-            ./stream/inc/StreamUltraSound.h \
-            ./device/inc/Device.h \
-            ./device/inc/Speaker.h \
-            ./device/inc/Bluetooth.h \
-            ./plugins/codecs/bt_plugin_intf.h \
-            ./device/inc/Headphone.h \
-            ./device/inc/USBAudio.h \
-            ./device/inc/SpeakerMic.h \
-            ./device/inc/HeadsetMic.h \
-            ./device/inc/Handset.h \
-            ./device/inc/HandsetMic.h \
-            ./device/inc/HandsetVaMic.h \
-            ./device/inc/UltrasoundDevice.h \
-            ./session/inc/Session.h \
-            ./session/inc/PayloadBuilder.h \
-            ./session/inc/SessionGsl.h \
-            ./session/inc/SessionAlsaUtils.h \
-            ./session/inc/SessionAlsaPcm.h \
-            ./session/inc/SessionAlsaCompress.h \
-            ./session/inc/SessionAlsaVoice.h \
-            ./session/inc/SoundTriggerEngine.h \
-            ./session/inc/SoundTriggerEngineGsl.h \
-            ./session/inc/SoundTriggerEngineCapi.h \
-            ./resource_manager/inc/ResourceManager.h \
-            ./PalDefs.h \
-            ./PalApi.h \
-            ./PalAudioRoute.h \
-            ./PalCommon.h \
-            ./utils/inc/PalRingBuffer.h \
-            ./utils/inc/SoundTriggerUtils.h
-
-AM_CPPFLAGS := -I ./stream/inc
-AM_CPPFLAGS += -I ./device/inc
-AM_CPPFLAGS += -I ./session/inc
-AM_CPPFLAGS += -I ./resource_manager/inc
-AM_CPPFLAGS += -I ./utils/inc
-AM_CPPFLAGS += -I ./
-
-pal_sources = ./stream/src/Stream.cpp \
-              ./stream/src/StreamCompress.cpp \
-              ./stream/src/StreamPCM.cpp \
-              ./stream/src/StreamSoundTrigger.cpp \
-              ./stream/src/StreamUltraSound.cpp \
-              ./device/src/Device.cpp \
-              ./device/src/Speaker.cpp \
-              ./device/src/Headphone.cpp \
-              ./device/inc/USBAudio.cpp \
-              ./device/src/SpeakerMic.cpp \
-              ./device/src/Bluetooth.cpp \
-              ./device/src/HeadsetMic.cpp \
-              ./device/src/HandsetMic.cpp \
-              ./device/src/HandsetVaMic.cpp \
-              ./device/src/Handset.cpp \
-              ./device/src/UltrasoundDevice.cpp \
-              ./session/src/Session.cpp \
-              ./session/src/PayloadBuilder.cpp \
-              ./session/src/SessionAlsaUtils.cpp \
-              ./session/src/SessionAlsaPcm.cpp \
-              ./session/src/SessionAlsaCompress.cpp\
-              ./session/src/SessionAlsaVoice.cpp\
-              ./session/src/SoundTriggerEngine.cpp \
-              ./session/src/SoundTriggerEngineGsl.cpp \
-              ./session/src/SoundTriggerEngineCapi.cpp \
-              ./resource_manager/src/ResourceManager.cpp \
-              ./Pal.cpp \
-              ./utils/src/PalRingBuffer.cpp \
-              ./utils/src/SoundTriggerUtils.cpp
-else
 h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/stream/inc/StreamCompress.h \
             ${top_srcdir}/stream/inc/StreamInCall.h \
@@ -84,6 +10,8 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/stream/inc/StreamUltraSound.h \
             ${top_srcdir}/device/inc/Device.h \
             ${top_srcdir}/device/inc/Speaker.h \
+            ${top_srcdir}/device/inc/A2BSpeaker.h \
+            ${top_srcdir}/device/inc/A2B2Speaker.h \
             ${top_srcdir}/device/inc/Headphone.h \
             ${top_srcdir}/device/inc/Bluetooth.h \
             ${top_srcdir}/plugins/codecs/bt_intf.h \
@@ -126,6 +54,7 @@ AM_CPPFLAGS += -I $(top_srcdir)/session/inc
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
+AM_CPPFLAGS += -I $(top_srcdir)/plugins/controls
 AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/
 AM_CPPFLAGS += -I ${PKG_CONFIG_SYSROOT_DIR}/${includedir}/capiv2_api/
@@ -149,6 +78,8 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamSensorPCMData.cpp \
               ${top_srcdir}/device/src/Device.cpp \
               ${top_srcdir}/device/src/Speaker.cpp \
+              ${top_srcdir}/device/src/A2BSpeaker.cpp \
+              ${top_srcdir}/device/src/A2B2Speaker.cpp \
               ${top_srcdir}/device/src/Headphone.cpp \
               ${top_srcdir}/device/src/SpeakerMic.cpp \
               ${top_srcdir}/device/src/Bluetooth.cpp \
@@ -193,28 +124,33 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
 
 acl_sources = ${top_srcdir}/utils/src/ChargerListener.cpp
 
-endif
-
 library_include_HEADERS = $(h_sources)
-library_includedir = $(includedir)/pal
+library_includedir = $(includedir)
 
-lib_LTLIBRARIES     = libpal.la
-libpal_la_SOURCES   = $(pal_sources)
-libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress
-libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
-libpal_la_CPPFLAGS += -std=c++14
-libpal_la_LDFLAGS   = -shared -avoid-version
-libpal_la_CPPFLAGS += $(GLIB_CFLAGS) -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
-libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
-if BUILDSYSTEM_OPENWRT
-libpal_la_LIBADD += -lglib-2.0
-endif
+lib_LTLIBRARIES        = libar-pal.la
+libar_pal_la_SOURCES   = $(pal_sources)
+libar_pal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress -lagmclient
+libar_pal_la_CPPFLAGS := $(AM_CPPFLAGS)
+libar_pal_la_CPPFLAGS += -std=c++14
+libar_pal_la_LDFLAGS   = -shared -avoid-version
+libar_pal_la_CPPFLAGS += $(GLIB_CFLAGS) -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
+libar_pal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 
 if COMPILE_COMPRESS
-libpal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR
+    libar_pal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR
 endif
 
-lib_LTLIBRARIES     += libaudiocl.la
+if VENDOR_PARTITION
+    libar_pal_la_CPPFLAGS += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
+    libar_pal_la_CPPFLAGS += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
+    libar_pal_la_CPPFLAGS += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
+else
+    libar_pal_la_CPPFLAGS += -DVENDOR_CONFIG_PATH=\"/etc\"
+    libar_pal_la_CPPFLAGS += -DSNDPARSER=\"/etc/card-defs.xml\"
+    libar_pal_la_CPPFLAGS += -DUSECASE_XML_FILE=\"/etc/usecaseKvManager.xml\"
+endif
+
+lib_LTLIBRARIES        += libaudiocl.la
 libaudiocl_la_SOURCES   = $(acl_sources)
 libaudiocl_la_LIBADD    = $(GLIB_LIBS)
 libaudiocl_la_CPPFLAGS := $(AM_CPPFLAGS)

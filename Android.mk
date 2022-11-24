@@ -18,20 +18,22 @@ LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
 LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
+LOCAL_CFLAGS        += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
+LOCAL_CFLAGS        += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
+LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 ifeq ($(PRODUCT_NAME), msmnile_gvmq)
-LOCAL_CFLAGS        += -DAUTO_GVMQ
+  LOCAL_CFLAGS        += -DAUTO_GVMQ
 endif
 ifeq ($(PRODUCT_NAME), msmnile_au)
   LOCAL_CFLAGS   += -DAUTO_AU
-  LOCAL_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
-endif
-
-ifeq ($(ENABLE_HYP),true)
-LOCAL_CPPFLAGS += -DREMOVE_PSPD_MFC_CONFIG
 endif
 
 ifeq ($(PRODUCT_NAME), msmnile_gvmgh)
+  LOCAL_CFLAGS += -DPLATFORM_AUTO
+endif
+
+ifeq ($(PRODUCT_NAME), msmnile_gvmq)
   LOCAL_CFLAGS += -DPLATFORM_AUTO
 endif
 
@@ -85,6 +87,8 @@ LOCAL_SRC_FILES := \
     device/src/USBAudio.cpp \
     device/src/Device.cpp \
     device/src/Speaker.cpp \
+    device/src/A2BSpeaker.cpp \
+    device/src/A2B2Speaker.cpp \
     device/src/Bluetooth.cpp \
     device/src/SpeakerMic.cpp \
     device/src/HeadsetMic.cpp \
@@ -118,7 +122,8 @@ LOCAL_SRC_FILES := \
     utils/src/SoundTriggerPlatformInfo.cpp \
     utils/src/ACDPlatformInfo.cpp \
     utils/src/PalRingBuffer.cpp \
-    utils/src/SoundTriggerUtils.cpp
+    utils/src/SoundTriggerUtils.cpp \
+    utils/src/SharedMemoryUtils.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \

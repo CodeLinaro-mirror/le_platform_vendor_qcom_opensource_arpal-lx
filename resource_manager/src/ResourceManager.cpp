@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: ResourceManager"
 #include "ResourceManager.h"
 #include "Session.h"
@@ -73,12 +80,6 @@
 #define HW_INFO_ARRAY_MAX_SIZE 32
 
 #define VBAT_BCL_SUFFIX "-vbat"
-
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-#define SNDPARSER "/etc/card-defs.xml"
-#else
-#define SNDPARSER "/vendor/etc/card-defs.xml"
-#endif
 
 #if defined(ADSP_SLEEP_MONITOR)
 #include <adsp_sleepmon.h>
@@ -322,6 +323,7 @@ const std::map<std::string, plugin_control_name_t> controlNameMap {
     {std::string{"PLUGIN_CONTROL_HD_VOICE"}, PLUGIN_CONTROL_HD_VOICE},
     {std::string{"PLUGIN_CONTROL_AUDIO_BUFFER"}, PLUGIN_CONTROL_AUDIO_BUFFER},
     {std::string{"PLUGIN_CONTROL_AUDIO_LATENCY"}, PLUGIN_CONTROL_AUDIO_LATENCY},
+    {std::string{"PLUGIN_CONTROL_KV_PARAM"}, PLUGIN_CONTROL_KV_PARAM},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -3919,7 +3921,11 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
 void ResourceManager::mixerEventWaitThreadLoop(
     std::shared_ptr<ResourceManager> rm) {
     int ret = 0;
+#ifdef LINUX_ENABLED
+    struct ctl_event mixer_event = {0, {.data8 = {0}}};
+#else
     struct snd_ctl_event mixer_event = {0, {.data8 = {0}}};
+#endif
     struct mixer *mixer = nullptr;
 
     ret = rm->getVirtualAudioMixer(&mixer);
@@ -7391,7 +7397,7 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
         {
             PAL_INFO(LOG_TAG, "get parameter for sndcard state");
             *param_payload = (uint8_t*)&rm->cardState;
-            *payload_size = sizeof(rm->cardState);
+            *payload_size = sizeof(card_status_t);
             break;
         }
         case PAL_PARAM_ID_HIFI_PCM_FILTER:
@@ -7428,7 +7434,12 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             bool match = false;
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
-                match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
+                if (address) {
+                    match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
+                } else {
+                    //non bus usecase
+                    match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                }
                 if (match) {
                     status = (*sIter)->getEffectParameters(param_payload);
                     break;
@@ -7998,6 +8009,17 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+            mResourceManagerMutex.unlock();
+            status = rm->controlPluginSetParam(PLUGIN_CONTROL_KV_PARAM, param_payload, payload_size);
+            mResourceManagerMutex.lock();
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"controlPluginSetParam Failed \n");
+                goto exit;
+            }
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
@@ -8029,8 +8051,12 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
                 if ((*sIter) != NULL) {
-                    match = (*sIter)->checkBusStreamMatch(pal_device_id,
-                                                       pal_stream_type, address);
+                    if (address) {
+                        match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
+                    } else {
+                        //non bus usecase
+                        match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                    }
                     if (match) {
                         status = (*sIter)->setParameters(param_id, param_payload);
                         if (status) {
@@ -9903,13 +9929,8 @@ void ResourceManager::getVendorConfigPath (char* config_file_path, int path_size
 {
    char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
    if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-       /* Audio configs are stored in /etc */
-       snprintf(config_file_path, path_size, "%s", "/etc");
-#else
-       /* Audio configs are stored in /vendor/etc */
-       snprintf(config_file_path, path_size, "%s", "/vendor/etc");
-#endif
+       /* Audio configs are stored in VENDOR_CONFIG_PATH */
+       snprintf(config_file_path, path_size, "%s", VENDOR_CONFIG_PATH);
     } else {
        /* Audio configs are stored in /vendor/etc/audio/sku_${vendor_sku} */
        snprintf(config_file_path, path_size,
@@ -10237,9 +10258,39 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
 
 exit:
     if (status) {
-        dlclose(plugin->handle);
-        plugin->handle = NULL;
+        if (plugin && plugin->handle) {
+            dlclose(plugin->handle);
+            plugin->handle = NULL;
+        }
     }
+    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    return status;
+}
+
+int ResourceManager::closeControlPlugin(plugin_t *plugin, plugin_control_name_t control)
+{
+    int status = 0;
+
+    PAL_DBG(LOG_TAG,"Enter");
+
+    if (!plugin) {
+        PAL_ERR(LOG_TAG,"Invalid plugin handle");
+        status = -EINVAL;
+        goto exit;
+    }
+    if (control < PLUGIN_CONTROL_MAX) {
+        if (plugin && plugin->handle) {
+            dlclose(plugin->handle);
+            plugin->handle = NULL;
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"unsupported pluggin Control %d for plugin %s", control,
+                plugin->name.c_str());
+        status = -EINVAL;
+        goto exit;
+    }
+
+exit:
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
 }
@@ -10336,3 +10387,36 @@ exit:
     return status;
 }
 
+int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* payload, size_t playload_size) {
+    int status = 0;
+    int i = 0;
+    Stream *s = NULL;
+
+    if (control >= PLUGIN_CONTROL_MAX) {
+        PAL_ERR(LOG_TAG,"control plugin is out of range");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    for (i = 0; i < ControlInfo.size(); i++) {
+        if (control == ControlInfo[i].name) {
+            /* if plugin is not already loaded, load it*/
+            if (ControlInfo[i].plugins[0].handle) {
+                status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+            } else {
+                PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
+                PAL_DBG(LOG_TAG, "loading plugin %s for control %d", ControlInfo[i].plugins[0].name.c_str(), control);
+                if (!openControlPlugin(&(ControlInfo[i].plugins[0]), control)) {
+                    status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+                    closeControlPlugin(&(ControlInfo[i].plugins[0]), control);
+                } else {
+                    PAL_ERR(LOG_TAG,"control plugin failed to load");
+                    status = -EINVAL;
+                }
+            }
+            break;
+        }
+    }
+exit:
+    return status;
+}

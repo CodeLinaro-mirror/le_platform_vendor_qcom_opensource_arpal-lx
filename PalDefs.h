@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 /** \file pal_defs.h
  *  \brief struture, enum constant defintions of the
  *         PAL(Platform Audio Layer).
@@ -892,6 +899,8 @@ typedef enum {
     PAL_PARAM_ID_VOLUME_USING_SET_PARAM = 55,
     PAL_PARAM_ID_UHQA_FLAG = 56,
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
+    PAL_PARAM_ID_PLUGIN_PARAM = 58,
+    PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
