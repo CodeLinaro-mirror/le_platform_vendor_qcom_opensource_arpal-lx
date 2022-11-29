@@ -900,6 +900,7 @@ typedef enum {
     PAL_PARAM_ID_UHQA_FLAG = 56,
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
     PAL_PARAM_ID_PLUGIN_PARAM = 58,
+    PAL_PARAM_ID_SET_HFP_ZONE = 59,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

@@ -62,6 +62,7 @@
 
 /* ID of the Master Gain parameter used by MODULE_ID_VOL_CTRL. */
 #define PARAM_ID_VOL_CTRL_MASTER_GAIN 0x08001035
+#define PARAM_ID_FLUENCE_MMSB_AUTO_VOICECALLZONE 0x08001220
 
 struct volume_ctrl_master_gain_t
 {
@@ -77,6 +78,13 @@ struct volume_ctrl_master_gain_t
 };
 /* Structure type def for above payload. */
 typedef struct volume_ctrl_master_gain_t volume_ctrl_master_gain_t;
+
+struct param_id_fluence_mmsb_voicecallzone_t
+{
+    uint32_t voice_call_zone;
+};
+typedef struct param_id_fluence_mmsb_voicecallzone_t param_id_fluence_mmsb_voicecallzone_t;
+
 
 /* ID of the Output Media Format parameters used by MODULE_ID_MFC */
 #define PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x08001024
@@ -331,6 +339,36 @@ void PayloadBuilder::payloadVolumeConfig(uint8_t** payload, size_t* size,
                   header->module_instance_id, header->param_id,
                   header->error_code, header->param_size);
     *size = payloadSize + padBytes;;
+    *payload = payloadInfo;
+    PAL_DBG(LOG_TAG, "payload %pK size %zu", *payload, *size);
+}
+
+void PayloadBuilder::payloadHFPZoneConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, int zone_id)
+{
+    struct apm_module_param_data_t* header = nullptr;
+    param_id_fluence_mmsb_voicecallzone_t *zoneId = nullptr;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(struct param_id_fluence_mmsb_voicecallzone_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = new uint8_t[payloadSize + padBytes]();
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_FLUENCE_MMSB_AUTO_VOICECALLZONE;
+    header->error_code = 0x0;
+    header->param_size = payloadSize -  sizeof(struct apm_module_param_data_t);
+    zoneId = (param_id_fluence_mmsb_voicecallzone_t *)(payloadInfo + sizeof(struct apm_module_param_data_t));
+    zoneId->voice_call_zone = zone_id;
+    PAL_VERBOSE(LOG_TAG, "zonal_hfp header params IID:%x param_id:%x error_code:%d param_size:%d, zoneId->voice_call_zone=%d",
+                  header->module_instance_id, header->param_id,
+                  header->error_code, header->param_size, zoneId->voice_call_zone);
+    *size = payloadSize + padBytes;
     *payload = payloadInfo;
     PAL_DBG(LOG_TAG, "payload %pK size %zu", *payload, *size);
 }
