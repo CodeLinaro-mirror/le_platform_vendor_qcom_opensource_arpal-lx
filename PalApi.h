@@ -599,6 +599,16 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
                       pal_stream_type_t pal_stream_type, uint32_t sample_rate,
                       uint32_t instance_id, uint32_t dir, bool is_play);
 
+/**
+  * \brief Get the latency from DSP.
+  *
+  * \param[in] handle - PAL stream handle.
+  * \param[out] delay_in_ms - Returned latency.
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_stream_get_path_delay(pal_stream_handle_t *handle, uint32_t *delay_in_ms);
+
 extern void  __gcov_flush();
 
 /**

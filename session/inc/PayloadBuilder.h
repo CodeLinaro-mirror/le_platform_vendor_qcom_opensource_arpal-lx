@@ -272,6 +272,7 @@ public:
     static bool isBtDevice(int32_t beDevId);
     static bool compareNumSelectors(struct kvInfo info_1, struct kvInfo info_2);
     static int payloadDualMono(uint8_t **payloadInfo);
+    int32_t payloadPathDelay(void** payload, uint32_t *payloadSize, uint32_t srcMiid, uint32_t dstMiid);
     PayloadBuilder();
     ~PayloadBuilder();
 };
