@@ -190,7 +190,7 @@ public:
     static std::string getDCDetSpkrCtrl(uint8_t spkr_pos, uint32_t miid);
     static void handleSPCallback (uint64_t hdl, uint32_t event_id, void *event_data,
                                   uint32_t event_size, uint32_t miid);
-    void updateCpsCustomPayload(int miid, uint32_t phy_add[],int wsa2_enable);
+    void updateCpsCustomPayload(int miid, uint32_t phy_add[], int wsa2_enable);
     int getCpsDevNumber(std::string mixer);
     int32_t getCalibrationData(void **param);
     int32_t getFTMParameter(void **param);

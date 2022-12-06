@@ -181,6 +181,8 @@ typedef enum {
     TAG_CONFIG_LPM,
     TAG_CONFIG_LPM_SUPPORTED_STREAM,
     TAG_CONFIG_LPM_SUPPORTED_STREAMS,
+    TAG_STREAMS_AVOID_SLEEP_MONITOR_VOTE,
+    TAG_AVOID_VOTE_STREAM,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -518,7 +520,7 @@ protected:
     std::vector <std::pair<std::shared_ptr<Device>, Stream*>> active_devices;
     std::vector <std::shared_ptr<Device>> plugin_devices_;
     std::vector <pal_device_id_t> avail_devices_;
-    std::map<Stream*, uint32_t> mActiveStreamUserCounter;
+    std::map<Stream*, std::pair<uint32_t, bool>> mActiveStreamUserCounter;
     bool bOverwriteFlag;
     bool screen_state_ = true;
     bool charging_state_;
@@ -580,7 +582,7 @@ protected:
     static struct disable_lpm_info disableLpmInfo_;
     static std::vector<struct pal_amp_db_and_gain_table> gainLvlMap;
     static SndCardMonitor *sndmon;
-    static std::vector <uint32_t> lpi_vote_streams_;
+    static std::vector <vote_type_t> sleep_monitor_vote_type_;
     /* condition variable for which ssrHandlerLoop will wait */
     static std::condition_variable cv;
     static std::mutex cvMutex;
@@ -731,7 +733,8 @@ public:
     int deregisterStream(Stream *s);
     int isActiveStream(pal_stream_handle_t *handle);
     int initStreamUserCounter(Stream *s);
-    int deinitStreamUserCounter(Stream *s);
+    int deactivateStreamUserCounter(Stream *s);
+    int eraseStreamUserCounter(Stream *s);
     int increaseStreamUserCounter(Stream* s);
     int decreaseStreamUserCounter(Stream* s);
     int getStreamUserCounter(Stream *s);

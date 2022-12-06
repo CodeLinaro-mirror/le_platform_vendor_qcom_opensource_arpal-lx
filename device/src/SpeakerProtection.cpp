@@ -447,7 +447,7 @@ exit:
 
 int SpeakerProtection::spkrStartCalibration()
 {
-    FILE *fp;
+    FILE *fp = NULL;
     struct pal_device device, deviceRx;
     struct pal_channel_info ch_info;
     struct pal_stream_attributes sAttr;
@@ -1409,7 +1409,7 @@ SpeakerProtection::~SpeakerProtection()
 /*
  * CPS related custom payload
  */
-void SpeakerProtection::updateCpsCustomPayload(int miid, uint32_t phy_add[], int wsa2_flag)
+void SpeakerProtection::updateCpsCustomPayload(int miid, uint32_t phy_add[3], int wsa2_flag)
 {
     PayloadBuilder* builder = new PayloadBuilder();
     uint8_t* payload = NULL;
@@ -1434,6 +1434,12 @@ void SpeakerProtection::updateCpsCustomPayload(int miid, uint32_t phy_add[], int
         PAL_ERR(LOG_TAG,"Unable to allocate Memory for CPS config\n");
         goto exit;
     }
+
+    if (!phy_add) {
+        PAL_ERR(LOG_TAG, "Invalid WSA addresses received for SP module instance: %d", miid);
+        goto exit;
+    }
+
     cpsRegCfg->num_spkr = max_channels;
     cpsRegCfg->lpass_wr_cmd_reg_phy_addr = phy_add[0];
     cpsRegCfg->lpass_rd_cmd_reg_phy_addr = phy_add[1];
@@ -1561,7 +1567,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
     char mSndDeviceName_SP[128] = {0};
     uint8_t* payload = NULL;
     uint32_t devicePropId[] = {0x08000010, 1, 0x2};
-    uint32_t miid = 0, SP_II_miid=0, SP_miid=0, tagid, deviceid;
+    uint32_t miid = 0, SP_II_miid = 0, SP_miid = 0, tagid, deviceid;
     bool isTxFeandBeConnected = true;
     bool isCPSFeandBeConnected = true;
     size_t payloadSize = 0;
