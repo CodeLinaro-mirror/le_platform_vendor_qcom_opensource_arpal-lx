@@ -153,6 +153,7 @@ public:
     virtual int createMmapBuffer(Stream *s __unused, int32_t min_size_frames __unused,
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int GetMmapPosition(Stream *s __unused, struct pal_mmap_position *position __unused) {return -EINVAL;}
+    virtual int32_t getAvailableFrameCount(uint32_t *frame_count __unused, int dir __unused) {return -EINVAL;}
     virtual int openGraph(Stream *s __unused) { return 0; }
     virtual int getTagsWithModuleInfo(Stream *s __unused, size_t *size __unused,
                                       uint8_t *payload __unused) {return -EINVAL;}
