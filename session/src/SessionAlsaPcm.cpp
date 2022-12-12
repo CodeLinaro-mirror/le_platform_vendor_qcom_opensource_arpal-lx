@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: SessionAlsaPcm"
 
 #include "SessionAlsaPcm.h"
@@ -2067,6 +2074,16 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             return 0;
 
         }
+        case PAL_PARAM_ID_SET_HFP_ZONE:
+        {
+            int zone_id = *(int *)payload;
+            if (pcmDevTxIds.size()) {
+                device = pcmDevTxIds.at(0);
+                PAL_DBG(LOG_TAG, "zonal_hfp pcmDevTxIds device=%d", device);
+            }
+            status = handleHFPZoneSetting(streamHandle, zone_id, device, mixer, builder, txAifBackEnds);
+            return 0;
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -2309,6 +2326,20 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
                 configSize + sizeof(struct apm_module_param_data_t));
             break;
         }
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+            pal_effect_custom_payload_t *customPayload = nullptr;
+            pal_param_payload *param_payload = nullptr;
+            effect_pal_payload_t *effectPalPayload = nullptr;
+            param_payload = (pal_param_payload *)(*payload);
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+
+            customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
+            configSize = effectPalPayload->payloadSize - sizeof(uint32_t);
+            builder->payloadQuery(&payloadData, &payloadSize, miid,
+                        customPayload->paramId, effectPalPayload->payloadSize - sizeof(uint32_t));
+            break;
+        }
         default:
             status = EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -2337,7 +2368,6 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
 
     ar_mem_cpy(config, configSize, ptr, configSize);
     *payload = (void *)config;
-
 
 exit:
     freeCustomPayload(&payloadData, &payloadSize);
@@ -2752,4 +2782,30 @@ int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
     }
 exit:
     return status;
+}
+
+
+int32_t SessionAlsaPcm::getAvailableFrameCount(uint32_t *frame_count, int dir)
+{
+    std::ostringstream CntrlName;
+    if (!pcmDevIds.size())
+    {
+        PAL_ERR(LOG_TAG, "No devices found");
+        return -EINVAL;
+    }
+
+    CntrlName << "PCM" << pcmDevIds.at(0) << " getAvailableFrameCount";
+
+    struct mixer_ctl *ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "mixer_get_ctl_by_name did not get control with name %s", CntrlName.str().data());
+        return -ENOENT;
+    }
+
+    int32_t ret = mixer_ctl_get_array(ctl, frame_count, sizeof(uint32_t));
+
+    if (ret)
+        PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with err %d", ret);
+
+    return ret;
 }

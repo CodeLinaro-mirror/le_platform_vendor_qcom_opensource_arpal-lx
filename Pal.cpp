@@ -937,6 +937,22 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
     return status;
 }
 
+int32_t pal_stream_get_available_frame_count(pal_stream_handle_t *stream_handle, uint32_t *frame_count)
+{
+    if (!stream_handle || !frame_count) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    int32_t ret = reinterpret_cast<Stream *>(stream_handle)->getAvailableFrameCount(frame_count);
+    if (ret) {
+        PAL_ERR(LOG_TAG, "stream getAvailableFrameCount failed with error %d", ret);
+        return ret;
+    }
+
+    return 0;
+}
+
 int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
 {
     std::shared_ptr<ResourceManager> rm = NULL;
