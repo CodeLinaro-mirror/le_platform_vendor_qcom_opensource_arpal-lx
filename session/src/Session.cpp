@@ -397,6 +397,43 @@ int Session::resume(Stream * s __unused)
      return 0;
 }
 
+int Session::handleHFPZoneSetting(Stream *s, int zone_id,
+        int device, struct mixer *mixer, PayloadBuilder* builder,
+        std::vector<std::pair<int32_t, std::string>> txAifBackEnds)
+{
+    int status = 0;
+    int ecns_tag = TAG_ECNS; // 0xC000000A
+    uint32_t miid = 0;
+    uint8_t* alsaParamData = NULL;
+    size_t alsaPayloadSize = 0;
+
+    if (txAifBackEnds.empty()) {
+        PAL_ERR(LOG_TAG, "zonal_hfp txAifBackEnds is NULL");
+        status = -1;
+        return status;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device, txAifBackEnds[0].second.data(),
+        ecns_tag, &miid);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed, status=%d", status);
+        return status;
+    }
+    PAL_DBG(LOG_TAG, "zonal_hfp txAifBackEnds[0] data=%s, miid=0x%x",  txAifBackEnds[0].second.data(), miid);
+
+    builder->payloadHFPZoneConfig(&alsaParamData, &alsaPayloadSize, miid, zone_id);
+
+    status = SessionAlsaUtils::setMixerParameter(mixer, device, alsaParamData, alsaPayloadSize);
+    freeCustomPayload(&alsaParamData, &alsaPayloadSize);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+        return status;
+    }
+
+    return status;
+}
+
+
+
 int Session::handleDeviceRotation(Stream *s, pal_speaker_rotation_type rotation_type,
         int device, struct mixer *mixer, PayloadBuilder* builder,
         std::vector<std::pair<int32_t, std::string>> rxAifBackEnds)

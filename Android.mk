@@ -122,7 +122,8 @@ LOCAL_SRC_FILES := \
     utils/src/SoundTriggerPlatformInfo.cpp \
     utils/src/ACDPlatformInfo.cpp \
     utils/src/PalRingBuffer.cpp \
-    utils/src/SoundTriggerUtils.cpp
+    utils/src/SoundTriggerUtils.cpp \
+    utils/src/SharedMemoryUtils.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \
@@ -142,7 +143,7 @@ LOCAL_SHARED_LIBRARIES := \
 
 #if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
 #This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R 12, $(PLATFORM_VERSION)),)
+ifneq ($(filter 11 R 12 13 T, $(PLATFORM_VERSION)),)
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
