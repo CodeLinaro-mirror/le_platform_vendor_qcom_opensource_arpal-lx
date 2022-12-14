@@ -183,6 +183,8 @@ public:
     void payloadMFCConfig(uint8_t** payload, size_t* size,
                            uint32_t miid,
                            struct sessionToPayloadParam* data);
+    void payloadHFPZoneConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, int zone_id);
     void payloadVolumeConfig(uint8_t** payload, size_t* size,
                            uint32_t miid,
                            struct pal_volume_data * data);

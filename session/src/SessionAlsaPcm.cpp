@@ -2074,6 +2074,16 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             return 0;
 
         }
+        case PAL_PARAM_ID_SET_HFP_ZONE:
+        {
+            int zone_id = *(int *)payload;
+            if (pcmDevTxIds.size()) {
+                device = pcmDevTxIds.at(0);
+                PAL_DBG(LOG_TAG, "zonal_hfp pcmDevTxIds device=%d", device);
+            }
+            status = handleHFPZoneSetting(streamHandle, zone_id, device, mixer, builder, txAifBackEnds);
+            return 0;
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -2772,4 +2782,30 @@ int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
     }
 exit:
     return status;
+}
+
+
+int32_t SessionAlsaPcm::getAvailableFrameCount(uint32_t *frame_count, int dir)
+{
+    std::ostringstream CntrlName;
+    if (!pcmDevIds.size())
+    {
+        PAL_ERR(LOG_TAG, "No devices found");
+        return -EINVAL;
+    }
+
+    CntrlName << "PCM" << pcmDevIds.at(0) << " getAvailableFrameCount";
+
+    struct mixer_ctl *ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "mixer_get_ctl_by_name did not get control with name %s", CntrlName.str().data());
+        return -ENOENT;
+    }
+
+    int32_t ret = mixer_ctl_get_array(ctl, frame_count, sizeof(uint32_t));
+
+    if (ret)
+        PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with err %d", ret);
+
+    return ret;
 }

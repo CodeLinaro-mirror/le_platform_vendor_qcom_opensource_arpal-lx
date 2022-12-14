@@ -81,12 +81,6 @@
 
 #define VBAT_BCL_SUFFIX "-vbat"
 
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-#define SNDPARSER "/etc/card-defs.xml"
-#else
-#define SNDPARSER "/vendor/etc/card-defs.xml"
-#endif
-
 #if defined(ADSP_SLEEP_MONITOR)
 #include <adsp_sleepmon.h>
 #endif
@@ -8026,6 +8020,24 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_SET_HFP_ZONE:
+        {
+            PAL_DBG(LOG_TAG, "zonal_hfp enter param set zone");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (st_attr.type == PAL_STREAM_LOOPBACK && st_attr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
+                    PAL_ERR(LOG_TAG, "found active zonal_hfp uplink stream");
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_SET_HFP_ZONE, (int *)param_payload); //zone_id
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set zoneid for ECNR");
+                        goto exit;
+                    }
+                }
+            }
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
@@ -9935,13 +9947,8 @@ void ResourceManager::getVendorConfigPath (char* config_file_path, int path_size
 {
    char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
    if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
-#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-       /* Audio configs are stored in /etc */
-       snprintf(config_file_path, path_size, "%s", "/etc");
-#else
-       /* Audio configs are stored in /vendor/etc */
-       snprintf(config_file_path, path_size, "%s", "/vendor/etc");
-#endif
+       /* Audio configs are stored in VENDOR_CONFIG_PATH */
+       snprintf(config_file_path, path_size, "%s", VENDOR_CONFIG_PATH);
     } else {
        /* Audio configs are stored in /vendor/etc/audio/sku_${vendor_sku} */
        snprintf(config_file_path, path_size,
@@ -10398,7 +10405,7 @@ exit:
     return status;
 }
 
-int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* payload, size_t playload_size) {
+int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* payload, size_t payload_size) {
     int status = 0;
     int i = 0;
     Stream *s = NULL;
@@ -10413,12 +10420,12 @@ int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* 
         if (control == ControlInfo[i].name) {
             /* if plugin is not already loaded, load it*/
             if (ControlInfo[i].plugins[0].handle) {
-                status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+                status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, payload_size);
             } else {
                 PAL_DBG(LOG_TAG, "plugin not loaded on boot loading");
                 PAL_DBG(LOG_TAG, "loading plugin %s for control %d", ControlInfo[i].plugins[0].name.c_str(), control);
                 if (!openControlPlugin(&(ControlInfo[i].plugins[0]), control)) {
-                    status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, playload_size);
+                    status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, payload_size);
                     closeControlPlugin(&(ControlInfo[i].plugins[0]), control);
                 } else {
                     PAL_ERR(LOG_TAG,"control plugin failed to load");
