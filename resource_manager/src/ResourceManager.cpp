@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -10207,7 +10207,7 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
     /* special case when we are switching with shared BE
      * always switch all to incoming device
      */
-    if (inDevAttr->id != curDevAttr->id) {
+    if (inDevAttr->id != curDevAttr->id && curDevAttr->id != PAL_DEVICE_IN_HANDSET_VA_MIC) {
         PAL_DBG(LOG_TAG, "found diff in device id cur dev %d incomming dev %d, device switch needed",
                 curDevAttr->id, inDevAttr->id);
         ret = true;
