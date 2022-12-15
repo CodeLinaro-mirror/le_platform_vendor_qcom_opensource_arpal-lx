@@ -10283,7 +10283,7 @@ int ResourceManager::getControlPluginOps(plugin_control_name_t control, pal_stre
             ar_mem_cpy(plugin_fn, sizeof(plugin_fn_ops_t),
                        &(ControlInfo[i].default_plugin.ops),
                        sizeof(plugin_fn_ops_t));
-            PAL_DBG(LOG_TAG, "setting default plugin %s for control %d",
+            PAL_VERBOSE(LOG_TAG, "setting default plugin %s for control %d",
                     ControlInfo[i].default_plugin.name.c_str(), control);
             /* if plugin is not already loaded, load it*/
             if (ControlInfo[i].default_plugin.handle == NULL) {
@@ -10293,7 +10293,7 @@ int ResourceManager::getControlPluginOps(plugin_control_name_t control, pal_stre
             for (int j = 0; j < ControlInfo[i].plugins.size(); j++) {
                 for ( int k = 0; k < ControlInfo[i].plugins[j].usecases.size(); k++) {
                     if (ControlInfo[i].plugins[j].usecases[k] == usecase){
-                        PAL_DBG(LOG_TAG, "found control %s for usecase %d",ControlInfo[i].plugins[j].name.c_str(),ControlInfo[i].plugins[j].usecases[k]);
+                        PAL_VERBOSE(LOG_TAG, "found control %s for usecase %d",ControlInfo[i].plugins[j].name.c_str(),ControlInfo[i].plugins[j].usecases[k]);
                         ar_mem_cpy(plugin_fn, sizeof(plugin_fn_ops_t),
                                    &(ControlInfo[i].plugins[j].ops), sizeof(plugin_fn_ops_t));
                         /* if plugin is not already loaded, load it*/
