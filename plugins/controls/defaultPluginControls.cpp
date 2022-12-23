@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: lib_default_plugin_controls"
 
 #include <log/log.h>
@@ -364,10 +371,20 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         goto exit;
     }
 
-    if (voldB > 1.0) {
-        // need to rebase voldB level
+    // Rebase HFP volume level
+    if ((sAttr.info.opt_stream_info.loopback_type ==
+         PAL_STREAM_LOOPBACK_HFP_RX) ||
+        (sAttr.info.opt_stream_info.loopback_type ==
+         PAL_STREAM_LOOPBACK_HFP_TX)) {
         voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
-        PAL_DBG(LOG_TAG,"Volume brought within range (%f)\n", voldB);
+        PAL_DBG(LOG_TAG,"HFP Volume brought within range (%f)\n", voldB);
+    }
+    else {
+        if (voldB > 1.0) {
+            // need to rebase voldB level
+            voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
+            PAL_DBG(LOG_TAG,"Volume brought within range (%f)\n", voldB);
+        }
     }
 
     if (voldB == 0.0f) {

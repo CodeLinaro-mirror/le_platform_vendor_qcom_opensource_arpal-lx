@@ -6,6 +6,8 @@
 #define LOG_TAG "PAL: lib_default_set_param_plugin_controls"
 
 #include <sys/mman.h>
+#include <sys/ioctl.h>
+#include <linux/dma-buf.h>
 #include <cutils/str_parms.h>
 #include "defaultShmemPluginControls.h"
 
@@ -431,21 +433,41 @@ int32_t SPF_flush_shmem(pal_stream_handle_t *stream_handle, uint32_t index, uint
 int32_t HLOS_set_shmem(uint32_t *p, uint32_t index, uint32_t number, uint32_t value)
 {
     uint32_t j;
-    if (p) {
-        for(j = 0; j < number; j++){
-            p[index + j] = value;
-        }
+    int32_t rc = -EINVAL;
+    struct dma_buf_sync buf_sync;
+
+    if(p == NULL)
+    {
+        PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
+        return rc;
     }
-    else
-        return -EINVAL;
-    return 0;
+
+    buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_WRITE;
+    rc = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+    if (rc) {
+        PAL_ERR(LOG_TAG,"failed to start DMA_BUF_IOCTL_SYNC\n");
+        return rc;
+    }
+
+    for(j = 0; j < number; j++){
+        p[index + j] = value;
+    }
+
+    buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_WRITE;
+    rc = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+    if (rc) {
+        PAL_ERR(LOG_TAG,"failed to end DMA_BUF_IOCTL_SYNC\n");
+        return rc;
+    }
+    return rc;
 }
 
 int32_t HLOS_get_shmem(uint32_t *p, uint32_t index)
 {
     if (p) {
         return p[index];
-    }
+    } else
+        PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
     return -EINVAL;
 }
 
@@ -684,11 +706,32 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                                 goto cleanup;
                             }
                         }
-                        for (j = 0; j< numOf_element; j++) {
-                            if(HLOS_get_shmem(g_vAddr, index + j) != number) {
-                                PAL_ERR(LOG_TAG,"SPF set value %d is not matching with HLOS read value p[%d]=%d\n", number, index + j, g_vAddr[index + j]);
-                                count++;
+
+                        if(g_vAddr != NULL) {
+                            struct dma_buf_sync buf_sync;
+                            buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
+                            status = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+                            if (status) {
+                                PAL_ERR(LOG_TAG,"cache_ops_start : failed to start DMA_BUF_IOCTL_SYNC\n");
+                                goto cleanup;
                             }
+
+                            for (j = 0; j< numOf_element; j++) {
+                                if (HLOS_get_shmem(g_vAddr, index + j) != number) {
+                                    PAL_ERR(LOG_TAG,"SPF set value %d is not matching with HLOS read value p[%d]=%d\n", number, index + j, g_vAddr[index + j]);
+                                    count++;
+                                }
+                            }
+
+                            buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
+                            status = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+                            if (status) {
+                                PAL_ERR(LOG_TAG,"failed to end DMA_BUF_IOCTL_SYNC\n");
+                                goto cleanup;
+                            }
+                        } else {
+                            PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
+                            goto cleanup;
                         }
                     }
                     if (count == 0) {
@@ -702,7 +745,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
             ret = str_parms_get_str(parms, "free", value, sizeof(value));
             if (ret >= 0) {
                 str_parms_del(parms, "free");
-                if (!strncmp(value, "true", size)){
+                if (!strncmp(value, "true", size)) {
                     if (g_pal_stream_handle) {
                         status = stop_audio_session(g_pal_stream_handle, g_buf_info, g_vAddr);
                         if (status) {
