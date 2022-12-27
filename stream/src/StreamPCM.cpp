@@ -1027,6 +1027,15 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
                        status);
             break;
         }
+        case PAL_PARAM_ID_SET_HFP_ZONE:
+        {
+            status = session->setParameters(this, PAL_PARAM_ID_SET_HFP_ZONE,
+                                            param_id, payload);
+            if (status)
+               PAL_ERR(LOG_TAG, "setParam for volume failed with %d",
+                       status);
+            break;
+        }
         default:
             PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
             status = -EINVAL;
@@ -1451,3 +1460,28 @@ int32_t StreamPCM::GetMmapPosition(struct pal_mmap_position *position)
     return status;
 }
 
+int32_t StreamPCM::getAvailableFrameCount(uint32_t *frame_count)
+{
+    pal_stream_attributes sAttr;
+    if (!frame_count)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    int32_t ret = getStreamAttributes(&sAttr);
+    if (ret)
+    {
+        PAL_ERR(LOG_TAG, "getStreamAttributes failed with err %d", ret);
+        goto end;
+    }
+
+    ret = session->getAvailableFrameCount(frame_count, sAttr.direction);
+    if (ret)
+        PAL_ERR(LOG_TAG, "session getAvailableFrameCount failed with err %d", ret);
+
+end:
+    mStreamMutex.unlock();
+    return ret;
+}
