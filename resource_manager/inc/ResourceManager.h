@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -890,6 +890,7 @@ public:
     int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
     int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
     int controlPluginSetParam(plugin_control_name_t control, void* payload, size_t size);
+    int controlPluginClose(plugin_control_name_t control, void* payload, size_t size);
 };
 
 #endif

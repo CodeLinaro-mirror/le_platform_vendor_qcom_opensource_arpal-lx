@@ -12,12 +12,16 @@
 #include "defaultShmemPluginControls.h"
 
 extern "C" {
-struct pal_shmem_info g_buf_info;
-uint32_t *g_vAddr = nullptr;
+struct pal_shmem_info g_buf_info_write, g_buf_info_read, g_buf_info;
+uint32_t *g_vAddr_write = nullptr, *g_vAddr_read = nullptr, *g_vAddr = nullptr;
 pal_stream_handle_t *g_pal_stream_handle = nullptr;
 uint32_t shmem_size = 0;
+uint32_t number_write = 1, number_read = 1;
+uint32_t floodtest = 0;
+uint32_t validate_full = 0;
+capi_irq_comm_config_t irq_info = {0};
 
-int32_t shmem_buff_load_parameter(pal_stream_handle_t *stream_handle, pal_shmem_info buff_info)
+int32_t shmem_buff_load_parameter(pal_stream_handle_t *stream_handle, pal_shmem_info buff_info, uint32_t write_read)
 {
     int32_t status = 0;
     uint8_t *payload = nullptr;
@@ -49,14 +53,23 @@ int32_t shmem_buff_load_parameter(pal_stream_handle_t *stream_handle, pal_shmem_
     effect_payload->tag = TEST_SHARED_MEM_TAG;
     effect_payload->payloadSize = sizeof(pal_effect_custom_payload_t) + sizeof(pal_load_persist_dummy_t);
 
-    customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
-    customPayload->paramId = SPF_V2_PARAM_ID_LOAD_PERSIST_DUMMY;
+    if(floodtest == 1)
+    {
+        customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+        customPayload->paramId = CAPI_PARAM_ID_IRQ_COMM_SHMEM_INFO;
+    }
+    else
+    {
+        customPayload = (pal_effect_custom_payload_t *)(payload + sizeof(pal_param_payload) + sizeof(effect_pal_payload_t));
+        customPayload->paramId = SPF_V2_PARAM_ID_LOAD_PERSIST_DUMMY;
+    }
 
     custom_payload = (pal_load_persist_dummy_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
     custom_payload->size = buff_info.size;
     custom_payload->spf_mem_handle = buff_info.spf_mem_handle;
     custom_payload->spf_mem_addr_lsw = buff_info.spf_mem_addr_lsw;
     custom_payload->spf_mem_addr_msw = buff_info.spf_mem_addr_msw;
+    custom_payload->write_read = write_read;
 
     status = pal_stream_set_param(stream_handle, PAL_PARAM_ID_UIEFFECT, pal_payload);
     if (status) {
@@ -140,7 +153,7 @@ int32_t shmem_buff_get_parameter(pal_stream_handle_t *stream_handle, uint8_t *pa
     return status;
 }
 
-static int32_t stop_audio_session(pal_stream_handle_t * &stream_handle, pal_shmem_info buf_info, uint32_t * &p)
+static int32_t stop_audio_session(pal_stream_handle_t * &stream_handle)
 {
     int32_t status = -EINVAL;
 
@@ -156,7 +169,13 @@ static int32_t stop_audio_session(pal_stream_handle_t * &stream_handle, pal_shme
         }
         stream_handle = nullptr;
     }
+    return status;
+}
 
+
+static int32_t shmem_unmap( pal_shmem_info buf_info, uint32_t * &p)
+{
+    int32_t status = 0;
     if (p) {
         munmap(p, buf_info.size);
         p = nullptr;
@@ -201,7 +220,7 @@ static int32_t free_shmem(pal_shmem_info *buf_info)
     return status;
 }
 
-static int32_t start_audio_session(pal_stream_handle_t * &stream_handle, pal_shmem_info buf_info, uint32_t * &p)
+static int32_t start_audio_session(pal_stream_handle_t * &stream_handle)
 {
     struct pal_stream_attributes stream_attr;
     int32_t status;
@@ -226,7 +245,7 @@ static int32_t start_audio_session(pal_stream_handle_t * &stream_handle, pal_shm
     devices[0].config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
     memset(devices[0].custom_config.custom_key, 0, sizeof(devices[0].custom_config.custom_key));
     strlcpy(devices[0].custom_config.custom_key,
-            "capi_load",
+            floodtest == 1 ? "capi_irq_comm": "capi_load",
             sizeof(devices[0].custom_config.custom_key));
 
     status = pal_stream_open(&stream_attr,
@@ -249,7 +268,23 @@ static int32_t start_audio_session(pal_stream_handle_t * &stream_handle, pal_shm
         status = -EINVAL;
         goto close_pal;
     }
+    PAL_DBG(LOG_TAG,"Exit with status: %d\n", status);
+    return status;
 
+close_pal:
+    if (stream_handle) {
+        pal_stream_close(stream_handle);
+        stream_handle = nullptr;
+    }
+
+    PAL_DBG(LOG_TAG,"Exit with status: %d\n", status);
+    return status;
+}
+
+
+static int32_t shmem_map(pal_stream_handle_t * &stream_handle, pal_shmem_info buf_info, uint32_t * &p, int32_t write_read)
+{
+    int32_t status;
     p = (uint32_t *)mmap(nullptr, buf_info.size, PROT_READ | PROT_WRITE, MAP_SHARED, buf_info.fd, 0);
     if (p == nullptr) {
         PAL_ERR(LOG_TAG,"Error: mmap return nullptr\n");
@@ -257,7 +292,7 @@ static int32_t start_audio_session(pal_stream_handle_t * &stream_handle, pal_shm
         goto stop_pal;
     }
 
-    status = shmem_buff_load_parameter(stream_handle, buf_info);
+    status = shmem_buff_load_parameter(stream_handle, buf_info, write_read);
     if (status) {
         PAL_ERR(LOG_TAG,"shmem_buff_load_parameter failed\n");
         goto exit;
@@ -314,6 +349,57 @@ int32_t SPF_set_shmem(pal_stream_handle_t *stream_handle, uint32_t index, uint32
     set_shmem->index = index;
     set_shmem->value = value;
     status = shmem_buff_set_parameter(stream_handle, SPF_V2_PARAM_ID_LOAD_SET_PERSIST_DUMMY, payload, sizeof(pal_load_set_persist_dummy_t));
+    if (status) {
+        PAL_ERR(LOG_TAG,"shmem_buff_set_parameter failed\n");
+        free(payload);
+        status = -EINVAL;
+        return status;
+    }
+    else
+        PAL_DBG(LOG_TAG,"shmem_buff_set_parameter is successful\n");
+
+    free(payload);
+    return status;
+}
+
+
+int32_t SPF_set_irq_info(pal_stream_handle_t *stream_handle)
+{
+    int32_t status;
+    uint8_t *payload = nullptr;
+    uint32_t payload_size;
+    capi_irq_comm_config_t *spf_irq_info = nullptr;
+
+    if (!stream_handle) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+
+    payload_size = sizeof(pal_param_payload) + sizeof(effect_pal_payload_t) + sizeof(pal_effect_custom_payload_t) + sizeof(capi_irq_comm_config_t);
+    payload = (uint8_t *) calloc (1, payload_size);
+    if (!payload) {
+        PAL_ERR(LOG_TAG,"calloc failed for size %d\n", payload_size);
+        status = -ENOMEM;
+        return status;
+    }
+    spf_irq_info = (capi_irq_comm_config_t *)(payload + sizeof(pal_param_payload) + sizeof(pal_effect_custom_payload_t) + sizeof(effect_pal_payload_t));
+    spf_irq_info->gpio_comm_mode = 1;
+    spf_irq_info->gpio_num_send = irq_info.gpio_num_send;
+    spf_irq_info->edge_type_send = irq_info.edge_type_send;
+    spf_irq_info->gpio_num_send_ack = irq_info.gpio_num_send_ack;
+    spf_irq_info->edge_type_send_ack = irq_info.edge_type_send_ack;
+    spf_irq_info->gpio_num_receive = irq_info.gpio_num_receive;
+    spf_irq_info->edge_type_receive = irq_info.edge_type_receive;
+    spf_irq_info->gpio_num_receive_ack = irq_info.gpio_num_receive_ack;
+    spf_irq_info->edge_type_receive_ack = irq_info.edge_type_receive_ack;
+    spf_irq_info->random = irq_info.random;
+    spf_irq_info->validate_full = irq_info.validate_full;
+    spf_irq_info->max_wait_time = 0;
+    spf_irq_info->instance_id = 0;
+    spf_irq_info->pseudo_seed = 0;
+
+    status = shmem_buff_set_parameter(stream_handle, CAPI_PARAM_ID_IRQ_COMM_CONFIG, payload, sizeof(capi_irq_comm_config_t));
     if (status) {
         PAL_ERR(LOG_TAG,"shmem_buff_set_parameter failed\n");
         free(payload);
@@ -430,6 +516,39 @@ int32_t SPF_flush_shmem(pal_stream_handle_t *stream_handle, uint32_t index, uint
     return status;
 }
 
+int32_t HLOS_flood_set_shmem(uint32_t *p, uint32_t index, uint32_t number, uint32_t value)
+{
+    uint32_t j;
+    int32_t rc = -EINVAL;
+    struct dma_buf_sync buf_sync;
+
+    if(p == NULL)
+    {
+        PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
+        return rc;
+    }
+
+    buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_WRITE;
+    rc = ioctl(g_buf_info_write.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+    if (rc) {
+        PAL_ERR(LOG_TAG,"failed to start DMA_BUF_IOCTL_SYNC\n");
+        return rc;
+    }
+    p[0] = number;
+    for(j = 1; j < number; j++){
+        p[j] = value;
+    }
+
+    buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_WRITE;
+    rc = ioctl(g_buf_info_write.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+    if (rc) {
+        PAL_ERR(LOG_TAG,"failed to end DMA_BUF_IOCTL_SYNC\n");
+        return rc;
+    }
+    return rc;
+}
+
+
 int32_t HLOS_set_shmem(uint32_t *p, uint32_t index, uint32_t number, uint32_t value)
 {
     uint32_t j;
@@ -491,9 +610,13 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
     uint32_t index = 0;
     uint32_t count = 0;
     uint32_t numOf_element = 0;
+    uint32_t words_to_write = 10;
     uint32_t index_start = 0;
     uint32_t index_end = 0;
     uint32_t number = 0;
+    uint32_t last_num = 1;
+    uint32_t msg_size = 8;
+    uint32_t validate_full_errors = 0;
     uint32_t i, j;
     struct str_parms *parms = nullptr;
     struct str_parms *parms_t = nullptr;
@@ -562,13 +685,24 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 str_parms_del(parms_t, "free");
                 if (!strncmp(value, "true", size)){
                     if (g_pal_stream_handle) {
-                        status = stop_audio_session(g_pal_stream_handle, g_buf_info, g_vAddr);
+                        status = stop_audio_session(g_pal_stream_handle);
                         if (status) {
                             PAL_ERR(LOG_TAG,"%s:%d stop_audio_session failed failed\n", __func__, __LINE__);
                             goto shmem_cleanup;
                         }
                     }
-                    status = free_shmem(&g_buf_info);
+                    if (floodtest == 1)
+                    {
+                       status = shmem_unmap(g_buf_info_write, g_vAddr_write);
+                       status = shmem_unmap(g_buf_info_read, g_vAddr_read);
+                       status = free_shmem(&g_buf_info_write);
+                       status = free_shmem(&g_buf_info_read);
+                    }
+                    else
+                    {
+                       status = shmem_unmap(g_buf_info, g_vAddr);
+                       status = free_shmem(&g_buf_info);
+                    }
                     if (status) {
                         PAL_ERR(LOG_TAG,"%s:%d shared memory free failed failed\n", __func__, __LINE__);
                         goto shmem_cleanup;
@@ -578,6 +712,12 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
             }
             str_parms_destroy(parms_t);
 
+            ret = str_parms_get_str(parms, "floodtest", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "floodtest");
+                floodtest = atoi(value);
+            }
+
             ret = str_parms_get_str(parms, "type", value, sizeof(value));
             if (ret >= 0) {
                 str_parms_del(parms, "type");
@@ -586,10 +726,39 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 } else if (!strncmp(value, "cached", size)){
                     cache = PAL_SHMEM_MAP_CACHED;
                 }
-                status = alloc_shmem(&g_buf_info, shmem_size, cache);
-                if (status) {
-                    PAL_ERR(LOG_TAG,"shared memory allocation failed\n");
-                    return -EINVAL;
+
+                if(floodtest == 1)
+                {
+                    status = alloc_shmem(&g_buf_info_write, shmem_size, cache);
+                    if (status) {
+                        PAL_ERR(LOG_TAG,"write shared memory allocation failed\n");
+                        return -EINVAL;
+                    }
+                    else
+                    {
+                        PAL_ERR(LOG_TAG,"write shared memory allocation success\n");
+                    }
+                    status = alloc_shmem(&g_buf_info_read, shmem_size, cache);
+                    if (status) {
+                        PAL_ERR(LOG_TAG," read shared memory allocation failed\n");
+                        return -EINVAL;
+                    }
+                    else
+                    {
+                        PAL_ERR(LOG_TAG,"read shared memory allocation success\n");
+                    }
+                }
+                else
+                {
+                    status = alloc_shmem(&g_buf_info, shmem_size, cache);
+                    if (status) {
+                        PAL_ERR(LOG_TAG,"shared memory allocation failed\n");
+                        return -EINVAL;
+                    }
+                    else
+                    {
+                        PAL_ERR(LOG_TAG,"shared memory allocation success\n");
+                    }
                 }
             }
 
@@ -628,11 +797,93 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 str_parms_del(parms, "value");
                 number = atoi(value);
                 if (g_pal_stream_handle == nullptr) {
-                    status = start_audio_session(g_pal_stream_handle, g_buf_info, g_vAddr);
+                    status = start_audio_session(g_pal_stream_handle);
                     if (status) {
                         PAL_ERR(LOG_TAG,"stream start failed\n");
                         goto shmem_cleanup;
                     }
+                    else
+                    {
+                        PAL_ERR(LOG_TAG,"stream start success\n");
+                    }
+                    if (g_pal_stream_handle != nullptr)
+                    {
+                       if(floodtest == 1)
+                       {
+                          status = shmem_map(g_pal_stream_handle, g_buf_info_write, g_vAddr_write, 1);
+                          if (status) {
+                              PAL_ERR(LOG_TAG,"shmem_map write failed\n");
+                              goto cleanup;
+                          }
+                          status = shmem_map(g_pal_stream_handle, g_buf_info_read, g_vAddr_read, 0);
+                          if (status) {
+                              PAL_ERR(LOG_TAG,"shmem_map read failed\n");
+                              goto cleanup;
+                          }
+                          PAL_ERR(LOG_TAG,"g_vAddr_write: %x, g_vAddr_read : %x\n", g_vAddr_write, g_vAddr_read);
+                       }
+                       else
+                       {
+                          status = shmem_map(g_pal_stream_handle, g_buf_info, g_vAddr, 0);
+                          if (status) {
+                              PAL_ERR(LOG_TAG,"shmem_map failed\n");
+                              goto cleanup;
+                          }
+                       }
+                    }
+                }
+            }
+
+            ret = str_parms_get_str(parms, "msg_size", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "msg_size");
+                msg_size = atoi(value);
+                words_to_write = msg_size / sizeof(uint32_t);
+                if(words_to_write < 2)
+                {
+                   words_to_write = 2;
+                }
+            }
+
+            ret = str_parms_get_str(parms, "validate_full", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "validate_full");
+                irq_info.validate_full = atoi(value);
+                validate_full = atoi(value);
+            }
+
+            ret = str_parms_get_str(parms, "random", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "random");
+                irq_info.random = atoi(value);
+            }
+
+            ret = str_parms_get_str(parms, "floodtest_spf_send", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "floodtest_spf_send");
+                sscanf(value, "<%d,%d>", &irq_info.gpio_num_send, &irq_info.edge_type_send);
+            }
+
+            ret = str_parms_get_str(parms, "floodtest_spf_send_ack", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "floodtest_spf_send_ack");
+                sscanf(value, "<%d,%d>", &irq_info.gpio_num_send_ack, &irq_info.edge_type_send_ack);
+            }
+
+            ret = str_parms_get_str(parms, "floodtest_spf_receive", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "floodtest_spf_receive");
+                sscanf(value, "<%d,%d>", &irq_info.gpio_num_receive, &irq_info.edge_type_receive);
+            }
+
+            ret = str_parms_get_str(parms, "floodtest_spf_receive_ack", value, sizeof(value));
+            if (ret >= 0) {
+                str_parms_del(parms, "floodtest_spf_receive_ack");
+                sscanf(value, "<%d,%d>", &irq_info.gpio_num_receive_ack, &irq_info.edge_type_receive_ack);
+                status = SPF_set_irq_info(g_pal_stream_handle);
+                if (status) {
+                    PAL_ERR(LOG_TAG,"SPF_set_shmem failed\n");
+                    goto cleanup;
                 }
             }
 
@@ -640,8 +891,22 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
             if (ret >= 0) {
                 str_parms_del(parms, "write_validate");
                 if (!strncmp(value, "HLOS", size)) {
-                    count = 0;
-                    for (i = index_start; i<= index_end; i++) {
+                    if (floodtest == 1)
+                    {
+                       if (g_vAddr_write != NULL) {
+                           PAL_ERR(LOG_TAG,"g_vAddr_write : %x, words_to_write : %d, number_write : %d\n", g_vAddr_write, words_to_write, number_write);
+                           status = HLOS_flood_set_shmem(g_vAddr_write, 0, words_to_write, number_write);
+                           number_write++;
+                           if (status) {
+                               PAL_ERR(LOG_TAG,"HLOS_set_shmem failed\n");
+                               goto cleanup;
+                            }
+                        }
+                    }
+                    else
+                    {
+                        count = 0;
+                        for (i = index_start; i<= index_end; i++) {
                         index = i*numOf_element;
                         status = HLOS_set_shmem(g_vAddr, index, numOf_element, number);
                         if (status) {
@@ -683,63 +948,130 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                                 free(get_shmem);
                         }
                     }
-                    if (count == 0) {
-                        PAL_INFO(LOG_TAG,"HLOS test passed\n");
-                    } else {
-                        PAL_ERR(LOG_TAG,"HLOS test failed\n");
+                        if (count == 0) {
+                           PAL_INFO(LOG_TAG,"HLOS test passed\n");
+                        } else {
+                          status = -EINVAL;
+                          PAL_ERR(LOG_TAG,"HLOS test failed\n");
+                        }
                     }
                 } else if (!strncmp(value, "SPF", size)) {
-                    count = 0;
-                    for (i = index_start; i<= index_end; i++) {
-                        index = i*numOf_element;
-                        for (j = 0; j< numOf_element; j++) {
-                            status = SPF_set_shmem(g_pal_stream_handle, index + j, number);
-                            if (status) {
-                                PAL_ERR(LOG_TAG,"SPF_set_shmem failed\n");
+                        if(floodtest == 1)
+                        {
+                            count = 0;
+                            if(g_vAddr_read != NULL) {
+                                struct dma_buf_sync buf_sync = {0};
+                                buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
+                                status = ioctl(g_buf_info_read.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+                                if (status) {
+                                    PAL_ERR(LOG_TAG,"cache_ops_start : failed to start DMA_BUF_IOCTL_SYNC\n");
+                                    goto cleanup;
+                                }
+
+                                last_num = HLOS_get_shmem(g_vAddr_read, 0);
+                                if(last_num > 1)
+                                {
+                                    if(number_read == HLOS_get_shmem(g_vAddr_read, last_num-1))
+                                    {
+                                        PAL_ERR(LOG_TAG,"PASS : Data verify received count = %d, last_num = %d , Expected count = %d received_last_count[last_num-1]: %d \n", HLOS_get_shmem(g_vAddr_read, 1), last_num, number_read, HLOS_get_shmem(g_vAddr_read, last_num-1));
+                                    }
+                                    else
+                                    {
+                                        PAL_ERR(LOG_TAG,"ERROR : Data verify received count = %d, last_num = %d , Expected count = %d received_last_count[last_num-1]: %d \n", HLOS_get_shmem(g_vAddr_read, 1), last_num, number_read, HLOS_get_shmem(g_vAddr_read, last_num-1));
+                                    }
+                                    if(validate_full == 1)
+                                    {
+                                        validate_full_errors = 0;
+                                        for(int i=1; i< last_num; i++)
+                                        {
+                                            if(number_read != HLOS_get_shmem(g_vAddr_read, i))
+                                            {
+                                                validate_full_errors++;
+                                            }
+                                        }
+
+                                        if(validate_full_errors != 0)
+                                        {
+                                            PAL_ERR(LOG_TAG,"ERROR : last_num = %d , Expected count = %d received_count: %d \n",last_num, number_read, HLOS_get_shmem(g_vAddr_read, 1));
+                                        }
+                                        else
+                                        {
+                                            PAL_ERR(LOG_TAG,"PASS : Full Data verify last_num = %d , Expected count = %d received_count: %d \n",last_num, number_read, HLOS_get_shmem(g_vAddr_read, 1));
+                                        }
+                                    }
+                                }
+                                else
+                                {
+                                    PAL_ERR(LOG_TAG,"ERROR : Data verify last_num = %d \n", last_num);
+                                }
+
+                                number_read++;
+                                buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
+                                status = ioctl(g_buf_info_read.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+                                if (status) {
+                                    PAL_ERR(LOG_TAG,"failed to end DMA_BUF_IOCTL_SYNC\n");
+                                    goto cleanup;
+                                }
+                            } else {
+                                PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
                                 goto cleanup;
                             }
                         }
-                        if (cache == PAL_SHMEM_MAP_CACHED) {
-                            status = SPF_flush_shmem(g_pal_stream_handle, index, numOf_element, FLUSH_MODE);
-                            if (status) {
-                                PAL_ERR(LOG_TAG,"SPF_flush_shmem failed\n");
-                                goto cleanup;
-                            }
-                        }
+                        else
+                        {
+                            count = 0;
+                            for (i = index_start; i<= index_end; i++) {
+                                index = i*numOf_element;
+                                for (j = 0; j< numOf_element; j++) {
+                                    status = SPF_set_shmem(g_pal_stream_handle, index + j, number);
+                                    if (status) {
+                                        PAL_ERR(LOG_TAG,"SPF_set_shmem failed\n");
+                                        goto cleanup;
+                                    }
+                                }
+                                if (cache == PAL_SHMEM_MAP_CACHED) {
+                                    status = SPF_flush_shmem(g_pal_stream_handle, index, numOf_element, FLUSH_MODE);
+                                    if (status) {
+                                        PAL_ERR(LOG_TAG,"SPF_flush_shmem failed\n");
+                                        goto cleanup;
+                                    }
+                                }
 
-                        if(g_vAddr != NULL) {
-                            struct dma_buf_sync buf_sync;
-                            buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
-                            status = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
-                            if (status) {
-                                PAL_ERR(LOG_TAG,"cache_ops_start : failed to start DMA_BUF_IOCTL_SYNC\n");
-                                goto cleanup;
-                            }
+                                if(g_vAddr != NULL) {
+                                    struct dma_buf_sync buf_sync;
+                                    buf_sync.flags = DMA_BUF_SYNC_START | DMA_BUF_SYNC_READ;
+                                    status = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+                                    if (status) {
+                                        PAL_ERR(LOG_TAG,"cache_ops_start : failed to start DMA_BUF_IOCTL_SYNC\n");
+                                        goto cleanup;
+                                    }
 
-                            for (j = 0; j< numOf_element; j++) {
-                                if (HLOS_get_shmem(g_vAddr, index + j) != number) {
-                                    PAL_ERR(LOG_TAG,"SPF set value %d is not matching with HLOS read value p[%d]=%d\n", number, index + j, g_vAddr[index + j]);
-                                    count++;
+                                    for (j = 0; j< numOf_element; j++) {
+                                        if (HLOS_get_shmem(g_vAddr, index + j) != number) {
+                                            PAL_ERR(LOG_TAG,"SPF set value %d is not matching with HLOS read value p[%d]=%d\n", number, index + j, g_vAddr[index + j]);
+                                            count++;
+                                        }
+                                    }
+
+                                    buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
+                                    status = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
+                                    if (status) {
+                                        PAL_ERR(LOG_TAG,"failed to end DMA_BUF_IOCTL_SYNC\n");
+                                        goto cleanup;
+                                    }
+                                } else {
+                                    PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
+                                    goto cleanup;
                                 }
                             }
-
-                            buf_sync.flags = DMA_BUF_SYNC_END | DMA_BUF_SYNC_READ;
-                            status = ioctl(g_buf_info.fd, DMA_BUF_IOCTL_SYNC, &buf_sync);
-                            if (status) {
-                                PAL_ERR(LOG_TAG,"failed to end DMA_BUF_IOCTL_SYNC\n");
-                                goto cleanup;
+                            if (count == 0) {
+                                PAL_INFO(LOG_TAG,"SPF test passed\n");
+                            } else {
+                                status = -EINVAL;
+                                PAL_ERR(LOG_TAG,"SPF test failed\n");
                             }
-                        } else {
-                            PAL_ERR(LOG_TAG,"Error: mapped address is nullptr\n");
-                            goto cleanup;
                         }
                     }
-                    if (count == 0) {
-                        PAL_INFO(LOG_TAG,"SPF test passed\n");
-                    } else {
-                        PAL_ERR(LOG_TAG,"SPF test failed\n");
-                    }
-                }
             }
 
             ret = str_parms_get_str(parms, "free", value, sizeof(value));
@@ -747,16 +1079,27 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 str_parms_del(parms, "free");
                 if (!strncmp(value, "true", size)) {
                     if (g_pal_stream_handle) {
-                        status = stop_audio_session(g_pal_stream_handle, g_buf_info, g_vAddr);
+                        status = stop_audio_session(g_pal_stream_handle);
                         if (status) {
                             PAL_ERR(LOG_TAG,"%s:%d stop_audio_session failed failed\n", __func__, __LINE__);
                             goto shmem_cleanup;
                         }
                     }
-                    status = free_shmem(&g_buf_info);
+                    if(floodtest == 1)
+                    {
+                        status = shmem_unmap(g_buf_info_write, g_vAddr_write);
+                        status = shmem_unmap(g_buf_info_read, g_vAddr_read);
+                        status = free_shmem(&g_buf_info_write);
+                        status = free_shmem(&g_buf_info_read);
+                    }
+                    else
+                    {
+                        status = shmem_unmap(g_buf_info, g_vAddr);
+                        status = free_shmem(&g_buf_info);
+                    }
                     if (status) {
                         PAL_ERR(LOG_TAG,"%s:%d shared memory free failed failed\n", __func__, __LINE__);
-                        break;
+                        goto shmem_cleanup;
                     }
                 } else if (!strncmp(value, "false", size)){
                 }
@@ -773,9 +1116,21 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
         }
 
 cleanup:
-        stop_audio_session(g_pal_stream_handle, g_buf_info, g_vAddr);
+        stop_audio_session(g_pal_stream_handle);
+
 shmem_cleanup:
-        free_shmem(&g_buf_info);
+        if(floodtest == 1)
+        {
+            status = shmem_unmap(g_buf_info_write, g_vAddr_write);
+            status = shmem_unmap(g_buf_info_read, g_vAddr_read);
+            status = free_shmem(&g_buf_info_write);
+            status = free_shmem(&g_buf_info_read);
+        }
+        else
+        {
+            status = shmem_unmap(g_buf_info, g_vAddr);
+            status = free_shmem(&g_buf_info);
+        }
         PAL_DBG(LOG_TAG,"Exit with status: %d", status);
         break;
     }
