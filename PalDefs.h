@@ -901,6 +901,8 @@ typedef enum {
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
     PAL_PARAM_ID_PLUGIN_PARAM = 58,
     PAL_PARAM_ID_SET_HFP_ZONE = 59,
+    PAL_PARAM_ID_BT_AG_SCO = 60, /* HFP AG role */    
+    PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

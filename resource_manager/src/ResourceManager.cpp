@@ -8020,6 +8020,17 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_PLUGIN_CLOSE:
+        {
+            mResourceManagerMutex.unlock();
+            status = rm->controlPluginClose(PLUGIN_CONTROL_KV_PARAM, param_payload, payload_size);
+            mResourceManagerMutex.lock();
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"controlPluginSetParam Failed \n");
+                goto exit;
+            }
+        }
+        break;
         case PAL_PARAM_ID_SET_HFP_ZONE:
         {
             PAL_DBG(LOG_TAG, "zonal_hfp enter param set zone");
@@ -10426,11 +10437,35 @@ int ResourceManager::controlPluginSetParam(plugin_control_name_t control, void* 
                 PAL_DBG(LOG_TAG, "loading plugin %s for control %d", ControlInfo[i].plugins[0].name.c_str(), control);
                 if (!openControlPlugin(&(ControlInfo[i].plugins[0]), control)) {
                     status = ControlInfo[i].plugins[0].ops.set_control(s, control, payload, payload_size);
-                    closeControlPlugin(&(ControlInfo[i].plugins[0]), control);
                 } else {
                     PAL_ERR(LOG_TAG,"control plugin failed to load");
                     status = -EINVAL;
                 }
+            }
+            break;
+        }
+    }
+exit:
+    return status;
+}
+
+int ResourceManager::controlPluginClose(plugin_control_name_t control, void* payload, size_t payload_size) {
+    int status = 0;
+    int i = 0;
+    Stream *s = NULL;
+
+    PAL_DBG(LOG_TAG,"controlPluginClose called");
+    if (control >= PLUGIN_CONTROL_MAX) {
+        PAL_ERR(LOG_TAG,"control plugin is out of range");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    for (i = 0; i < ControlInfo.size(); i++) {
+        if (control == ControlInfo[i].name) {
+            /* if plugin is not already loaded, load it*/
+            if (ControlInfo[i].plugins[0].handle) {
+                  closeControlPlugin(&(ControlInfo[i].plugins[0]), control);
             }
             break;
         }
