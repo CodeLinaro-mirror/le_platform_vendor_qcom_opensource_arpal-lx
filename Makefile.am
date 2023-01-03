@@ -111,8 +111,8 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/session/inc/SoundTriggerEngineCapi.h \
             ${top_srcdir}/resource_manager/inc/ResourceManager.h \
             ${top_srcdir}/resource_manager/inc/SndCardMonitor.h \
-            ${top_srcdir}/PalDefs.h \
-            ${top_srcdir}/PalApi.h \
+            ${top_srcdir}/inc/PalDefs.h \
+            ${top_srcdir}/inc/PalApi.h \
             ${top_srcdir}/PalAudioRoute.h \
             ${top_srcdir}/PalCommon.h \
             ${top_srcdir}/utils/inc/PalRingBuffer.h \
@@ -122,6 +122,7 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/context_manager/inc/ContextManager.h
 
 AM_CPPFLAGS := -I $(top_srcdir)/stream/inc
+AM_CPPFLAGS += -I $(top_srcdir)/inc
 AM_CPPFLAGS += -I $(top_srcdir)/device/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/inc
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
@@ -144,6 +145,7 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamSoundTrigger.cpp \
               ${top_srcdir}/stream/src/StreamUltraSound.cpp \
               ${top_srcdir}/stream/src/StreamSensorPCMData.cpp \
+              ${top_srcdir}/stream/src/StreamACDB.cpp \
               ${top_srcdir}/device/src/Device.cpp \
               ${top_srcdir}/device/src/Speaker.cpp \
               ${top_srcdir}/device/src/Headphone.cpp \
@@ -181,11 +183,18 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamContextProxy.cpp \
               ${top_srcdir}/device/src/FMDevice.cpp \
               ${top_srcdir}/device/src/HapticsDev.cpp \
+              ${top_srcdir}/device/src/ECRefDevice.cpp \
               ${top_srcdir}/session/src/SessionAgm.cpp \
               ${top_srcdir}/session/src/ContextDetectionEngine.cpp \
               ${top_srcdir}/session/src/ACDEngine.cpp \
               ${top_srcdir}/utils/src/ACDPlatformInfo.cpp \
               ${top_srcdir}/utils/src/VoiceUIPlatformInfo.cpp \
+              ${top_srcdir}/utils/src/SignalHandler.cpp \
+              ${top_srcdir}/utils/src/VoiceUIInterface.cpp \
+              ${top_srcdir}/utils/src/SVAInterface.cpp \
+              ${top_srcdir}/utils/src/MetadataParser.cpp \
+              ${top_srcdir}/utils/src/HotwordInterface.cpp \
+              ${top_srcdir}/utils/src/CustomVAInterface.cpp \
               ${top_srcdir}/device/src/HeadsetVaMic.cpp
 
 acl_sources = ${top_srcdir}/utils/src/ChargerListener.cpp
@@ -197,16 +206,12 @@ library_includedir = $(includedir)/pal
 
 lib_LTLIBRARIES     = libpal.la
 libpal_la_SOURCES   = $(pal_sources)
-libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress -lagmclientwrapper
+libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -avoid-version
 libpal_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
-libpal_la_list      = ./configs/$(MACHINE_ENABLED)/kvh2xml.xml \
-                      ./configs/$(MACHINE_ENABLED)/mixer_paths_kona_mtp.xml \
-                      ./configs/$(MACHINE_ENABLED)/resourcemanager_kona_mtp.xml \
-                      ./configs/$(MACHINE_ENABLED)/usecaseKvManager.xml
 
 if BUILDSYSTEM_OPENWRT
 libpal_la_LIBADD += -lglib-2.0
@@ -221,11 +226,3 @@ libaudiocl_la_SOURCES   = $(acl_sources)
 libaudiocl_la_LIBADD    = @GLIB_LIBS@
 libaudiocl_la_CPPFLAGS := $(AM_CPPFLAGS)
 libaudiocl_la_LDFLAGS   = -shared -avoid-version -lcutils -llog
-# install essential xml files under /etc
-root_etcdir      = "/etc"
-root_etc_SCRIPTS = $(libpal_la_list)
-install-data-hook:
-	chmod  go+r $(DESTDIR)$(root_etcdir)/kvh2xml.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_kona_mtp.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_kona_mtp.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
