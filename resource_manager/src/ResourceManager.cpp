@@ -27,7 +27,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -469,6 +470,8 @@ bool ResourceManager::lpi_logging_ = false;
 bool ResourceManager::isUpdDedicatedBeEnabled = false;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 bool ResourceManager::isSignalHandlerEnabled = false;
+uint32_t ResourceManager::btsink_hfp_ch = 0;
+
 
 //TODO:Needs to define below APIs so that functionality won't break
 #ifdef FEATURE_IPQ_OPENWRT
@@ -6749,6 +6752,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
     ret = setSignalHandlerEnableParam(parms, value, len);
+    ret = setBTSinkHFPChParam(parms, value, len);
 
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
@@ -6970,6 +6974,32 @@ int ResourceManager::setNativeAudioParams(struct str_parms *parms,
     }
     return ret;
 }
+
+uint32_t ResourceManager::getBTSinkHFPChParam()
+{
+    return btsink_hfp_ch;
+}
+
+int ResourceManager::setBTSinkHFPChParam(struct str_parms *parms,
+                                          char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return ret;
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_BTSINK_HFP_CH,
+                                value, len);
+    if (ret >= 0) {
+        btsink_hfp_ch = std::stoi(value, 0);
+        PAL_INFO(LOG_TAG, "BTSink HFP channel  is set to %d",
+                 btsink_hfp_ch);
+        ret = 0;
+    }
+    return ret;
+}
+
+
 void ResourceManager::updatePcmId(int32_t deviceId, int32_t pcmId)
 {
     if (isValidDevId(deviceId)) {

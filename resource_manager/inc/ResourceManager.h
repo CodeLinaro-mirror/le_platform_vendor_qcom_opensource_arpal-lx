@@ -28,7 +28,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -108,6 +109,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
 #define AUDIO_PARAMETER_KEY_SIGNAL_HANDLER "signal_handler"
+#define AUDIO_PARAMETER_KEY_BTSINK_HFP_CH "btsink_hfp_ch_conf"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -567,6 +569,7 @@ protected:
     int32_t scoOutConnectCount = 0;
     int32_t scoInConnectCount = 0;
     std::shared_ptr<SignalHandler> mSigHandler;
+    static uint32_t btsink_hfp_ch;
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -902,6 +905,9 @@ public:
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
     static void sendCrashSignal(int signal);
+    static uint32_t getBTSinkHFPChParam();
+    static int setBTSinkHFPChParam(struct str_parms *parms,
+                            char *value, int len);
 };
 
 #endif
