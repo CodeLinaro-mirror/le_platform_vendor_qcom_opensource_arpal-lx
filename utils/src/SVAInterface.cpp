@@ -27,12 +27,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SVAInterface"
-
+#include <cstring>
 #include "SVAInterface.h"
 
 #include "detection_cmn_api.h"
@@ -749,7 +749,7 @@ int32_t SVAInterface::ParseOpaqueConfLevels(
                         confidence_level);
                 }
                 info->sec_threshold.push_back(
-                    std::make_pair(sm_levels->sm_id, confidence_level));
+                    std::make_pair(static_cast<listen_model_indicator_enum>(sm_levels->sm_id), confidence_level));
             }
         }
     } else {
@@ -788,7 +788,7 @@ int32_t SVAInterface::ParseOpaqueConfLevels(
                         confidence_level_v2);
                 }
                 info->sec_threshold.push_back(
-                    std::make_pair(sm_levels_v2->sm_id, confidence_level_v2));
+                    std::make_pair(static_cast<listen_model_indicator_enum>(sm_levels_v2->sm_id), confidence_level_v2));
             }
         }
     }
