@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -142,7 +142,7 @@ int32_t shmem_buff_get_parameter(pal_stream_handle_t *stream_handle, uint8_t *pa
 
 static int32_t stop_audio_session(pal_stream_handle_t * &stream_handle, pal_shmem_info buf_info, uint32_t * &p)
 {
-    int32_t status;
+    int32_t status = -EINVAL;
 
     if (stream_handle) {
         status = pal_stream_stop(stream_handle);
