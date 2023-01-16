@@ -1181,8 +1181,8 @@ exit:
         PAL_DBG(LOG_TAG, "Unlocked due to processing mode");
         spkrCalState = SPKR_NOT_CALIBRATED;
         clock_gettime(CLOCK_BOOTTIME, &spkrLastTimeUsed);
-        cv.notify_all();
     }
+    cv.notify_all();
 
     if (ret != 0) {
         // Error happened. Reset timer
@@ -2477,6 +2477,10 @@ cps_dev_setup:
         goto exit;
     }
     else {
+        if (numberOfRequest == 0) {
+            PAL_ERR(LOG_TAG, "Device not started yet, Stop not expected");
+            goto exit;
+        }
         numberOfRequest--;
         if (numberOfRequest > 0) {
             // R0T0 already set, we don't need to process the request.
@@ -2934,8 +2938,8 @@ int32_t SpeakerProtection::getFTMParameter(void **param)
             if (exFtm_ret[1].status == 4 && ftm_ret[1].status == 4)
                 spkr2_status = 1;
             resString << "SpkrParamStatus: " << spkr1_status <<", "<< spkr2_status
-                    << "; Rdc: " << ((ftm_ret[0].ftm_rDC_q24)/(1<<24)) << ", "
-                    << ((ftm_ret[1].ftm_rDC_q24)/(1<<24)) << "; Temp: "
+                    << "; Rdc: " << (((float)ftm_ret[0].ftm_rDC_q24)/(1<<24)) << ", "
+                    << (((float)ftm_ret[1].ftm_rDC_q24)/(1<<24)) << "; Temp: "
                     << ((ftm_ret[0].ftm_temp_q22)/(1<<22)) << ", "
                     << ((ftm_ret[1].ftm_temp_q22)/(1<<22)) <<"; Res: "
                     << ((exFtm_ret[0].ftm_Re_q24)/(1<<24)) << ", "
@@ -2946,8 +2950,8 @@ int32_t SpeakerProtection::getFTMParameter(void **param)
                     << ((exFtm_ret[1].ftm_Rms_q24)/(1<<24)) << "; Kms: "
                     << ((exFtm_ret[0].ftm_Kms_q24)/(1<<24)) << ", "
                     << ((exFtm_ret[1].ftm_Kms_q24)/(1<<24)) << "; Fres: "
-                    << ((exFtm_ret[0].ftm_Fres_q20)/(1<<20)) << ", "
-                    << ((exFtm_ret[1].ftm_Fres_q20)/(1<<20)) << "; Qms: "
+                    << (((float)exFtm_ret[0].ftm_Fres_q20)/(1<<20)) << ", "
+                    << (((float)exFtm_ret[1].ftm_Fres_q20)/(1<<20)) << "; Qms: "
                     << ((exFtm_ret[0].ftm_Qms_q24)/(1<<24)) << ", "
                     << ((exFtm_ret[1].ftm_Qms_q24)/(1<<24));
             break;
