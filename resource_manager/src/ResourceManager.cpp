@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -195,6 +195,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -216,6 +217,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -243,6 +245,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_ULTRASOUND,           1},
     {PAL_DEVICE_OUT_A2B_SPKR,             0},
     {PAL_DEVICE_OUT_A2B2_SPKR,            0},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -264,6 +267,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_TELEPHONY_RX,          0},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, 0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -292,6 +296,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -314,6 +319,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -515,6 +521,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "none" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "none" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -537,6 +544,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -1858,6 +1866,8 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             break;
         case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+        case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
             {
                 std::shared_ptr<BtSco> scoDev;
                 scoDev = std::dynamic_pointer_cast<BtSco>(BtSco::getInstance(deviceattr, rm));
@@ -7673,6 +7683,202 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_BT_AG_SCO:
+        {
+            std::shared_ptr<Device> dev = nullptr;
+            struct pal_device dattr;
+            struct pal_device sco_tx_dattr;
+            struct pal_device sco_rx_dattr;
+            struct pal_device dAttr;
+            std::vector <std::shared_ptr<Device>> associatedDevices;
+            std::vector <std::shared_ptr<Device>> rxDevices;
+            std::vector <std::shared_ptr<Device>> txDevices;
+            struct pal_stream_attributes sAttr;
+            pal_param_btsco_t* param_bt_sco = nullptr;
+            bool isScoOn = false;
+
+            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_SCO2;
+            if (!isDeviceAvailable(dattr.id)) {
+                dattr.id = PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET;
+                if (!isDeviceAvailable(dattr.id)) {
+                    PAL_ERR(LOG_TAG, "SCO output and input devices are all unavailable");
+                    status = -ENODEV;
+                    goto exit;
+                }
+            }
+
+            dev = Device::getInstance(&dattr, rm);
+            if (!dev) {
+                PAL_ERR(LOG_TAG, "Device getInstance failed");
+                status = -ENODEV;
+                goto exit;
+            }
+
+            isScoOn = dev->isDeviceReady();
+            param_bt_sco = (pal_param_btsco_t*)param_payload;
+            if (isScoOn == param_bt_sco->bt_sco_on) {
+                PAL_INFO(LOG_TAG, "SCO already in requested state, ignoring");
+                goto exit;
+            }
+
+            status = dev->setDeviceParameter(param_id, param_payload);
+            if (status) {
+                PAL_ERR(LOG_TAG, "set Parameter %d failed\n", param_id);
+                goto exit;
+            }
+
+            /* When BT_SCO = ON received, make sure route all the active streams to
+             * SCO devices */
+            if (param_bt_sco->bt_sco_on == true) {
+                mResourceManagerMutex.unlock();
+                mActiveStreamMutex.lock();
+                for (auto& str : mActiveStreams) {
+                    str->getStreamAttributes(&sAttr);
+                    associatedDevices.clear();
+                    if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
+                        ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                         (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) ||
+                         (sAttr.type == PAL_STREAM_VOIP_RX) ||
+                         (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+                         (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                         (sAttr.type == PAL_STREAM_PLAYBACK_BUS) ||
+                         (sAttr.type == PAL_STREAM_COMPRESSED))) {
+                        str->getAssociatedDevices(associatedDevices);
+                        for (int i = 0; i < associatedDevices.size(); i++) {
+                            if (!isDeviceActive_l(associatedDevices[i], str) ||
+                                !str->isActive()) {
+                                continue;
+                            }
+                            dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
+                            dev = Device::getInstance(&dAttr, rm);
+                            if (dev && (!isBtScoDevice(dAttr.id)) &&
+                                (dAttr.id != PAL_DEVICE_OUT_PROXY) &&
+                                isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_SCO2)) {
+                                rxDevices.push_back(dev);
+                            }
+                        }
+                    } else if ((sAttr.direction == PAL_AUDIO_INPUT) &&
+                            (sAttr.type == PAL_STREAM_VOIP_TX)) {
+                        str->getAssociatedDevices(associatedDevices);
+                        for (int i = 0; i < associatedDevices.size(); i++) {
+                            if (!isDeviceActive_l(associatedDevices[i], str) ||
+                                !str->isActive()) {
+                                continue;
+                            }
+                            dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
+                            dev = Device::getInstance(&dAttr, rm);
+                            if (dev && (!isBtScoDevice(dAttr.id)) &&
+                                    isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)) {
+                                txDevices.push_back(dev);
+                            }
+                        }
+                    }
+                }
+
+                // get the default device config for bt-sco and bt-sco-mic
+                sco_rx_dattr.id = PAL_DEVICE_OUT_BLUETOOTH_SCO2;
+                status = getDeviceConfig(&sco_rx_dattr, NULL);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "getDeviceConfig for bt-sco failed");
+                    mActiveStreamMutex.unlock();
+                    goto exit;
+                }
+
+                sco_tx_dattr.id = PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET;
+                status = getDeviceConfig(&sco_tx_dattr, NULL);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "getDeviceConfig for bt-sco-mic failed");
+                    mActiveStreamMutex.unlock();
+                    goto exit;
+                }
+
+                SortAndUnique(rxDevices);
+                SortAndUnique(txDevices);
+                mActiveStreamMutex.unlock();
+
+                for (auto& device : rxDevices) {
+                    rm->forceDeviceSwitch(device, &sco_rx_dattr);
+                }
+                for (auto& device : txDevices) {
+                    rm->forceDeviceSwitch(device, &sco_tx_dattr);
+                }
+                mResourceManagerMutex.lock();
+            } else {
+                mResourceManagerMutex.unlock();
+                mActiveStreamMutex.lock();
+                for (auto& str : mActiveStreams) {
+                    str->getStreamAttributes(&sAttr);
+                    associatedDevices.clear();
+                    if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
+                        ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                         (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) ||
+                         (sAttr.type == PAL_STREAM_VOIP_RX) ||
+                         (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+                         (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                         (sAttr.type == PAL_STREAM_PLAYBACK_BUS) ||
+                         (sAttr.type == PAL_STREAM_COMPRESSED))) {
+                        str->getAssociatedDevices(associatedDevices);
+                        for (int i = 0; i < associatedDevices.size(); i++) {
+                            if (!isDeviceActive_l(associatedDevices[i], str) ||
+                                !str->isActive()) {
+                                continue;
+                            }
+                            dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
+                            dev = Device::getInstance(&dAttr, rm);
+                            if (dev && (isBtScoDevice(dAttr.id)) &&
+                                (dAttr.id != PAL_DEVICE_OUT_PROXY)) {
+                                rxDevices.push_back(dev);
+                            }
+                        }
+                    } else if ((sAttr.direction == PAL_AUDIO_INPUT) &&
+                            (sAttr.type == PAL_STREAM_VOIP_TX)) {
+                        str->getAssociatedDevices(associatedDevices);
+                        for (int i = 0; i < associatedDevices.size(); i++) {
+                            if (!isDeviceActive_l(associatedDevices[i], str) ||
+                                !str->isActive()) {
+                                continue;
+                            }
+                            dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
+                            dev = Device::getInstance(&dAttr, rm);
+                            if (dev && (isBtScoDevice(dAttr.id))) {
+                                txDevices.push_back(dev);
+                            }
+                        }
+                    }
+                }
+
+                // get the default device config for speaker and handset_mic
+                sco_rx_dattr.id = PAL_DEVICE_OUT_SPEAKER;
+                status = getDeviceConfig(&sco_rx_dattr, NULL);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "getDeviceConfig for speaker failed");
+                    mActiveStreamMutex.unlock();
+                    goto exit;
+                }
+
+                sco_tx_dattr.id =  PAL_DEVICE_IN_HANDSET_MIC;
+                status = getDeviceConfig(&sco_tx_dattr, NULL);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "getDeviceConfig for handset_mic failed");
+                    mActiveStreamMutex.unlock();
+                    goto exit;
+                }
+
+                SortAndUnique(rxDevices);
+                SortAndUnique(txDevices);
+                mActiveStreamMutex.unlock();
+
+                for (auto& device : txDevices) {
+                    rm->forceDeviceSwitch(device, &sco_tx_dattr);
+                }
+                for (auto& device : rxDevices) {
+                    rm->forceDeviceSwitch(device, &sco_rx_dattr);
+                }
+                mResourceManagerMutex.lock();
+
+            }
+        }
+        break;
         case PAL_PARAM_ID_BT_SCO_WB:
         case PAL_PARAM_ID_BT_SCO_SWB:
         case PAL_PARAM_ID_BT_SCO_LC3:
@@ -7804,6 +8010,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 }
             }
             mResourceManagerMutex.unlock();
+
             status = a2dp_dev->setDeviceParameter(param_id, param_payload);
             mResourceManagerMutex.lock();
             if (status) {
@@ -8373,7 +8580,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
     if (isBtScoDevice(device_id)) {
         PAL_DBG(LOG_TAG, "Enter: scoOutConnectCount=%d, scoInConnectCount=%d",
                                         scoOutConnectCount, scoInConnectCount);
-        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
+        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO || device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) {
             scoOutConnectCount += scoCount;
             removeScoDevice = !scoOutConnectCount;
         } else {
@@ -8466,7 +8673,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
 
 err:
     if (status && isBtScoDevice(device_id)) {
-        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO)
+        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO || device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)
             scoOutConnectCount -= scoCount;
         else
             scoInConnectCount -= scoCount;
@@ -8723,6 +8930,8 @@ bool ResourceManager::isDeviceReady(pal_device_id_t id)
     switch (id) {
         case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+        case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
         {
@@ -8749,7 +8958,9 @@ bool ResourceManager::isDeviceReady(pal_device_id_t id)
 bool ResourceManager::isBtScoDevice(pal_device_id_t id)
 {
     if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
-        id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
+        id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
+        id == PAL_DEVICE_OUT_BLUETOOTH_SCO2 ||
+        id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)
         return true;
     else
         return false;
