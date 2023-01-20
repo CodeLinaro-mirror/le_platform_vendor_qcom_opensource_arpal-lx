@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamCompress"
@@ -68,11 +72,11 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
 {
     mStreamMutex.lock();
 
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        PAL_ERR(LOG_TAG, "Sound card offline, can not create stream");
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby, can not create stream");
         usleep(SSR_RECOVERY);
         mStreamMutex.unlock();
-        throw std::runtime_error("Sound card offline");
+        throw std::runtime_error("Sound card offline/standby");
     }
 
     std::shared_ptr<Device> dev = nullptr;
@@ -158,9 +162,9 @@ int32_t StreamCompress::open()
 
     PAL_DBG(LOG_TAG,"Enter, session handle - %p device count - %zu state %d",
                        session, mDevices.size(), currentState);
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
         status = -EIO;
-        PAL_ERR(LOG_TAG, "Sound card offline, can not open stream");
+        PAL_ERR(LOG_TAG, "Sound card offline/standby, can not open stream");
         usleep(SSR_RECOVERY);
         goto exit;
     }
@@ -379,8 +383,8 @@ int32_t StreamCompress::start()
     PAL_VERBOSE(LOG_TAG,"Enter, session handle - %p mStreamAttr->direction - %d",
                     session, mStreamAttr->direction);
 
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        PAL_ERR(LOG_TAG, "Sound card offline");
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby");
         status = -EIO;
         goto exit;
     }
@@ -439,8 +443,8 @@ int32_t StreamCompress::start()
 
             status = session->start(this);
             if (errno == -ENETRESET) {
-                if (rm->cardState != CARD_STATUS_OFFLINE) {
-                    PAL_ERR(LOG_TAG, "Sound card offline, informing rm");
+                if (PAL_CARD_STATUS_UP(rm->cardState)) {
+                    PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                     rm->ssrHandler(CARD_STATUS_OFFLINE);
                 }
                 status = 0;
@@ -494,8 +498,8 @@ int32_t StreamCompress::start()
 
             status = session->start(this);
             if (errno == -ENETRESET) {
-                if (rm->cardState != CARD_STATUS_OFFLINE) {
-                    PAL_ERR(LOG_TAG, "Sound card offline, informing rm");
+                if (PAL_CARD_STATUS_UP(rm->cardState)) {
+                    PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                     rm->ssrHandler(CARD_STATUS_OFFLINE);
                 }
                 status = 0;
@@ -581,9 +585,9 @@ int32_t StreamCompress::read(struct pal_buffer *buf)
     PAL_VERBOSE(LOG_TAG, "Enter. session handle - %pK, state %d", session,
                 currentState);
     mStreamMutex.lock();
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
         status = -ENETRESET;
-        PAL_ERR(LOG_TAG, "Sound Card offline, can not write, status %d",
+        PAL_ERR(LOG_TAG, "Sound Card offline/standby, can not write, status %d",
                 status);
         mStreamMutex.unlock();
         return status;
@@ -593,14 +597,14 @@ int32_t StreamCompress::read(struct pal_buffer *buf)
         status = session->read(this, SHMEM_ENDPOINT, buf, &size);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "session read is failed with status %d", status);
-            if (errno == -ENETRESET && rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
+            if (errno == -ENETRESET && PAL_CARD_STATUS_UP(rm->cardState)) {
+                PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 size = buf->size;
                 status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto err;
-            } else if (rm->cardState == CARD_STATUS_OFFLINE) {
+            } else if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
                 size = buf->size;
                 status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
@@ -627,9 +631,9 @@ int32_t StreamCompress::write(struct pal_buffer *buf)
             currentState);
 
     mStreamMutex.lock();
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
         status = -ENETRESET;
-        PAL_ERR(LOG_TAG, "Sound Card offline, can not write, status %d",
+        PAL_ERR(LOG_TAG, "Sound Card offline/standby, can not write, status %d",
                 status);
         mStreamMutex.unlock();
         return status;
@@ -642,12 +646,13 @@ int32_t StreamCompress::write(struct pal_buffer *buf)
         status = session->write(this, SHMEM_ENDPOINT, buf, &size, 0);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "session write failed with status %d", status);
-            if (errno == -ENETRESET && rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing rm");
+            if (errno == -ENETRESET &&
+                (PAL_CARD_STATUS_UP(rm->cardState))) {
+                PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 mStreamMutex.unlock();
                 return errno;
-            } else if (rm->cardState == CARD_STATUS_OFFLINE) {
+            } else if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
                 mStreamMutex.unlock();
                 return errno;
             } else {
@@ -855,9 +860,9 @@ int32_t StreamCompress::pause_l()
     uint8_t volSize = 0;
     struct pal_volume_data *voldata = NULL;
     //AF will try to pause the stream during SSR.
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Sound card offline, can not pause, status %d", status);
+        PAL_ERR(LOG_TAG, "Sound card offline/standby, can not pause, status %d", status);
         isPaused = true;
         return status;
     }
@@ -944,9 +949,9 @@ int32_t StreamCompress::resume_l()
     struct pal_vol_ctrl_ramp_param ramp_param;
     struct pal_volume_data *voldata = NULL;
 
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Sound card offline, can not resume, status %d", status);
+        PAL_ERR(LOG_TAG, "Sound card offline/standby, can not resume, status %d", status);
         return status;
     }
 
@@ -1007,8 +1012,8 @@ int32_t StreamCompress::resume()
 
 int32_t StreamCompress::drain(pal_drain_type_t type)
 {
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        PAL_ERR(LOG_TAG, "Sound card offline or session is null");
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby or session is null");
         return -EINVAL;
     }
     return session->drain(type);
