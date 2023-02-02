@@ -317,6 +317,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     std::vector <std::pair<int, int>> streamDeviceKV;
     std::vector <std::pair<int, int>> deviceKV;
     std::vector <std::pair<int, int>> devicePPCKV;
+    std::vector <std::pair<int, int>> deviceCKV;
     std::vector <std::pair<int, int>> emptyKV;
     int status = 0;
     struct pal_stream_attributes sAttr;
@@ -437,6 +438,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             PAL_ERR(LOG_TAG, "populateDevicePP Ckv failed %d", status);
             status = 0; /**< ignore device PP CKV failures */
         }
+        status = builder->populateDeviceCkv(streamHandle, deviceCKV);
+        if (status) {
+            PAL_ERR(LOG_TAG, "populateDevice Ckv failed %d", status);
+            status = 0; /**< ignore device PP CKV failures */
+        }
 
         status = builder->populateStreamDeviceKV(streamHandle, be->first, streamDeviceKV);
         if (status) {
@@ -445,7 +451,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
 
         if (deviceKV.size() > 0) {
-            getAgmMetaData(deviceKV, emptyKV, (struct prop_data *)devicePropId,
+            getAgmMetaData(deviceKV, deviceCKV, (struct prop_data *)devicePropId,
                     deviceMetaData);
             if (!deviceMetaData.size) {
                 PAL_ERR(LOG_TAG, "device metadata is zero");
@@ -1191,7 +1197,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     std::vector <std::pair<int, int>> streamRxKV, streamTxKV;
     std::vector <std::pair<int, int>> streamRxCKV, streamTxCKV;
     std::vector <std::pair<int, int>> streamDeviceRxKV, streamDeviceTxKV;
-    std::vector <std::pair<int, int>> deviceRxKV, deviceTxKV;
+    std::vector <std::pair<int, int>> deviceRxKV, deviceRxCKV, deviceTxKV, deviceTxCKV;
     // Using as empty key vector pairs
     std::vector <std::pair<int, int>> emptyKV;
     int status = 0;
@@ -1314,6 +1320,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         status = 0; /**< ignore stream device KV failures */
     }
 
+    status = builder->populateDeviceCkv(streamHandle, deviceRxCKV);
+        if (status) {
+            PAL_ERR(LOG_TAG, "populateDevice Ckv failed %d", status);
+            status = 0; /**< ignore device PP CKV failures */
+    }
     // get audio mixer
     if ((streamRxKV.size() > 0) || (streamRxCKV.size() > 0)) {
         SessionAlsaUtils::getAgmMetaData(streamRxKV, streamRxCKV,
@@ -1325,7 +1336,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
     }
     if (deviceRxKV.size() > 0) {
-        SessionAlsaUtils::getAgmMetaData(deviceRxKV, emptyKV,
+        SessionAlsaUtils::getAgmMetaData(deviceRxKV, deviceRxCKV,
                 (struct prop_data *)devicePropId, deviceRxMetaData);
         if (!deviceRxMetaData.size) {
             PAL_ERR(LOG_TAG, "device RX metadata is zero");
@@ -1353,7 +1364,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
     }
     if (deviceTxKV.size() > 0) {
-        SessionAlsaUtils::getAgmMetaData(deviceTxKV, emptyKV,
+        SessionAlsaUtils::getAgmMetaData(deviceTxKV, deviceTxCKV,
                 (struct prop_data *)devicePropId, deviceTxMetaData);
         if (!deviceTxMetaData.size) {
             PAL_ERR(LOG_TAG, "device TX metadata is zero");

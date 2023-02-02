@@ -2521,6 +2521,59 @@ exit:
     return status;
 }
 
+int PayloadBuilder::populateDeviceCkv(Stream *s,
+        std::vector <std::pair<int,int>> &keyVector)
+{
+    int status = 0;
+    struct pal_stream_attributes *sattr = NULL;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    struct pal_device dAttr;
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+
+    PAL_DBG(LOG_TAG,"Enter");
+    sattr = new struct pal_stream_attributes;
+    if (!sattr) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG,"sattr malloc failed %s status %d", strerror(errno), status);
+        goto exit;
+    }
+    memset (&dAttr, 0, sizeof(struct pal_device));
+    memset (sattr, 0, sizeof(struct pal_stream_attributes));
+
+    status = s->getStreamAttributes(sattr);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"getStreamAttributes Failed status %d\n",status);
+        goto free_sattr;
+    }
+    status = s->getAssociatedDevices(associatedDevices);
+    if (0 != status) {
+       PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+       goto free_sattr;
+    }
+    for (int i = 0; i < associatedDevices.size();i++) {
+        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+            goto free_sattr;
+        }
+
+        if (dAttr.id == PAL_DEVICE_OUT_SPEAKER || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) {
+            keyVector.push_back(std::make_pair(CHANNELS,
+                                dAttr.config.ch_info.channels));
+            keyVector.push_back(std::make_pair(BITWIDTH,
+                                dAttr.config.bit_width));
+        } else {
+            PAL_VERBOSE(LOG_TAG,"device  %d doesn't need CKV ", dAttr.id);
+        }
+    }
+free_sattr:
+    delete sattr;
+exit:
+    PAL_DBG(LOG_TAG,"Exit, status %d", status);
+    return status;
+}
+
+
 int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,int>> &keyVector)
 {
     int status = 0;
