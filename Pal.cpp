@@ -1030,3 +1030,17 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id __unused, void *param_payload,
 
     return status;
 }
+
+int32_t pal_stream_get_path_delay(pal_stream_handle_t *handle, uint32_t *delay_in_ms)
+{
+    if (!handle || !delay_in_ms) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    uint32_t rc = reinterpret_cast<Stream *>(handle)->getLatency(delay_in_ms);
+    if (rc)
+        PAL_ERR(LOG_TAG, "Stream get_latency failed with error %d", rc);
+
+    return rc;
+}

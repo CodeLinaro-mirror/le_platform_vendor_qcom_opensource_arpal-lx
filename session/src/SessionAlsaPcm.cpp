@@ -391,7 +391,7 @@ exit:
 int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 {
     int status = 0;
-    uint32_t tagsent;
+    uint32_t tagsent = 0;
     struct agm_tag_config *tagConfig = nullptr;
     struct agm_cal_config *calConfig = nullptr;
     const char *setParamTagControl = "setParamTag";
@@ -2809,3 +2809,65 @@ int32_t SessionAlsaPcm::getAvailableFrameCount(uint32_t *frame_count, int dir)
 
     return ret;
 }
+
+uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
+{
+    if (!s || !latency)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    struct pal_stream_attributes sAttr;
+    int32_t rc = s->getStreamAttributes(&sAttr);
+    if (rc) {
+        PAL_ERR(LOG_TAG, "Stream getStreamAttributes failed with error %d", rc);
+        return rc;
+    }
+
+    if (!pcmDevIds.size() || (sAttr.direction == PAL_AUDIO_INPUT && !txAifBackEnds.size()) || (sAttr.direction == PAL_AUDIO_OUTPUT && !rxAifBackEnds.size()))
+    {
+        PAL_ERR(LOG_TAG, "Device or backends not available");
+        return -EINVAL;
+    }
+
+    uint32_t srcMiid, dstMiid, payloadSize;
+    if (sAttr.direction == PAL_AUDIO_INPUT) {
+        SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, &srcMiid);
+        SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), txAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &dstMiid);
+    } else {
+        SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &srcMiid);
+        SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_RX, &dstMiid);
+    }
+
+    std::ostringstream CntrlName;
+    CntrlName << "PCM" << pcmDevIds.at(0) << " getParam";
+    struct mixer_ctl *ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
+        return -ENOENT;
+    }
+
+    void* payloadData;
+    rc = builder->payloadPathDelay(&payloadData, &payloadSize, srcMiid, dstMiid);
+    if (rc) {
+        PAL_ERR(LOG_TAG, "Builder payloadPathDelay failed with error %d", rc);
+        return rc;
+    }
+
+    rc = mixer_ctl_set_array(ctl, payloadData, payloadSize);
+    if (rc) {
+         PAL_ERR(LOG_TAG, "mixer_ctl_set_array failed with error %d", rc);
+         return rc;
+    }
+
+    rc = mixer_ctl_get_array(ctl, payloadData, payloadSize);
+    if (rc) {
+         PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with error %d", rc);
+         return rc;
+    }
+
+    *latency = ((apm_path_defn_for_delay_t *)((uint8_t *)payloadData + sizeof(struct apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t)))->delay_us;
+    return 0;
+}
+

@@ -712,7 +712,7 @@ exit:
 int32_t  StreamPCM::read(struct pal_buffer* buf)
 {
     int32_t status = 0;
-    int32_t size;
+    int32_t size = 0;
     PAL_VERBOSE(LOG_TAG, "Enter. session handle - %pK, state %d",
             session, currentState);
 
@@ -1484,4 +1484,21 @@ int32_t StreamPCM::getAvailableFrameCount(uint32_t *frame_count)
 end:
     mStreamMutex.unlock();
     return ret;
+}
+
+int32_t StreamPCM::getLatency(uint32_t *latency)
+{
+    if (!latency) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    uint32_t rc = session->getLatency(this, latency);
+    mStreamMutex.unlock();
+
+    if (rc)
+        PAL_ERR(LOG_TAG, "Session getParameters failed with error %d", rc);
+
+    return rc;
 }

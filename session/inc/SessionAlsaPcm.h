@@ -119,6 +119,7 @@ public:
     int register_asps_event(uint32_t reg);
     int getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload);
     int getPCMDeviceID(Stream *s, int *devId) override;
+    uint32_t getLatency(Stream *s, uint32_t *latency);
 };
 
 #endif //SESSION_ALSAPCM_H

@@ -160,6 +160,7 @@ public:
     virtual int checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
                                  Stream *s, bool is_enable);
     virtual int getPCMDeviceID(Stream *s, int *devId) = 0;
+    virtual uint32_t getLatency(Stream *s, uint32_t *latency) {return -EINVAL;};
 };
 
 #endif //SESSION_H
