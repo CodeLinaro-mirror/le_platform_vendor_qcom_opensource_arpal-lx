@@ -3164,3 +3164,32 @@ void PayloadBuilder::payloadSPConfig(uint8_t** payload, size_t* size, uint32_t m
     *size = payloadSize + padBytes;
     *payload = payloadInfo;
 }
+
+int32_t PayloadBuilder::payloadPathDelay(void** payload, uint32_t *payloadSize, uint32_t srcMiid, uint32_t dstMiid)
+{
+    *payloadSize = sizeof(apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t) + sizeof(apm_path_defn_for_delay_t);
+    *payload = malloc(*payloadSize);
+    if (!(*payload)) {
+        PAL_ERR(LOG_TAG, "Failed to allocate memory for payload");
+        return -ENOMEM;
+    }
+
+    struct apm_module_param_data_t *header = (struct apm_module_param_data_t *)*payload;
+    header->module_instance_id = APM_MODULE_INSTANCE_ID;
+    header->param_id = APM_PARAM_ID_PATH_DELAY;
+    header->error_code = 0;
+    header->param_size = sizeof(apm_param_id_path_delay_t) + sizeof(apm_path_defn_for_delay_t);
+
+    apm_param_id_path_delay_t *path_param = (apm_param_id_path_delay_t *)((uint8_t *)*payload + sizeof(apm_module_param_data_t));
+    path_param->num_paths = 1;
+
+    apm_path_defn_for_delay_t *path_data = (apm_path_defn_for_delay_t *)((uint8_t *)path_param + sizeof(apm_param_id_path_delay_t));
+    path_data->src_module_instance_id = srcMiid;
+    path_data->src_port_id = 0;
+    path_data->dst_module_instance_id = dstMiid;
+    path_data->dst_port_id = 0;
+    path_data->delay_us = 0;
+
+    return 0;
+}
+
