@@ -2105,6 +2105,7 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
     struct st_param_header *param_hdr = nullptr;
     struct st_keyword_indices_info *kw_indices = nullptr;
     struct st_timestamp_info *timestamps = nullptr;
+    struct st_channel_index_info *best_channel = nullptr;
     struct model_stats *det_model_stat = nullptr;
     struct detection_event_info_pdk *det_ev_info_pdk = nullptr;
     struct detection_event_info *det_ev_info = nullptr;
@@ -2146,10 +2147,10 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
         else
             conf_levels_size = sizeof(struct st_confidence_levels_info_v2);
 
-        opaque_size = (3 * sizeof(struct st_param_header)) +
+        opaque_size = (4 * sizeof(struct st_param_header)) +
             sizeof(struct st_timestamp_info) +
             sizeof(struct st_keyword_indices_info) +
-            conf_levels_size;
+            conf_levels_size + sizeof(struct st_channel_index_info);
 
         event_size = sizeof(struct pal_st_phrase_recognition_event) +
                      opaque_size;
@@ -2258,6 +2259,15 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
                 ((uint64_t)det_ev_info->detection_timestamp_lsw +
                 ((uint64_t)det_ev_info->detection_timestamp_msw << 32));
         }
+        opaque_data += sizeof(struct st_timestamp_info);
+
+        param_hdr = (struct st_param_header *)opaque_data;
+        param_hdr->key_id = ST_PARAM_KEY_CONTEXT_RECOGNITION_INFO;
+        param_hdr->payload_size = sizeof(struct st_channel_index_info);
+        opaque_data += sizeof(struct st_param_header);
+        best_channel = (struct st_channel_index_info *)opaque_data;
+        best_channel->version = 0x1;
+        best_channel->channel_index = det_ev_info_pdk->detected_model_stats[0].best_channel_idx;
 
         // dump detection event opaque data
         if ((*event)->data_offset > 0 && (*event)->data_size > 0 &&

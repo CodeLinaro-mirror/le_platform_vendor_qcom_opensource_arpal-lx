@@ -553,6 +553,12 @@ int32_t SoundTriggerEngineGsl::ParseDetectionPayloadPDK(void *event_data) {
                     detection_timestamp_lsw);
 
                     detection_event_info_multi_model_.detected_model_stats[i].
+                    best_channel_idx = model_stat->best_channel_idx;
+                    PAL_DBG(LOG_TAG, "best_channel_idx : %u",
+                    detection_event_info_multi_model_.detected_model_stats[i].
+                    best_channel_idx);
+
+                    detection_event_info_multi_model_.detected_model_stats[i].
                     detection_timestamp_msw = model_stat->detection_timestamp_msw;
                     PAL_DBG(LOG_TAG, "detection_timestamp_msw : %u",
                     detection_event_info_multi_model_.detected_model_stats[i].
