@@ -3931,10 +3931,10 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
 void ResourceManager::mixerEventWaitThreadLoop(
     std::shared_ptr<ResourceManager> rm) {
     int ret = 0;
-#ifdef LINUX_ENABLED
-    struct ctl_event mixer_event = {0, {.data8 = {0}}};
-#else
+#ifdef TARGET_USES_QTI_TINYALSA
     struct snd_ctl_event mixer_event = {0, {.data8 = {0}}};
+#else
+    struct ctl_event mixer_event = {0, {.data8 = {0}}};
 #endif
     struct mixer *mixer = nullptr;
 
