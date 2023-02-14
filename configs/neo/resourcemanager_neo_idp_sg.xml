@@ -27,7 +27,8 @@
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                             -->
 <!-- Changes from Qualcomm Innovation Center are provided under the following license: -->
 <!--                                                                                   -->
-<!-- Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.          -->
+<!-- Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.     -->
+<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                       -->
 <!--                                                                                   -->
 <!-- Redistribution and use in source and binary forms, with or without                -->
 <!-- modification, are permitted (subject to the limitations in the                    -->
@@ -70,6 +71,7 @@
         <param key="context_manager_enable" value ="false" />
         <param key="upd_dedicated_be" value ="true" />
         <param key="dual_mono" value ="false" />
+        <param key="btsink_hfp_ch_conf" value ="2" />
     </config_params>
     <config_volume>
         <use_volume_set_param>0</use_volume_set_param>
