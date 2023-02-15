@@ -154,6 +154,9 @@
     <spkr_temp_ctls>
         <temp_ctrl spkr_posn="SPKR_RIGHT" ctrl="BB_TEMP"/>
     </spkr_temp_ctls>
+    <snd_card_standby_support_streams>
+        <snd_card_sb_stream_type>PAL_STREAM_VOICE_UI</snd_card_sb_stream_type>
+    </snd_card_standby_support_streams>
     <device_profile>
         <in-device>
             <id>PAL_DEVICE_IN_HANDSET_MIC</id>
