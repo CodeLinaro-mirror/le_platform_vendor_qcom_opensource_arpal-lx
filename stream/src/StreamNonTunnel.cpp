@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -63,11 +63,11 @@ StreamNonTunnel::StreamNonTunnel(const struct pal_stream_attributes *sattr, stru
         throw std::runtime_error("invalid arguments");
     }
 
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        PAL_ERR(LOG_TAG, "Sound card offline, can not create stream");
+    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby, can not create stream");
         usleep(SSR_RECOVERY);
         mStreamMutex.unlock();
-        throw std::runtime_error("Sound card offline");
+        throw std::runtime_error("Sound card offline/standby");
     }
 
     session = NULL;
@@ -142,8 +142,9 @@ int32_t  StreamNonTunnel::open()
     int32_t status = 0;
 
     mStreamMutex.lock();
-    if (rm->cardState == CARD_STATUS_OFFLINE || ssrInNTMode == true) {
-        PAL_ERR(LOG_TAG, "Sound card offline, can not open stream");
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+            || ssrInNTMode == true) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby, can not open stream");
         usleep(SSR_RECOVERY);
         status = -ENETRESET;
         goto exit;
@@ -210,8 +211,9 @@ int32_t StreamNonTunnel::start()
 {
     int32_t status = 0;
     mStreamMutex.lock();
-    if (rm->cardState == CARD_STATUS_OFFLINE || ssrInNTMode == true) {
-        PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+            || ssrInNTMode == true) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         status = -ENETRESET;
         goto exit;
@@ -232,8 +234,8 @@ int32_t StreamNonTunnel::start()
 
         status = session->start(this);
         if (status == -ENETRESET &&
-                rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
+                (PAL_CARD_STATUS_UP(rm->cardState))) {
+                PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 goto exit;
         }
@@ -299,9 +301,9 @@ int32_t StreamNonTunnel::prepare()
 
     mStreamMutex.lock();
 
-    if ((rm->cardState == CARD_STATUS_OFFLINE)
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
             || ssrInNTMode == true) {
-        PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+        PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         mStreamMutex.unlock();
         return -ENETRESET;
@@ -324,8 +326,9 @@ int32_t  StreamNonTunnel::read(struct pal_buffer* buf)
             session, currentState);
 
     mStreamMutex.lock();
-    if ((rm->cardState == CARD_STATUS_OFFLINE) || ssrInNTMode == true) {
-         PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+             || ssrInNTMode == true) {
+         PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         status = -ENETRESET;
         goto exit;
@@ -336,13 +339,13 @@ int32_t  StreamNonTunnel::read(struct pal_buffer* buf)
         if (0 != status) {
             PAL_ERR(LOG_TAG, "session read is failed with status %d", status);
             if (status == -ENETRESET &&
-                rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
+                (PAL_CARD_STATUS_UP(rm->cardState))) {
+                PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 size = buf->size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
-            } else if (rm->cardState == CARD_STATUS_OFFLINE) {
+            } else if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
                 size = buf->size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
@@ -375,10 +378,10 @@ int32_t  StreamNonTunnel::write(struct pal_buffer* buf)
     mStreamMutex.lock();
 
     // If cached state is not STREAM_IDLE, we are still processing SSR up.
-    if ((rm->cardState == CARD_STATUS_OFFLINE)
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
             || ssrInNTMode == true) {
         size = buf->size;
-        PAL_DBG(LOG_TAG, "sound card offline dropped buffer size - %d", size);
+        PAL_DBG(LOG_TAG, "sound card offline/standby dropped buffer size - %d", size);
         mStreamMutex.unlock();
         return -ENETRESET;
     }
@@ -392,13 +395,13 @@ int32_t  StreamNonTunnel::write(struct pal_buffer* buf)
 
             /* ENETRESET is the error code returned by AGM during SSR */
             if (status == -ENETRESET &&
-                rm->cardState != CARD_STATUS_OFFLINE) {
-                PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
+                (PAL_CARD_STATUS_UP(rm->cardState))) {
+                PAL_ERR(LOG_TAG, "Sound card offline/standby, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 size = buf->size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
-            } else if (rm->cardState == CARD_STATUS_OFFLINE) {
+            } else if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
                 size = buf->size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
@@ -472,8 +475,9 @@ int32_t  StreamNonTunnel::setParameters(uint32_t param_id, void *payload)
         mStreamMutex.unlock();
         return -EINVAL;
     }
-    if ((rm->cardState == CARD_STATUS_OFFLINE) || ssrInNTMode == true) {
-         PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+             || ssrInNTMode == true) {
+         PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         status = -ENETRESET;
         goto error;
@@ -501,8 +505,9 @@ error:
 int32_t StreamNonTunnel::drain(pal_drain_type_t type)
 {
     PAL_ERR(LOG_TAG, "drain");
-    if ((rm->cardState == CARD_STATUS_OFFLINE) || ssrInNTMode == true) {
-         PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+             || ssrInNTMode == true) {
+         PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         return -ENETRESET;
     }
@@ -514,8 +519,9 @@ int32_t StreamNonTunnel::flush()
     int32_t status = 0;
 
     mStreamMutex.lock();
-    if ((rm->cardState == CARD_STATUS_OFFLINE) || ssrInNTMode == true) {
-         PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+             || ssrInNTMode == true) {
+         PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         status = -ENETRESET;
         goto exit;
@@ -533,8 +539,9 @@ int32_t StreamNonTunnel::suspend()
     int32_t status = 0;
 
     mStreamMutex.lock();
-    if ((rm->cardState == CARD_STATUS_OFFLINE) || ssrInNTMode) {
-         PAL_ERR(LOG_TAG, "Sound card offline currentState %d",
+    if ((PAL_CARD_STATUS_DOWN(rm->cardState))
+             || ssrInNTMode) {
+         PAL_ERR(LOG_TAG, "Sound card offline/standby currentState %d",
                 currentState);
         status = -ENETRESET;
         goto exit;
