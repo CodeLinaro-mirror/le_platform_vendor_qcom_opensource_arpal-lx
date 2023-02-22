@@ -210,6 +210,7 @@ public:
     int32_t getStreamDirection(pal_stream_direction_t *dir);
     uint32_t getRenderLatency();
     uint32_t getLatency();
+    virtual int32_t getLatency(uint32_t *latency) {return -EINVAL;};
     int32_t getAssociatedDevices(std::vector <std::shared_ptr<Device>> &adevices);
     int32_t getAssociatedPalDevices(std::vector <struct pal_device> &palDevices);
     int32_t UpdatePalDevice(struct pal_device *dattr,  pal_device_id_t Dev_id);
