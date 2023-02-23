@@ -22,19 +22,9 @@ LOCAL_CFLAGS        += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
 LOCAL_CFLAGS        += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
 LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
-ifeq ($(PRODUCT_NAME), msmnile_gvmq)
-  LOCAL_CFLAGS        += -DAUTO_GVMQ
-endif
-ifeq ($(PRODUCT_NAME), msmnile_au)
-  LOCAL_CFLAGS   += -DAUTO_AU
-endif
 
-ifeq ($(PRODUCT_NAME), msmnile_gvmgh)
-  LOCAL_CFLAGS += -DPLATFORM_AUTO
-endif
-
-ifeq ($(PRODUCT_NAME), msmnile_gvmq)
-  LOCAL_CFLAGS += -DPLATFORM_AUTO
+ifeq ($(ENABLE_HYP),true)
+    LOCAL_CFLAGS += -DPLATFORM_AUTO
 endif
 
 LOCAL_C_INCLUDES := \
