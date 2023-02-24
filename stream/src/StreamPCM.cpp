@@ -84,6 +84,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     std::ignore = modifiers;
     std::ignore = no_of_modifiers;
 
+    if (!sattr || !dattr) {
+        PAL_ERR(LOG_TAG,"invalid arguments");
+        mStreamMutex.unlock();
+        throw std::runtime_error("invalid arguments");
+    }
+
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
                       +sizeof(struct pal_channel_vol_kv));
@@ -94,12 +100,14 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     }
     mVolumeData->no_of_volpair = 1;
     mVolumeData->volume_pair[0].channel_mask = 0x03;
-    mVolumeData->volume_pair[0].vol = 1.0f;
-
-    if (!sattr || !dattr) {
-        PAL_ERR(LOG_TAG,"invalid arguments");
-        mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
+    if (sattr->type == PAL_STREAM_LOOPBACK &&
+        ((sattr->info.opt_stream_info.loopback_type ==
+         PAL_STREAM_LOOPBACK_HFP_RX) ||
+        (sattr->info.opt_stream_info.loopback_type ==
+         PAL_STREAM_LOOPBACK_HFP_TX))) {
+        mVolumeData->volume_pair[0].vol = 15.0f;
+    } else {
+        mVolumeData->volume_pair[0].vol = 1.0f;
     }
 
     attribute_size = sizeof(struct pal_stream_attributes);
