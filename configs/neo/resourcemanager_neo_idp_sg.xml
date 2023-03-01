@@ -136,6 +136,10 @@
                 <name>PAL_STREAM_DEEP_BUFFER</name>
             </usecase>
             <usecase>
+                <name>PAL_STREAM_COMPRESSED</name>
+                <ec_enable>1</ec_enable>
+            </usecase>
+            <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
                 <priority>2</priority>
             </usecase>
@@ -195,6 +199,10 @@
                 <name>PAL_STREAM_DEEP_BUFFER</name>
             </usecase>
             <usecase>
+                <name>PAL_STREAM_COMPRESSED</name>
+                <ec_enable>1</ec_enable>
+            </usecase>
+            <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
                 <priority>2</priority>
             </usecase>
@@ -235,6 +243,10 @@
                 <name>PAL_STREAM_DEEP_BUFFER</name>
             </usecase>
             <usecase>
+                <name>PAL_STREAM_COMPRESSED</name>
+                <ec_enable>1</ec_enable>
+            </usecase>
+            <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
                 <samplerate>48000</samplerate>
                 <bit_width>16</bit_width>
@@ -267,6 +279,9 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_DEEP_BUFFER</name>
+            </usecase>
+            <usecase>
+                <name>PAL_STREAM_COMPRESSED</name>
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
@@ -326,6 +341,10 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_DEEP_BUFFER</name>
+            </usecase>
+            <usecase>
+                <name>PAL_STREAM_COMPRESSED</name>
+                <ec_enable>1</ec_enable>
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
@@ -712,6 +731,15 @@
         </in_stream>
         <in_stream>
             <name>PAL_STREAM_DEEP_BUFFER</name>
+                <policies>
+                    <ec_ref>
+                        <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
+                        <disabled_stream>PAL_STREAM_GENERIC</disabled_stream>
+                    </ec_ref>
+                </policies>
+        </in_stream>
+        <in_stream>
+            <name>PAL_STREAM_COMPRESSED</name>
                 <policies>
                     <ec_ref>
                         <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
