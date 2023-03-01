@@ -216,4 +216,33 @@ public:
     DISALLOW_COPY_AND_ASSIGN(BtSco);
 };
 
+class BtSco2 : public Bluetooth
+{
+protected:
+    static std::shared_ptr<Device> objRx;
+    static std::shared_ptr<Device> objTx;
+    BtSco2(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
+    static bool isScoOn;
+    static bool isWbSpeechEnabled;
+    static int  swbSpeechMode;
+    static bool isSwbLc3Enabled;
+    static audio_lc3_codec_cfg_t lc3CodecInfo;
+    static bool isNrecEnabled;
+    int startSwb();
+
+public:
+    int start();
+    int stop();
+    bool isDeviceReady() override;
+    int32_t setDeviceParameter(uint32_t param_id, void *param) override;
+    void updateSampleRate(uint32_t *sampleRate);
+
+    static std::shared_ptr<Device> getObject(pal_device_id_t id);
+    static std::shared_ptr<Device> getInstance(struct pal_device *device,
+                                               std::shared_ptr<ResourceManager> Rm);
+    virtual ~BtSco2();
+    DISALLOW_COPY_AND_ASSIGN(BtSco2);
+};
+
+
 #endif /* _BLUETOOTH_H_ */
