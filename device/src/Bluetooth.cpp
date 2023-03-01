@@ -847,6 +847,13 @@ void Bluetooth::startAbr()
                 PAL_ERR(LOG_TAG, "failed to get BtSco singleton object.");
                 goto err_pcm_open;
             }
+        } else if ((fbDevice.id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET) ||
+            (fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)) {
+            fbDev = std::dynamic_pointer_cast<BtSco2>(BtSco2::getInstance(&fbDevice, rm));
+            if (!fbDev) {
+                PAL_ERR(LOG_TAG, "failed to get BtSco2 singleton object.");
+                goto err_pcm_open;
+            }
         } else {
             fbDev = std::dynamic_pointer_cast<BtA2dp>(BtA2dp::getInstance(&fbDevice, rm));
             if (!fbDev) {
@@ -929,7 +936,9 @@ start_pcm:
     }
     if ((codecFormat == CODEC_TYPE_LC3) && (fbDev != NULL) &&
         (fbDevice.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
-         fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_SCO)) {
+         fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
+         fbDevice.id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET ||
+         fbDevice.id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)) {
         fbDev->isConfigured = true;
         fbDev->totalActiveSessionRequests++;
     }
@@ -1881,9 +1890,6 @@ int32_t BtSco::setDeviceParameter(uint32_t param_id, void *param)
         isNrecEnabled = param_bt_sco->bt_sco_nrec;
         PAL_DBG(LOG_TAG, "isNrecEnabled = %d", isNrecEnabled);
         break;
-    case PAL_PARAM_ID_BT_AG_SCO:
-        isScoOn = param_bt_sco->bt_sco_on;
-        break;
     default:
         return -EINVAL;
     }
@@ -2058,8 +2064,7 @@ int BtSco::start()
 
     //Configure NREC only on Tx path & First session request only.
     if ((isConfigured == true) &&
-        (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
-         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)) {
+        (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)) {
         if (totalActiveSessionRequests == 0) {
             configureNrecParameters(isNrecEnabled);
         }
@@ -2120,7 +2125,7 @@ int BtSco::stop()
 
 std::shared_ptr<Device> BtSco::getObject(pal_device_id_t id)
 {
-    if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO || id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)
+    if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO)
         return objRx;
     else
         return objTx;
@@ -2129,7 +2134,7 @@ std::shared_ptr<Device> BtSco::getObject(pal_device_id_t id)
 std::shared_ptr<Device> BtSco::getInstance(struct pal_device *device,
                                            std::shared_ptr<ResourceManager> Rm)
 {
-    if (device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO || device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) {
+    if (device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
         if (!objRx) {
             std::shared_ptr<Device> sp(new BtSco(device, Rm));
             objRx = sp;
@@ -2145,3 +2150,214 @@ std::shared_ptr<Device> BtSco::getInstance(struct pal_device *device,
     }
 }
 /*BtSco class end */
+
+/* Scope of BtSco2RX/Tx class */
+// definition of static BtSco member variables
+std::shared_ptr<Device> BtSco2::objRx = nullptr;
+std::shared_ptr<Device> BtSco2::objTx = nullptr;
+bool BtSco2::isScoOn = false;
+bool BtSco2::isWbSpeechEnabled = true; // default 16k
+int  BtSco2::swbSpeechMode = SPEECH_MODE_INVALID;
+bool BtSco2::isSwbLc3Enabled = false;
+audio_lc3_codec_cfg_t BtSco2::lc3CodecInfo = {};
+bool BtSco2::isNrecEnabled = false;
+
+BtSco2::BtSco2(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
+    : Bluetooth(device, Rm)
+{
+    codecType = (device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) ? ENC : DEC;
+    pluginHandler = NULL;
+    pluginCodec = NULL;
+}
+
+BtSco2::~BtSco2()
+{
+    if (lc3CodecInfo.enc_cfg.streamMapOut != NULL)
+        delete [] lc3CodecInfo.enc_cfg.streamMapOut;
+    if (lc3CodecInfo.dec_cfg.streamMapIn != NULL)
+        delete [] lc3CodecInfo.dec_cfg.streamMapIn;
+}
+
+bool BtSco2::isDeviceReady()
+{
+    return isScoOn;
+}
+
+void BtSco2::updateSampleRate(uint32_t *sampleRate)
+{
+    if (isWbSpeechEnabled)
+        *sampleRate = SAMPLINGRATE_16K;
+    else if (swbSpeechMode != SPEECH_MODE_INVALID)
+        *sampleRate = SAMPLINGRATE_96K;
+    else if (isSwbLc3Enabled)
+        *sampleRate = SAMPLINGRATE_96K;
+    else
+        *sampleRate = SAMPLINGRATE_8K;
+}
+
+int32_t BtSco2::setDeviceParameter(uint32_t param_id, void *param)
+{
+    pal_param_btsco_t* param_bt_sco = (pal_param_btsco_t *)param;
+
+    switch (param_id) {
+    case PAL_PARAM_ID_BT_SCO:
+        isScoOn = param_bt_sco->bt_sco_on;
+        break;
+    case PAL_PARAM_ID_BT_SCO_WB:
+        isWbSpeechEnabled = param_bt_sco->bt_wb_speech_enabled;
+        PAL_DBG(LOG_TAG, "isWbSpeechEnabled = %d", isWbSpeechEnabled);
+        break;
+    case PAL_PARAM_ID_BT_SCO_SWB:
+        swbSpeechMode = param_bt_sco->bt_swb_speech_mode;
+        PAL_DBG(LOG_TAG, "swbSpeechMode = %d", swbSpeechMode);
+        break;
+    case PAL_PARAM_ID_BT_SCO_NREC:
+        isNrecEnabled = param_bt_sco->bt_sco_nrec;
+        PAL_DBG(LOG_TAG, "isNrecEnabled = %d", isNrecEnabled);
+        break;
+    case PAL_PARAM_ID_BT_AG_SCO:
+        isScoOn = param_bt_sco->bt_sco_on;
+        break;
+    default:
+        return -EINVAL;
+    }
+
+    return 0;
+}
+
+int BtSco2::startSwb()
+{
+    int ret = 0;
+
+    if (!isConfigured)
+        ret = configureA2dpEncoderDecoder();
+
+    return ret;
+}
+
+int BtSco2::start()
+{
+    int status = 0;
+    mDeviceMutex.lock();
+
+    if (customPayload)
+        free(customPayload);
+
+    customPayload = NULL;
+    customPayloadSize = 0;
+
+    if (swbSpeechMode != SPEECH_MODE_INVALID) {
+        codecFormat = CODEC_TYPE_APTX_AD_SPEECH;
+        codecInfo = (void *)&swbSpeechMode;
+    } else if (isSwbLc3Enabled) {
+        codecFormat = CODEC_TYPE_LC3;
+        codecInfo = (void *)&lc3CodecInfo;
+    }
+
+    updateDeviceMetadata();
+    if ((codecFormat == CODEC_TYPE_APTX_AD_SPEECH) ||
+        (codecFormat == CODEC_TYPE_LC3)) {
+        status = startSwb();
+        if (status)
+            goto exit;
+    } else {
+        // For SCO NB and WB that don't have encoder and decoder in place,
+        // just override codec configurations with device attributions.
+        codecConfig.bit_width = deviceAttr.config.bit_width;
+        codecConfig.sample_rate = deviceAttr.config.sample_rate;
+        codecConfig.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_PCM;
+        codecConfig.ch_info.channels = deviceAttr.config.ch_info.channels;
+        isConfigured = true;
+        PAL_DBG(LOG_TAG, "SCO2 WB/NB codecConfig is same as deviceAttr bw = %d,sr = %d,ch = %d",
+            codecConfig.bit_width, codecConfig.sample_rate, codecConfig.ch_info.channels);
+    }
+
+    //Configure NREC only on Tx path & First session request only.
+    if ((isConfigured == true) &&
+        (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)) {
+        if (totalActiveSessionRequests == 0) {
+            configureNrecParameters(isNrecEnabled);
+        }
+    }
+
+    if (totalActiveSessionRequests == 0) {
+        status = configureSlimbusClockSrc();
+        if (status)
+            goto exit;
+    }
+
+    status = Device::start_l();
+    if (!status)
+        totalActiveSessionRequests++;
+    if (!status && isAbrEnabled &&
+        (codecFormat != CODEC_TYPE_LC3))
+        startAbr();
+
+exit:
+    mDeviceMutex.unlock();
+    return status;
+}
+
+int BtSco2::stop()
+{
+    int status = 0;
+    mDeviceMutex.lock();
+
+    if (isAbrEnabled) {
+        if (codecFormat != CODEC_TYPE_LC3) {
+            stopAbr();
+        } else {
+            isAbrEnabled = false;
+        }
+    }
+
+    if (pluginCodec) {
+        pluginCodec->close_plugin(pluginCodec);
+        pluginCodec = NULL;
+    }
+    if (pluginHandler) {
+        dlclose(pluginHandler);
+        pluginHandler = NULL;
+    }
+
+    Device::stop_l();
+    if (totalActiveSessionRequests > 0)
+        totalActiveSessionRequests--;
+
+    if (isAbrEnabled == false)
+        codecFormat = CODEC_TYPE_INVALID;
+    if (totalActiveSessionRequests == 0)
+        isConfigured = false;
+
+    mDeviceMutex.unlock();
+    return status;
+}
+
+std::shared_ptr<Device> BtSco2::getObject(pal_device_id_t id)
+{
+    if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)
+        return objRx;
+    else
+        return objTx;
+}
+
+std::shared_ptr<Device> BtSco2::getInstance(struct pal_device *device,
+                                           std::shared_ptr<ResourceManager> Rm)
+{
+    if (device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) {
+        if (!objRx) {
+            std::shared_ptr<Device> sp(new BtSco2(device, Rm));
+            objRx = sp;
+        }
+        return objRx;
+    } else {
+        if (!objTx) {
+            PAL_ERR(LOG_TAG,  "creating instance for  %d", device->id);
+            std::shared_ptr<Device> sp(new BtSco2(device, Rm));
+            objTx = sp;
+        }
+        return objTx;
+    }
+}
+/*BtSco2 class end */
+
