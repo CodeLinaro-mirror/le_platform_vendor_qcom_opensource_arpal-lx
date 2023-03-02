@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -391,8 +391,9 @@ typedef enum {
     PAL_DEVICE_OUT_ULTRASOUND = 20,
     PAL_DEVICE_OUT_A2B_SPKR = 21,
     PAL_DEVICE_OUT_A2B2_SPKR = 22,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO2 = 23,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 23,
+    PAL_DEVICE_OUT_MAX = 24,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN + 1,
@@ -415,8 +416,9 @@ typedef enum {
     PAL_DEVICE_IN_TELEPHONY_RX = PAL_DEVICE_IN_MIN + 18,
     PAL_DEVICE_IN_ULTRASOUND_MIC = PAL_DEVICE_IN_MIN +19,
     PAL_DEVICE_IN_EXT_EC_REF = PAL_DEVICE_IN_MIN + 20,
+    PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 21,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 21,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 22,
 } pal_device_id_t;
 
 typedef enum {
@@ -433,6 +435,7 @@ typedef enum {
     PAL_STREAM_LOOPBACK_COMPRESS,
     PAL_STREAM_LOOPBACK_FM,
     PAL_STREAM_LOOPBACK_KARAOKE,
+    PAL_STREAM_LOOPBACK_ICC,
 } pal_stream_loopback_type_t;
 
 typedef enum {
@@ -466,6 +469,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND" },           PAL_DEVICE_OUT_ULTRASOUND},
     {std::string{ "PAL_DEVICE_OUT_A2B_SPKR" },             PAL_DEVICE_OUT_A2B_SPKR},
     {std::string{ "PAL_DEVICE_OUT_A2B2_SPKR" },            PAL_DEVICE_OUT_A2B2_SPKR},
+    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_SCO2" },       PAL_DEVICE_OUT_BLUETOOTH_SCO2},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
@@ -487,6 +491,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_TELEPHONY_RX" },          PAL_DEVICE_IN_TELEPHONY_RX},
     {std::string{ "PAL_DEVICE_IN_ULTRASOUND_MIC" },        PAL_DEVICE_IN_ULTRASOUND_MIC},
     {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
+    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET" }, PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET},
 };
 
 //reverse mapping
@@ -514,6 +519,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           std::string{"PAL_DEVICE_OUT_ULTRASOUND"}},
     {PAL_DEVICE_OUT_A2B_SPKR,             std::string{"PAL_DEVICE_OUT_A2B_SPKR"}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            std::string{"PAL_DEVICE_OUT_A2B2_SPKR"}},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       std::string{"PAL_DEVICE_OUT_BLUETOOTH_SCO2"}},
     {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
     {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
@@ -534,7 +540,8 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_VI_FEEDBACK,           std::string{"PAL_DEVICE_IN_VI_FEEDBACK"}},
     {PAL_DEVICE_IN_TELEPHONY_RX,          std::string{"PAL_DEVICE_IN_TELEPHONY_RX"}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        std::string{"PAL_DEVICE_IN_ULTRASOUND_MIC"}},
-    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}}
+    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET"}}
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -610,6 +617,7 @@ const std::map<uint32_t, std::string> loopbackLUT {
     {PAL_STREAM_LOOPBACK_COMPRESS,   std::string{ "PAL_STREAM_LOOPBACK_COMPRESS" } },
     {PAL_STREAM_LOOPBACK_FM,         std::string{ "PAL_STREAM_LOOPBACK_FM" } },
     {PAL_STREAM_LOOPBACK_KARAOKE,    std::string{ "PAL_STREAM_LOOPBACK_KARAOKE" }},
+    {PAL_STREAM_LOOPBACK_ICC,        std::string{ "PAL_STREAM_LOOPBACK_ICC" }},
 };
 
 #endif
@@ -901,6 +909,7 @@ typedef enum {
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
     PAL_PARAM_ID_PLUGIN_PARAM = 58,
     PAL_PARAM_ID_SET_HFP_ZONE = 59,
+    PAL_PARAM_ID_BT_AG_SCO = 60, /* HFP AG role */
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

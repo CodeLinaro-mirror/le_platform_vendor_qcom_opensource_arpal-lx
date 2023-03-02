@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -286,6 +287,12 @@ struct __attribute__((__packed__)) st_det_perf_mode_info
 {
     uint32_t version; /* value: 0x01 */
     uint32_t mode; /* 0 -Low Power, 1 -High performance */
+};
+
+struct __attribute__((__packed__)) st_channel_index_info
+{
+    uint32_t version; /* value: 0x01 */
+    uint32_t channel_index; /* range: {0..15} */
 };
 
 typedef enum st_sound_model_type {

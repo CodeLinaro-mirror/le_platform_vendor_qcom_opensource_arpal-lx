@@ -73,6 +73,7 @@ public:
                                    struct pal_mmap_buffer *info) override;
    int32_t GetMmapPosition(struct pal_mmap_position *position) override;
    int32_t getAvailableFrameCount(uint32_t *frame_count) override;
+   int32_t getLatency(uint32_t *latency) override;
 
    static int32_t isSampleRateSupported(uint32_t sampleRate);
    static int32_t isChannelSupported(uint32_t numChannels);
