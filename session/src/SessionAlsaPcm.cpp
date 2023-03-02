@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2696,6 +2696,10 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
      PAL_DBG(LOG_TAG, "Exit status: %d", status);
      return status;
  }
+
+int SessionAlsaPcm::ResetMmapBuffer(Stream *s) {
+    return 0;
+}
 
 // NOTE: only used by Voice UI for Google hotword api query
 int SessionAlsaPcm::openGraph(Stream *s) {

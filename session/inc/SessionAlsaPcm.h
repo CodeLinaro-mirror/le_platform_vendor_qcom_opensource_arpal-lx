@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -108,6 +109,7 @@ public:
                                    struct pal_mmap_buffer *info) override;
     int GetMmapPosition(Stream *s, struct pal_mmap_position *position) override;
     int32_t getAvailableFrameCount(uint32_t *frame_count, int dir) override;
+    int ResetMmapBuffer(Stream *s) override;
     int openGraph(Stream *s) override;
     void adjustMmapPeriodCount(struct pcm_config *config, int32_t min_size_frames);
     void registerAdmStream(Stream *s, pal_stream_direction_t dir,
