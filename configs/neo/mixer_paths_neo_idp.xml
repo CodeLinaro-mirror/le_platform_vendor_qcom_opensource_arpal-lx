@@ -57,6 +57,10 @@
 <!-- IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR                   -->
 <!-- OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN               -->
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                                     -->
+<!--                                                                                   -->
+<!-- Changes from Qualcomm Innovation Center are provided under the following license: -->
+<!-- Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.          -->
+<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                       -->
 <mixer>
     <!-- These are the initial mixer settings -->
     <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="0" />
@@ -2439,8 +2443,8 @@
         <ctl name="DMIC3 ChMap" value="SWRM_TX1_CH1" />
         <ctl name="DMIC1_MIXER Switch" value="1" />
         <ctl name="DMIC3_MIXER Switch" value="1" />
-        <ctl name="VA_DEC0 Volume" value="102" />
-        <ctl name="VA_DEC1 Volume" value="102" />
+        <ctl name="VA_DEC0 Volume" value="84" />
+        <ctl name="VA_DEC1 Volume" value="84" />
     </path>
 
     <path name="va-mic-tmic">
