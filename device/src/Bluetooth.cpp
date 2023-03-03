@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -1880,6 +1881,9 @@ int32_t BtSco::setDeviceParameter(uint32_t param_id, void *param)
         isNrecEnabled = param_bt_sco->bt_sco_nrec;
         PAL_DBG(LOG_TAG, "isNrecEnabled = %d", isNrecEnabled);
         break;
+    case PAL_PARAM_ID_BT_AG_SCO:
+        isScoOn = param_bt_sco->bt_sco_on;
+        break;
     default:
         return -EINVAL;
     }
@@ -2054,7 +2058,8 @@ int BtSco::start()
 
     //Configure NREC only on Tx path & First session request only.
     if ((isConfigured == true) &&
-        (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)) {
+        (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
+         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)) {
         if (totalActiveSessionRequests == 0) {
             configureNrecParameters(isNrecEnabled);
         }
@@ -2115,7 +2120,7 @@ int BtSco::stop()
 
 std::shared_ptr<Device> BtSco::getObject(pal_device_id_t id)
 {
-    if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO)
+    if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO || id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)
         return objRx;
     else
         return objTx;
@@ -2124,7 +2129,7 @@ std::shared_ptr<Device> BtSco::getObject(pal_device_id_t id)
 std::shared_ptr<Device> BtSco::getInstance(struct pal_device *device,
                                            std::shared_ptr<ResourceManager> Rm)
 {
-    if (device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
+    if (device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO || device->id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) {
         if (!objRx) {
             std::shared_ptr<Device> sp(new BtSco(device, Rm));
             objRx = sp;

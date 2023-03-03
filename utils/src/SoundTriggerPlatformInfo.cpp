@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -373,7 +374,7 @@ SoundTriggerPlatformInfo::SoundTriggerPlatformInfo() :
     notify_second_stage_failure_(false),
     mmap_buffer_duration_(0),
     mmap_frame_length_(0),
-    sound_model_lib_("liblistensoundmodel2vendor.so"),
+    sound_model_lib_("liblistensoundmodel2.so"),
     curr_child_(nullptr)
 {
 }
