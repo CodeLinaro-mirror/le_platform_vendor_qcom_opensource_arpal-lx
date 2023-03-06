@@ -1897,7 +1897,7 @@ bool StreamSoundTrigger::compareRecognitionConfig(
     }
 }
 
-int32_t StreamSoundTrigger::notifyClient(bool detection) {
+int32_t StreamSoundTrigger::notifyClient(uint32_t detection) {
     int32_t status = 0;
     struct pal_st_recognition_event *rec_event = nullptr;
     uint32_t event_size;
@@ -2148,7 +2148,7 @@ void StreamSoundTrigger::FillCallbackConfLevels(uint8_t *opaque_data,
 
 int32_t StreamSoundTrigger::GenerateCallbackEvent(
     struct pal_st_recognition_event **event, uint32_t *evt_size,
-    bool detection) {
+    uint32_t detection) {
 
     struct pal_st_phrase_recognition_event *phrase_event = nullptr;
     struct pal_st_generic_recognition_event *generic_event = nullptr;
@@ -2217,8 +2217,7 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
                sizeof(struct pal_st_phrase_recognition_extra));
 
         *event = &(phrase_event->common);
-        (*event)->status = detection ? PAL_RECOGNITION_STATUS_SUCCESS :
-                           PAL_RECOGNITION_STATUS_FAILURE;
+        (*event)->status = detection;
         (*event)->type = sound_model_type_;
         (*event)->st_handle = (pal_st_handle_t *)this;
         (*event)->capture_available = rec_config_->capture_requested;
@@ -3755,7 +3754,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                 st_stream_.SetDetectedToEngines(true);
             }
             if (st_stream_.engines_.size() == 1) {
-                st_stream_.notifyClient(true);
+                st_stream_.notifyClient(PAL_RECOGNITION_STATUS_SUCCESS);
             }
             break;
         }
@@ -4439,7 +4438,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
 
                 if (st_stream_.st_info_->GetNotifySecondStageFailure()) {
                     st_stream_.rejection_notified_ = true;
-                    st_stream_.notifyClient(false);
+                    st_stream_.notifyClient(PAL_RECOGNITION_STATUS_FAILURE);
                 } else {
                     PAL_DBG(LOG_TAG, "Notification for second stage rejection is disabled");
                     for (auto& eng : st_stream_.engines_) {
@@ -4474,7 +4473,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                     }
                     TransitTo(ST_STATE_DETECTED);
                 }
-                st_stream_.notifyClient(true);
+                st_stream_.notifyClient(PAL_RECOGNITION_STATUS_SUCCESS);
             }
             break;
         }
