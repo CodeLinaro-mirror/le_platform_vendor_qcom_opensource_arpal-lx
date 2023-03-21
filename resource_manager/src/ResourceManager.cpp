@@ -27,7 +27,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -469,6 +470,8 @@ bool ResourceManager::lpi_logging_ = false;
 bool ResourceManager::isUpdDedicatedBeEnabled = false;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 bool ResourceManager::isSignalHandlerEnabled = false;
+uint32_t ResourceManager::btsink_hfp_ch = 0;
+
 
 //TODO:Needs to define below APIs so that functionality won't break
 #ifdef FEATURE_IPQ_OPENWRT
@@ -1802,6 +1805,24 @@ void ResourceManager::getChannelMap(uint8_t *channel_map, int channels)
        channel_map[5] = PAL_CHMAP_CHANNEL_RB;
        channel_map[6] = PAL_CHMAP_CHANNEL_LS;
        channel_map[7] = PAL_CHMAP_CHANNEL_RS;
+       break;
+    case CHANNELS_16:
+       channel_map[0] = PAL_CHMAP_CHANNEL_FL;
+       channel_map[1] = PAL_CHMAP_CHANNEL_FR;
+       channel_map[2] = PAL_CHMAP_CHANNEL_C;
+       channel_map[3] = PAL_CHMAP_CHANNEL_LS;
+       channel_map[4] = PAL_CHMAP_CHANNEL_RS;
+       channel_map[5] = PAL_CHMAP_CHANNEL_CB;
+       channel_map[6] = PAL_CHMAP_CHANNEL_LB;
+       channel_map[7] = PAL_CHMAP_CHANNEL_RB;
+       channel_map[8] = PAL_CHMAP_CHANNEL_TFL;
+       channel_map[9] = PAL_CHMAP_CHANNEL_TFR;
+       channel_map[10] = PAL_CHMAP_CHANNEL_TSL;
+       channel_map[11] = PAL_CHMAP_CHANNEL_TSR;
+       channel_map[12] = PAL_CHMAP_CHANNEL_FLC;
+       channel_map[13] = PAL_CHMAP_CHANNEL_FRC;
+       channel_map[14] = PAL_CHMAP_CHANNEL_RLC;
+       channel_map[15] = PAL_CHMAP_CHANNEL_RRC;
        break;
    }
 }
@@ -6749,6 +6770,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
     ret = setSignalHandlerEnableParam(parms, value, len);
+    ret = setBTSinkHFPChParam(parms, value, len);
 
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
@@ -6970,6 +6992,32 @@ int ResourceManager::setNativeAudioParams(struct str_parms *parms,
     }
     return ret;
 }
+
+uint32_t ResourceManager::getBTSinkHFPChParam()
+{
+    return btsink_hfp_ch;
+}
+
+int ResourceManager::setBTSinkHFPChParam(struct str_parms *parms,
+                                          char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return ret;
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_BTSINK_HFP_CH,
+                                value, len);
+    if (ret >= 0) {
+        btsink_hfp_ch = std::stoi(value, 0);
+        PAL_INFO(LOG_TAG, "BTSink HFP channel  is set to %d",
+                 btsink_hfp_ch);
+        ret = 0;
+    }
+    return ret;
+}
+
+
 void ResourceManager::updatePcmId(int32_t deviceId, int32_t pcmId)
 {
     if (isValidDevId(deviceId)) {
