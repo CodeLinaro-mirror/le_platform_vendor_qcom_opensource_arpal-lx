@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2016-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2016-2021 The Linux Foundation. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SndMonitor"
@@ -43,6 +47,7 @@
 
 static int fd = -1;
 static int exit_thread = 0; //by default exit thread is made false
+static card_status_t status = CARD_STATUS_NONE;
 
 void SndCardMonitor::monitorThreadLoop()
 {
@@ -52,7 +57,6 @@ void SndCardMonitor::monitorThreadLoop()
     int card_status = 0;
     int tries = MAX_SLEEP_RETRY;
 
-    card_status_t status = CARD_STATUS_NONE;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
     while(--tries) {
         if (exit_thread == 1)
@@ -61,6 +65,9 @@ void SndCardMonitor::monitorThreadLoop()
             PAL_ERR(LOG_TAG, "Open failed snd sysfs node");
         }
         else {
+            memset(buf, 0, sizeof(buf));
+            read(fd, buf, 10);
+            sscanf(buf, "%d", &status);
             PAL_VERBOSE(LOG_TAG, "snd sysfs node open successful");
             break;
         }
@@ -70,8 +77,6 @@ void SndCardMonitor::monitorThreadLoop()
         goto Done;
 
     while(1) {
-        memset(buf , 0 ,sizeof(buf));
-        read(fd, buf, 10);
         lseek(fd,0L,SEEK_SET);
 
         poll_fds.fd = fd;
@@ -82,7 +87,6 @@ void SndCardMonitor::monitorThreadLoop()
         if (( rv = poll( &poll_fds, 1, -1)) < 0 ) {
              PAL_ERR(LOG_TAG, "snd sysfs node poll error\n");
         } else if ((poll_fds.revents & POLLPRI)) {
-            lseek(poll_fds.fd,0L,SEEK_SET);
             read(poll_fds.fd, buf, 1);
             sscanf(buf , "%d", &card_status);
             PAL_INFO(LOG_TAG, "card status %d\n",card_status);
@@ -90,10 +94,13 @@ void SndCardMonitor::monitorThreadLoop()
                 status = CARD_STATUS_OFFLINE;
             else if (card_status == 1)
                 status = CARD_STATUS_ONLINE;
-            else if (card_status == 2)
-                break;
 
             rm->ssrHandler(status);
+
+            if (exit_thread == 1) {
+                PAL_VERBOSE(LOG_TAG, "Exiting SndCardMonitor!");
+                break;
+            }
         }
     }
 Done:
@@ -111,9 +118,13 @@ SndCardMonitor::SndCardMonitor(int sndNum)
 
 SndCardMonitor::~SndCardMonitor()
 {
-   char buf[2] = "2";
+   const char *buf;
+
+   if (fd != -1) {
+      buf = std::to_string(status).c_str();
+      write(fd, buf, 1);
+   }
+
    exit_thread = 1;
-   if(fd != -1)
-      write(fd, &buf, 1);
    mThread.join();
 }
