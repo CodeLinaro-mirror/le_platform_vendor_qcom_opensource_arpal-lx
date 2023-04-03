@@ -165,6 +165,10 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_RAW</name>
+                <custom-config key="quad-mic-ec-ref">
+                    <channels>4</channels>
+                    <snd_device_name>quad-mic</snd_device_name>
+                </custom-config>
                 <custom-config key="unprocessed-hdr-mic-landscape">
                     <channels>4</channels>
                     <snd_device_name>unprocessed-hdr-mic-landscape</snd_device_name>
@@ -793,7 +797,6 @@
                     <ec_ref>
                         <disabled_stream>PAL_STREAM_COMPRESSED</disabled_stream>
                         <disabled_stream>PAL_STREAM_ULTRA_LOW_LATENCY</disabled_stream>
-                        <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
                         <disabled_stream>PAL_STREAM_GENERIC</disabled_stream>
                     </ec_ref>
                 </policies>
