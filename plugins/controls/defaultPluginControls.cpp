@@ -215,6 +215,8 @@ char* getMixerVoiceStream(Stream *s, int dir)
     char *stream = (char*)"VOICEMMODE1p";
     struct pal_stream_attributes sAttr;
 
+    memset(&sAttr, 0, sizeof(sAttr));
+
     s->getStreamAttributes(&sAttr);
     if (sAttr.info.voice_call_info.VSID == VOICEMMODE1 ||
         sAttr.info.voice_call_info.VSID == VOICELBMMODE1) {
@@ -371,13 +373,59 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         goto exit;
     }
 
-    // Rebase HFP volume level
     if ((sAttr.info.opt_stream_info.loopback_type ==
          PAL_STREAM_LOOPBACK_HFP_RX) ||
         (sAttr.info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_HFP_TX)) {
-        voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
-        PAL_DBG(LOG_TAG,"HFP Volume brought within range (%f)\n", voldB);
+         PAL_STREAM_LOOPBACK_HFP_TX)) { 
+        if (voldB == 15.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
+        }
+        else if (voldB == 14.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
+        }
+        else if (voldB == 13.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
+
+        }
+        else if (voldB == 12.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
+        }
+        else if (voldB == 11.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
+        }
+        else if (voldB == 10.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
+        }
+        else if (voldB == 9.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
+        }
+        else if (voldB == 8.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
+        }
+        else if (voldB == 7.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
+        }
+        else if (voldB == 6.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
+        }
+        else if (voldB == 5.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
+        }
+        else if (voldB == 4.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
+        }
+        else if (voldB == 3.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
+        }
+        else if (voldB == 2.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
+        }
+        else if (voldB == 1.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
+        }
+        else if (voldB == 0.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
+        }
     }
     else {
         if (voldB > 1.0) {
@@ -385,55 +433,55 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
             voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
             PAL_DBG(LOG_TAG,"Volume brought within range (%f)\n", voldB);
         }
-    }
 
-    if (voldB == 0.0f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
-    }
-    else if (voldB <= 0.002172f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
-    }
-    else if (voldB <= 0.004660f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
-    }
-    else if (voldB <= 0.01f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
-    }
-    else if (voldB <= 0.014877f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
-    }
-    else if (voldB <= 0.023646f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
-    }
-    else if (voldB <= 0.037584f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
-    }
-    else if (voldB <= 0.055912f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
-    }
-    else if (voldB <= 0.088869f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
-    }
-    else if (voldB <= 0.141254f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
-    }
-    else if (voldB <= 0.189453f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
-    }
-    else if (voldB <= 0.266840f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
-    }
-    else if (voldB <= 0.375838f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
-    }
-    else if (voldB <= 0.504081f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
-    }
-    else if (voldB <= 0.709987f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
-    }
-    else if (voldB <= 1.0f) {
-        ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
+        if (voldB == 0.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
+        }
+        else if (voldB <= 0.002172f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
+        }
+        else if (voldB <= 0.004660f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
+        }
+        else if (voldB <= 0.01f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
+        }
+        else if (voldB <= 0.014877f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
+        }
+        else if (voldB <= 0.023646f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
+        }
+        else if (voldB <= 0.037584f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
+        }
+        else if (voldB <= 0.055912f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
+        }
+        else if (voldB <= 0.088869f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
+        }
+        else if (voldB <= 0.141254f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
+        }
+        else if (voldB <= 0.189453f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
+        }
+        else if (voldB <= 0.266840f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
+        }
+        else if (voldB <= 0.375838f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
+        }
+        else if (voldB <= 0.504081f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
+        }
+        else if (voldB <= 0.709987f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
+        }
+        else if (voldB <= 1.0f) {
+            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
+        }
     }
 
     if (ckv.size() == 0) {

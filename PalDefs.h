@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -107,37 +107,6 @@ typedef enum {
 #define PCM_16_BIT (0x1u)
 
 #define SAMPLE_RATE_192000 192000
-
-#ifdef __cplusplus
-static const std::map<std::string, pal_audio_fmt_t> PalAudioFormatMap
-{
-    { "PCM",  PAL_AUDIO_FMT_PCM_S16_LE},
-    { "PCM_S8",  PAL_AUDIO_FMT_PCM_S8},
-    { "PCM_S16_LE",  PAL_AUDIO_FMT_PCM_S16_LE},
-    { "PCM_S24_3LE",  PAL_AUDIO_FMT_PCM_S24_3LE},
-    { "PCM_S24_LE",  PAL_AUDIO_FMT_PCM_S24_LE},
-    { "PCM_S32_LE",  PAL_AUDIO_FMT_PCM_S32_LE},
-    { "MP3",  PAL_AUDIO_FMT_MP3},
-    { "AAC",  PAL_AUDIO_FMT_AAC},
-    { "AAC_ADTS",  PAL_AUDIO_FMT_AAC_ADTS},
-    { "AAC_ADIF",  PAL_AUDIO_FMT_AAC_ADIF},
-    { "AAC_LATM",  PAL_AUDIO_FMT_AAC_LATM},
-    { "WMA_STD",  PAL_AUDIO_FMT_WMA_STD},
-    { "ALAC", PAL_AUDIO_FMT_ALAC},
-    { "APE", PAL_AUDIO_FMT_APE},
-    { "WMA_PRO", PAL_AUDIO_FMT_WMA_PRO},
-    { "FLAC", PAL_AUDIO_FMT_FLAC},
-    { "FLAC_OGG", PAL_AUDIO_FMT_FLAC_OGG},
-    { "VORBIS", PAL_AUDIO_FMT_VORBIS},
-    { "AMR_NB", PAL_AUDIO_FMT_AMR_NB},
-    { "AMR_WB", PAL_AUDIO_FMT_AMR_WB},
-    { "AMR_WB_PLUS", PAL_AUDIO_FMT_AMR_WB_PLUS},
-    { "EVRC", PAL_AUDIO_FMT_EVRC},
-    { "G711", PAL_AUDIO_FMT_G711},
-    { "QCELP", PAL_AUDIO_FMT_QCELP}
-
-};
-#endif
 
 struct pal_snd_dec_aac {
     uint16_t audio_obj_type;
@@ -310,7 +279,7 @@ typedef enum {
     PAL_CHMAP_CHANNEL_RW = 32,                     /**< Right wide channel. */
     PAL_CHMAP_CHANNEL_LSD = 33,                    /**< Left side direct channel. */
     PAL_CHMAP_CHANNEL_RSD = 34,                    /**< Left side direct channel. */
-} pal_channel_map;
+} pal_channel_map_t;
 
 /** Audio channel info data structure */
 struct pal_channel_info {
@@ -391,8 +360,9 @@ typedef enum {
     PAL_DEVICE_OUT_ULTRASOUND = 20,
     PAL_DEVICE_OUT_A2B_SPKR = 21,
     PAL_DEVICE_OUT_A2B2_SPKR = 22,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO2 = 23,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 23,
+    PAL_DEVICE_OUT_MAX = 24,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN + 1,
@@ -415,8 +385,9 @@ typedef enum {
     PAL_DEVICE_IN_TELEPHONY_RX = PAL_DEVICE_IN_MIN + 18,
     PAL_DEVICE_IN_ULTRASOUND_MIC = PAL_DEVICE_IN_MIN +19,
     PAL_DEVICE_IN_EXT_EC_REF = PAL_DEVICE_IN_MIN + 20,
+    PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 21,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 21,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 22,
 } pal_device_id_t;
 
 typedef enum {
@@ -433,6 +404,7 @@ typedef enum {
     PAL_STREAM_LOOPBACK_COMPRESS,
     PAL_STREAM_LOOPBACK_FM,
     PAL_STREAM_LOOPBACK_KARAOKE,
+    PAL_STREAM_LOOPBACK_ICC,
 } pal_stream_loopback_type_t;
 
 typedef enum {
@@ -442,6 +414,73 @@ typedef enum {
 } pal_stream_proxy_tx_type_t;
 
 #ifdef __cplusplus
+static const std::map<std::string, pal_channel_map_t> PALChannelMapMap {
+    { std::string{ "PAL_CHMAP_CHANNEL_FL" },   PAL_CHMAP_CHANNEL_FL},
+    { std::string{ "PAL_CHMAP_CHANNEL_FR" },   PAL_CHMAP_CHANNEL_FR},
+    { std::string{ "PAL_CHMAP_CHANNEL_C" },    PAL_CHMAP_CHANNEL_C},
+    { std::string{ "PAL_CHMAP_CHANNEL_LS" },   PAL_CHMAP_CHANNEL_LS},
+    { std::string{ "PAL_CHMAP_CHANNEL_RS" },   PAL_CHMAP_CHANNEL_RS},
+    { std::string{ "PAL_CHMAP_CHANNEL_LFE" },  PAL_CHMAP_CHANNEL_LFE},
+    { std::string{ "PAL_CHMAP_CHANNEL_RC" },   PAL_CHMAP_CHANNEL_RC},
+    { std::string{ "PAL_CHMAP_CHANNEL_CB" },   PAL_CHMAP_CHANNEL_CB},
+    { std::string{ "PAL_CHMAP_CHANNEL_LB" },   PAL_CHMAP_CHANNEL_LB},
+    { std::string{ "PAL_CHMAP_CHANNEL_RB" },   PAL_CHMAP_CHANNEL_RB},
+    { std::string{ "PAL_CHMAP_CHANNEL_TS" },   PAL_CHMAP_CHANNEL_TS},
+    { std::string{ "PAL_CHMAP_CHANNEL_CVH" },  PAL_CHMAP_CHANNEL_CVH},
+    { std::string{ "PAL_CHMAP_CHANNEL_TFC" },  PAL_CHMAP_CHANNEL_TFC},
+    { std::string{ "PAL_CHMAP_CHANNEL_MS" },   PAL_CHMAP_CHANNEL_MS},
+    { std::string{ "PAL_CHMAP_CHANNEL_FLC" },  PAL_CHMAP_CHANNEL_FLC},
+    { std::string{ "PAL_CHMAP_CHANNEL_FRC" },  PAL_CHMAP_CHANNEL_FRC},
+    { std::string{ "PAL_CHMAP_CHANNEL_RLC" },  PAL_CHMAP_CHANNEL_RLC},
+    { std::string{ "PAL_CHMAP_CHANNEL_RRC" },  PAL_CHMAP_CHANNEL_RRC},
+    { std::string{ "PAL_CHMAP_CHANNEL_LFE2" }, PAL_CHMAP_CHANNEL_LFE2},
+    { std::string{ "PAL_CHMAP_CHANNEL_SL" },   PAL_CHMAP_CHANNEL_SL},
+    { std::string{ "PAL_CHMAP_CHANNEL_SR" },   PAL_CHMAP_CHANNEL_SR},
+    { std::string{ "PAL_CHMAP_CHANNEL_TFL" },  PAL_CHMAP_CHANNEL_TFL},
+    { std::string{ "PAL_CHMAP_CHANNEL_LVH" },  PAL_CHMAP_CHANNEL_LVH},
+    { std::string{ "PAL_CHMAP_CHANNEL_TFR" },  PAL_CHMAP_CHANNEL_TFR},
+    { std::string{ "PAL_CHMAP_CHANNEL_RVH" },  PAL_CHMAP_CHANNEL_RVH},
+    { std::string{ "PAL_CHMAP_CHANNEL_TC" },   PAL_CHMAP_CHANNEL_TC},
+    { std::string{ "PAL_CHMAP_CHANNEL_TBL" },  PAL_CHMAP_CHANNEL_TBL},
+    { std::string{ "PAL_CHMAP_CHANNEL_TBR" },  PAL_CHMAP_CHANNEL_TBR},
+    { std::string{ "PAL_CHMAP_CHANNEL_TSL" },  PAL_CHMAP_CHANNEL_TSL},
+    { std::string{ "PAL_CHMAP_CHANNEL_TSR" },  PAL_CHMAP_CHANNEL_TSR},
+    { std::string{ "PAL_CHMAP_CHANNEL_TBC" },  PAL_CHMAP_CHANNEL_TBC},
+    { std::string{ "PAL_CHMAP_CHANNEL_BFC" },  PAL_CHMAP_CHANNEL_BFC},
+    { std::string{ "PAL_CHMAP_CHANNEL_BFL" },  PAL_CHMAP_CHANNEL_BFL},
+    { std::string{ "PAL_CHMAP_CHANNEL_BFR" },  PAL_CHMAP_CHANNEL_BFR},
+    { std::string{ "PAL_CHMAP_CHANNEL_LW" },   PAL_CHMAP_CHANNEL_LW},
+    { std::string{ "PAL_CHMAP_CHANNEL_RW" },   PAL_CHMAP_CHANNEL_RW},
+    { std::string{ "PAL_CHMAP_CHANNEL_LSD" },  PAL_CHMAP_CHANNEL_LSD},
+    { std::string{ "PAL_CHMAP_CHANNEL_RSD" },  PAL_CHMAP_CHANNEL_RSD},
+};
+
+static const std::map<std::string, pal_audio_fmt_t> PalAudioFormatMap{
+    { std::string{ "PAL_AUDIO_FMT_PCM_S8" },      PAL_AUDIO_FMT_PCM_S8 },
+    { std::string{ "PAL_AUDIO_FMT_PCM_S16_LE" },  PAL_AUDIO_FMT_PCM_S16_LE },
+    { std::string{ "PAL_AUDIO_FMT_PCM_S24_3LE" }, PAL_AUDIO_FMT_PCM_S24_3LE },
+    { std::string{ "PAL_AUDIO_FMT_PCM_S24_LE" },  PAL_AUDIO_FMT_PCM_S24_LE },
+    { std::string{ "PAL_AUDIO_FMT_PCM_S32_LE" },  PAL_AUDIO_FMT_PCM_S32_LE },
+    { std::string{ "PAL_AUDIO_FMT_MP3" },         PAL_AUDIO_FMT_MP3 },
+    { std::string{ "PAL_AUDIO_FMT_AAC" },         PAL_AUDIO_FMT_AAC },
+    { std::string{ "PAL_AUDIO_FMT_AAC_ADTS" },    PAL_AUDIO_FMT_AAC_ADTS },
+    { std::string{ "PAL_AUDIO_FMT_AAC_ADIF" },    PAL_AUDIO_FMT_AAC_ADIF },
+    { std::string{ "PAL_AUDIO_FMT_AAC_LATM" },    PAL_AUDIO_FMT_AAC_LATM },
+    { std::string{ "PAL_AUDIO_FMT_WMA_STD" },     PAL_AUDIO_FMT_WMA_STD },
+    { std::string{ "PAL_AUDIO_FMT_ALAC" },        PAL_AUDIO_FMT_ALAC },
+    { std::string{ "PAL_AUDIO_FMT_APE" },         PAL_AUDIO_FMT_APE },
+    { std::string{ "PAL_AUDIO_FMT_WMA_PRO" },     PAL_AUDIO_FMT_WMA_PRO },
+    { std::string{ "PAL_AUDIO_FMT_FLAC" },        PAL_AUDIO_FMT_FLAC },
+    { std::string{ "PAL_AUDIO_FMT_FLAC_OGG" },    PAL_AUDIO_FMT_FLAC_OGG },
+    { std::string{ "PAL_AUDIO_FMT_VORBIS" },      PAL_AUDIO_FMT_VORBIS },
+    { std::string{ "PAL_AUDIO_FMT_AMR_NB" },      PAL_AUDIO_FMT_AMR_NB },
+    { std::string{ "PAL_AUDIO_FMT_AMR_WB" },      PAL_AUDIO_FMT_AMR_WB },
+    { std::string{ "PAL_AUDIO_FMT_AMR_WB_PLUS" }, PAL_AUDIO_FMT_AMR_WB_PLUS },
+    { std::string{ "PAL_AUDIO_FMT_EVRC" },        PAL_AUDIO_FMT_EVRC },
+    { std::string{ "PAL_AUDIO_FMT_G711" },        PAL_AUDIO_FMT_G711 },
+    { std::string{ "PAL_AUDIO_FMT_QCELP" },       PAL_AUDIO_FMT_QCELP },
+};
+
 static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_MIN" },                  PAL_DEVICE_OUT_MIN},
     {std::string{ "PAL_DEVICE_NONE" },                     PAL_DEVICE_NONE},
@@ -466,6 +505,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND" },           PAL_DEVICE_OUT_ULTRASOUND},
     {std::string{ "PAL_DEVICE_OUT_A2B_SPKR" },             PAL_DEVICE_OUT_A2B_SPKR},
     {std::string{ "PAL_DEVICE_OUT_A2B2_SPKR" },            PAL_DEVICE_OUT_A2B2_SPKR},
+    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_SCO2" },       PAL_DEVICE_OUT_BLUETOOTH_SCO2},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
@@ -487,6 +527,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_TELEPHONY_RX" },          PAL_DEVICE_IN_TELEPHONY_RX},
     {std::string{ "PAL_DEVICE_IN_ULTRASOUND_MIC" },        PAL_DEVICE_IN_ULTRASOUND_MIC},
     {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
+    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET" }, PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET},
 };
 
 //reverse mapping
@@ -514,6 +555,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           std::string{"PAL_DEVICE_OUT_ULTRASOUND"}},
     {PAL_DEVICE_OUT_A2B_SPKR,             std::string{"PAL_DEVICE_OUT_A2B_SPKR"}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            std::string{"PAL_DEVICE_OUT_A2B2_SPKR"}},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       std::string{"PAL_DEVICE_OUT_BLUETOOTH_SCO2"}},
     {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
     {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
@@ -534,7 +576,8 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_VI_FEEDBACK,           std::string{"PAL_DEVICE_IN_VI_FEEDBACK"}},
     {PAL_DEVICE_IN_TELEPHONY_RX,          std::string{"PAL_DEVICE_IN_TELEPHONY_RX"}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        std::string{"PAL_DEVICE_IN_ULTRASOUND_MIC"}},
-    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}}
+    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET"}}
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -610,6 +653,7 @@ const std::map<uint32_t, std::string> loopbackLUT {
     {PAL_STREAM_LOOPBACK_COMPRESS,   std::string{ "PAL_STREAM_LOOPBACK_COMPRESS" } },
     {PAL_STREAM_LOOPBACK_FM,         std::string{ "PAL_STREAM_LOOPBACK_FM" } },
     {PAL_STREAM_LOOPBACK_KARAOKE,    std::string{ "PAL_STREAM_LOOPBACK_KARAOKE" }},
+    {PAL_STREAM_LOOPBACK_ICC,        std::string{ "PAL_STREAM_LOOPBACK_ICC" }},
 };
 
 #endif
@@ -901,6 +945,8 @@ typedef enum {
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
     PAL_PARAM_ID_PLUGIN_PARAM = 58,
     PAL_PARAM_ID_SET_HFP_ZONE = 59,
+    PAL_PARAM_ID_BT_AG_SCO = 60, /* HFP AG role */
+    PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
