@@ -519,6 +519,9 @@
             <!-- Param used to indicate if SVA has dedicated back end path and
     ports not conflicting with other audio paths  -->
                  <param notify_second_stage_failure="false"/>
+                <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <param mmap_frame_length="5" />
             </config>
             <stream_config>
                 <name>QC_VOICE_UI</name>
