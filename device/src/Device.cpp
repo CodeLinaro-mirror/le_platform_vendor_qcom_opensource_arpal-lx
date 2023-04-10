@@ -115,10 +115,12 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         return HandsetVaMic::getInstance(device, Rm);
     case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
     case PAL_DEVICE_OUT_BLUETOOTH_SCO:
-    case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
-    case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
         PAL_VERBOSE(LOG_TAG, "BTSCO device");
         return BtSco::getInstance(device, Rm);
+    case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
+    case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+        PAL_VERBOSE(LOG_TAG, "BTSCO2 device");
+        return BtSco2::getInstance(device, Rm);
     case PAL_DEVICE_IN_BLUETOOTH_A2DP:
     case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         PAL_VERBOSE(LOG_TAG, "BTA2DP device");
@@ -211,10 +213,12 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         return BtA2dp::getObject(dev_id);
     case PAL_DEVICE_OUT_BLUETOOTH_SCO:
     case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
-    case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
-    case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
         PAL_VERBOSE(LOG_TAG, "BT SCO device %d", dev_id);
         return BtSco::getObject(dev_id);
+    case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+    case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
+        PAL_VERBOSE(LOG_TAG, "BT SCO2 device %d", dev_id);
+        return BtSco2::getObject(dev_id);
     case PAL_DEVICE_OUT_PROXY:
     case PAL_DEVICE_IN_PROXY:
     case PAL_DEVICE_OUT_HEARING_AID:

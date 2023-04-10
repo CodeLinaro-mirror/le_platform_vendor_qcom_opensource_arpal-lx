@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -88,22 +88,14 @@ typedef enum {
 #define ADM_LIBRARY_PATH "/usr/lib64/libadm.so"
 #else
 #define ADM_LIBRARY_PATH "/usr/lib/libadm.so"
-#endif
+#endif //__LP64__
 #else
 #ifdef __LP64__
-#if defined(AUTO_GVMQ) || defined(AUTO_AU)
 #define ADM_LIBRARY_PATH "/vendor/lib64/libadm_ar.so"
 #else
-#define ADM_LIBRARY_PATH "/vendor/lib64/libadm.so"
-#endif
-#else
-#if defined(AUTO_GVMQ) || defined(AUTO_AU)
 #define ADM_LIBRARY_PATH "/vendor/lib/libadm_ar.so"
-#else
-#define ADM_LIBRARY_PATH "/vendor/lib/libadm.so"
 #endif
-#endif
-#endif
+#endif //LINUX_ENABLED
 
 using InstanceListNode_t = std::vector<std::pair<int32_t, bool>> ;
 using nonTunnelInstMap_t = std::unordered_map<uint32_t, bool>;
@@ -819,6 +811,7 @@ public:
     bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
+    static bool isBtSco2Device(pal_device_id_t id);
     int32_t a2dpSuspend();
     int32_t a2dpResume();
     int32_t a2dpCaptureSuspend();
@@ -890,6 +883,7 @@ public:
     int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
     int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
     int controlPluginSetParam(plugin_control_name_t control, void* payload, size_t size);
+    int controlPluginClose(plugin_control_name_t control, void* payload, size_t size);
 };
 
 #endif
