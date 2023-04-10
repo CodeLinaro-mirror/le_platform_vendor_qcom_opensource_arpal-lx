@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: PayloadBuilder"
@@ -2521,59 +2526,6 @@ exit:
     return status;
 }
 
-int PayloadBuilder::populateDeviceCkv(Stream *s,
-        std::vector <std::pair<int,int>> &keyVector)
-{
-    int status = 0;
-    struct pal_stream_attributes *sattr = NULL;
-    std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct pal_device dAttr;
-    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
-
-    PAL_DBG(LOG_TAG,"Enter");
-    sattr = new struct pal_stream_attributes;
-    if (!sattr) {
-        status = -ENOMEM;
-        PAL_ERR(LOG_TAG,"sattr malloc failed %s status %d", strerror(errno), status);
-        goto exit;
-    }
-    memset (&dAttr, 0, sizeof(struct pal_device));
-    memset (sattr, 0, sizeof(struct pal_stream_attributes));
-
-    status = s->getStreamAttributes(sattr);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed status %d\n",status);
-        goto free_sattr;
-    }
-    status = s->getAssociatedDevices(associatedDevices);
-    if (0 != status) {
-       PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-       goto free_sattr;
-    }
-    for (int i = 0; i < associatedDevices.size();i++) {
-        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
-            goto free_sattr;
-        }
-
-        if (dAttr.id == PAL_DEVICE_OUT_SPEAKER || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) {
-            keyVector.push_back(std::make_pair(CHANNELS,
-                                dAttr.config.ch_info.channels));
-            keyVector.push_back(std::make_pair(BITWIDTH,
-                                dAttr.config.bit_width));
-        } else {
-            PAL_VERBOSE(LOG_TAG,"device  %d doesn't need CKV ", dAttr.id);
-        }
-    }
-free_sattr:
-    delete sattr;
-exit:
-    PAL_DBG(LOG_TAG,"Exit, status %d", status);
-    return status;
-}
-
-
 int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,int>> &keyVector)
 {
     int status = 0;
@@ -2678,6 +2630,7 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
     int level = -1;
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    std::string backEndName;
 
     memset(&sAttr, 0, sizeof(struct pal_stream_attributes));
     status = s->getStreamAttributes(&sAttr);
@@ -2775,15 +2728,21 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
                 return status;
             }
             if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
-                if (dAttr.config.ch_info.channels > 1) {
-                    PAL_DBG(LOG_TAG, "Multi channel speaker");
-                    ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));
+                if (dAttr.config.ch_info.channels <= CHANNELS_2) {
+                    switch (dAttr.config.ch_info.channels) {
+                    case 1:
+                        PAL_DBG(LOG_TAG, "Mono channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_MONO));
+                    break;
+                    case 2:
+                        PAL_DBG(LOG_TAG, "Multi channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));
+                    break;
+                    default :
+                        PAL_ERR(LOG_TAG, "unsupported no of channels");
+                        return status;
+                    }
                 }
-                else {
-                    PAL_DBG(LOG_TAG, "Mono channel speaker");
-                    ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_MONO));
-                }
-                break;
             }
         }
         break;
@@ -2801,15 +2760,69 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
                 return status;
             }
             if (dAttr.id == PAL_DEVICE_IN_VI_FEEDBACK) {
-                if (dAttr.config.ch_info.channels > 1) {
-                    PAL_DBG(LOG_TAG, "Multi channel speaker");
-                    ckv.push_back(std::make_pair(SPK_PRO_VI_MAP, STEREO_SPKR));
+                if (dAttr.config.ch_info.channels <= CHANNELS_2) {
+                    switch (dAttr.config.ch_info.channels) {
+                    case 1:
+                        PAL_DBG(LOG_TAG, "Mono channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_VI_MAP, RIGHT_SPKR));
+                    break;
+                    case 2:
+                        PAL_DBG(LOG_TAG, "Multi channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_VI_MAP, STEREO_SPKR));
+                    break;
+                    default :
+                        PAL_ERR(LOG_TAG, "unsupported no of channels");
+                        return status;
+                    }
                 }
-                else {
-                    PAL_DBG(LOG_TAG, "Mono channel speaker");
-                    ckv.push_back(std::make_pair(SPK_PRO_VI_MAP, RIGHT_SPKR));
+            }
+        }
+    break;
+    case MUX_DEMUX_CHANNELS :
+        status = s->getAssociatedDevices(associatedDevices);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+            return status;
+        }
+        for (int i = 0; i < associatedDevices.size(); i++) {
+            status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+                return status;
+            }
+            rm->getBackendName(dAttr.id, backEndName);
+            if(!strlen(backEndName.c_str())) {
+                PAL_ERR(LOG_TAG, "Failed to obtain backend name for %d", dAttr.id);
+                status = -EINVAL;
+                goto error_1;
+             }
+            if (dAttr.id == PAL_DEVICE_OUT_SPEAKER || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) {
+                if ((backEndName.find("TDM-LPAIF_RXTX-TX-PRIMARY") != std::string::npos) ||
+                        (backEndName.find("TDM-LPAIF_RXTX-RX-PRIMARY") != std::string::npos)) {
+                    PAL_DBG(LOG_TAG, "Backend is TDM");
+                    ckv.push_back(std::make_pair(CHANNELS,
+                                        dAttr.config.ch_info.channels));
+                    ckv.push_back(std::make_pair(BITWIDTH,
+                                        dAttr.config.bit_width));
+                } else {
+                    switch (dAttr.config.ch_info.channels) {
+                    case 1:
+                        PAL_DBG(LOG_TAG, "Mono channel speaker");
+                        ckv.push_back(std::make_pair(CHANNELS, CHANNELS_1));
+                    break;
+                    case 2:
+                        PAL_DBG(LOG_TAG, "Multi channel speaker");
+                        ckv.push_back(std::make_pair(CHANNELS, CHANNELS_2));
+                    break;
+                    case 4:
+                        PAL_DBG(LOG_TAG, "four channel speaker");
+                        ckv.push_back(std::make_pair(CHANNELS, CHANNELS_4));
+                    break;
+                    default :
+                        PAL_ERR(LOG_TAG, "unsupported no of channels");
+                        return status;
+                    }
                 }
-                break;
             }
         }
     break;

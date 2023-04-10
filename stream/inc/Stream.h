@@ -116,6 +116,7 @@ typedef enum {
 #define CHARGE_CONCURRENCY_OFF_TAG 44
 #define DEVICEPP_MUTE 45
 #define DEVICEPP_UNMUTE 46
+#define MUX_DEMUX_CHANNELS 47
 
 /* This sleep is added to give time to kernel and
  * spf to recover from SSR so that audio-hal will

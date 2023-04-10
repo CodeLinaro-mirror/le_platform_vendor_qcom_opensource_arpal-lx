@@ -25,6 +25,11 @@
 * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
 #define LOG_TAG "PAL: SessionAlsaUtils"
@@ -438,10 +443,14 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             PAL_ERR(LOG_TAG, "populateDevicePP Ckv failed %d", status);
             status = 0; /**< ignore device PP CKV failures */
         }
-        status = builder->populateDeviceCkv(streamHandle, deviceCKV);
-        if (status) {
-            PAL_ERR(LOG_TAG, "populateDevice Ckv failed %d", status);
-            status = 0; /**< ignore device PP CKV failures */
+        deviceCKV.clear();
+        if (be->first == PAL_DEVICE_OUT_SPEAKER || be->first == PAL_DEVICE_IN_SPEAKER_MIC) {
+            status = builder->populateCalKeyVector(streamHandle, deviceCKV,
+                            MUX_DEMUX_CHANNELS);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "Unable to populate mux channels");
+                status = 0; /**< ignore device MUX CKV failures */
+            }
         }
 
         status = builder->populateStreamDeviceKV(streamHandle, be->first, streamDeviceKV);
@@ -1197,7 +1206,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     std::vector <std::pair<int, int>> streamRxKV, streamTxKV;
     std::vector <std::pair<int, int>> streamRxCKV, streamTxCKV;
     std::vector <std::pair<int, int>> streamDeviceRxKV, streamDeviceTxKV;
-    std::vector <std::pair<int, int>> deviceRxKV, deviceRxCKV, deviceTxKV, deviceTxCKV;
+    std::vector <std::pair<int, int>> deviceRxKV, deviceTxKV, deviceCKV;
     // Using as empty key vector pairs
     std::vector <std::pair<int, int>> emptyKV;
     int status = 0;
@@ -1320,11 +1329,6 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         status = 0; /**< ignore stream device KV failures */
     }
 
-    status = builder->populateDeviceCkv(streamHandle, deviceRxCKV);
-        if (status) {
-            PAL_ERR(LOG_TAG, "populateDevice Ckv failed %d", status);
-            status = 0; /**< ignore device PP CKV failures */
-    }
     // get audio mixer
     if ((streamRxKV.size() > 0) || (streamRxCKV.size() > 0)) {
         SessionAlsaUtils::getAgmMetaData(streamRxKV, streamRxCKV,
@@ -1335,8 +1339,17 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             goto freeRxMetaData;
         }
     }
+    deviceCKV.clear();
+    if (rxBackEnds[0].first == PAL_DEVICE_OUT_SPEAKER || rxBackEnds[0].first == PAL_DEVICE_IN_SPEAKER_MIC) {
+            status = builder->populateCalKeyVector(streamHandle, deviceCKV,
+                            MUX_DEMUX_CHANNELS);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "Unable to populate mux channels");
+                status = 0; /**< ignore device MUX CKV failures */
+            }
+    }
     if (deviceRxKV.size() > 0) {
-        SessionAlsaUtils::getAgmMetaData(deviceRxKV, deviceRxCKV,
+        SessionAlsaUtils::getAgmMetaData(deviceRxKV, deviceCKV,
                 (struct prop_data *)devicePropId, deviceRxMetaData);
         if (!deviceRxMetaData.size) {
             PAL_ERR(LOG_TAG, "device RX metadata is zero");
@@ -1364,7 +1377,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
     }
     if (deviceTxKV.size() > 0) {
-        SessionAlsaUtils::getAgmMetaData(deviceTxKV, deviceTxCKV,
+        SessionAlsaUtils::getAgmMetaData(deviceTxKV, deviceCKV,
                 (struct prop_data *)devicePropId, deviceTxMetaData);
         if (!deviceTxMetaData.size) {
             PAL_ERR(LOG_TAG, "device TX metadata is zero");
@@ -2123,6 +2136,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
     std::vector <std::pair<int, int>> deviceKV;
     std::vector <std::pair<int, int>> emptyKV;
     std::vector <std::pair<int, int>> devicePPCKV;
+    std::vector <std::pair<int, int>> deviceCKV;
     int status = 0;
     struct agmMetaData deviceMetaData(nullptr, 0);
     struct agmMetaData streamDeviceMetaData(nullptr, 0);
@@ -2198,7 +2212,16 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
         PAL_ERR(LOG_TAG, "get device PP KV failed %d", status);
         status = 0; /** ignore error */
     }
+    deviceCKV.clear();
 
+    if (aifBackEndsToConnect[0].first == PAL_DEVICE_OUT_SPEAKER) {
+            status = builder->populateCalKeyVector(streamHandle, deviceCKV,
+                            MUX_DEMUX_CHANNELS);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "Unable to populate mux channels");
+                status = 0; /**< ignore device MUX CKV failures */
+            }
+    }
     if (deviceKV.size() > 0) {
         SessionAlsaUtils::getAgmMetaData(deviceKV, emptyKV, (struct prop_data *)devicePropId,
                 deviceMetaData);

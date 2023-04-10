@@ -93,6 +93,8 @@ protected :
     static bool isSpkrInUse;
     static bool calThrdCreated;
     static bool isDynamicCalTriggered;
+    static uint32_t source_miid, vi_miid_I, vi_miid_II;
+    static int MaxCH;
     static struct timespec spkrLastTimeUsed;
     static struct mixer *virtMixer;
     static struct mixer *hwMixer;
