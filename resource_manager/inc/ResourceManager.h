@@ -579,6 +579,13 @@ public:
     static bool isSpeakerProtectionEnabled;
     static bool isChargeConcurrencyEnabled;
     static bool isCpsEnabled;
+    static int wsa2_enable;
+    static int wsa_wr_cmd_reg_phy_addr;
+    static int wsa_rd_cmd_reg_phy_addr;
+    static int wsa_rd_fifo_reg_phy_addr;
+    static int wsa2_wr_cmd_reg_phy_addr;
+    static int wsa2_rd_cmd_reg_phy_addr;
+    static int wsa2_rd_fifo_reg_phy_addr;
     static bool isVbatEnabled;
     static bool isRasEnabled;
     static bool isGaplessEnabled;

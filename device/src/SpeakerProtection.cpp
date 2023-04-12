@@ -1223,50 +1223,57 @@ SpeakerProtection::~SpeakerProtection()
 /*
  * CPS related custom payload
  */
-void SpeakerProtection::updateCpsCustomPayload(int miid)
+void SpeakerProtection::updateCpsCustomPayload(int miid, uint32_t phy_add[3], int wsa2_flag)
 {
     PayloadBuilder* builder = new PayloadBuilder();
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
     lpass_swr_hw_reg_cfg_t *cpsRegCfg = NULL;
-    pkd_reg_addr_t pkedRegAddr[numberOfChannels];
     cps_reg_wr_values_t *cps_thrsh_values;
     param_id_cps_lpass_swr_thresholds_cfg_t *cps_thrsh_cfg;
     int dev_num;
     int val, ret = 0;
+    int max_channels = numberOfChannels;
 
-    memset(&pkedRegAddr, 0, sizeof(pkd_reg_addr_t) * numberOfChannels);
+    if (numberOfChannels == CHANNELS_2)
+        max_channels = 1;
+
+    pkd_reg_addr_t pkedRegAddr[max_channels];
+    memset(&pkedRegAddr, 0, sizeof(pkd_reg_addr_t) * max_channels);
     // Payload for ParamID : PARAM_ID_CPS_LPASS_HW_INTF_CFG
     cpsRegCfg = (lpass_swr_hw_reg_cfg_t *) calloc(1, sizeof(lpass_swr_hw_reg_cfg_t)
-                       + sizeof(pkd_reg_addr_t) * numberOfChannels);
+                       + sizeof(pkd_reg_addr_t) * max_channels);
     if (cpsRegCfg == NULL) {
         PAL_ERR(LOG_TAG,"Unable to allocate Memory for CPS config\n");
         goto exit;
     }
-    cpsRegCfg->num_spkr = numberOfChannels;
-    cpsRegCfg->lpass_wr_cmd_reg_phy_addr = LPASS_WR_CMD_REG_PHY_ADDR;
-    cpsRegCfg->lpass_rd_cmd_reg_phy_addr = LPASS_RD_CMD_REG_PHY_ADDR;
-    cpsRegCfg->lpass_rd_fifo_reg_phy_addr = LPASS_RD_FIFO_REG_PHY_ADDR;
+    cpsRegCfg->num_spkr = max_channels;
+    cpsRegCfg->lpass_wr_cmd_reg_phy_addr = phy_add[0];
+    cpsRegCfg->lpass_rd_cmd_reg_phy_addr = phy_add[1];
+    cpsRegCfg->lpass_rd_fifo_reg_phy_addr = phy_add[2];
 
     // Payload for ParamID : PARAM_ID_CPS_LPASS_SWR_THRESHOLDS_CFG
     cps_thrsh_cfg = (param_id_cps_lpass_swr_thresholds_cfg_t*) calloc(1,
                        sizeof(param_id_cps_lpass_swr_thresholds_cfg_t)
-                       + (sizeof(cps_reg_wr_values_t) * numberOfChannels));
+                       + (sizeof(cps_reg_wr_values_t) * max_channels));
     if (cps_thrsh_cfg == NULL) {
         PAL_ERR(LOG_TAG,"Unable to allocate Memory for CPS SWR Threshold config\n");
         goto exit;
     }
-    cps_thrsh_cfg->num_spkr = numberOfChannels;
+    cps_thrsh_cfg->num_spkr = max_channels;
     cps_thrsh_cfg->vbatt_lower_threshold_1 = CPS_WSA_VBATT_LOWER_THRESHOLD_1;
     cps_thrsh_cfg->vbatt_lower_threshold_2 = CPS_WSA_VBATT_LOWER_THRESHOLD_2;
     cps_thrsh_values = (cps_reg_wr_values_t *)((uint8_t*)cps_thrsh_cfg
                          + sizeof(param_id_cps_lpass_swr_thresholds_cfg_t));
 
-    for (int i = 0; i < numberOfChannels; i++) {
+    for (int i = 0; i < max_channels; i++) {
         switch (i)
         {
             case 0 :
-                dev_num = getCpsDevNumber(SPKR_RIGHT_WSA_DEV_NUM);
+                if (wsa2_flag)
+                    dev_num = getCpsDevNumber(SPKR_LEFT_WSA_DEV_NUM);
+                else
+                    dev_num = getCpsDevNumber(SPKR_RIGHT_WSA_DEV_NUM);
             break;
             case 1 :
                 dev_num = getCpsDevNumber(SPKR_LEFT_WSA_DEV_NUM);
@@ -1312,7 +1319,7 @@ void SpeakerProtection::updateCpsCustomPayload(int miid)
         cps_thrsh_values++;
     }
     memcpy(cpsRegCfg->pkd_reg_addr, pkedRegAddr, sizeof(pkd_reg_addr_t) *
-                    numberOfChannels);
+                    max_channels);
 
     // Payload builder for ParamID : PARAM_ID_CPS_LPASS_HW_INTF_CFG
     payloadSize = 0;
@@ -1360,7 +1367,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
     char mSndDeviceName_vi[128] = {0};
     uint8_t* payload = NULL;
     uint32_t devicePropId[] = {0x08000010, 1, 0x2};
-    uint32_t miid = 0, tagid, deviceid;
+    uint32_t miid = 0, tagid, deviceid, SP_II_miid = 0, SP_miid = 0;
     bool isTxFeandBeConnected = true;
     size_t payloadSize = 0;
     struct pal_device device;
@@ -1391,6 +1398,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
     std::vector<Stream*> activeStreams;
     PayloadBuilder* builder = new PayloadBuilder();
     std::unique_lock<std::mutex> lock(calibrationMutex);
+    uint32_t phy_add[3];
 
     PAL_DBG(LOG_TAG, "Flag %d", flag);
     deviceMutex.lock();
@@ -1852,7 +1860,10 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagid, ret);
                 goto err_pcm_open;
             }
-
+            if (ch == CHANNELS_2)
+                SP_II_miid = miid;
+            else
+                SP_miid = miid;
             // Set the operation mode for SP module
             PAL_DBG(LOG_TAG, "Operation mode for SP %d",
                             rm->mSpkrProtModeValue.operationMode);
@@ -1887,7 +1898,20 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
         // CPS related payload
         if (ResourceManager::isCpsEnabled) {
-            updateCpsCustomPayload(miid);
+            memset(phy_add, 0, sizeof(phy_add));
+            if (ResourceManager::wsa2_enable) {
+                phy_add[0] = ResourceManager::wsa2_wr_cmd_reg_phy_addr;
+                phy_add[1] = ResourceManager::wsa2_rd_cmd_reg_phy_addr;
+                phy_add[2] = ResourceManager::wsa2_rd_fifo_reg_phy_addr;
+                updateCpsCustomPayload(SP_II_miid, phy_add, WSA2_REGISTER_ADD);
+                memset(phy_add, 0, sizeof(phy_add));
+                PAL_DBG(LOG_TAG, "Updated the CPS payload for SP with miid: %d %d %d %d",SP_II_miid);
+            }
+            phy_add[0] = ResourceManager::wsa_wr_cmd_reg_phy_addr;
+            phy_add[1] = ResourceManager::wsa_rd_cmd_reg_phy_addr;
+            phy_add[2] = ResourceManager::wsa_rd_fifo_reg_phy_addr;
+            updateCpsCustomPayload(SP_miid, phy_add, WSA_REGISTER_ADD);
+            PAL_DBG(LOG_TAG, "Updated the CPS payload for SP with miid: %d %d %d %d",SP_miid);
         }
         // Set SP module CKV
         keyVector.clear();

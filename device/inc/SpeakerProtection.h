@@ -56,6 +56,9 @@ class Speaker;
 #define CPS_WSA_VBATT_LOWER_THRESHOLD_1 168
 #define CPS_WSA_VBATT_LOWER_THRESHOLD_2 148
 
+#define WSA2_REGISTER_ADD 1
+#define WSA_REGISTER_ADD 0
+
 typedef enum speaker_prot_cal_state {
     SPKR_NOT_CALIBRATED,     /* Speaker not calibrated  */
     SPKR_CALIBRATED,         /* Speaker calibrated  */
@@ -144,7 +147,7 @@ public:
     static int32_t spkrProtSetR0T0Value(vi_r0t0_cfg_t r0t0Array[]);
     static void handleSPCallback (uint64_t hdl, uint32_t event_id, void *event_data,
                                   uint32_t event_size, uint32_t miid);
-    void updateCpsCustomPayload(int miid);
+    void updateCpsCustomPayload(int miid, uint32_t phy_add[3], int wsa2_flag);
     int getCpsDevNumber(std::string mixer);
     int32_t getCalibrationData(void **param);
     int32_t getFTMParameter(void **param);
