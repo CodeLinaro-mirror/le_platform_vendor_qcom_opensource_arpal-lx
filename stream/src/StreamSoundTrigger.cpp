@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +25,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamSoundTrigger"
@@ -2268,7 +2273,13 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
         opaque_data += sizeof(struct st_param_header);
         best_channel = (struct st_channel_index_info *)opaque_data;
         best_channel->version = 0x1;
-        best_channel->channel_index = det_ev_info_pdk->detected_model_stats[0].best_channel_idx;
+        if (det_ev_info_pdk) {
+            best_channel->channel_index = det_ev_info_pdk->detected_model_stats[0].best_channel_idx;
+        } else {
+            PAL_ERR(LOG_TAG, "detection info multi model not available");
+            status = -EINVAL;
+            goto exit;
+        }
 
         // dump detection event opaque data
         if ((*event)->data_offset > 0 && (*event)->data_size > 0 &&

@@ -1866,8 +1866,6 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             break;
         case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
-        case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
-        case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
             {
                 std::shared_ptr<BtSco> scoDev;
                 scoDev = std::dynamic_pointer_cast<BtSco>(BtSco::getInstance(deviceattr, rm));
@@ -1878,6 +1876,20 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                 // update device sample rate based on sco mode
                 scoDev->updateSampleRate(&deviceattr->config.sample_rate);
                 PAL_DBG(LOG_TAG, "BT SCO device samplerate %d, bitwidth %d",
+                      deviceattr->config.sample_rate, deviceattr->config.bit_width);
+            }
+            break;
+        case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+        case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
+            {
+                std::shared_ptr<BtSco2> scoDev;
+                scoDev = std::dynamic_pointer_cast<BtSco2>(BtSco2::getInstance(deviceattr, rm));
+                if (!scoDev) {
+                    PAL_ERR(LOG_TAG, "failed to get BtSco2 singleton object.");
+                    return -EINVAL;
+                }
+                scoDev->updateSampleRate(&deviceattr->config.sample_rate);
+                PAL_DBG(LOG_TAG, "BT SCO2 device samplerate %d, bitwidth %d",
                       deviceattr->config.sample_rate, deviceattr->config.bit_width);
             }
             break;
@@ -3931,10 +3943,10 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
 void ResourceManager::mixerEventWaitThreadLoop(
     std::shared_ptr<ResourceManager> rm) {
     int ret = 0;
-#ifdef LINUX_ENABLED
-    struct ctl_event mixer_event = {0, {.data8 = {0}}};
-#else
+#ifdef TARGET_USES_QTI_TINYALSA
     struct snd_ctl_event mixer_event = {0, {.data8 = {0}}};
+#else
+    struct ctl_event mixer_event = {0, {.data8 = {0}}};
 #endif
     struct mixer *mixer = nullptr;
 
@@ -6344,6 +6356,7 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnect;
     std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnect;
     std::vector<Stream*>::iterator sIter;
+    pal_stream_type_t type;
 
     if (!inDev || !newDevAttr) {
         PAL_ERR(LOG_TAG, "invalud input parameters");
@@ -6360,6 +6373,11 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     // create dev switch vectors
     mActiveStreamMutex.lock();
     for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
+        (*sIter)->getStreamType(&type); // TODO: Someday might need to extend new API to decouple HFP&ICC.
+        if (type == PAL_STREAM_LOOPBACK) {
+            PAL_ERR(LOG_TAG, "skip forcedeviceswitch for loopback stream");
+            continue;
+        }
         streamDevDisconnect.push_back({(*sIter), inDev->getSndDeviceId()});
         streamDevConnect.push_back({(*sIter), newDevAttr});
     }
@@ -7751,7 +7769,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             }
                             dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
                             dev = Device::getInstance(&dAttr, rm);
-                            if (dev && (!isBtScoDevice(dAttr.id)) &&
+                            if (dev && (!isBtSco2Device(dAttr.id) && !isBtScoDevice(dAttr.id)) &&
                                 (dAttr.id != PAL_DEVICE_OUT_PROXY) &&
                                 isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_SCO2)) {
                                 rxDevices.push_back(dev);
@@ -7767,7 +7785,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             }
                             dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
                             dev = Device::getInstance(&dAttr, rm);
-                            if (dev && (!isBtScoDevice(dAttr.id)) &&
+                            if (dev && (!isBtSco2Device(dAttr.id) && !isBtScoDevice(dAttr.id)) &&
                                     isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)) {
                                 txDevices.push_back(dev);
                             }
@@ -7797,9 +7815,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 mActiveStreamMutex.unlock();
 
                 for (auto& device : rxDevices) {
+                    PAL_INFO(LOG_TAG, "rx forcedeviceswitch device=%d, target=%d", device->getSndDeviceId(), sco_rx_dattr.id);
                     rm->forceDeviceSwitch(device, &sco_rx_dattr);
                 }
                 for (auto& device : txDevices) {
+                    PAL_INFO(LOG_TAG, "tx forcedeviceswitch device=%d, target=%d", device->getSndDeviceId(), sco_tx_dattr.id);
                     rm->forceDeviceSwitch(device, &sco_tx_dattr);
                 }
                 mResourceManagerMutex.lock();
@@ -7825,7 +7845,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             }
                             dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
                             dev = Device::getInstance(&dAttr, rm);
-                            if (dev && (isBtScoDevice(dAttr.id)) &&
+                            if (dev && (isBtSco2Device(dAttr.id)) &&
                                 (dAttr.id != PAL_DEVICE_OUT_PROXY)) {
                                 rxDevices.push_back(dev);
                             }
@@ -7840,7 +7860,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             }
                             dAttr.id = (pal_device_id_t)associatedDevices[i]->getSndDeviceId();
                             dev = Device::getInstance(&dAttr, rm);
-                            if (dev && (isBtScoDevice(dAttr.id))) {
+                            if (dev && (isBtSco2Device(dAttr.id))) {
                                 txDevices.push_back(dev);
                             }
                         }
@@ -7869,9 +7889,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 mActiveStreamMutex.unlock();
 
                 for (auto& device : txDevices) {
+                    PAL_INFO(LOG_TAG, "tx forcedeviceswitch device=%d, target=%d", device->getSndDeviceId(), sco_tx_dattr.id);
                     rm->forceDeviceSwitch(device, &sco_tx_dattr);
                 }
                 for (auto& device : rxDevices) {
+                    PAL_INFO(LOG_TAG, "rx forcedeviceswitch device=%d, target=%d", device->getSndDeviceId(), sco_rx_dattr.id);
                     rm->forceDeviceSwitch(device, &sco_rx_dattr);
                 }
                 mResourceManagerMutex.lock();
@@ -8591,7 +8613,17 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
     if (isBtScoDevice(device_id)) {
         PAL_DBG(LOG_TAG, "Enter: scoOutConnectCount=%d, scoInConnectCount=%d",
                                         scoOutConnectCount, scoInConnectCount);
-        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO || device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) {
+        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
+            scoOutConnectCount += scoCount;
+            removeScoDevice = !scoOutConnectCount;
+        } else {
+            scoInConnectCount += scoCount;
+            removeScoDevice = !scoInConnectCount;
+        }
+    } else if (isBtSco2Device(device_id)) {
+        PAL_DBG(LOG_TAG, "Enter: scoOutConnectCount=%d, scoInConnectCount=%d",
+                                        scoOutConnectCount, scoInConnectCount);
+        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO2) {
             scoOutConnectCount += scoCount;
             removeScoDevice = !scoOutConnectCount;
         } else {
@@ -8623,7 +8655,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
 
         if (device_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
             device_id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
-            isBtScoDevice(device_id)) {
+            isBtScoDevice(device_id) || isBtSco2Device(device_id)) {
             dAttr.id = device_id;
             /* Stream type is irrelevant here as we need device num channels
                which is independent of stype for BT devices */
@@ -8664,7 +8696,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
                     goto err;
                 }
 
-                if (isBtScoDevice(device_id) && (removeScoDevice == false))
+                if ((isBtScoDevice(device_id) || isBtSco2Device(device_id)) && (removeScoDevice == false))
                     goto exit;
 
                 dev->setDeviceAttributes(conn_device);
@@ -8674,7 +8706,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
         }
         avail_devices_.erase(std::find(avail_devices_.begin(),
                                 avail_devices_.end(), device_id));
-    } else if (!isBtScoDevice(device_id)) {
+    } else if (!isBtScoDevice(device_id) && !isBtSco2Device(device_id)) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid operation, Device %d, connection state %d, device avalibilty %d",
                 device_id, is_connected, device_available);
@@ -8684,14 +8716,19 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
 
 err:
     if (status && isBtScoDevice(device_id)) {
-        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO || device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)
+        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO)
+            scoOutConnectCount -= scoCount;
+        else
+            scoInConnectCount -= scoCount;
+    } else if (status && isBtSco2Device(device_id)) {
+        if (device_id == PAL_DEVICE_OUT_BLUETOOTH_SCO2)
             scoOutConnectCount -= scoCount;
         else
             scoInConnectCount -= scoCount;
     }
 
 exit:
-    if (isBtScoDevice(device_id))
+    if (isBtScoDevice(device_id) || isBtSco2Device(device_id))
         PAL_DBG(LOG_TAG, "Exit: scoOutConnectCount=%d, scoInConnectCount=%d",
                                         scoOutConnectCount, scoInConnectCount);
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -8969,8 +9006,15 @@ bool ResourceManager::isDeviceReady(pal_device_id_t id)
 bool ResourceManager::isBtScoDevice(pal_device_id_t id)
 {
     if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
-        id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
-        id == PAL_DEVICE_OUT_BLUETOOTH_SCO2 ||
+        id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
+        return true;
+    else
+        return false;
+}
+
+bool ResourceManager::isBtSco2Device(pal_device_id_t id)
+{
+    if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO2 ||
         id == PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET)
         return true;
     else

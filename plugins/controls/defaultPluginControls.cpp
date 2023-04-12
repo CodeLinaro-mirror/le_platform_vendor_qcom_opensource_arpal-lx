@@ -215,6 +215,8 @@ char* getMixerVoiceStream(Stream *s, int dir)
     char *stream = (char*)"VOICEMMODE1p";
     struct pal_stream_attributes sAttr;
 
+    memset(&sAttr, 0, sizeof(sAttr));
+
     s->getStreamAttributes(&sAttr);
     if (sAttr.info.voice_call_info.VSID == VOICEMMODE1 ||
         sAttr.info.voice_call_info.VSID == VOICELBMMODE1) {
