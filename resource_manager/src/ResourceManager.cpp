@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -9224,18 +9224,13 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             mResourceManagerMutex.unlock();
             param_bt_a2dp = (pal_param_bta2dp_t*)param_payload;
 
-            if (param_bt_a2dp->a2dp_suspended == true) {
-                //TODO:Need to check for Broadcast and BLE unicast concurrency UC
-                if (isDeviceAvailable(param_bt_a2dp->dev_id)) {
-                    a2dp_dattr.id = param_bt_a2dp->dev_id;
-                } else {
-                    PAL_ERR(LOG_TAG, "a2dp/ble device %d is unavailable, set param %d failed",
-                        param_bt_a2dp->dev_id, param_id);
-                    status = -EIO;
-                    goto exit_no_unlock;
-                }
-            } else {
+            if (isDeviceAvailable(param_bt_a2dp->dev_id)) {
                 a2dp_dattr.id = param_bt_a2dp->dev_id;
+            } else {
+                PAL_ERR(LOG_TAG, "a2dp/ble device %d is unavailable, set param %d failed",
+                    param_bt_a2dp->dev_id, param_id);
+                status = -EIO;
+                goto exit_no_unlock;
             }
 
             a2dp_dev = Device::getInstance(&a2dp_dattr , rm);
