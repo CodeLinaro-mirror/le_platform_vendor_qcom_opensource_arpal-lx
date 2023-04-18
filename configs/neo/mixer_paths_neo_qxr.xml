@@ -297,6 +297,8 @@
     <ctl name="WSA_Softclip1 Enable" value="0" />
     <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="0" />
     <ctl name="WSA_RX INT1 VBAT WSA RX1 VBAT Enable" value="0" />
+    <ctl name="WSA2_RX INT0 VBAT WSA2 RX0 VBAT Enable" value="0" />
+    <ctl name="WSA2_RX INT1 VBAT WSA2 RX1 VBAT Enable" value="0" />
 
     <!-- Codec controls end -->
 
