@@ -3513,7 +3513,7 @@ void ResourceManager::GetSoundTriggerConcurrencyCount_l(
             } else {
                 (*local_en_count)++;
             }
-        } else if (st_attr.direction == PAL_AUDIO_OUTPUT &&
+        } else if ((st_attr.direction == PAL_AUDIO_OUTPUT || st_attr.direction == PAL_AUDIO_INPUT_OUTPUT) &&
                    (st_attr.type != PAL_STREAM_LOW_LATENCY ||
                     low_latency_bargein_enable)) {
             (*local_en_count)++;
@@ -4235,7 +4235,7 @@ void ResourceManager::GetConcurrencyInfo(pal_stream_type_t st_type,
     bool low_latency_bargein_enable = IsLowLatencyBargeinSupported(st_type);
     bool audio_capture_conc_enable = IsAudioCaptureConcurrencySupported(st_type);
 
-    if (dir == PAL_AUDIO_OUTPUT) {
+    if (dir == PAL_AUDIO_OUTPUT || dir == PAL_AUDIO_INPUT_OUTPUT) {
         if (in_type == PAL_STREAM_LOW_LATENCY && !low_latency_bargein_enable) {
             PAL_VERBOSE(LOG_TAG, "Ignore low latency playback stream");
         } else {

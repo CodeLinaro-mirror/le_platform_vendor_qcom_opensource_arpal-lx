@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /** \file pal_defs.h
@@ -132,6 +136,16 @@ static const std::map<std::string, pal_audio_fmt_t> PalAudioFormatMap
 
 };
 #endif
+
+struct aac_enc_cfg {
+    uint16_t aac_enc_mode; /**< AAC encoder mode */
+    uint16_t aac_fmt_flag; /**< AAC format flag */
+};
+
+struct pal_snd_enc_aac {
+    uint32_t aac_bit_rate;
+    struct aac_enc_cfg enc_cfg;
+};
 
 struct pal_snd_dec_aac {
     uint16_t audio_obj_type;
@@ -251,6 +265,10 @@ typedef union {
     struct pal_snd_dec_vorbis vorbis_dec;
 } pal_snd_dec_t;
 
+/** Audio encoder parameter data*/
+typedef union {
+    struct pal_snd_enc_aac aac_enc;
+} pal_snd_enc_t;
 
 /** Audio parameter data*/
 typedef struct pal_param_payload_s {
