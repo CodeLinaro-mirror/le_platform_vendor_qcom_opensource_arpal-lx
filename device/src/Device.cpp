@@ -307,6 +307,27 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     }
 }
 
+void Device::releaseObject() {
+    Speaker::releaseObject();
+    Handset::releaseObject();
+    SpeakerFeedback::releaseObject();
+    Headphone::releaseObject();
+    USB::releaseObject();
+    DisplayPort::releaseObject();
+    HandsetMic::releaseObject();
+    SpeakerMic::releaseObject();
+    HeadsetMic::releaseObject();
+    BtA2dp::releaseObject();
+    BtSco::releaseObject();
+    RTProxyOut::releaseObject();
+    RTProxyIn::releaseObject();
+    FMDevice::releaseObject();
+    UltrasoundDevice::releaseObject();
+    ExtEC::releaseObject();
+    HandsetVaMic::releaseObject();
+    ECRefDevice::releaseObject();
+}
+
 Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
 {
     rm = Rm;
@@ -476,8 +497,6 @@ int Device::open()
     mPALDeviceName = rm->getPALDeviceName(this->deviceAttr.id);
     PAL_INFO(LOG_TAG, "Enter. deviceCount %d for device id %d (%s)", deviceCount,
             this->deviceAttr.id, mPALDeviceName.c_str());
-
-    devObj = Device::getInstance(&deviceAttr, rm);
 
     if (deviceCount == 0) {
         std::string backEndName;

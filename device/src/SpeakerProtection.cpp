@@ -1263,6 +1263,13 @@ exit:
 
 SpeakerProtection::~SpeakerProtection()
 {
+    if (mCalThread.joinable()) {
+        threadExit = true;
+        cv.notify_all();
+        mCalThread.join();
+        PAL_INFO(LOG_TAG, "mCalThread joined");
+    }
+
     if (spkerTempList)
         delete[] spkerTempList;
 
@@ -2851,4 +2858,11 @@ std::shared_ptr<Device> SpeakerFeedback::getInstance(struct pal_device *device,
 std::shared_ptr<Device> SpeakerFeedback::getObject()
 {
     return obj;
+}
+
+void SpeakerFeedback::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
 }

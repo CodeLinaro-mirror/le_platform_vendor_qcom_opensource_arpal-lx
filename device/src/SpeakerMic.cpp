@@ -43,6 +43,14 @@ std::shared_ptr<Device> SpeakerMic::getObject()
     return obj;
 }
 
+void SpeakerMic::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
+}
+
+
 std::shared_ptr<Device> SpeakerMic::getInstance(struct pal_device *device,
                                                 std::shared_ptr<ResourceManager> Rm)
 {
@@ -57,7 +65,7 @@ std::shared_ptr<Device> SpeakerMic::getInstance(struct pal_device *device,
 SpeakerMic::SpeakerMic(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
 Device(device, Rm)
 {
-   
+
 }
 
 SpeakerMic::~SpeakerMic()

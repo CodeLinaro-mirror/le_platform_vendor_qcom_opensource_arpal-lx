@@ -43,6 +43,14 @@ std::shared_ptr<Device> HandsetMic::getObject()
     return obj;
 }
 
+void HandsetMic::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
+}
+
+
 std::shared_ptr<Device> HandsetMic::getInstance(struct pal_device *device,
                                                 std::shared_ptr<ResourceManager> Rm)
 {
@@ -57,7 +65,7 @@ std::shared_ptr<Device> HandsetMic::getInstance(struct pal_device *device,
 HandsetMic::HandsetMic(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
 Device(device, Rm)
 {
-   
+
 }
 
 HandsetMic::~HandsetMic()

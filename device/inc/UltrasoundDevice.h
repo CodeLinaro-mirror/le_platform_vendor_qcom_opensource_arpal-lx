@@ -43,6 +43,7 @@ public:
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     static std::shared_ptr<Device> getObject(pal_device_id_t id);
+    static void releaseObject();
     virtual ~UltrasoundDevice();
 };
 

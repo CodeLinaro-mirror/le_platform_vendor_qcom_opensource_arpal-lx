@@ -285,6 +285,7 @@ public:
     int32_t getDeviceParameter(uint32_t param_id, void **param) override;
 
     static std::shared_ptr<Device> getObject(pal_device_id_t id);
+    static void releaseObject();
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     virtual ~BtA2dp();
@@ -315,6 +316,7 @@ public:
     void updateSampleRate(uint32_t *sampleRate);
 
     static std::shared_ptr<Device> getObject(pal_device_id_t id);
+    static void releaseObject();
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     virtual ~BtSco();

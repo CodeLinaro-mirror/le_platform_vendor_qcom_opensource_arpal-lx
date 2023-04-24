@@ -193,6 +193,7 @@ public:
     static int32_t checkAndUpdateSampleRate(unsigned int *sampleRate);
     static bool isUSBOutDevice(pal_device_id_t);
     static std::shared_ptr<Device> getObject(pal_device_id_t id);
+    static void releaseObject();
     ~USB();
 };
 

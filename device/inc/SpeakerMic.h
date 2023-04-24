@@ -46,6 +46,7 @@ public:
     static int32_t isBitWidthSupported(uint32_t bitWidth);
     virtual ~SpeakerMic();
     static std::shared_ptr<Device> getObject();
+    static void releaseObject();
 };
 
 

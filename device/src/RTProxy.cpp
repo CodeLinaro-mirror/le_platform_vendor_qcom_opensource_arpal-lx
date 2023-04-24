@@ -42,6 +42,18 @@
 #include "Stream.h"
 #include "Session.h"
 
+void RTProxyIn::releaseObject() {
+    if (objPlay) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objPlay.use_count());
+        objPlay.reset();
+    }
+
+    if (objRecord) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objRecord.use_count());
+        objRecord.reset();
+    }
+}
+
 RTProxyIn::RTProxyIn(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
 Device(device, Rm)
 {
@@ -262,6 +274,18 @@ int RTProxyOut::start() {
     customPayloadSize = 0;
 
     return Device::start();
+}
+
+void RTProxyOut::releaseObject() {
+    if (objPlay) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objPlay.use_count());
+        objPlay.reset();
+    }
+
+    if (objRecord) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objRecord.use_count());
+        objRecord.reset();
+    }
 }
 
 RTProxyOut::~RTProxyOut()

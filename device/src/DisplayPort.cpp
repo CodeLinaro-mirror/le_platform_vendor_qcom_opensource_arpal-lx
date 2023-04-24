@@ -112,6 +112,19 @@ std::shared_ptr<Device> DisplayPort::getObject(pal_device_id_t id)
     return NULL;
 }
 
+void DisplayPort::releaseObject() {
+    if (objRx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objRx.use_count());
+        objRx.reset();
+    }
+
+    if (objTx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objTx.use_count());
+        objTx.reset();
+    }
+}
+
+
 DisplayPort::DisplayPort(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
 Device(device, Rm)
 {

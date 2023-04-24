@@ -49,6 +49,7 @@ class RTProxyIn : public Device
         static std::shared_ptr<Device> getObject(pal_device_id_t id);
         static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                            std::shared_ptr<ResourceManager> Rm);
+        static void releaseObject();
         static int32_t isSampleRateSupported(uint32_t sampleRate);
         static int32_t isChannelSupported(uint32_t numChannels);
         static int32_t isBitWidthSupported(uint32_t bitWidth);
@@ -68,6 +69,7 @@ class RTProxyOut : public Device
         static std::shared_ptr<Device> getObject(pal_device_id_t id);
         static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                            std::shared_ptr<ResourceManager> Rm);
+        static void releaseObject();
         static int32_t isSampleRateSupported(uint32_t sampleRate);
         static int32_t isChannelSupported(uint32_t numChannels);
         static int32_t isBitWidthSupported(uint32_t bitWidth);

@@ -1068,37 +1068,8 @@ ResourceManager::~ResourceManager()
         PAL_ERR(LOG_TAG, "error in deinitializing KPI queue %d", ret);
     }
 #endif
-    streamTag.clear();
-    streamPpTag.clear();
-    mixerTag.clear();
-    devicePpTag.clear();
-    deviceTag.clear();
-
-    listAllFrontEndIds.clear();
-    listAllPcmPlaybackFrontEnds.clear();
-    listAllPcmRecordFrontEnds.clear();
-    listAllPcmHostlessRxFrontEnds.clear();
-    listAllPcmHostlessTxFrontEnds.clear();
-    listAllCompressPlaybackFrontEnds.clear();
-    listAllCompressRecordFrontEnds.clear();
-    listFreeFrontEndIds.clear();
-    listAllPcmVoice1RxFrontEnds.clear();
-    listAllPcmVoice1TxFrontEnds.clear();
-    listAllPcmVoice2RxFrontEnds.clear();
-    listAllPcmVoice2TxFrontEnds.clear();
-    listAllNonTunnelSessionIds.clear();
-    listAllPcmExtEcTxFrontEnds.clear();
-    usb_vendor_uuid_list.clear();
-    devInfo.clear();
-    deviceInfo.clear();
-    txEcInfo.clear();
 
     STInstancesLists.clear();
-    listAllBackEndIds.clear();
-    sndDeviceNameLUT.clear();
-    devicePcmId.clear();
-    deviceLinkName.clear();
-    PCMDataInstances.clear();
 
     if (admLibHdl) {
         if (admDeInitFn)
@@ -1118,6 +1089,7 @@ ResourceManager::~ResourceManager()
 #ifdef SOC_PERIPHERAL_PROT
      deregPeripheralCb(tz_handle);
 #endif
+    PAL_INFO(LOG_TAG, "Exit");
 }
 
 #ifdef SOC_PERIPHERAL_PROT
@@ -6827,6 +6799,37 @@ int ResourceManager::getPcmDeviceId(int deviceId)
 
 void ResourceManager::deinit()
 {
+    PAL_INFO(LOG_TAG, "Enter");
+    Device::releaseObject();
+    streamTag.clear();
+    streamPpTag.clear();
+    mixerTag.clear();
+    devicePpTag.clear();
+    deviceTag.clear();
+
+    listAllFrontEndIds.clear();
+    listAllPcmPlaybackFrontEnds.clear();
+    listAllPcmRecordFrontEnds.clear();
+    listAllPcmHostlessRxFrontEnds.clear();
+    listAllPcmHostlessTxFrontEnds.clear();
+    listAllCompressPlaybackFrontEnds.clear();
+    listAllCompressRecordFrontEnds.clear();
+    listFreeFrontEndIds.clear();
+    listAllPcmVoice1RxFrontEnds.clear();
+    listAllPcmVoice1TxFrontEnds.clear();
+    listAllPcmVoice2RxFrontEnds.clear();
+    listAllPcmVoice2TxFrontEnds.clear();
+    listAllNonTunnelSessionIds.clear();
+    listAllPcmExtEcTxFrontEnds.clear();
+    devInfo.clear();
+    deviceInfo.clear();
+    txEcInfo.clear();
+
+    listAllBackEndIds.clear();
+    sndDeviceNameLUT.clear();
+    devicePcmId.clear();
+    deviceLinkName.clear();
+
     card_status_t state = CARD_STATUS_NONE;
 
     mixerClosed = true;
@@ -6863,6 +6866,7 @@ void ResourceManager::deinit()
     }
 #endif
     rm = nullptr;
+    PAL_INFO(LOG_TAG, "Exit");
 }
 
 int ResourceManager::getStreamTag(std::vector <int> &tag)

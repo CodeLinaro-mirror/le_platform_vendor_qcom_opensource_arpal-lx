@@ -84,7 +84,6 @@ class ResourceManager;
 class Device
 {
 protected:
-    std::shared_ptr<Device> devObj;
     std::mutex mDeviceMutex;
     std::string mPALDeviceName;
     struct pal_device deviceAttr;
@@ -128,6 +127,7 @@ public:
                                     Stream* streamHandle = NULL);
     virtual int getCodecConfig(struct pal_media_config *config);
     static std::shared_ptr<Device> getObject(pal_device_id_t dev_id);
+    static void releaseObject();
     int updateCustomPayload(void *payload, size_t size);
     int freeCustomPayload(uint8_t **payload, size_t *payloadSize);
     void* getCustomPayload();
