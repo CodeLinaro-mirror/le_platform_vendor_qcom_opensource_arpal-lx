@@ -2280,6 +2280,19 @@ std::shared_ptr<Device> BtA2dp::getObject(pal_device_id_t id)
     }
 }
 
+void BtA2dp::releaseObject() {
+    if (objRx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objRx.use_count());
+        objRx.reset();
+    }
+
+    if (objTx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objTx.use_count());
+        objTx.reset();
+    }
+}
+
+
 std::shared_ptr<Device>
 BtA2dp::getInstance(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
 {
@@ -2633,6 +2646,19 @@ std::shared_ptr<Device> BtSco::getObject(pal_device_id_t id)
     else
         return objTx;
 }
+
+void BtSco::releaseObject() {
+    if (objRx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objRx.use_count());
+        objRx.reset();
+    }
+
+    if (objTx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objTx.use_count());
+        objTx.reset();
+    }
+}
+
 
 std::shared_ptr<Device> BtSco::getInstance(struct pal_device *device,
                                            std::shared_ptr<ResourceManager> Rm)

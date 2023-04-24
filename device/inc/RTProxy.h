@@ -47,6 +47,7 @@ public:
     static int32_t isChannelSupported(uint32_t numChannels);
     static int32_t isBitWidthSupported(uint32_t bitWidth);
     static std::shared_ptr<Device> getObject();
+    static void releaseObject();
     int start();
     virtual ~RTProxy();
 };
@@ -66,6 +67,7 @@ class RTProxyOut : public Device
         static int32_t isChannelSupported(uint32_t numChannels);
         static int32_t isBitWidthSupported(uint32_t bitWidth);
         static std::shared_ptr<Device> getObject();
+        static void releaseObject();
         virtual ~RTProxyOut();
 };
 

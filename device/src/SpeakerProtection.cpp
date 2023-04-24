@@ -2824,3 +2824,10 @@ std::shared_ptr<Device> SpeakerFeedback::getObject()
 {
     return obj;
 }
+
+void SpeakerFeedback::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
+}
