@@ -1239,6 +1239,13 @@ exit:
 
 SpeakerProtection::~SpeakerProtection()
 {
+    if (mCalThread.joinable()) {
+        threadExit = true;
+        cv.notify_all();
+        mCalThread.join();
+        PAL_INFO(LOG_TAG, "mCalThread joined");
+    }
+
     if (spkerTempList)
         delete[] spkerTempList;
 
