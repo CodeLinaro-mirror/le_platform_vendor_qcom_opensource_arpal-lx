@@ -17,8 +17,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libdl \
     libexpat \
-    libar-pal \
-    libqti-tinyalsa
+    libar-pal
 
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/session/inc
@@ -34,8 +33,6 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/spf/api/vcpm
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/acdbdata/
 LOCAL_C_INCLUDES += $(TOP)/system/media/audio_route/include
 LOCAL_C_INCLUDES += $(TOP)/system/media/audio/include
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinyalsa/include
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/agm
 LOCAL_C_INCLUDES += $(TOP)/external/expat/lib/expat.h
 
@@ -44,6 +41,16 @@ LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/in
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 
+#if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
+#This assumes we would be using AR code only for Android R and subsequent versions.
+ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
+LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinyalsa/include
+LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
+LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
+else
+LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
+LOCAL_SHARED_LIBRARIES += libtinyalsa libtinycompress
+endif
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \
@@ -74,8 +81,15 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libdl \
     libexpat \
-    libar-pal \
-    libqti-tinyalsa
+    libar-pal
+
+#if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
+#This assumes we would be using AR code only for Android R and subsequent versions.
+ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
+LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
+else
+LOCAL_SHARED_LIBRARIES += libtinyalsa
+endif
 
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/session/inc

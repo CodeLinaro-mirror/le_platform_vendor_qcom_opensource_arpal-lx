@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -117,6 +117,10 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         PAL_VERBOSE(LOG_TAG, "BTSCO device");
         return BtSco::getInstance(device, Rm);
+    case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
+    case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+        PAL_VERBOSE(LOG_TAG, "BTSCO2 device");
+        return BtSco2::getInstance(device, Rm);
     case PAL_DEVICE_IN_BLUETOOTH_A2DP:
     case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         PAL_VERBOSE(LOG_TAG, "BTA2DP device");
@@ -211,6 +215,10 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         PAL_VERBOSE(LOG_TAG, "BT SCO device %d", dev_id);
         return BtSco::getObject(dev_id);
+    case PAL_DEVICE_OUT_BLUETOOTH_SCO2:
+    case PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET:
+        PAL_VERBOSE(LOG_TAG, "BT SCO2 device %d", dev_id);
+        return BtSco2::getObject(dev_id);
     case PAL_DEVICE_OUT_PROXY:
     case PAL_DEVICE_IN_PROXY:
     case PAL_DEVICE_OUT_HEARING_AID:
