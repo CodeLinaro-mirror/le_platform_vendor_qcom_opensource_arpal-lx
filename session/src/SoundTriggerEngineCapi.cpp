@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1031,6 +1031,11 @@ exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
     return status;
+}
+
+Session* SoundTriggerEngineCapi::getsessionhandle()
+{
+    return NULL;
 }
 
 int32_t SoundTriggerEngineCapi::UnloadSoundModel(Stream *s __unused)

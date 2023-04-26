@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -144,7 +144,7 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
     }
     void UpdateState(eng_state_t state);
     void UpdateStateToActive() override;
-
+    Session* getsessionhandle() override;
  private:
     int32_t StartBuffering(Stream *s);
     int32_t UpdateSessionPayload(st_param_id_type_t param);
