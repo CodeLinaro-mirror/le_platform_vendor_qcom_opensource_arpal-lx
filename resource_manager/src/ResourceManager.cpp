@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -6053,7 +6053,6 @@ void ResourceManager::deinit()
 {
     PAL_INFO(LOG_TAG, "Enter");
     Device::releaseObject();
-    PAL_INFO(LOG_TAG, "Exit");
     streamTag.clear();
     streamPpTag.clear();
     mixerTag.clear();
@@ -6118,6 +6117,7 @@ void ResourceManager::deinit()
     }
 #endif
     rm = nullptr;
+    PAL_INFO(LOG_TAG, "Exit");
 }
 
 int ResourceManager::getStreamTag(std::vector <int> &tag)
