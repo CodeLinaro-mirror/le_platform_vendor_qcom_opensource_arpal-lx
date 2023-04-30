@@ -59,6 +59,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SpeakerProtection"
@@ -2419,6 +2424,17 @@ int SpeakerProtection::stop()
     return 0;
 }
 
+int SpeakerProtection::close()
+{
+    PAL_DBG(LOG_TAG, "Inside Speaker Protection close");
+    Device::close();
+    if (ResourceManager::isVIRecordStarted) {
+        ResourceManager::isVIRecordStarted = false;
+        return 0;
+    }
+    spkrProtProcessingMode(false);
+    return 0;
+}
 
 int32_t SpeakerProtection::setParameter(uint32_t param_id, void *param)
 {
