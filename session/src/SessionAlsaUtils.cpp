@@ -452,7 +452,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 status = 0; /**< ignore device MUX CKV failures */
             }
         }
-
+        if(!ResourceManager::isSpeakerProtectionEnabled) {
+            if (be->first == PAL_DEVICE_OUT_SPEAKER) {
+                deviceCKV.push_back(std::make_pair(SPK_PRO_DEV_MAP, SP_DISABLED));
+            }
+        }
         status = builder->populateStreamDeviceKV(streamHandle, be->first, streamDeviceKV);
         if (status) {
             PAL_VERBOSE(LOG_TAG, "get stream device KV failed %d", status);
@@ -1347,6 +1351,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 PAL_ERR(LOG_TAG, "Unable to populate mux channels");
                 status = 0; /**< ignore device MUX CKV failures */
             }
+    }
+    if(!ResourceManager::isSpeakerProtectionEnabled) {
+        if (rxBackEnds[0].first == PAL_DEVICE_OUT_SPEAKER) {
+            deviceCKV.push_back(std::make_pair(SPK_PRO_DEV_MAP, SP_DISABLED));
+        }
     }
     if (deviceRxKV.size() > 0) {
         SessionAlsaUtils::getAgmMetaData(deviceRxKV, deviceCKV,
