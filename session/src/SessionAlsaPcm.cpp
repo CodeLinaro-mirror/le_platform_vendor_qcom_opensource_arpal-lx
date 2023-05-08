@@ -724,7 +724,7 @@ int SessionAlsaPcm::start(Stream * s)
             config.period_count = out_buf_count;
         }
         config.start_threshold = 0;
-        config.stop_threshold = 0;
+        config.stop_threshold = INT32_MAX;
         config.silence_threshold = 0;
 
         switch(sAttr.direction) {
@@ -2739,7 +2739,7 @@ int SessionAlsaPcm::openGraph(Stream *s) {
             config.channels, config.format);
         config.period_count = in_buf_count;
         config.start_threshold = 0;
-        config.stop_threshold = 0;
+        config.stop_threshold = INT32_MAX;
         config.silence_threshold = 0;
 
         pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0), PCM_IN, &config);
