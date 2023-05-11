@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -2451,7 +2451,12 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 goto exit;
             }
 
-            builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            if (vdata->no_of_volpair == 2 && sAttr.out_media_config.ch_info.channels == 2) {
+                builder->payloadMultichVolumemConfig(&paramData, &paramSize, miid, vdata);
+            } else {
+                builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            }
+
             if (paramSize) {
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
