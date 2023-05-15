@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -112,6 +113,15 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
                     dAttr[i].id = PAL_DEVICE_OUT_HANDSET;
             } else { // then assign input device
                 dAttr[i].id = PAL_DEVICE_IN_ULTRASOUND_MIC;
+            }
+        }
+
+        if (sAttr->type == PAL_STREAM_PLAYBACK_BUS && strcmp(sAttr->bus_addr, "BUS03_PHONE") == 0) {
+            if (rm->isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_SCO2)) {
+                PAL_INFO(LOG_TAG, "BT SCO2 is ready connected, set output device to SCO2\n");
+                dAttr[i].id =  PAL_DEVICE_OUT_BLUETOOTH_SCO2;
+            } else {
+                PAL_DBG(LOG_TAG, "BT SCO2 is not connected or ready");
             }
         }
 
@@ -1417,7 +1427,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                         }
                     }
                 }
-                if (voice_call_switch) {
+                if (voice_call_switch && sharedBEStreamDev.size() > 0) {
                     for (const auto &elem : sharedBEStreamDev) {
                         streamDevDisconnect.push_back(elem);
                         StreamDevConnect.push_back({std::get<0>(elem), &newDevices[newDeviceSlots[i]]});

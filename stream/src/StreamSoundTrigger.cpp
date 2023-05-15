@@ -26,6 +26,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #define LOG_TAG "PAL: StreamSoundTrigger"
 
@@ -471,6 +477,7 @@ release:
 int32_t StreamSoundTrigger::setParameters(uint32_t param_id, void *payload) {
     int32_t status = 0;
     pal_param_payload *param_payload = (pal_param_payload *)payload;
+    struct pal_st_recognition_config *new_rec_config = nullptr;
 
     if (param_id != PAL_PARAM_ID_STOP_BUFFERING && !param_payload) {
         PAL_ERR(LOG_TAG, "Invalid payload for param ID: %d", param_id);
@@ -488,28 +495,25 @@ int32_t StreamSoundTrigger::setParameters(uint32_t param_id, void *payload) {
             break;
         }
         case PAL_PARAM_ID_RECOGNITION_CONFIG: {
-            /*
-            * Currently spf needs graph stop and start for next detection.
-            * Handle this event similar to fresh start config.
-            */
-            std::shared_ptr<StEventConfig> ev_cfg(
-                new StRecognitionCfgEventConfig((void *)param_payload->payload));
-            status = cur_state_->ProcessEvent(ev_cfg);
+            new_rec_config = (struct pal_st_recognition_config *)param_payload->payload;
+            if(new_rec_config == nullptr) {
+                PAL_ERR(LOG_TAG, "no rec_config found");
+                status = -EINVAL;
+                return status;
+            }
+            if (!compareRecognitionConfig(rec_config_, new_rec_config)) {
+                std::shared_ptr<StEventConfig> ev_cfg(
+                    new StRecognitionCfgEventConfig((void *)new_rec_config));
+                status = cur_state_->ProcessEvent(ev_cfg);
+            } else {
+                PAL_DBG(LOG_TAG, "Same recognition config, no need to update");
+            }
             break;
         }
         case PAL_PARAM_ID_STOP_BUFFERING: {
-            /*
-            * Currently spf needs graph stop and start for next detection.
-            * Handle this event similar to STOP_RECOGNITION
-            * and when the stream state is in buffering.
-            */
-            if (GetCurrentStateId() == ST_STATE_BUFFERING) {
                 std::shared_ptr<StEventConfig> ev_cfg(
-                    new StStopRecognitionEventConfig(false));
+                    new StStopBufferingEventConfig());
                 status = cur_state_->ProcessEvent(ev_cfg);
-            } else {
-                PAL_INFO(LOG_TAG, "Stream not in buffering state, ignore");
-            }
             if (st_info_->GetEnableDebugDumps()) {
                 ST_DBG_FILE_CLOSE(lab_fd_);
                 lab_fd_ = nullptr;
@@ -1808,6 +1812,8 @@ bool StreamSoundTrigger::compareRecognitionConfig(
    struct pal_st_recognition_config *new_config) {
     uint32_t i = 0, j = 0;
 
+    if (!current_config || !new_config)
+        return false;
     /*
      * Sometimes if the number of user confidence levels is 0, the
      * pal_st_confidence_level struct will be different between the two
@@ -2105,6 +2111,7 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
     struct st_param_header *param_hdr = nullptr;
     struct st_keyword_indices_info *kw_indices = nullptr;
     struct st_timestamp_info *timestamps = nullptr;
+    struct st_channel_index_info *best_channel = nullptr;
     struct model_stats *det_model_stat = nullptr;
     struct detection_event_info_pdk *det_ev_info_pdk = nullptr;
     struct detection_event_info *det_ev_info = nullptr;
@@ -2146,10 +2153,10 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
         else
             conf_levels_size = sizeof(struct st_confidence_levels_info_v2);
 
-        opaque_size = (3 * sizeof(struct st_param_header)) +
+        opaque_size = (4 * sizeof(struct st_param_header)) +
             sizeof(struct st_timestamp_info) +
             sizeof(struct st_keyword_indices_info) +
-            conf_levels_size;
+            conf_levels_size + sizeof(struct st_channel_index_info);
 
         event_size = sizeof(struct pal_st_phrase_recognition_event) +
                      opaque_size;
@@ -2257,6 +2264,21 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
             timestamps->first_stage_det_event_time = 1000 *
                 ((uint64_t)det_ev_info->detection_timestamp_lsw +
                 ((uint64_t)det_ev_info->detection_timestamp_msw << 32));
+        }
+        opaque_data += sizeof(struct st_timestamp_info);
+
+        param_hdr = (struct st_param_header *)opaque_data;
+        param_hdr->key_id = ST_PARAM_KEY_CONTEXT_RECOGNITION_INFO;
+        param_hdr->payload_size = sizeof(struct st_channel_index_info);
+        opaque_data += sizeof(struct st_param_header);
+        best_channel = (struct st_channel_index_info *)opaque_data;
+        best_channel->version = 0x1;
+        if (det_ev_info_pdk) {
+            best_channel->channel_index = det_ev_info_pdk->detected_model_stats[0].best_channel_idx;
+        } else {
+            PAL_ERR(LOG_TAG, "detection info multi model not available");
+            status = -EINVAL;
+            goto exit;
         }
 
         // dump detection event opaque data
@@ -4184,6 +4206,16 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 TransitTo(ST_STATE_LOADED);
             }
             rm->releaseWakeLock();
+            break;
+        }
+        case ST_EV_STOP_BUFFERING: {
+            /*
+             *Buffering continues in GSL engine side until RestartRecognition
+             * Buffering continues in GSL engine side until RestartRecognition
+             * start after stop buffering.
+             */
+            if (st_stream_.reader_)
+                st_stream_.reader_->updateState(READER_DISABLED);
             break;
         }
         case ST_EV_RECOGNITION_CONFIG: {
