@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SessionAgm"
@@ -132,7 +137,7 @@ void eventCallback(uint32_t session_id, struct agm_event_cb_params *event_params
     }
 
     if (sessAgm->sessionCb) {
-        sessAgm->sessionCb(sessAgm->cbCookie, event_id, event_data, event_size);
+        sessAgm->sessionCb(sessAgm->cbCookie, event_id, event_data, event_size, 0);
     } else {
        PAL_INFO(LOG_TAG, "no session cb registerd");
     }

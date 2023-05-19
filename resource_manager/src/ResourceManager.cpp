@@ -456,6 +456,13 @@ static int max_session_num;
 bool ResourceManager::isSpeakerProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
 bool ResourceManager::isCpsEnabled = false;
+int ResourceManager::wsa2_enable = 0;
+int ResourceManager::wsa_wr_cmd_reg_phy_addr = 0;
+int ResourceManager::wsa_rd_cmd_reg_phy_addr = 0;
+int ResourceManager::wsa_rd_fifo_reg_phy_addr = 0;
+int ResourceManager::wsa2_wr_cmd_reg_phy_addr = 0;
+int ResourceManager::wsa2_rd_cmd_reg_phy_addr = 0;
+int ResourceManager::wsa2_rd_fifo_reg_phy_addr = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
 bool ResourceManager::isRasEnabled = false;
@@ -4126,7 +4133,7 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
 
     // callback
     session_cb(cookie, params->event_id, (void *)params->event_payload,
-                 params->event_payload_size);
+                 params->event_payload_size, params->source_module_id);
 
 exit:
     if (buf)
@@ -9643,6 +9650,20 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "cps_enabled")) {
             if (atoi(data->data_buf))
                 isCpsEnabled = true;
+        }else if (!strcmp(tag_name, "wsa2_enable")) {
+            wsa2_enable = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa_wr_cmd_reg_phy_addr")) {
+            wsa_wr_cmd_reg_phy_addr = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa_rd_cmd_reg_phy_addr")) {
+            wsa_rd_cmd_reg_phy_addr = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa_rd_fifo_reg_phy_addr")) {
+            wsa_rd_fifo_reg_phy_addr = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa2_wr_cmd_reg_phy_addr")) {
+            wsa2_wr_cmd_reg_phy_addr = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa2_rd_cmd_reg_phy_addr")) {
+            wsa2_rd_cmd_reg_phy_addr = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa2_rd_fifo_reg_phy_addr")) {
+            wsa2_rd_fifo_reg_phy_addr = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "supported_bit_format")) {
             size = deviceInfo.size() - 1;
             if(!strcmp(data->data_buf, "PAL_AUDIO_FMT_PCM_S24_3LE"))
