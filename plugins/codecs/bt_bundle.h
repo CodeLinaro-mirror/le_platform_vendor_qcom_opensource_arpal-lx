@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef _BT_BUNDLE_H_
@@ -61,8 +66,9 @@
  * BT IPC library to configure DSP encoder
  */
 
-#define DEFUALT_DECODER_FRAME_SIZE_SAMPLE 1024
-#define DEFUALT_JITTER_BUFFER_DURATION 200
+#define DEFAULT_DECODER_FRAME_SIZE_SAMPLE 1024
+#define DEFAULT_JITTER_BUFFER_DURATION 200
+#define DEFAULT_CONG_BUFFER_DURATION 200
 #define FRAME_SIZE_MODE_IN_DURATION_US 1
 #define FRAME_SIZE_MODE_IN_SAMPLES 2
 
