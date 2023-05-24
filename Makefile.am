@@ -206,9 +206,11 @@ libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libpal_la_list      = ./configs/$(MACHINE_ENABLED)/mixer_paths_neo_idp.xml \
                       ./configs/$(MACHINE_ENABLED)/mixer_paths_neo_idp_sg.xml \
                       ./configs/$(MACHINE_ENABLED)/mixer_paths_neo_qxr.xml \
+                      ./configs/$(MACHINE_ENABLED)/mixer_paths_neo_qxr_foreseer.xml \
                       ./configs/$(MACHINE_ENABLED)/resourcemanager_neo_idp.xml \
                       ./configs/$(MACHINE_ENABLED)/resourcemanager_neo_idp_sg.xml \
                       ./configs/$(MACHINE_ENABLED)/resourcemanager_neo_qxr.xml \
+                      ./configs/$(MACHINE_ENABLED)/resourcemanager_neo_qxr_foreseer.xml \
                       ./configs/$(MACHINE_ENABLED)/resourcemanager_upd.xml \
                       ./configs/$(MACHINE_ENABLED)/usecaseKvManager.xml
 
@@ -232,8 +234,10 @@ install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_neo_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_neo_idp_sg.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_neo_qxr.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_neo_qxr_foreseer.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_neo_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_neo_idp_sg.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_neo_qxr.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_neo_qxr_foreseer.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_upd.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
