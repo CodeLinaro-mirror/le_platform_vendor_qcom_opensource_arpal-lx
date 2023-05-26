@@ -2217,6 +2217,8 @@ int32_t BtSco2::setDeviceParameter(uint32_t param_id, void *param)
         break;
     case PAL_PARAM_ID_BT_AG_SCO:
         isScoOn = param_bt_sco->bt_sco_on;
+        isWbSpeechEnabled = param_bt_sco->bt_wb_speech_enabled;
+        PAL_DBG(LOG_TAG, "BT_AG_SCO isWbSpeechEnabled = %d", isWbSpeechEnabled);
         break;
     default:
         return -EINVAL;
