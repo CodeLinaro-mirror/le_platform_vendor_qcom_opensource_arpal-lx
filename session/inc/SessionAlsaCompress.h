@@ -120,6 +120,7 @@ private:
     int configureEarlyEOSDelay(void);
     void updateCodecOptions(pal_param_payload *param_payload, pal_stream_direction_t stream_direction);
     pal_device_id_t ecRefDevId;
+    int command = OFFLOAD_CMD_EXIT;
 public:
     SessionAlsaCompress(std::shared_ptr<ResourceManager> Rm);
     virtual ~SessionAlsaCompress();
