@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -975,35 +975,7 @@ ResourceManager::ResourceManager()
 }
 ResourceManager::~ResourceManager()
 {
-    streamTag.clear();
-    streamPpTag.clear();
-    mixerTag.clear();
-    devicePpTag.clear();
-    deviceTag.clear();
-
-    listAllFrontEndIds.clear();
-    listAllPcmPlaybackFrontEnds.clear();
-    listAllPcmRecordFrontEnds.clear();
-    listAllPcmHostlessRxFrontEnds.clear();
-    listAllPcmHostlessTxFrontEnds.clear();
-    listAllCompressPlaybackFrontEnds.clear();
-    listAllCompressRecordFrontEnds.clear();
-    listFreeFrontEndIds.clear();
-    listAllPcmVoice1RxFrontEnds.clear();
-    listAllPcmVoice1TxFrontEnds.clear();
-    listAllPcmVoice2RxFrontEnds.clear();
-    listAllPcmVoice2TxFrontEnds.clear();
-    listAllNonTunnelSessionIds.clear();
-    listAllPcmExtEcTxFrontEnds.clear();
-    devInfo.clear();
-    deviceInfo.clear();
-    txEcInfo.clear();
-
     STInstancesLists.clear();
-    listAllBackEndIds.clear();
-    sndDeviceNameLUT.clear();
-    devicePcmId.clear();
-    deviceLinkName.clear();
 
     if (admLibHdl) {
         if (admDeInitFn)
@@ -1021,6 +993,7 @@ ResourceManager::~ResourceManager()
 #ifdef SOC_PERIPHERAL_PROT
      deregPeripheralCb(tz_handle);
 #endif
+    PAL_INFO(LOG_TAG, "Exit");
 }
 
 #ifdef SOC_PERIPHERAL_PROT
@@ -6078,6 +6051,37 @@ int ResourceManager::getPcmDeviceId(int deviceId)
 
 void ResourceManager::deinit()
 {
+    PAL_INFO(LOG_TAG, "Enter");
+    Device::releaseObject();
+    streamTag.clear();
+    streamPpTag.clear();
+    mixerTag.clear();
+    devicePpTag.clear();
+    deviceTag.clear();
+
+    listAllFrontEndIds.clear();
+    listAllPcmPlaybackFrontEnds.clear();
+    listAllPcmRecordFrontEnds.clear();
+    listAllPcmHostlessRxFrontEnds.clear();
+    listAllPcmHostlessTxFrontEnds.clear();
+    listAllCompressPlaybackFrontEnds.clear();
+    listAllCompressRecordFrontEnds.clear();
+    listFreeFrontEndIds.clear();
+    listAllPcmVoice1RxFrontEnds.clear();
+    listAllPcmVoice1TxFrontEnds.clear();
+    listAllPcmVoice2RxFrontEnds.clear();
+    listAllPcmVoice2TxFrontEnds.clear();
+    listAllNonTunnelSessionIds.clear();
+    listAllPcmExtEcTxFrontEnds.clear();
+    devInfo.clear();
+    deviceInfo.clear();
+    txEcInfo.clear();
+
+    listAllBackEndIds.clear();
+    sndDeviceNameLUT.clear();
+    devicePcmId.clear();
+    deviceLinkName.clear();
+
     card_status_t state = CARD_STATUS_NONE;
 
     mixerClosed = true;
@@ -6113,6 +6117,7 @@ void ResourceManager::deinit()
     }
 #endif
     rm = nullptr;
+    PAL_INFO(LOG_TAG, "Exit");
 }
 
 int ResourceManager::getStreamTag(std::vector <int> &tag)

@@ -49,6 +49,7 @@ public:
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     static std::shared_ptr<Device> getObject();
+    static void releaseObject();
     static int32_t isSampleRateSupported(int32_t sampleRate);
     static int32_t isChannelSupported(int32_t numChannels);
     static int32_t isBitWidthSupported(int32_t bitWidth);

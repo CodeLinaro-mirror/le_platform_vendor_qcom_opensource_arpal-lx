@@ -59,6 +59,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SPEAKER_PROT
@@ -173,6 +178,7 @@ public:
 
     int32_t start();
     int32_t stop();
+    int32_t close();
 
     int32_t setParameter(uint32_t param_id, void *param) override;
     int32_t getParameter(uint32_t param_id, void **param) override;
@@ -207,6 +213,7 @@ class SpeakerFeedback : public Device
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     static std::shared_ptr<Device> getObject();
+    static void releaseObject();
 };
 
 #endif

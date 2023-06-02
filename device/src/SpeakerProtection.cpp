@@ -59,6 +59,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SpeakerProtection"
@@ -1239,6 +1244,13 @@ exit:
 
 SpeakerProtection::~SpeakerProtection()
 {
+    if (mCalThread.joinable()) {
+        threadExit = true;
+        cv.notify_all();
+        mCalThread.join();
+        PAL_INFO(LOG_TAG, "mCalThread joined");
+    }
+
     if (spkerTempList)
         delete[] spkerTempList;
 
@@ -2384,6 +2396,18 @@ int SpeakerProtection::stop()
     return 0;
 }
 
+int SpeakerProtection::close()
+{
+    PAL_DBG(LOG_TAG, "Inside Speaker Protection close");
+    Device::close();
+    if (ResourceManager::isVIRecordStarted) {
+        PAL_DBG(LOG_TAG, "record running so no need to proceed");
+        ResourceManager::isVIRecordStarted = false;
+        return 0;
+    }
+    spkrProtProcessingMode(false);
+    return 0;
+}
 
 int32_t SpeakerProtection::setParameter(uint32_t param_id, void *param)
 {
@@ -2823,4 +2847,11 @@ std::shared_ptr<Device> SpeakerFeedback::getInstance(struct pal_device *device,
 std::shared_ptr<Device> SpeakerFeedback::getObject()
 {
     return obj;
+}
+
+void SpeakerFeedback::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
 }

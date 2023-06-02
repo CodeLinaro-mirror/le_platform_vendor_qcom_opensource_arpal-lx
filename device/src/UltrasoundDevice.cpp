@@ -45,6 +45,19 @@ std::shared_ptr<Device> UltrasoundDevice::getObject(pal_device_id_t id)
         return objTx;
 }
 
+void UltrasoundDevice::releaseObject() {
+    if (objRx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objRx.use_count());
+        objRx.reset();
+    }
+
+    if (objTx) {
+        PAL_INFO(LOG_TAG, "use_count: %d", objTx.use_count());
+        objTx.reset();
+    }
+}
+
+
 std::shared_ptr<Device> UltrasoundDevice::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
 {

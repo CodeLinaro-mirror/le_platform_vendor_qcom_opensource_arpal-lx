@@ -54,6 +54,14 @@ std::shared_ptr<Device> Headphone::getObject(pal_device_id_t id)
     return NULL;
 }
 
+void Headphone::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
+}
+
+
 Headphone::Headphone(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
 Device(device, Rm)
 {

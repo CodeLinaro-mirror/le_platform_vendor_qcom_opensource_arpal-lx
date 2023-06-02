@@ -48,6 +48,14 @@ std::shared_ptr<Device> ECRefDevice::getObject()
     return obj;
 }
 
+void ECRefDevice::releaseObject() {
+    if (obj) {
+        PAL_INFO(LOG_TAG, "use_count: %d", obj.use_count());
+        obj.reset();
+    }
+}
+
+
 std::shared_ptr<Device> ECRefDevice::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
 {
