@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: SessionAlsaPcm"
 
 #include "SessionAlsaPcm.h"
@@ -938,7 +945,7 @@ set_mixer:
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
                 }
-                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY){
+                if (sAttr.type == PAL_STREAM_LOW_LATENCY){
                      status = setConfig(s, MODULE, PUSHPULL_CHMIXER_COEFFICIENT);
 
                         if (status)
