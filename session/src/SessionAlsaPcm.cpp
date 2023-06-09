@@ -951,7 +951,8 @@ set_mixer:
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
                 }
-                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY){
+                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY
+                        || sAttr.type == PAL_STREAM_LOW_LATENCY){
                      status = setConfig(s, MODULE, PUSHPULL_CHMIXER_COEFFICIENT);
 
                         if (status)
