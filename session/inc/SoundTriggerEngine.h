@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -104,7 +104,7 @@ public:
         std::shared_ptr<VUIStreamConfig> sm_cfg);
 
     virtual ~SoundTriggerEngine() {}
-
+    virtual Session* getsessionhandle() = 0;
     virtual int32_t LoadSoundModel(Stream *s, uint8_t *data,
                                    uint32_t data_size) = 0;
     virtual int32_t UnloadSoundModel(Stream *s) = 0;

@@ -58,6 +58,7 @@ extern "C" {
 #define MIXER_PATH_MAX_LENGTH 100
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
+#define PAL_MAX_LATENCY_MODES 8
 
 #define PAL_VERSION "1.0"
 
@@ -94,6 +95,7 @@ typedef enum {
     PAL_AUDIO_FMT_PCM_S24_3LE = 0x15,       /**<24 bit packed little endian PCM*/
     PAL_AUDIO_FMT_PCM_S24_LE = 0x16,        /**<24bit in 32bit word (LSB aligned) little endian PCM*/
     PAL_AUDIO_FMT_PCM_S32_LE = 0x17,        /**< 32bit little endian PCM*/
+    PAL_AUDIO_FMT_OPUS = 0x18,
     PAL_AUDIO_FMT_NON_PCM = 0xE0000000,     /* Internal Constant used for Non PCM format identification */
     PAL_AUDIO_FMT_COMPRESSED_RANGE_BEGIN = 0xF0000000,  /* Reserved for beginning of compressed codecs */
     PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_BEGIN   = 0xF0000F00,  /* Reserved for beginning of 3rd party codecs */
@@ -133,7 +135,8 @@ static const std::map<std::string, pal_audio_fmt_t> PalAudioFormatMap
     { "AMR_WB_PLUS", PAL_AUDIO_FMT_AMR_WB_PLUS},
     { "EVRC", PAL_AUDIO_FMT_EVRC},
     { "G711", PAL_AUDIO_FMT_G711},
-    { "QCELP", PAL_AUDIO_FMT_QCELP}
+    { "QCELP", PAL_AUDIO_FMT_QCELP},
+    { "OPUS", PAL_AUDIO_FMT_OPUS}
 
 };
 #endif
@@ -205,6 +208,20 @@ struct pal_snd_dec_vorbis {
     uint32_t bit_stream_fmt;
 };
 
+struct pal_snd_dec_opus {
+    uint16_t bitstream_format;
+    uint16_t payload_type;
+    uint8_t version;
+    uint8_t num_channels;
+    uint16_t pre_skip;
+    uint32_t sample_rate;
+    uint16_t output_gain;
+    uint8_t mapping_family;
+    uint8_t stream_count;
+    uint8_t coupled_count;
+    uint8_t channel_map[8];
+};
+
 typedef struct pal_key_value_pair_s {
     uint32_t key; /**< key */
     uint32_t value; /**< value */
@@ -265,6 +282,7 @@ typedef union {
     struct pal_snd_dec_ape ape_dec;
     struct pal_snd_dec_flac flac_dec;
     struct pal_snd_dec_vorbis vorbis_dec;
+    struct pal_snd_dec_opus opus_dec;
 } pal_snd_dec_t;
 
 /** Audio encoder parameter data*/
@@ -973,6 +991,11 @@ typedef enum {
     PAL_PARAM_ID_ULTRASOUND_RAMPDOWN = 62,
     PAL_PARAM_ID_VOLUME_CTRL_RAMP = 63,
     PAL_PARAM_ID_RECONFIG_ENCODER = 68,
+    PAL_PARAM_ID_VUI_SET_META_DATA = 69,
+    PAL_PARAM_ID_VUI_GET_META_DATA = 70,
+    PAL_PARAM_ID_VUI_CAPTURE_META_DATA = 71,
+    PAL_PARAM_ID_TIMESTRETCH_PARAMS = 72,
+    PAL_PARAM_ID_LATENCY_MODE = 73,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1049,6 +1072,13 @@ typedef struct pal_param_mspp_linear_gain {
     int32_t gain;
 } pal_param_mspp_linear_gain_t;
 
+/*
+* payload for playspeed and pitch
+*/
+typedef struct pal_param_playback_rate {
+     float speed;
+     float pitch;
+} pal_param_playback_rate_t;
 
 /* Payload For ID: PAL_PARAM_ID_DEVICE_CAPABILITY
  * Description   : get Device Capability
@@ -1182,6 +1212,15 @@ typedef struct pal_param_bta2dp {
     pal_device_id_t   dev_id;
     bool     is_suspend_setparam;
 } pal_param_bta2dp_t;
+
+/* Payload For ID: PAL_PARAM_ID_LATENCY_MODE
+ * Description   : Get supported or Set latency modes
+*/
+typedef struct pal_param_latency_mode {
+    pal_device_id_t dev_id;
+    size_t          num_modes; /* number of supported modes */
+    uint32_t        modes[PAL_MAX_LATENCY_MODES]; /* list of supported modes or use mode[0] for set latency mode */
+} pal_param_latency_mode_t;
 
 typedef struct pal_param_upd_event_detection {
     bool     register_status;

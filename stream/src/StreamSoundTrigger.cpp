@@ -1101,6 +1101,8 @@ int32_t StreamSoundTrigger::LoadSoundModel(
         AddEngine(engine_cfg);
         if (iter.first == ST_SM_ID_SVA_F_STAGE_GMM) {
             gsl_engine_ = engine;
+            session = gsl_engine_->getsessionhandle();
+            PAL_DBG(LOG_TAG, "LoadSoundModel session : %pK", session);
         } else {
             if (iter.first & ST_SM_ID_SVA_S_STAGE_KWD) {
                 notification_state_ |= KEYWORD_DETECTION_SUCCESS;
