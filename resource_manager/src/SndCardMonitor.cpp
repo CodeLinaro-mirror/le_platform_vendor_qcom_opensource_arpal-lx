@@ -33,23 +33,18 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <sys/poll.h>
-#include <list>
 #include "ResourceManager.h"
 #include "PalCommon.h"
 #include "SndCardMonitor.h"
 
-#ifdef PLATFORM_AUTO
-#define SNDCARD_PATH "/proc/asound/cards"
-#else
 #define SNDCARD_PATH "/sys/kernel/snd_card/card_state"
-#endif
 
 #define MAX_SLEEP_RETRY 100
 
 static int fd = -1;
 static int exit_thread = 0; //by default exit thread is made false
 
-#ifdef PLATFORM_AUTO
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
 char* SndCardMonitor::readState(int fd)
 {
     struct stat buf;
@@ -81,9 +76,7 @@ char* SndCardMonitor::readState(int fd)
     lseek(fd, 0, SEEK_SET);
     return state;
 }
-#endif
 
-#ifdef PLATFORM_AUTO
 void SndCardMonitor::monitorThreadLoop()
 {
     struct pollfd poll_fds;

@@ -30,6 +30,7 @@
 #ifndef SNDCARD_MONITOR_H
 #define SNDCARD_MONITOR_H
 #include <list>
+#include <linux/version.h>
 #include "PalDefs.h"
 
 typedef struct {
@@ -42,7 +43,7 @@ class SndCardMonitor
 {
 private :
     std::thread mThread;
-#ifdef PLATFORM_AUTO
+#if (LINUX_VERSION_CODE < KERNEL_VERSION(5, 15, 0))
     char* readState(int fd);
 #endif
     void monitorThreadLoop();
