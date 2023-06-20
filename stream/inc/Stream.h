@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef STREAM_H_
@@ -111,6 +116,7 @@ typedef enum {
 #define CHARGE_CONCURRENCY_OFF_TAG 44
 #define DEVICEPP_MUTE 45
 #define DEVICEPP_UNMUTE 46
+#define MUX_DEMUX_CHANNELS 47
 
 /* This sleep is added to give time to kernel and
  * spf to recover from SSR so that audio-hal will
@@ -259,7 +265,7 @@ public:
     virtual int32_t ConnectDevice(pal_device_id_t device_id) { return 0; }
     virtual int32_t HandleChargingStateUpdate(bool state, bool active) { return 0; }
     static void handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id, void *data,
-                                                           uint32_t event_size);
+                                                           uint32_t event_size, uint32_t miid);
     static void handleStreamException(struct pal_stream_attributes *attributes,
                                       pal_stream_callback cb, uint64_t cookie);
     void lockStreamMutex() {

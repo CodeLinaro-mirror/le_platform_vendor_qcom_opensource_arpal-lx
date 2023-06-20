@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: bt_bundle"
@@ -264,11 +269,11 @@ static int aac_pack_dec_config(bt_codec_t *codec , void *src , void **dst) {
     dec_payload->channel_count  = bt_aac_conv_channel(aac_bt_cfg->channels);
     dec_payload->is_abr_enabled = false;
 
-    dec_payload->congestion_buffer_duration_ms = aac_bt_cfg->bits_per_sample;
+    dec_payload->congestion_buffer_duration_ms = DEFAULT_CONG_BUFFER_DURATION;
     dec_payload->delay_buffer_duration_ms      = 0;
     dec_payload->frame_size_mode               = FRAME_SIZE_MODE_IN_SAMPLES;
-    dec_payload->frame_size_value              = DEFUALT_DECODER_FRAME_SIZE_SAMPLE;
-    dec_payload->jitter_allowance_in_ms        = DEFUALT_JITTER_BUFFER_DURATION;
+    dec_payload->frame_size_value              = DEFAULT_DECODER_FRAME_SIZE_SAMPLE;
+    dec_payload->jitter_allowance_in_ms        = DEFAULT_JITTER_BUFFER_DURATION;
 
     dec_payload->num_blks       = num_blks;
 
@@ -485,11 +490,11 @@ static int sbc_pack_dec_config(bt_codec_t *codec , void *src , void **dst )
             break;
     }
 
-    dec_payload->congestion_buffer_duration_ms = sbc_bt_cfg->bits_per_sample;
+    dec_payload->congestion_buffer_duration_ms = DEFAULT_CONG_BUFFER_DURATION;
     dec_payload->delay_buffer_duration_ms      = 0;
     dec_payload->frame_size_mode               = 0;
-    dec_payload->frame_size_value              = DEFUALT_DECODER_FRAME_SIZE_SAMPLE;
-    dec_payload->jitter_allowance_in_ms        = DEFUALT_JITTER_BUFFER_DURATION;
+    dec_payload->frame_size_value              = DEFAULT_DECODER_FRAME_SIZE_SAMPLE;
+    dec_payload->jitter_allowance_in_ms        = DEFAULT_JITTER_BUFFER_DURATION;
     dec_payload->num_blks       = num_blks;
 
     for (i = 0; i < num_blks; i++) {

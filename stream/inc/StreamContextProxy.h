@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef STREAMCONTEXTPROXY_H_
@@ -51,7 +56,7 @@ private:
    void ParseASPSEventPayload(uint32_t event_id,
                               uint32_t event_size, void *data);
    static void HandleCallBack(uint64_t hdl, uint32_t event_id, void *data,
-                              uint32_t event_size);
+                              uint32_t event_size, uint32_t miid);
 };
 
 #endif//STREAMCONTEXTPROXY_H_

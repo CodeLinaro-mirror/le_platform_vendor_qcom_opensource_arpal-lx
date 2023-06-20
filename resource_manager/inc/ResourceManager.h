@@ -361,7 +361,7 @@ enum NTStreamTypes_t : uint32_t {
 };
 
 typedef void (*session_callback)(uint64_t hdl, uint32_t event_id, void *event_data,
-                uint32_t event_size);
+                uint32_t event_size, uint32_t miid);
 bool isPalPCMFormat(uint32_t fmt_id);
 
 typedef void* (*adm_init_t)();
@@ -579,6 +579,13 @@ public:
     static bool isSpeakerProtectionEnabled;
     static bool isChargeConcurrencyEnabled;
     static bool isCpsEnabled;
+    static int wsa2_enable;
+    static int wsa_wr_cmd_reg_phy_addr;
+    static int wsa_rd_cmd_reg_phy_addr;
+    static int wsa_rd_fifo_reg_phy_addr;
+    static int wsa2_wr_cmd_reg_phy_addr;
+    static int wsa2_rd_cmd_reg_phy_addr;
+    static int wsa2_rd_fifo_reg_phy_addr;
     static bool isVbatEnabled;
     static bool isRasEnabled;
     static bool isGaplessEnabled;

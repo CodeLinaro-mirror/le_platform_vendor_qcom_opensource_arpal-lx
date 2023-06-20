@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SPEAKER_PROT
@@ -50,6 +55,9 @@ class Speaker;
 
 #define CPS_WSA_VBATT_LOWER_THRESHOLD_1 168
 #define CPS_WSA_VBATT_LOWER_THRESHOLD_2 148
+
+#define WSA2_REGISTER_ADD 1
+#define WSA_REGISTER_ADD 0
 
 typedef enum speaker_prot_cal_state {
     SPKR_NOT_CALIBRATED,     /* Speaker not calibrated  */
@@ -88,6 +96,8 @@ protected :
     static bool isSpkrInUse;
     static bool calThrdCreated;
     static bool isDynamicCalTriggered;
+    static uint32_t source_miid, vi_miid_I, vi_miid_II;
+    static int MaxCH;
     static struct timespec spkrLastTimeUsed;
     static struct mixer *virtMixer;
     static struct mixer *hwMixer;
@@ -136,8 +146,8 @@ public:
     void updateSPcustomPayload();
     static int32_t spkrProtSetR0T0Value(vi_r0t0_cfg_t r0t0Array[]);
     static void handleSPCallback (uint64_t hdl, uint32_t event_id, void *event_data,
-                                  uint32_t event_size);
-    void updateCpsCustomPayload(int miid);
+                                  uint32_t event_size, uint32_t miid);
+    void updateCpsCustomPayload(int miid, uint32_t phy_add[3], int wsa2_flag);
     int getCpsDevNumber(std::string mixer);
     int32_t getCalibrationData(void **param);
     int32_t getFTMParameter(void **param);
