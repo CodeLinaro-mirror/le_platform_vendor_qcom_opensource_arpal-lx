@@ -1109,6 +1109,7 @@ pcm_start:
                 if (status) {
                     status = errno;
                     PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+                    goto exit;
                 }
             }
 
