@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1922,30 +1922,9 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
                 PAL_ERR(LOG_TAG," updateCustomPayload Failed\n");
             }
         }
-
-        switch(ResourceManager::cpsMode)
-        {
-            case 1:
-                goto cps_dev_setup;
-            case 2:
-
-                // wsa883x specific cps payload
-                updateCpsCustomPayload(miid);
-
-                enableDevice(audioRoute, mSndDeviceName_vi);
-                PAL_DBG(LOG_TAG, "pcm start for TX");
-                if (pcm_start(txPcm) < 0) {
-                    PAL_ERR(LOG_TAG, "pcm start failed for TX path");
-                    goto err_pcm_open;
-                }
-
-                // Free up the local variables
-                goto exit;
-            default:
-                goto exit;
-        }
-
-cps_dev_setup:
+        /**
+         * Enable audio route for VI Tx path.
+         */
         enableDevice(audioRoute, mSndDeviceName_vi);
         PAL_DBG(LOG_TAG, "pcm start for TX");
         if (pcm_start(txPcm) < 0) {
@@ -1953,6 +1932,20 @@ cps_dev_setup:
             goto err_pcm_open;
         }
 
+        switch(ResourceManager::cpsMode)
+        {
+            case 1:
+                goto cps_dev_setup;
+            case 2:
+                // wsa883x specific cps payload
+                updateCpsCustomPayload(miid);
+                goto exit;
+           default:
+                // Free up the local variables
+                goto exit;
+        }
+
+cps_dev_setup:
         keyVector.clear();
         calVector.clear();
 
