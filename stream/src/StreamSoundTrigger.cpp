@@ -97,7 +97,7 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     sm_cfg_ = nullptr;
     ec_rx_dev_ = nullptr;
     mDevices.clear();
-
+    std::shared_ptr<Device> dev = nullptr;
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
                       +sizeof(struct pal_channel_vol_kv));
@@ -148,6 +148,18 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         free(mStreamAttr);
         throw std::runtime_error(err);
     }
+    /* Priority updates in rm xml is getting updated only when device is
+    listed in mpaldevices and this priority will overwrite the default
+    pri valueif any priority update */
+    dev = Device::getInstance((struct pal_device *)&dattr[0] , rm);
+    if (!dev) {
+        PAL_ERR(LOG_TAG, "Device creation failed");
+        free(mStreamAttr);
+        throw std::runtime_error("failed to create device object");
+    }
+    dev->insertStreamDeviceAttr(&dattr[0], this);
+    mPalDevices.push_back(dev);
+    dev = nullptr;
 
     // Create internal states
     st_idle_ = new StIdle(*this);
@@ -229,6 +241,8 @@ StreamSoundTrigger::~StreamSoundTrigger() {
     mStreamMutex.unlock();
 
     rm->deregisterStream(this);
+    for (int32_t i=0; i < mPalDevices.size(); i++)
+        mPalDevices[i]->removeStreamDeviceAttr(this);
     if (mStreamAttr)
         free(mStreamAttr);
 
