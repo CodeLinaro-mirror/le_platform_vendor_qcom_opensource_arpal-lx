@@ -947,6 +947,8 @@ typedef enum {
     PAL_PARAM_ID_SET_HFP_ZONE = 59,
     PAL_PARAM_ID_BT_AG_SCO = 60, /* HFP AG role */
     PAL_PARAM_ID_PLUGIN_CLOSE = 61,
+    PAL_PARAM_ID_STREAM_BUS_MUTE_CONFIG = 62,
+    PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG = 63,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
@@ -1142,6 +1144,23 @@ typedef struct pal_param_bta2dp {
     bool     is_force_switch;
     uint32_t latency;
 } pal_param_bta2dp_t;
+
+/* Payload For ID: PAL_PARAM_ID_STREAM_BUS_MUTE_CONFIG
+ * Description   : AIDL mute control for bus stream
+*/
+typedef struct pal_stream_bus_mute_t {
+    char bus_addr[AUDIO_DEVICE_MAX_ADDRESS_LEN];
+    bool mute;
+} pal_stream_bus_mute_t;
+
+/* Payload For ID: PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG
+ * Description   : AIDL duck control for bus stream
+*/
+typedef struct pal_stream_bus_duck_t {
+    char bus_addr[AUDIO_DEVICE_MAX_ADDRESS_LEN];
+    float duck_volume;
+    bool duck;
+} pal_stream_bus_duck_t;
 
 typedef struct pal_param_upd_event_detection {
     bool     register_status;
