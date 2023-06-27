@@ -7308,6 +7308,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
     ret = setSignalHandlerEnableParam(parms, value, len);
+    setDummyDevEnableParam(parms, value, len);
 
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
@@ -7400,6 +7401,27 @@ int ResourceManager::setUpdDedicatedBeEnableParam(struct str_parms *parms,
 
     return ret;
 
+}
+
+
+void ResourceManager::setDummyDevEnableParam(struct str_parms *parms, char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return;
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_DUMMY_DEV_ENABLE,
+                            value, len);
+
+    if (ret >= 0) {
+        PAL_VERBOSE(LOG_TAG," value %s", value);
+
+        if (value && !strncmp(value, "true", sizeof("true")))
+            ResourceManager::isDummyDevEnabled = true;
+
+        str_parms_del(parms, AUDIO_PARAMETER_KEY_DUMMY_DEV_ENABLE);
+    }
 }
 
 
