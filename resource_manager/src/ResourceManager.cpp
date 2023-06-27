@@ -790,37 +790,6 @@ ResourceManager::ResourceManager()
 
 ResourceManager::~ResourceManager()
 {
-    streamTag.clear();
-    streamPpTag.clear();
-    mixerTag.clear();
-    devicePpTag.clear();
-    deviceTag.clear();
-    ControlInfo.clear();
-
-    listAllFrontEndIds.clear();
-    listAllPcmPlaybackFrontEnds.clear();
-    listAllPcmRecordFrontEnds.clear();
-    listAllPcmHostlessRxFrontEnds.clear();
-    listAllPcmHostlessTxFrontEnds.clear();
-    listAllCompressPlaybackFrontEnds.clear();
-    listAllCompressRecordFrontEnds.clear();
-    listFreeFrontEndIds.clear();
-    listAllPcmVoice1RxFrontEnds.clear();
-    listAllPcmVoice1TxFrontEnds.clear();
-    listAllPcmVoice2RxFrontEnds.clear();
-    listAllPcmVoice2TxFrontEnds.clear();
-    listAllNonTunnelSessionIds.clear();
-    listAllPcmExtEcTxFrontEnds.clear();
-    devInfo.clear();
-    deviceInfo.clear();
-    txEcInfo.clear();
-
-    STInstancesLists.clear();
-    listAllBackEndIds.clear();
-    sndDeviceNameLUT.clear();
-    devicePcmId.clear();
-    deviceLinkName.clear();
-
     if (admLibHdl) {
         if (admDeInitFn)
             admDeInitFn(admData);
