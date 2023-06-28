@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -280,9 +280,9 @@ public:
     int32_t getTimestamp(struct pal_session_time *stime);
     int32_t handleBTDeviceNotReady(bool& a2dpSuspend);
     int disconnectStreamDevice(Stream* streamHandle,  pal_device_id_t dev_id);
-    int disconnectStreamDevice_l(Stream* streamHandle,  pal_device_id_t dev_id);
+    virtual int disconnectStreamDevice_l(Stream* streamHandle,  pal_device_id_t dev_id);
     int connectStreamDevice(Stream* streamHandle, struct pal_device *dattr);
-    int connectStreamDevice_l(Stream* streamHandle, struct pal_device *dattr);
+    virtual int connectStreamDevice_l(Stream* streamHandle, struct pal_device *dattr);
     int switchDevice(Stream* streamHandle, uint32_t no_of_devices, struct pal_device *deviceArray);
     bool isGKVMatch(pal_key_vector_t* gkv);
     int32_t getEffectParameters(void *effect_query, size_t *payload_size);

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -158,6 +158,8 @@ public:
     std::shared_ptr<CaptureProfile> GetCurrentCaptureProfile();
     int32_t DisconnectDevice(pal_device_id_t device_id) override;
     int32_t ConnectDevice(pal_device_id_t device_id) override;
+    int disconnectStreamDevice_l(Stream* streamHandle,  pal_device_id_t dev_id) override;
+    int connectStreamDevice_l(Stream* streamHandle, struct pal_device *dattr) override;
     int32_t Resume() override;
     int32_t Pause() override;
     int32_t GetCurrentStateId();

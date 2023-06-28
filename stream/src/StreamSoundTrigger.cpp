@@ -684,6 +684,131 @@ int32_t StreamSoundTrigger::ConnectDevice(pal_device_id_t device_id) {
     return status;
 }
 
+int32_t StreamSoundTrigger::connectStreamDevice_l(Stream* streamHandle, struct pal_device *dattr)
+{
+    int32_t status = 0;
+    std::shared_ptr<Device> dev = nullptr;
+    std::string newBackEndName;
+    std::string curBackEndName;
+    StreamSoundTrigger *st_st = nullptr;
+    st_st = dynamic_cast<StreamSoundTrigger*>(streamHandle);
+    PAL_DBG(LOG_TAG, "Enter StreamSoundTrigger connectStreamDevice_l");
+    if (!dattr) {
+        PAL_ERR(LOG_TAG, "invalid params");
+        status = -EINVAL;
+        goto exit;
+    }
+    dev = Device::getInstance(dattr, rm);
+    if (!dev) {
+        PAL_ERR(LOG_TAG, "Device creation failed");
+        goto exit;
+    }
+    dev->setDeviceAttributes(*dattr);
+    if (currentState == STREAM_IDLE) {
+        PAL_DBG(LOG_TAG, "stream is in %d state, no need to switch device", currentState);
+        status = 0;
+        goto exit;
+    }
+    rm->getBackendName(dev->getSndDeviceId(), newBackEndName);
+    for (auto iter = mDevices.begin(); iter != mDevices.end(); iter++) {
+        rm->getBackendName((*iter)->getSndDeviceId(), curBackEndName);
+        if (newBackEndName == curBackEndName) {
+            PAL_INFO(LOG_TAG,
+                "stream is already connected to device %d name %s - return",
+                dev->getSndDeviceId(), dev->getPALDeviceName().c_str());
+            status = 0;
+            goto exit;
+        }
+    }
+    PAL_DBG(LOG_TAG, "device %d name %s, going to start",
+    dev->getSndDeviceId(), dev->getPALDeviceName().c_str());
+    if (!st_st->device_opened_) {
+        status = dev->open();
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "device %d open failed with status %d",
+                dev->getSndDeviceId(), status);
+            goto exit;
+        }
+        st_st->device_opened_ = true;
+    }
+    mDevices.push_back(dev);
+    status = session->setupSessionDevice(streamHandle, mStreamAttr->type, dev);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "setupSessionDevice for %d failed with status %d",
+            dev->getSndDeviceId(), status);
+        goto dev_close;
+    }
+    rm->lockGraph();
+    status = session->connectSessionDevice(streamHandle, mStreamAttr->type, dev);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "connectSessionDevice failed:%d", status);
+        rm->unlockGraph();
+        goto dev_stop;
+    }
+    rm->unlockGraph();
+    if (currentState != STREAM_STOPPED && !rm->isDeviceActive_l(dev, this)) {
+        rm->registerDevice(dev, this);
+    }
+    goto exit;
+
+dev_stop:
+    if (status != -ENETRESET) {
+        dev->stop();
+    }
+
+dev_close:
+    /* Do not pop the current device from stream, if session connect failed due to SSR down
+     * event so that when SSR is up that device will be associated to stream.
+     */
+    if (status != -ENETRESET) {
+        mDevices.pop_back();
+        dev->close();
+        st_st->device_opened_ = false;
+    }
+    PAL_DBG(LOG_TAG, "Exit StreamSoundTrigger connectStreamDevice_l");
+exit:
+    return status;
+}
+int32_t StreamSoundTrigger::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t dev_id)
+{
+    int32_t status = 0;
+    StreamSoundTrigger *st_st = nullptr;
+    st_st = dynamic_cast<StreamSoundTrigger*>(streamHandle);
+    PAL_DBG(LOG_TAG, "Enter StreamSoundTrigger disconnectStreamDevice_l");
+    if (currentState == STREAM_IDLE) {
+        PAL_DBG(LOG_TAG, "stream is in %d state, no need to switch device", currentState);
+        status = 0;
+        goto exit;
+    }
+    for (int i = 0; i < mDevices.size(); i++) {
+        if (dev_id == mDevices[i]->getSndDeviceId()) {
+            PAL_DBG(LOG_TAG, "device %d name %s, going to stop",
+                mDevices[i]->getSndDeviceId(), mDevices[i]->getPALDeviceName().c_str());
+            if (currentState != STREAM_STOPPED && rm->isDeviceActive_l(mDevices[i], this)) {
+                rm->deregisterDevice(mDevices[i], this);
+            }
+            rm->lockGraph();
+            status = session->disconnectSessionDevice(streamHandle, mStreamAttr->type, mDevices[i]);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "disconnectSessionDevice failed:%d", status);
+                rm->unlockGraph();
+                goto exit;
+            }
+            rm->unlockGraph();
+            status = mDevices[i]->close();
+            st_st->device_opened_ = false;
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "device close failed with status %d", status);
+                goto exit;
+            }
+            mDevices.erase(mDevices.begin() + i);
+            break;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit StreamSoundTrigger disconnectStreamDevice_l");
+exit:
+    return status;
+}
 int32_t StreamSoundTrigger::Resume() {
     int32_t status = 0;
 
