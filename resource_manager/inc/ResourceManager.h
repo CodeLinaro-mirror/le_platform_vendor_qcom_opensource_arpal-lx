@@ -913,6 +913,7 @@ public:
     bool IsAudioCaptureConcurrencySupported();
     bool IsVoiceCallConcurrencySupported();
     bool IsVoipConcurrencySupported();
+    bool IsHfpCallConcurrencySupported(pal_stream_type_t type);
     bool IsTransitToNonLPIOnChargingSupported();
     bool IsDedicatedBEForUPDEnabled();
     bool IsDutyCycleForUPDEnabled();

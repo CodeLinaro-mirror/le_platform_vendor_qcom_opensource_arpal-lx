@@ -180,8 +180,11 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     rm->registerStream(this);
 
     // Print the concurrency feature flags supported
-    PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,voip conc enable %d",
-        vui_ptfm_info_->GetConcurrentCaptureEnable(), vui_ptfm_info_->GetConcurrentVoiceCallEnable(),
+    PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,"
+        "hfp conc enable %d,voip conc enable %d",
+        vui_ptfm_info_->GetConcurrentCaptureEnable(),
+        vui_ptfm_info_->GetConcurrentVoiceCallEnable(),
+        vui_ptfm_info_->GetConcurrentHfpCallEnable(),
         vui_ptfm_info_->GetConcurrentVoipCallEnable());
 
     // check concurrency count from rm

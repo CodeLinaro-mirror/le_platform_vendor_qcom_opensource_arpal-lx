@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -149,6 +149,7 @@ public:
     static bool GetEnableDebugDumps() { return enable_debug_dumps_; }
     static bool GetConcurrentCaptureEnable() { return concurrent_capture_; }
     static bool GetConcurrentVoiceCallEnable() { return concurrent_voice_call_; }
+    static bool GetConcurrentHfpCallEnable() { return concurrent_hfp_call_; }
     static bool GetConcurrentVoipCallEnable() { return concurrent_voip_call_; }
     static bool GetLowLatencyBargeinEnable() { return low_latency_bargein_enable_; }
 
@@ -164,6 +165,7 @@ private:
     static bool enable_debug_dumps_;
     static bool concurrent_capture_;
     static bool concurrent_voice_call_;
+    static bool concurrent_hfp_call_;
     static bool concurrent_voip_call_;
     static bool low_latency_bargein_enable_;
     static std::shared_ptr<SoundTriggerPlatformInfo> me_;
