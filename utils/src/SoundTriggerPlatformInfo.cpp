@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -149,6 +149,7 @@ bool SoundTriggerPlatformInfo::support_device_switch_ = false;
 bool SoundTriggerPlatformInfo::enable_debug_dumps_ = false;
 bool SoundTriggerPlatformInfo::concurrent_capture_ = false;
 bool SoundTriggerPlatformInfo::concurrent_voice_call_ = false;
+bool SoundTriggerPlatformInfo::concurrent_hfp_call_ = false;
 bool SoundTriggerPlatformInfo::concurrent_voip_call_ = false;
 bool SoundTriggerPlatformInfo::low_latency_bargein_enable_ = false;
 
@@ -246,6 +247,10 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag, const char** attr
             } else if (!strcmp(attribs[i], "concurrent_voice_call") &&
                        concurrent_capture_) {
                 concurrent_voice_call_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "concurrent_hfp_call") &&
+                       concurrent_capture_) {
+                concurrent_hfp_call_ =
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "concurrent_voip_call") &&
                        concurrent_capture_) {

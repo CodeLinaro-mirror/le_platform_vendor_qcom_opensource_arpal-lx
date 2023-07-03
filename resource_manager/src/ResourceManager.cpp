@@ -4300,6 +4300,25 @@ bool ResourceManager::IsVoiceCallConcurrencySupported(pal_stream_type_t type) {
     return false;
 }
 
+bool ResourceManager::IsHfpCallConcurrencySupported(pal_stream_type_t type) {
+    switch (type) {
+        case PAL_STREAM_VOICE_UI:
+        case PAL_STREAM_ACD:
+        case PAL_STREAM_SENSOR_PCM_DATA: {
+            std::shared_ptr<SoundTriggerPlatformInfo> st_info =
+                SoundTriggerPlatformInfo::GetInstance();
+
+            if (st_info)
+                return st_info->GetConcurrentHfpCallEnable();
+
+            break;
+        }
+        default:
+            break;
+    }
+    return false;
+}
+
 bool ResourceManager::IsVoipConcurrencySupported(pal_stream_type_t type) {
     switch (type) {
         case PAL_STREAM_VOICE_UI:
@@ -4892,6 +4911,7 @@ void ResourceManager::GetConcurrencyInfo(pal_stream_type_t st_type,
                          bool *rx_conc, bool *tx_conc, bool *conc_en)
 {
     bool voice_conc_enable = IsVoiceCallConcurrencySupported(st_type);
+    bool hfp_conc_enable = IsHfpCallConcurrencySupported(st_type);
     bool voip_conc_enable = IsVoipConcurrencySupported(st_type);
     bool low_latency_bargein_enable = IsLowLatencyBargeinSupported(st_type);
     bool audio_capture_conc_enable = IsAudioCaptureConcurrencySupported(st_type);
@@ -4924,6 +4944,12 @@ void ResourceManager::GetConcurrencyInfo(pal_stream_type_t st_type,
         *tx_conc = true;
         if (!audio_capture_conc_enable || !voip_conc_enable) {
             PAL_DBG(LOG_TAG, "pause on voip concurrency");
+            *conc_en = false;
+        }
+    } else if (in_type == PAL_STREAM_LOOPBACK) {
+        *tx_conc = true;
+        if (!audio_capture_conc_enable || !hfp_conc_enable) {
+            PAL_DBG(LOG_TAG, "pause on hfp concurrency");
             *conc_en = false;
         }
     } else if (dir == PAL_AUDIO_INPUT &&
