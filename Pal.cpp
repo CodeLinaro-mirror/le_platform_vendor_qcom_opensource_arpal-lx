@@ -626,7 +626,7 @@ int32_t pal_stream_get_rendering_latency(pal_stream_handle_t *stream_handle,
         return status;
     }
 
-    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+    PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
     rm = ResourceManager::getInstance();
     if (!rm) {

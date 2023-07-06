@@ -339,7 +339,7 @@ int32_t Stream::getStreamType (pal_stream_type_t* streamType)
         goto exit;
     }
     *streamType = mStreamAttr->type;
-    PAL_DBG(LOG_TAG, "streamType - %d", *streamType);
+    PAL_VERBOSE(LOG_TAG, "streamType - %d", *streamType);
 
 exit:
     return status;
@@ -470,7 +470,7 @@ int32_t Stream::getAssociatedSession(Session **s)
         goto exit;
     }
     *s = session;
-    PAL_DBG(LOG_TAG, "session %pK", *s);
+    PAL_VERBOSE(LOG_TAG, "session %pK", *s);
 exit:
     return status;
 }

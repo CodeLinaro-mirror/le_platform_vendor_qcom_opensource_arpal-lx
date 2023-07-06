@@ -675,7 +675,7 @@ void get_render_latency(Stream* s, void **payload)
     long long** latency = (long long**)payload;
 
     s->getStreamAttributes(&streamAttributes_);
-    PAL_DBG(LOG_TAG, " PAL stream type %d", streamAttributes_.type);
+    PAL_VERBOSE(LOG_TAG, " PAL stream type %d", streamAttributes_.type);
 
     switch (streamAttributes_.type) {
          case PAL_STREAM_DEEP_BUFFER:
@@ -722,8 +722,7 @@ int plugin_get(Stream* s, plugin_control_name_t control, void **payload,
     ckv_data_t *data = nullptr;
     Session *sess = nullptr;
 
-    PAL_DBG(LOG_TAG,"Enter with control %d", control);
-
+    PAL_VERBOSE(LOG_TAG,"Enter with control %d", control);
 
     if (s) {
         s->getAssociatedSession(&sess);
@@ -774,7 +773,7 @@ exit:
     if (data) {
         free(data);
     }
-    PAL_DBG(LOG_TAG,"Exit with status: %d", status);
+    PAL_VERBOSE(LOG_TAG,"Exit with status: %d", status);
     return status;
 }
 
