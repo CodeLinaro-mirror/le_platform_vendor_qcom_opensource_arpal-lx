@@ -135,8 +135,8 @@ LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 LOCAL_CFLAGS += -DTARGET_USES_QTI_TINYALSA
 else
-LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
-LOCAL_SHARED_LIBRARIES += libtinyalsa libtinycompress
+LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
+LOCAL_SHARED_LIBRARIES += libtinyalsa libqti-tinycompress
 endif
 
 include $(BUILD_SHARED_LIBRARY)
