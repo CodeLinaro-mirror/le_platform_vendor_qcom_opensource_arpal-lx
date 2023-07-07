@@ -1587,7 +1587,6 @@ int SessionAlsaCompress::setParameters(Stream *s __unused, int tagId, uint32_t p
             }
             return 0;
         }
-#if 0
         case PAL_PARAM_ID_CODEC_CONFIGURATION:
             PAL_DBG(LOG_TAG, "Compress Codec Configuration");
             updateCodecOptions((pal_param_payload *) payload);
@@ -1609,7 +1608,6 @@ int SessionAlsaCompress::setParameters(Stream *s __unused, int tagId, uint32_t p
                 status = setCustomFormatParam(audio_fmt);
             }
         break;
-#endif
         case PAL_PARAM_ID_GAPLESS_MDATA:
         {
             if (!compress) {
