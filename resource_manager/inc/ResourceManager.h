@@ -807,6 +807,7 @@ public:
     bool IsLowLatencyBargeinSupported(pal_stream_type_t type);
     bool IsAudioCaptureConcurrencySupported(pal_stream_type_t type);
     bool IsVoiceCallConcurrencySupported(pal_stream_type_t type);
+    bool IsHfpCallConcurrencySupported(pal_stream_type_t type);
     bool IsVoipConcurrencySupported(pal_stream_type_t type);
     bool IsTransitToNonLPIOnChargingSupported();
     bool IsDedicatedBEForUPDEnabled();
