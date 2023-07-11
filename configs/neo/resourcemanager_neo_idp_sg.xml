@@ -207,6 +207,13 @@
                 <ec_enable>1</ec_enable>
             </usecase>
             <usecase>
+                <name>PAL_STREAM_LOOPBACK</name>
+                <custom-config key="hfp-usecase">
+                    <channels>2</channels>
+                    <snd_device_name>speaker-mic-dual</snd_device_name>
+                </custom-config>
+            </usecase>
+            <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
                 <priority>2</priority>
             </usecase>
