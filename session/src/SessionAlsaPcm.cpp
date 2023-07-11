@@ -2405,7 +2405,23 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
 
 int SessionAlsaPcm::drain(pal_drain_type_t type __unused)
 {
-    return 0;
+    int status = 0;
+
+    if (!pcm) {
+       PAL_ERR(LOG_TAG, "PCM is invalid");
+       return -EINVAL;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "Enter drain");
+    if (pcm && isActive()) {
+       status = pcm_drain(pcm);
+       if (status)
+            status = errno;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "status %d", status);
+
+    return status;
 }
 
 int SessionAlsaPcm::flush()
