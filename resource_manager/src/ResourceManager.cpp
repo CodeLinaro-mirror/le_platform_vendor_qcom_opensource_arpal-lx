@@ -8255,23 +8255,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
-        case PAL_PARAM_ID_STREAM_BUS_MUTE_CONFIG:
-        {
-            std::list<StreamPCM*>::iterator sIter;
-            pal_stream_attributes st_attr;
-            pal_stream_bus_mute_t *mute_param = (pal_stream_bus_mute_t *) param_payload;
-            for(sIter = active_streams_bus.begin(); sIter != active_streams_bus.end(); sIter++) {
-                (*sIter)->getStreamAttributes(&st_attr);
-                if (!strcmp(st_attr.bus_addr, mute_param->bus_addr)) {
-                    status = (*sIter)->mute(mute_param->mute);
-                    if (status) {
-                        PAL_ERR(LOG_TAG, "Failed to mute %s", mute_param->bus_addr);
-                        goto exit;
-                    }
-                }
-            }
-        }
-        break;
         case PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG:
         {
             std::list<StreamPCM*>::iterator sIter;
