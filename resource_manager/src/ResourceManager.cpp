@@ -1405,8 +1405,9 @@ int ResourceManager::init_audio()
     bool snd_card_found = false;
 
     char *snd_card_name = NULL;
-
+    FILE *file = NULL;
     char mixer_xml_file[XML_PATH_MAX_LENGTH] = {0};
+    char mixer_xml_file_wo_variant[XML_PATH_MAX_LENGTH] = {0};
     char file_name_extn[XML_PATH_EXTN_MAX_SIZE] = {0};
     char file_name_extn_wo_variant[XML_PATH_EXTN_MAX_SIZE] = {0};
 
@@ -1489,7 +1490,9 @@ int ResourceManager::init_audio()
             "%s/%s", vendor_config_path, RMNGR_XMLFILE_BASE_STRING_NAME);
 
     strlcat(mixer_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
+    strlcat(mixer_xml_file_wo_variant, mixer_xml_file, XML_PATH_MAX_LENGTH);
     strlcat(mixer_xml_file, file_name_extn, XML_PATH_MAX_LENGTH);
+    strlcat(mixer_xml_file_wo_variant, file_name_extn_wo_variant, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
     strlcpy(rmngr_xml_file_wo_variant, rmngr_xml_file, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file, file_name_extn, XML_PATH_MAX_LENGTH);
@@ -1498,14 +1501,20 @@ int ResourceManager::init_audio()
     strlcat(mixer_xml_file, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file_wo_variant, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
+    strlcat(mixer_xml_file_wo_variant, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
 
     audio_route = audio_route_init(snd_hw_card, mixer_xml_file);
     PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file);
     if (!audio_route) {
-        PAL_ERR(LOG_TAG, "audio route init failed");
-        mixer_close(audio_virt_mixer);
-        mixer_close(audio_hw_mixer);
-        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "audio route init failed trying with mixer without variant name");
+	audio_route = audio_route_init(snd_hw_card, mixer_xml_file_wo_variant);
+        PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file_wo_variant);
+	if (!audio_route) {
+            PAL_ERR(LOG_TAG, "audio route init failed ");
+            mixer_close(audio_virt_mixer);
+            mixer_close(audio_hw_mixer);
+            status = -EINVAL;
+        }
     }
     // audio_route init success
 exit:
@@ -9048,8 +9057,10 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                                param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
                                param_bt_a2dp.a2dp_suspended = true;
                                PAL_DBG(LOG_TAG, "Applying cached a2dp_suspended true param");
+                               mResourceManagerMutex.unlock();
                                status = dev->setDeviceParameter(PAL_PARAM_ID_BT_A2DP_SUSPENDED,
                                                                 &param_bt_a2dp);
+                               mResourceManagerMutex.lock();
                            } else {
                                a2dp_suspended = false;
                            }
@@ -11993,6 +12004,7 @@ int ResourceManager::setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s)
     std::vector<std::shared_ptr<Device>> activeDeviceList;
     pal_ultrasound_gain_t gain_2 = PAL_ULTRASOUND_GAIN_MUTE;
 
+    memset(&sAttr, 0, sizeof(sAttr));
     PAL_INFO(LOG_TAG, "Entered. Gain = %d", gain);
 
     if (!IsCustomGainEnabledForUPD()) {
