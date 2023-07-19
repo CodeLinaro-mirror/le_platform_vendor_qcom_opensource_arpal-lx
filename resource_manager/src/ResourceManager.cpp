@@ -1955,8 +1955,10 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     }
                 }
             }
-
-            deviceattr->config.ch_info = candidateConfig->ch_info;
+            if (deviceattr->id == PAL_DEVICE_IN_PROXY) {
+                /* For PAL_DEVICE_IN_PROXY, copy all ch info from stream attributes*/
+                deviceattr->config.ch_info = candidateConfig->ch_info;
+            }
             if (isPalPCMFormat(candidateConfig->aud_fmt_id))
                 deviceattr->config.bit_width =
                           palFormatToBitwidthLookup(candidateConfig->aud_fmt_id);
