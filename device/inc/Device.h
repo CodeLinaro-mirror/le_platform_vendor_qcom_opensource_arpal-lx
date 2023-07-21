@@ -69,7 +69,8 @@ protected:
     uint32_t mCurrentPriority;
     //device atrributues per stream are stored by priority in a map
     std::multimap<uint32_t, std::pair<Stream *, struct pal_device *>> mStreamDevAttr;
-    uint32_t mSampleRate;
+    uint32_t mSampleRate = 0;
+    uint32_t mBitWidth = 0;
 
     Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     Device();
@@ -109,6 +110,7 @@ public:
     virtual ~Device();
     void getCurrentSndDevName(char *name);
     void setSampleRate(uint32_t sr){mSampleRate = sr;};
+    void setBitWidth(uint32_t bw) {mBitWidth = bw;};
     void lockDeviceMutex() { mDeviceMutex.lock(); };
     void unlockDeviceMutex() { mDeviceMutex.unlock(); };
     bool compareStreamDevAttr(const struct pal_device *inDevAttr,
