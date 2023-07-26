@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -4557,7 +4556,7 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
     int deviceId = 0;
     int status = 0;
     std::vector<Stream*> tx_stream_list;
-    struct pal_stream_attributes tx_attr;
+    struct pal_stream_attributes tx_attr = {};
     struct pal_stream_attributes rx_attr;
     std::shared_ptr<Device> tx_device = nullptr;
     std::vector <std::shared_ptr<Device>> tx_device_list;
