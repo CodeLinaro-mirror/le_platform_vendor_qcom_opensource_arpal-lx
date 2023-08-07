@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +25,13 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: API"
@@ -569,6 +575,7 @@ int32_t pal_stream_drain(pal_stream_handle_t *stream_handle, pal_drain_type_t ty
 {
     Stream *s = NULL;
     int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
     if (!stream_handle) {
         status = -EINVAL;
@@ -577,14 +584,36 @@ int32_t pal_stream_drain(pal_stream_handle_t *stream_handle, pal_drain_type_t ty
     }
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        goto exit;
+    }
+
     s =  reinterpret_cast<Stream *>(stream_handle);
+    rm->increaseStreamUserCounter(s);
+    rm->unlockActiveStream();
 
     status = s->drain(type);
+
+    rm->lockActiveStream();
+    rm->decreaseStreamUserCounter(s);
+    rm->unlockActiveStream();
+
     if (0 != status) {
         PAL_ERR(LOG_TAG, "drain failed with status %d", status);
         return status;
     }
-
+exit:
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
