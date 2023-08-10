@@ -148,10 +148,13 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         free(mStreamAttr);
         throw std::runtime_error(err);
     }
-    /* Priority updates in rm xml is getting updated only when device is
-    listed in mpaldevices and this priority will overwrite the default
-    pri valueif any priority update */
+    /*
+     * Add soundtrigger stream device to  mPalDevices list for checking it during
+     * restoreDevice()->compareSharedBEStreamDevAttr()->getPalDevices(palDevices)
+     * and update Priority values from rm xml
+    */
     dev = Device::getInstance((struct pal_device *)&dattr[0] , rm);
+
     if (!dev) {
         PAL_ERR(LOG_TAG, "Device creation failed");
         free(mStreamAttr);
@@ -295,6 +298,7 @@ StreamSoundTrigger::~StreamSoundTrigger() {
         delete st_ssr_;
 
     mDevices.clear();
+    mPalDevices.clear();
     PAL_DBG(LOG_TAG, "Exit");
 }
 
