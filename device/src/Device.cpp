@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -73,6 +73,7 @@
 #include "USBAudio.h"
 #include "SpeakerMic.h"
 #include "Stream.h"
+#include "StreamSoundTrigger.h"
 #include "HeadsetMic.h"
 #include "HandsetMic.h"
 #include "HandsetVaMic.h"
@@ -934,10 +935,26 @@ int Device::getTopPriorityDeviceAttr(struct pal_device *deviceAttr, uint32_t *st
     /* update sample rate if it's valid */
     if (mSampleRate)
         deviceAttr->config.sample_rate = mSampleRate;
-
-#if DUMP_DEV_ATTR
     pal_stream_attributes dumpstrAttr;
     (*it).second.first->getStreamAttributes(&dumpstrAttr);
+
+    if (dumpstrAttr.type == PAL_STREAM_VOICE_UI) {
+        std::shared_ptr<CaptureProfile> cap_prof = nullptr;
+        StreamSoundTrigger *st_st = nullptr;
+        st_st = dynamic_cast<StreamSoundTrigger*>((*it).second.first);
+        cap_prof = st_st->GetCurrentCaptureProfile();
+        if (!cap_prof) {
+            PAL_ERR(LOG_TAG, "Invalid capture profile");
+        }
+        else {
+            PAL_DBG(LOG_TAG, "Updating device attributes");
+            deviceAttr->config.bit_width = cap_prof->GetBitWidth();
+            deviceAttr->config.ch_info.channels = cap_prof->GetChannels();
+            deviceAttr->config.sample_rate = cap_prof->GetSampleRate();
+        }
+    }
+
+#if DUMP_DEV_ATTR
     PAL_DBG(LOG_TAG, "======dump StreamDevAttr Retrieved dev: %d ======", getSndDeviceId());
     PAL_DBG(LOG_TAG, "str pri: 0x%x, str type: %d, ch %d, sr %d, bit_width %d,"
                      " fmt %d, sndDev: %s, custom_key: %s",
