@@ -1128,13 +1128,21 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
                     strstr(snd_card_name, "sa8155")||
+                    strstr(snd_card_name, "sa8255")||
                     strstr(snd_card_name, "sa6155")||
                     strstr(snd_card_name, "gvmauto")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
                     break;
-                } else {
+                } else if (strstr(snd_card_name, "VIOSND")) {
+                    PAL_INFO(LOG_TAG, "Found virtio sound card");
+                    snd_card_found = true;
+                    audio_hw_mixer = tmp_mixer;
+                    snd_virt_card = snd_hw_card;
+                    break;
+                }
+                else {
                     if (snd_card_name) {
                         free(snd_card_name);
                         snd_card_name = NULL;
@@ -1966,8 +1974,10 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     }
                 }
             }
-
-            deviceattr->config.ch_info = candidateConfig->ch_info;
+            if (deviceattr->id == PAL_DEVICE_IN_PROXY) {
+                /* For PAL_DEVICE_IN_PROXY, copy all ch info from stream attributes*/
+                deviceattr->config.ch_info = candidateConfig->ch_info;
+            }
             if (isPalPCMFormat(candidateConfig->aud_fmt_id))
                 deviceattr->config.bit_width =
                           palFormatToBitwidthLookup(candidateConfig->aud_fmt_id);
@@ -8360,6 +8370,64 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         goto exit;
                     }
                 }
+            }
+        }
+        break;
+        case PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG:
+        {
+            std::list<StreamPCM*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            struct pal_volume_data *volume = NULL;
+            size_t vol_size = 0;
+            pal_param_payload *params = NULL;
+            pal_stream_bus_duck_t *duck_param = (pal_stream_bus_duck_t *) param_payload;
+
+            volume = (struct pal_volume_data *)calloc(1, sizeof(uint32_t) +
+                        (sizeof(struct pal_channel_vol_kv) * 0xFFFF));
+            if (!volume) {
+                status = -ENOMEM;
+                break;
+            }
+
+            for(sIter = active_streams_bus.begin(); sIter != active_streams_bus.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (!strcmp(st_attr.bus_addr, duck_param->bus_addr)) {
+                    status = (*sIter)->getVolumeData(volume, &vol_size);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "getVolumeData fail on bus %s", duck_param->bus_addr);
+                        break;
+                    }
+
+                    /*
+                     * actually only one pair is supported by session volume control
+                     */
+                    params = (pal_param_payload *)calloc(1, sizeof(pal_param_payload) +
+                        sizeof(uint32_t) +
+                        sizeof(struct pal_channel_vol_kv) * vol_size);
+                    if (!params) {
+                        status = -ENOMEM;
+                        break;
+                    }
+                    pal_volume_data *vdata = (struct pal_volume_data *)params->payload;
+                    vdata->no_of_volpair = 1;
+                    vdata->volume_pair[0].channel_mask = volume->volume_pair[0].channel_mask;
+
+                    if (duck_param->duck) {
+                        vdata->volume_pair[0].vol = duck_param->duck_volume < volume->volume_pair[0].vol?
+                                duck_param->duck_volume: volume->volume_pair[0].vol;
+                        (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                    } else {
+                        vdata->volume_pair[0].vol = volume->volume_pair[0].vol;
+                        (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                    }
+
+                    if (params) {
+                        free(params);
+                    }
+                }
+            }
+            if (volume) {
+                free(volume);
             }
         }
         break;
