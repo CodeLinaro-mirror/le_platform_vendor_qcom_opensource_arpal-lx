@@ -20,7 +20,11 @@ LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CFLAGS        += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
 LOCAL_CFLAGS        += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
+ifeq ($(TARGET_USES_GY), true)
+LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager-VIOSND.xml\"
+else
 LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
+endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
 LOCAL_C_INCLUDES := \

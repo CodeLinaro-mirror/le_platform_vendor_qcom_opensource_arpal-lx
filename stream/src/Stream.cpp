@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,7 +27,15 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #define LOG_TAG "PAL: Stream"
+#include <semaphore.h>
 #include "Stream.h"
 #include "StreamPCM.h"
 #include "StreamInCall.h"
@@ -1543,6 +1550,25 @@ bool Stream::checkStreamMatch(pal_device_id_t pal_device_id,
     return match;
 }
 
+int Stream::initStreamSmph()
+{
+    return sem_init(&mInUse, 0, 1);
+}
+
+int Stream::deinitStreamSmph()
+{
+    return sem_destroy(&mInUse);
+}
+
+int Stream::postStreamSmph()
+{
+    return sem_post(&mInUse);
+}
+
+int Stream::waitStreamSmph()
+{
+    return sem_wait(&mInUse);
+}
 
 bool Stream::checkBusStreamMatch(pal_device_id_t pal_device_id,
                                         pal_stream_type_t pal_stream_type, char* bus_addr)
