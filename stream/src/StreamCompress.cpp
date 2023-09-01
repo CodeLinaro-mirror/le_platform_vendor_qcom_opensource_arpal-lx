@@ -291,7 +291,7 @@ int32_t StreamCompress::stop()
             PAL_VERBOSE(LOG_TAG,"session stop successful");
 
             for (int32_t i = 0; i < mDevices.size(); i++) {
-                PAL_ERR(LOG_TAG, "device %d name %s, going to stop",
+                PAL_INFO(LOG_TAG, "device %d name %s, going to stop",
                     mDevices[i]->getSndDeviceId(), mDevices[i]->getPALDeviceName().c_str());
 
                 status = mDevices[i]->stop();
@@ -351,7 +351,7 @@ int32_t StreamCompress::start()
 
             rm->lockGraph();
             for (int32_t i=0; i < mDevices.size(); i++) {
-                PAL_ERR(LOG_TAG, "device %d name %s, going to start",
+                PAL_INFO(LOG_TAG, "device %d name %s, going to start",
                     mDevices[i]->getSndDeviceId(), mDevices[i]->getPALDeviceName().c_str());
 
                 status = mDevices[i]->start();
