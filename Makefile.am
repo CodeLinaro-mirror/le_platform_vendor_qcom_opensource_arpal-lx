@@ -132,7 +132,7 @@ AM_CPPFLAGS += @AGM_CFLAGS@
 AM_CPPFLAGS += @SPF_CFLAGS@
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result
-AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
+AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DLINUX_ENABLED_BTAUDIO
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DCONFIG_GSL
 
@@ -190,6 +190,9 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
 
 acl_sources = ${top_srcdir}/utils/src/ChargerListener.cpp
 
+btbundle_plugin_sources = ${top_srcdir}/plugins/codecs/bt_base.c \
+                          ${top_srcdir}/plugins/codecs/bt_bundle.c
+
 endif
 
 library_include_HEADERS = $(h_sources)
@@ -197,7 +200,7 @@ library_includedir = $(includedir)/pal
 
 lib_LTLIBRARIES     = libpal.la
 libpal_la_SOURCES   = $(pal_sources)
-libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -laudioroute -lar_osal -lspf -lexpat -ltinycompress
+libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -laudioroute -lar_osal @SPF_LIBS@ -lexpat -ltinycompress
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -avoid-version
@@ -227,6 +230,13 @@ libaudiocl_la_SOURCES   = $(acl_sources)
 libaudiocl_la_LIBADD    = @GLIB_LIBS@
 libaudiocl_la_CPPFLAGS := $(AM_CPPFLAGS)
 libaudiocl_la_LDFLAGS   = -shared -avoid-version -lcutils -llog
+
+lib_LTLIBRARIES     += lib_bt_bundle.la
+lib_bt_bundle_la_SOURCES   = $(btbundle_plugin_sources)
+lib_bt_bundle_la_LIBADD    = @GLIB_LIBS@ @SPF_LIBS@
+lib_bt_bundle_la_CPPFLAGS := $(AM_CPPFLAGS)
+lib_bt_bundle_la_LDFLAGS   = -shared -avoid-version -lcutils -llog
+
 # install essential xml files under /etc
 root_etcdir      = "/etc"
 root_etc_SCRIPTS = $(libpal_la_list)
