@@ -119,6 +119,7 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/utils/inc/SoundTriggerUtils.h \
             ${top_srcdir}/utils/inc/SoundTriggerPlatformInfo.h \
             ${top_srcdir}/utils/inc/ChargerListener.h \
+            ${top_srcdir}/utils/inc/MetadataParser.h \
             ${top_srcdir}/context_manager/inc/ContextManager.h
 
 AM_CPPFLAGS := -I $(top_srcdir)/stream/inc
