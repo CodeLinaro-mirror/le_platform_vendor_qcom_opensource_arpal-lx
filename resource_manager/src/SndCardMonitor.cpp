@@ -120,11 +120,11 @@ SndCardMonitor::~SndCardMonitor()
 {
    const char *buf;
 
+   exit_thread = 1;
    if (fd != -1) {
       buf = std::to_string(status).c_str();
       write(fd, buf, 1);
    }
 
-   exit_thread = 1;
    mThread.join();
 }
