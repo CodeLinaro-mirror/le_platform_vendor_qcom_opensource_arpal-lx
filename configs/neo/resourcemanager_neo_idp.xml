@@ -75,6 +75,7 @@
         <param key="context_manager_enable" value ="false" />
         <param key="upd_dedicated_be" value ="true" />
         <param key="dual_mono" value ="false" />
+        <param key="btsink_hfp_ch_conf" value ="2" />
     </config_params>
     <config_volume>
         <use_volume_set_param>0</use_volume_set_param>
@@ -395,7 +396,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
-            <back_end_name>SLIM-DEV1-TX-7</back_end_name>
+            <back_end_name>SLIM-DEV1-TX-9</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
             <snd_device_name>bt-a2dp-mic</snd_device_name>
