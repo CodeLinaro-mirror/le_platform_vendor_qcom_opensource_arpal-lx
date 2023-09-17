@@ -483,6 +483,7 @@ int ResourceManager::wake_lock_fd = -1;
 int ResourceManager::wake_unlock_fd = -1;
 uint32_t ResourceManager::wake_lock_cnt = 0;
 static int max_session_num;
+bool ResourceManager::isSpkrXmaxTmaxLoggingEnabled = false;
 bool ResourceManager::isSpeakerProtectionEnabled = false;
 bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
@@ -1762,8 +1763,10 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote, bool force_nlp
         return ret;
     }
 
-    lpi_stream = (sleep_monitor_vote_type_[type] == LPI_VOTE &&
-                 !IsTransitToNonLPIOnChargingSupported() && (!force_nlpi_vote));
+    if (sleep_monitor_vote_type_[type] == LPI_VOTE) {
+        lpi_stream = (!force_nlpi_vote && str->ConfigSupportLPI() &&
+                      !IsTransitToNonLPIOnChargingSupported());
+    }
 
     mSleepMonitorMutex.lock();
     if (vote) {
@@ -2683,8 +2686,8 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             {
                 PAL_INFO(LOG_TAG, "wfd TX is not in progress");
                 if (rm->num_proxy_channels) {
+                    PAL_INFO(LOG_TAG, "proxy device channel number: %d", rm->num_proxy_channels);
                     deviceattr->config.ch_info.channels = rm->num_proxy_channels;
-                    rm->num_proxy_channels = 0;
                 }
             }
             PAL_INFO(LOG_TAG, "PAL_DEVICE_OUT_PROXY sample rate %d bitwidth %d ch:%d",
@@ -4999,7 +5002,7 @@ void ResourceManager::GetConcurrencyInfo(pal_stream_type_t st_type,
                 in_type != PAL_STREAM_CONTEXT_PROXY  &&
                 in_type != PAL_STREAM_VOICE_UI)) {
         *tx_conc = true;
-        if (!audio_capture_conc_enable) {
+        if (!audio_capture_conc_enable && in_type != PAL_STREAM_PROXY) {
             PAL_DBG(LOG_TAG, "pause on audio capture concurrency");
             *conc_en = false;
         }
@@ -7815,6 +7818,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setMuxconfigEnableParam(parms, value, len);
     ret = setUpdDutyCycleEnableParam(parms, value, len);
     ret = setUpdVirtualPortParam(parms, value, len);
+    ret = setSpkrXmaxTmaxLoggingParam(parms, value, len);
 
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
@@ -7953,6 +7957,29 @@ int ResourceManager::setUpdDutyCycleEnableParam(struct str_parms *parms,
     return ret;
 }
 
+int ResourceManager::setSpkrXmaxTmaxLoggingParam(struct str_parms* parms,
+    char* value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms) {
+        return ret;
+    }
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_SPKR_XMAX_TMAX_LOG,
+        value, len);
+    PAL_VERBOSE(LOG_TAG, " value %s", value);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            ResourceManager::isSpkrXmaxTmaxLoggingEnabled = true;
+
+        str_parms_del(parms, AUDIO_PARAMETER_KEY_SPKR_XMAX_TMAX_LOG);
+    }
+
+    return ret;
+}
+
 int ResourceManager::setUpdVirtualPortParam(struct str_parms *parms, char *value, int len)
 {
     int ret = -EINVAL;
@@ -7962,8 +7989,7 @@ int ResourceManager::setUpdVirtualPortParam(struct str_parms *parms, char *value
 
     ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_UPD_VIRTUAL_PORT,
                             value, len);
-
-    PAL_VERBOSE(LOG_TAG," value %s", value);
+    PAL_VERBOSE(LOG_TAG, " value %s", value);
 
     if (ret >= 0) {
         if (value && !strncmp(value, "true", sizeof("true")))
@@ -8718,82 +8744,29 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
         case PAL_PARAM_ID_BT_A2DP_RECONFIG_SUPPORTED:
         case PAL_PARAM_ID_BT_A2DP_SUSPENDED:
         case PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY:
-        {
-            std::shared_ptr<Device> dev = nullptr;
-            struct pal_device dattr;
-            pal_param_bta2dp_t *param_bt_a2dp = nullptr;
-
-            if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {
-                dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
-            } else if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE)) {
-                dattr.id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
-            } else if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
-                dattr.id = PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST;
-            } else {
-                goto exit;
-            }
-            dev = Device::getInstance(&dattr , rm);
-            if (dev) {
-                status = dev->getDeviceParameter(param_id, (void **)&param_bt_a2dp);
-                if (status) {
-                    PAL_ERR(LOG_TAG, "get Parameter %d failed\n", param_id);
-                    goto exit;
-                }
-                *param_payload = param_bt_a2dp;
-                *payload_size = sizeof(pal_param_bta2dp_t);
-            }
-            break;
-        }
         case PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED:
-        {
-            std::shared_ptr<Device> dev = nullptr;
-            struct pal_device dattr;
-            pal_param_bta2dp_t *param_bt_a2dp = nullptr;
-
-            if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_A2DP)) {
-                dattr.id = PAL_DEVICE_IN_BLUETOOTH_A2DP;
-            } else if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_BLE)) {
-                dattr.id = PAL_DEVICE_IN_BLUETOOTH_BLE;
-            } else {
-                goto exit;
-            }
-            dev = Device::getInstance(&dattr , rm);
-            if (dev) {
-                status = dev->getDeviceParameter(param_id, (void **)&param_bt_a2dp);
-                if (status) {
-                    PAL_ERR(LOG_TAG, "get Parameter %d failed\n", param_id);
-                    goto exit;
-                }
-                *param_payload = param_bt_a2dp;
-                *payload_size = sizeof(pal_param_bta2dp_t);
-            }
-            break;
-        }
         case PAL_PARAM_ID_BT_A2DP_DECODER_LATENCY:
         {
             std::shared_ptr<Device> dev = nullptr;
             struct pal_device dattr;
             pal_param_bta2dp_t* param_bt_a2dp = nullptr;
 
-            if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_A2DP)) {
-                dattr.id = PAL_DEVICE_IN_BLUETOOTH_A2DP;
-            } else if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_BLE)) {
-                dattr.id = PAL_DEVICE_IN_BLUETOOTH_BLE;
+            if (isDeviceAvailable((*(pal_param_bta2dp_t**)param_payload)->dev_id)) {
+                dattr.id = (*(pal_param_bta2dp_t**)param_payload)->dev_id;
             } else {
                 goto exit;
             }
+
             dev = Device::getInstance(&dattr, rm);
-            if (!dev) {
-                PAL_ERR(LOG_TAG, "Failed to get device instance");
-                goto exit;
+            if (dev) {
+                status = dev->getDeviceParameter(param_id, (void**)&param_bt_a2dp);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "get Parameter %d failed\n", param_id);
+                    goto exit;
+                }
+                *param_payload = param_bt_a2dp;
+                *payload_size = sizeof(pal_param_bta2dp_t);
             }
-            status = dev->getDeviceParameter(param_id, (void**)&param_bt_a2dp);
-            if (status) {
-                PAL_ERR(LOG_TAG, "get Parameter %d failed\n", param_id);
-                goto exit;
-            }
-            *param_payload = param_bt_a2dp;
-            *payload_size = sizeof(pal_param_bta2dp_t);
             break;
         }
         case PAL_PARAM_ID_GAIN_LVL_MAP:
@@ -9256,7 +9229,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                          (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
                          (sAttr.type == PAL_STREAM_SPATIAL_AUDIO) ||
                          (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
-                         (sAttr.type == PAL_STREAM_COMPRESSED))) {
+                         (sAttr.type == PAL_STREAM_COMPRESSED) ||
+                         (sAttr.type == PAL_STREAM_GENERIC))) {
                         str->getAssociatedDevices(associatedDevices);
                         for (int i = 0; i < associatedDevices.size(); i++) {
                             if (!isDeviceActive_l(associatedDevices[i], str) ||
@@ -9307,6 +9281,22 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
                 SortAndUnique(rxDevices);
                 SortAndUnique(txDevices);
+
+                /*
+                 * If there a switch in SCO configurations and at the time of BT_SCO=on,
+                 * there are streams active with old SCO configs as well as on another
+                 * device. In this case, we need to disconnect streams over SCO first and
+                 * move them to new SCO configs, before we move streams on other devices
+                 * to SCO. This is ensured by moving SCO to the beginning of the disconnect
+                 * device list.
+                 */
+                {
+                    dAttr.id = PAL_DEVICE_OUT_BLUETOOTH_SCO;
+                    dev = Device::getInstance(&dAttr, rm);
+                    auto it = std::find(rxDevices.begin(),rxDevices.end(),dev);
+                    if ((it != rxDevices.end()) && (it != rxDevices.begin()))
+                        std::iter_swap(it, rxDevices.begin());
+                }
                 mActiveStreamMutex.unlock();
 
                 for (auto& device : rxDevices) {
@@ -9503,7 +9493,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             (streamType == PAL_STREAM_PCM_OFFLOAD) ||
                             (streamType == PAL_STREAM_DEEP_BUFFER) ||
                             (streamType == PAL_STREAM_SPATIAL_AUDIO) ||
-                            (streamType == PAL_STREAM_COMPRESSED)) {
+                            (streamType == PAL_STREAM_COMPRESSED) ||
+                            (streamType == PAL_STREAM_GENERIC)) {
                             (*sIter)->suspendedDevIds.clear();
                             (*sIter)->suspendedDevIds.push_back(a2dp_dattr.id);
                             PAL_DBG(LOG_TAG, "a2dp resumed, mark sco streams as to route them later");

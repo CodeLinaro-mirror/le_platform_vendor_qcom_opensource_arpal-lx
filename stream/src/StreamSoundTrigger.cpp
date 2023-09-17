@@ -389,22 +389,27 @@ int32_t StreamSoundTrigger::read(struct pal_buffer* buf) {
     }
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    if (cur_state_ == st_buffering_) {
+        if (!this->force_nlpi_vote) {
+            rm->voteSleepMonitor(this, true, true);
+            this->force_nlpi_vote = true;
+
+            offset = vui_intf_->GetReadOffset();
+            if (offset) {
+                reader_->advanceReadOffset(offset);
+                vui_intf_->SetReadOffset(0);
+            }
+        }
+    } else {
+        PAL_ERR(LOG_TAG, "Invalid Stream Current State %d", GetCurrentStateId());
+        return size;
+    }
     if (vui_ptfm_info_->GetEnableDebugDumps() && !lab_fd_) {
         ST_DBG_FILE_OPEN_WR(lab_fd_, ST_DEBUG_DUMP_LOCATION,
             "lab_reading", "bin", lab_cnt);
         PAL_DBG(LOG_TAG, "lab data stored in: lab_reading_%d.bin",
             lab_cnt);
         lab_cnt++;
-    }
-    if (cur_state_ == st_buffering_ && !this->force_nlpi_vote) {
-        rm->voteSleepMonitor(this, true, true);
-        this->force_nlpi_vote = true;
-
-        offset = vui_intf_->GetReadOffset();
-        if (offset) {
-            reader_->advanceReadOffset(offset);
-            vui_intf_->SetReadOffset(0);
-        }
     }
 
     std::shared_ptr<StEventConfig> ev_cfg(
@@ -1139,6 +1144,11 @@ int32_t StreamSoundTrigger::LoadSoundModel(
         engine = HandleEngineLoad((uint8_t *)iter.second.first,
                                   iter.second.second,
                                   iter.first, model_type_);
+        if (!engine) {
+            PAL_ERR(LOG_TAG, "Failed to create engine");
+            status = -EINVAL;
+            goto error_exit;
+        }
         std::shared_ptr<EngineCfg> engine_cfg(new EngineCfg(
             engine_id, engine, (void *)iter.second.first, iter.second.second));
 
@@ -1173,6 +1183,7 @@ error_exit:
     }
     engines_.clear();
     gsl_engine_.reset();
+    rm->resetStreamInstanceID(this, mInstanceID);
     if (sm_config_) {
         free(sm_config_);
         sm_config_ = nullptr;
@@ -3488,6 +3499,20 @@ int32_t StreamSoundTrigger::StSSR::ProcessEvent(
     }
 
     return status;
+}
+bool StreamSoundTrigger::ConfigSupportLPI() {
+
+    bool lpi = true;
+    bool config_support_lpi = true;
+
+    if (sm_cfg_ && sm_cfg_->GetVUIFirstStageConfig(model_type_))
+        config_support_lpi =
+               sm_cfg_->GetVUIFirstStageConfig(model_type_)->IsLpiSupported();
+
+    if (!config_support_lpi || !vui_ptfm_info_->GetLpiEnable())
+        lpi = false;
+
+    return lpi;
 }
 
 int32_t StreamSoundTrigger::ssrDownHandler() {
