@@ -1599,7 +1599,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
                   * altogether as non interleaved data. Add logic below to
                   * handle the same.
                   */
-                 if ((vi_device.bit_width == 16) &&
+                 if (!rm->isVIDataInterleaved &&
                     ((vi_device.channels/NO_OF_VI_CH_PER_SPKR) == 1)) {
                      if (mDeviceAttr.id == PAL_DEVICE_OUT_HANDSET)
                          calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, LEFT_SPKR));
@@ -1749,17 +1749,17 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
         // Setting Channel Map configuration for VI module
         // TODO: Move this to ACDB file
-        if (vi_device.bit_width == 32)
-            viChannelMapConfg.num_ch = vi_device.channels * 2;
-            /*
-             * VI device captures 32 bit interleaved data usually.
-             * In few cases, VI captures, V sense and I sense data
-             * each containing 16 bits bit-width in different channels
-             * altogether as non interleaved data. Add logic below to
-             * handle the same.
-             */
-        else
+        /*
+         * VI device captures 32 bit interleaved data usually.
+         * In few cases, VI captures, V sense and I sense data
+         * each containing 16 bits bit-width in different channels
+         * altogether as non interleaved data. Add logic below to
+         * handle the same.
+        */
+        if (!rm->isVIDataInterleaved)
             viChannelMapConfg.num_ch = vi_device.channels;
+        else
+            viChannelMapConfg.num_ch = vi_device.channels * 2;
 
         payloadSize = 0;
 
