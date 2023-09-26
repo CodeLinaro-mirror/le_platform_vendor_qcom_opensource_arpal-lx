@@ -578,6 +578,8 @@ protected:
     int32_t scoOutConnectCount = 0;
     int32_t scoInConnectCount = 0;
     std::shared_ptr<SignalHandler> mSigHandler;
+    std::unordered_map<int, pal_stream_handle_t *> mStCaptureInfo;
+
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -941,6 +943,7 @@ public:
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
     static void sendCrashSignal(int signal, pid_t pid, uid_t uid);
+    void RegisterSTCaptureHandle(pal_param_st_capture_info_t stCaptureInfo, bool start);
 };
 
 static int getSocId() {
