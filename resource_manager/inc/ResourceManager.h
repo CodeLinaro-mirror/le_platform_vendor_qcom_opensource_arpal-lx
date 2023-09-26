@@ -598,6 +598,7 @@ public:
     enum card_status_t cardState;
     bool ssrStarted = false;
     static int spVersion;
+    static int isVIDataInterleaved;
     /* Variable to store whether Speaker protection is enabled or not */
     static bool isSpeakerProtectionEnabled;
     static bool isHandsetProtectionEnabled;
