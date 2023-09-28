@@ -651,7 +651,7 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
             if (msg && msg->cmd == OFFLOAD_CMD_WAIT_FOR_BUFFER) {
                 if (compressObj->rm->cardState == CARD_STATUS_ONLINE) {
                     PAL_VERBOSE(LOG_TAG, "calling compress_wait");
-                    ret = compress_wait(compressObj->compress, -1);
+                    ret = compress_wait(compressObj->compress, 5000);
                     PAL_VERBOSE(LOG_TAG, "out of compress_wait, ret %d", ret);
                     event_id = PAL_STREAM_CBK_EVENT_WRITE_READY;
                 }
