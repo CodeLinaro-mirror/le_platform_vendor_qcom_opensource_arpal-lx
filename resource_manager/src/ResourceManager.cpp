@@ -2192,6 +2192,7 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
     // check if stream type is supported
     // and new stream session is allowed
     pal_stream_type_t type = attributes->type;
+    mActiveStreamMutex.lock();
     PAL_DBG(LOG_TAG, "Enter. type %d", type);
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
@@ -2263,8 +2264,8 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             max_sessions = MAX_SESSIONS_HAPTICS;
             break;
         case PAL_STREAM_CONTEXT_PROXY:
+            mActiveStreamMutex.unlock();
             return true;
-            break;
         case PAL_STREAM_ULTRASOUND:
             cur_sessions = active_streams_ultrasound.size();
             max_sessions = MAX_SESSIONS_ULTRASOUND;
@@ -2275,8 +2276,11 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             break;
         default:
             PAL_ERR(LOG_TAG, "Invalid stream type = %d", type);
-        return result;
+            mActiveStreamMutex.unlock();
+            return result;
     }
+    mActiveStreamMutex.unlock();
+
     if (cur_sessions == max_sessions && type != PAL_STREAM_VOICE_CALL) {
         PAL_ERR(LOG_TAG, "no new session allowed for stream %d", type);
         return result;
@@ -8389,6 +8393,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 break;
             }
 
+            mActiveStreamMutex.lock();
             for(sIter = active_streams_bus.begin(); sIter != active_streams_bus.end(); sIter++) {
                 (*sIter)->getStreamAttributes(&st_attr);
                 if (!strcmp(st_attr.bus_addr, duck_param->bus_addr)) {
@@ -8426,6 +8431,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     }
                 }
             }
+            mActiveStreamMutex.unlock();
+
             if (volume) {
                 free(volume);
             }
