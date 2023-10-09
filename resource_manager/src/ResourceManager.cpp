@@ -115,7 +115,7 @@
 // values for max sessions number
 #define MAX_SESSIONS_LOW_LATENCY 8
 #define MAX_SESSIONS_ULTRA_LOW_LATENCY 8
-#define MAX_SESSIONS_DEEP_BUFFER 3
+#define MAX_SESSIONS_DEEP_BUFFER 4
 #define MAX_SESSIONS_COMPRESSED 10
 #define MAX_SESSIONS_GENERIC 1
 #define MAX_SESSIONS_PCM_OFFLOAD 2
@@ -1128,6 +1128,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "monaco") ||
                     strstr(snd_card_name, "sa8155")||
                     strstr(snd_card_name, "sa8255")||
+                    strstr(snd_card_name, "sa7255")||
                     strstr(snd_card_name, "sa6155")||
                     strstr(snd_card_name, "gvmauto")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
