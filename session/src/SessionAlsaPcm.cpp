@@ -579,7 +579,11 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             }
 
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                if (sAttr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
+                    tagCntrlName<<stream<<pcmDevTxIds.at(0)<<" "<<setParamTagControl;
+                } else {
+                    tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                }
             } else {
                 tagCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setParamTagControl;
             }
