@@ -396,11 +396,23 @@ ssize_t pal_stream_write(pal_stream_handle_t *stream_handle, struct pal_buffer *
 {
     Stream *s = NULL;
     int status;
-    if (!stream_handle || !buf) {
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle) || !buf) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = s->write(buf);
@@ -416,11 +428,23 @@ ssize_t pal_stream_read(pal_stream_handle_t *stream_handle, struct pal_buffer *b
 {
     Stream *s = NULL;
     int status;
-    if (!stream_handle || !buf) {
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle) || !buf) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = s->read(buf);
@@ -437,11 +461,24 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
-    if (!stream_handle) {
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG,  "Invalid input parameters status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = s->getParameters(param_id, (void **)param_payload);
@@ -460,11 +497,22 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle, uint32_t param_
     int status;
     std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG,  "Invalid stream handle, status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK param_id %d", stream_handle,
             param_id);
     s =  reinterpret_cast<Stream *>(stream_handle);
@@ -477,12 +525,7 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle, uint32_t param_
         PAL_ERR(LOG_TAG, "set parameters failed status %d param_id %u", status, param_id);
         return status;
     }
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
+
     if (param_id == PAL_PARAM_ID_STOP_BUFFERING) {
         PAL_DBG(LOG_TAG, "Buffering stopped, handle deferred LPI<->NLPI switch");
         rm->handleDeferredSwitch();
@@ -600,11 +643,24 @@ int32_t pal_stream_pause(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    if (!stream_handle) {
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = s->pause();
@@ -620,12 +676,23 @@ int32_t pal_stream_resume(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
@@ -696,12 +763,23 @@ int32_t pal_stream_flush(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
@@ -720,12 +798,23 @@ int32_t pal_stream_suspend(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
@@ -745,12 +834,24 @@ int32_t pal_stream_set_buffer_size (pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
 
@@ -809,12 +910,24 @@ int32_t pal_add_remove_effect(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status = 0;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
     s =  reinterpret_cast<Stream *>(stream_handle);
@@ -970,12 +1083,24 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
 {
     int status = 0;
     Stream *s = NULL;
+    std::shared_ptr<ResourceManager> rm = NULL;
 
-    if (!stream_handle) {
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
     }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
     s =  reinterpret_cast<Stream *>(stream_handle);
@@ -1034,13 +1159,26 @@ int32_t pal_get_param(uint32_t param_id, void **param_payload,
 int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
                               struct pal_mmap_position *position)
 {
-   Stream *s = NULL;
-   int status;
-    if (!stream_handle) {
+    Stream *s = NULL;
+    int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
         return status;
     }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = s->GetMmapPosition(position);
@@ -1058,11 +1196,24 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
-    if (!stream_handle) {
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
         return status;
     }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = s->createMmapBuffer(min_size_frames, info);

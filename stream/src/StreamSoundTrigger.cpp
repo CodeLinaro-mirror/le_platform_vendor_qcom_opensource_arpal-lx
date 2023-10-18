@@ -148,10 +148,13 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
         free(mStreamAttr);
         throw std::runtime_error(err);
     }
-    /* Priority updates in rm xml is getting updated only when device is
-    listed in mpaldevices and this priority will overwrite the default
-    pri valueif any priority update */
+    /*
+     * Add soundtrigger stream device to  mPalDevices list for checking it during
+     * restoreDevice()->compareSharedBEStreamDevAttr()->getPalDevices(palDevices)
+     * and update Priority values from rm xml
+    */
     dev = Device::getInstance((struct pal_device *)&dattr[0] , rm);
+
     if (!dev) {
         PAL_ERR(LOG_TAG, "Device creation failed");
         free(mStreamAttr);
@@ -295,6 +298,7 @@ StreamSoundTrigger::~StreamSoundTrigger() {
         delete st_ssr_;
 
     mDevices.clear();
+    mPalDevices.clear();
     PAL_DBG(LOG_TAG, "Exit");
 }
 
@@ -708,7 +712,6 @@ int32_t StreamSoundTrigger::connectStreamDevice_l(Stream* streamHandle, struct p
     std::string curBackEndName;
     StreamSoundTrigger *st_st = nullptr;
     st_st = dynamic_cast<StreamSoundTrigger*>(streamHandle);
-    std::shared_ptr<CaptureProfile> cap_prof = nullptr;
     PAL_DBG(LOG_TAG, "Enter StreamSoundTrigger connectStreamDevice_l");
     if (!dattr) {
         PAL_ERR(LOG_TAG, "invalid params");
@@ -720,26 +723,7 @@ int32_t StreamSoundTrigger::connectStreamDevice_l(Stream* streamHandle, struct p
         PAL_ERR(LOG_TAG, "Device creation failed");
         goto exit;
     }
-    /* when high priority usecase comes while SVA is running,
-       SVA stream will be switched to priority device and
-       paused. After priority usecase close SVA will resume
-       and opened with priority case devattributes which is
-       not expected.So, updating devattr from capprofile*/
-    if (dattr->id == PAL_DEVICE_IN_HANDSET_VA_MIC) {
-        cap_prof = st_st->GetCurrentCaptureProfile();
-        if (!cap_prof) {
-            PAL_ERR(LOG_TAG, "Invalid capture profile");
-            goto exit;
-        }
-        PAL_DBG(LOG_TAG, "Updating device attributes");
-        dattr->config.bit_width = cap_prof->GetBitWidth();
-        dattr->config.ch_info.channels = cap_prof->GetChannels();
-        dattr->config.sample_rate = cap_prof->GetSampleRate();
-        dev->setSndName(cap_prof->GetSndName());
-        dev->setDeviceAttributes(*dattr);
-    } else {
-        dev->setDeviceAttributes(*dattr);
-    }
+    dev->setDeviceAttributes(*dattr);
     if (currentState == STREAM_IDLE) {
         PAL_DBG(LOG_TAG, "stream is in %d state, no need to switch device", currentState);
         status = 0;

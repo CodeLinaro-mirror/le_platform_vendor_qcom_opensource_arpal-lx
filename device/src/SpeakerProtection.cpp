@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -105,11 +105,13 @@
 
 //TODO : remove this and add proper file
 #define EVENT_ID_VI_CALIBRATION 0x0800119F
+#define EVENT_ID_SP_VI_DC_DETECTION 0x0800119C
 
 #define NORMAL_MODE 0
 #define CALIBRATION_MODE 1
 #define FACTORY_TEST_MODE 2
 #define V_VALIDATION_MODE 3
+#define NO_OF_VI_CH_PER_SPKR 2
 
 #define CALIBRATION_STATUS_SUCCESS 4
 #define CALIBRATION_STATUS_FAILURE 5
@@ -251,6 +253,7 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
         }
         break;
     case EVENT_ID_SPv5_SPEAKER_DIAGNOSTICS:
+    case EVENT_ID_SP_VI_DC_DETECTION:
         struct mixer_ctl *ctl;
 
         ctl = mixer_get_ctl_by_name(hwMixer, SPKR_LEFT_WSA_DC_DET);
@@ -1560,7 +1563,22 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
                       calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, RIGHT_SPKR));
             break;
             case 2 :
-                calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, STEREO_SPKR));
+                /**
+                  * VI device captures 32 bit interleaved data usually.
+                  * In few cases, VI captures, V sense and I sense data
+                  * each containing 16 bits bit-width in different channels
+                  * altogether as non interleaved data. Add logic below to
+                  * handle the same.
+                  */
+                 if (!rm->isVIDataInterleaved &&
+                    ((vi_device.channels/NO_OF_VI_CH_PER_SPKR) == 1)) {
+                     if (mDeviceAttr.id == PAL_DEVICE_OUT_HANDSET)
+                         calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, LEFT_SPKR));
+                     else
+                         calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, RIGHT_SPKR));
+                 } else {
+                     calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, STEREO_SPKR));
+                 }
             break;
             default :
                 PAL_ERR(LOG_TAG, "Unsupported channel");
@@ -1702,7 +1720,18 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
         // Setting Channel Map configuration for VI module
         // TODO: Move this to ACDB file
-        viChannelMapConfg.num_ch = vi_device.channels * 2;
+        /*
+         * VI device captures 32 bit interleaved data usually.
+         * In few cases, VI captures, V sense and I sense data
+         * each containing 16 bits bit-width in different channels
+         * altogether as non interleaved data. Add logic below to
+         * handle the same.
+        */
+        if (!rm->isVIDataInterleaved)
+            viChannelMapConfg.num_ch = vi_device.channels;
+        else
+            viChannelMapConfg.num_ch = vi_device.channels * 2;
+
         payloadSize = 0;
 
         builder->payloadSPConfig(&payload, &payloadSize, miid,
@@ -1854,8 +1883,14 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 	PAL_DBG(LOG_TAG, "registering DC detection event for VI module");
 	payloadSize = sizeof(struct agm_event_reg_cfg);
 
-	/* Register for EVENT_ID_SPv5_SPEAKER_DIAGNOSTICS. */
-	event_cfg.event_id = EVENT_ID_SPv5_SPEAKER_DIAGNOSTICS;
+        if (rm->spVersion == 4) {
+            /* Register for EVENT_ID_SP_VI_DC_DETECTION. */
+            event_cfg.event_id = EVENT_ID_SP_VI_DC_DETECTION;
+        } else {
+            /* Register for EVENT_ID_SPv5_SPEAKER_DIAGNOSTICS. */
+            event_cfg.event_id = EVENT_ID_SPv5_SPEAKER_DIAGNOSTICS;
+        }
+
 	event_cfg.event_config_payload_size = 0;
 	event_cfg.is_register = 1;
 
@@ -1922,30 +1957,9 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
                 PAL_ERR(LOG_TAG," updateCustomPayload Failed\n");
             }
         }
-
-        switch(ResourceManager::cpsMode)
-        {
-            case 1:
-                goto cps_dev_setup;
-            case 2:
-
-                // wsa883x specific cps payload
-                updateCpsCustomPayload(miid);
-
-                enableDevice(audioRoute, mSndDeviceName_vi);
-                PAL_DBG(LOG_TAG, "pcm start for TX");
-                if (pcm_start(txPcm) < 0) {
-                    PAL_ERR(LOG_TAG, "pcm start failed for TX path");
-                    goto err_pcm_open;
-                }
-
-                // Free up the local variables
-                goto exit;
-            default:
-                goto exit;
-        }
-
-cps_dev_setup:
+        /**
+         * Enable audio route for VI Tx path.
+         */
         enableDevice(audioRoute, mSndDeviceName_vi);
         PAL_DBG(LOG_TAG, "pcm start for TX");
         if (pcm_start(txPcm) < 0) {
@@ -1953,6 +1967,20 @@ cps_dev_setup:
             goto err_pcm_open;
         }
 
+        switch(ResourceManager::cpsMode)
+        {
+            case 1:
+                goto cps_dev_setup;
+            case 2:
+                // wsa883x specific cps payload
+                updateCpsCustomPayload(miid);
+                goto exit;
+           default:
+                // Free up the local variables
+                goto exit;
+        }
+
+cps_dev_setup:
         keyVector.clear();
         calVector.clear();
 

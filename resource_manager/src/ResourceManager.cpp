@@ -484,6 +484,8 @@ int ResourceManager::wake_unlock_fd = -1;
 uint32_t ResourceManager::wake_lock_cnt = 0;
 static int max_session_num;
 bool ResourceManager::isSpeakerProtectionEnabled = false;
+int ResourceManager::spVersion = 5;
+int ResourceManager::isVIDataInterleaved = 1;
 bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
 int ResourceManager::cpsMode = 0;
@@ -10963,9 +10965,13 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
             std::string snddevname(data->data_buf);
             deviceInfo[size].sndDevName = snddevname;
             updateSndName(deviceInfo[size].deviceId, snddevname);
+        } else if (!strcmp(tag_name, "vi_data_interleaved")) {
+            isVIDataInterleaved = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "speaker_protection_enabled")) {
             if (atoi(data->data_buf))
                 isSpeakerProtectionEnabled = true;
+        } else if (!strcmp(tag_name, "speaker_protection_version")) {
+                spVersion = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "handset_protection_enabled")) {
             if (atoi(data->data_buf))
                 isHandsetProtectionEnabled = true;

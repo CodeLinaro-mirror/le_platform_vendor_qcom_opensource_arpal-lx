@@ -300,6 +300,7 @@
             <channels>2</channels>
             <bit_width>16</bit_width>
             <samplerate>48000</samplerate>
+            <vi_data_interleaved>1</vi_data_interleaved>
             <snd_device_name>vi-feedback</snd_device_name>
             <!--Add the supported channel_map depending on number of channels -->
             <!--channel 0 -> Vsen Left  -->
@@ -337,6 +338,7 @@
             <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
             <snd_device_name>speaker</snd_device_name>
+            <speaker_protection_version>4</speaker_protection_version>
             <speaker_protection_enabled>0</speaker_protection_enabled>
             <cps_enabled>0</cps_enabled>
             <!--specify the supported bit format on speaker end point -->
