@@ -377,6 +377,16 @@ int Device::setDeviceAttributes(struct pal_device dattr)
     return status;
 }
 
+int Device::freeCustomPayload(uint8_t **payload, size_t *payloadSize)
+{
+    if (*payload) {
+        free(*payload);
+        *payload = NULL;
+        *payloadSize = 0;
+    }
+    return 0;
+}
+
 int Device::updateCustomPayload(void *payload, size_t size)
 {
     if (!customPayloadSize) {
@@ -493,6 +503,8 @@ int Device::close()
            disableDevice(audioRoute, mSndDeviceName);
            mCurrentPriority = MIN_USECASE_PRIORITY;
            deviceStartStopCount = 0;
+           if(rm->num_proxy_channels != 0)
+               rm->num_proxy_channels = 0;
        }
     }
     PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s), exit status %d", deviceCount,
@@ -934,7 +946,10 @@ int Device::getTopPriorityDeviceAttr(struct pal_device *deviceAttr, uint32_t *st
     /* update sample rate if it's valid */
     if (mSampleRate)
         deviceAttr->config.sample_rate = mSampleRate;
-
+    if (mBitWidth) {
+        deviceAttr->config.bit_width = mBitWidth;
+        deviceAttr->config.aud_fmt_id = rm->getAudioFmt(mBitWidth);
+    }
 #if DUMP_DEV_ATTR
     pal_stream_attributes dumpstrAttr;
     (*it).second.first->getStreamAttributes(&dumpstrAttr);

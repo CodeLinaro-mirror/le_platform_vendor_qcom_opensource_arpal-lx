@@ -100,6 +100,7 @@ protected:
     //device atrributues per stream are stored by priority in a map
     std::multimap<uint32_t, std::pair<Stream *, struct pal_device *>> mStreamDevAttr;
     uint32_t mSampleRate = 0;
+    uint32_t mBitWidth = 0;
 
     Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     Device();
@@ -126,6 +127,7 @@ public:
     virtual int getCodecConfig(struct pal_media_config *config);
     static std::shared_ptr<Device> getObject(pal_device_id_t dev_id);
     int updateCustomPayload(void *payload, size_t size);
+    int freeCustomPayload(uint8_t **payload, size_t *payloadSize);
     void* getCustomPayload();
     size_t getCustomPayloadSize();
     virtual int32_t setDeviceParameter(uint32_t param_id, void *param);
@@ -138,6 +140,7 @@ public:
     virtual ~Device();
     void getCurrentSndDevName(char *name);
     void setSampleRate(uint32_t sr){mSampleRate = sr;};
+    void setBitWidth(uint32_t bw) {mBitWidth = bw;};
     void lockDeviceMutex() { mDeviceMutex.lock(); };
     void unlockDeviceMutex() { mDeviceMutex.unlock(); };
     bool compareStreamDevAttr(const struct pal_device *inDevAttr,

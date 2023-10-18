@@ -45,6 +45,7 @@
 #include "PalCommon.h"
 #include <array>
 #include <map>
+#include <set>
 #include <expat.h>
 #include <stdio.h>
 #include <queue>
@@ -82,6 +83,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_DEVICE_MUX "device_mux_config"
 #define AUDIO_PARAMETER_KEY_UPD_DUTY_CYCLE "upd_duty_cycle_enable"
 #define AUDIO_PARAMETER_KEY_UPD_VIRTUAL_PORT "upd_virtual_port"
+#define AUDIO_PARAMETER_KEY_SPKR_XMAX_TMAX_LOG "spkr_xmax_tmax_logging_enable"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -507,6 +509,7 @@ protected:
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
+    static std::mutex mValidStreamMutex;
     static std::mutex mSleepMonitorMutex;
     static std::mutex mListFrontEndsMutex;
     static int snd_virt_card;
@@ -621,6 +624,8 @@ public:
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
+    /*Variable to check XmaxTmaxLogging Enabled or not*/
+    static bool isSpkrXmaxTmaxLoggingEnabled;
     static bool isMainSpeakerRight;
     /* Variable to store Quick calibration time for Speaker protection */
     static int spQuickCalTime;
@@ -913,6 +918,7 @@ public:
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
     static int setSignalHandlerEnableParam(struct str_parms *parms,char *value, int len);
     static int setMuxconfigEnableParam(struct str_parms *parms,char *value, int len);
+    static int setSpkrXmaxTmaxLoggingParam(struct str_parms* parms, char* value, int len);
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);
@@ -926,6 +932,7 @@ public:
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceAvailable(std::vector<std::shared_ptr<Device>> devices, pal_device_id_t id);
     bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
+    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices, pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
     static bool isBtDevice(pal_device_id_t id);
@@ -944,6 +951,8 @@ public:
     void unlockGraph() { mGraphMutex.unlock(); };
     void lockActiveStream() { mActiveStreamMutex.lock(); };
     void unlockActiveStream() { mActiveStreamMutex.unlock(); };
+    void lockValidStreamMutex() { mValidStreamMutex.lock(); };
+    void unlockValidStreamMutex() { mValidStreamMutex.unlock(); };
     void lockResourceManagerMutex() {mResourceManagerMutex.lock();};
     void unlockResourceManagerMutex() {mResourceManagerMutex.unlock();};
     void getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream *, uint32_t>> &activeStreamDevs,
