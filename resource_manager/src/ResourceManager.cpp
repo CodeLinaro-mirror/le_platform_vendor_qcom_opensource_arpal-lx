@@ -6606,7 +6606,8 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
         updatePriorityAttr(inDevAttr->id,
                            sharedBEStreamDev,
                            inDevAttr,
-                           inStrAttr);
+                           inStrAttr,
+                           true);
         mActiveStreamMutex.unlock();
         for (const auto &elem : sharedBEStreamDev) {
             struct pal_stream_attributes sAttr;
@@ -6632,7 +6633,8 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
                 updatePriorityAttr(inDevAttr->id,
                                    sharedBEStreamDev,
                                    inDevAttr,
-                                   inStrAttr);
+                                   inStrAttr,
+                                   false);
                 mActiveStreamMutex.unlock();
             }
             if (doDevAttrDiffer(inDevAttr, inSndDeviceName, &curDevAttr) &&
@@ -8108,6 +8110,12 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 PAL_ERR(LOG_TAG, "set Parameter %d failed\n", param_id);
                 goto exit;
             }
+            /*
+             * Create audio patch request is not expected for HFP client call.
+             * Do not move active streams to sco device.
+             */
+            if (param_bt_sco->is_bt_hfp)
+                goto exit;
 
             /*
              * Create audio patch request is not expected for HFP client call.
@@ -10492,7 +10500,8 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
                 rm->updatePriorityAttr(palDev.id,
                                        sharedBEStreamDev,
                                        &newDevAttr,
-                                       &sAttr);
+                                       &sAttr,
+                                       false);
                 if (sAttr.type == PAL_STREAM_ULTRASOUND && (sharedBEStreamDev.size() == 1)
                     && dev->getSndDeviceId() != PAL_DEVICE_OUT_HANDSET) {
                     sharedStream->updatePalDevice(&newDevAttr,
@@ -10558,7 +10567,8 @@ exit:
 int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
                                         std::vector <std::tuple<Stream *, uint32_t>> activestreams,
                                         struct pal_device *incomingDev,
-                                        const pal_stream_attributes* currentStrAttr){
+                                        const pal_stream_attributes* currentStrAttr,
+                                        bool enable){
     int status = 0;
     uint32_t stream_count =0;
     struct pal_stream_attributes sAttr;
@@ -10603,22 +10613,32 @@ int ResourceManager::updatePriorityAttr(pal_device_id_t dev_id,
             }
             if (sharedBEDev || dev_id == palDev.id) {
                 std::string streamKey(palDev.custom_config.custom_key);
-                getDeviceInfo(dev_id, sAttr.type, streamKey, &devInfo);
+                getDeviceInfo(palDev.id, sAttr.type, streamKey, &devInfo);
                 tempDev = palDev;
-                tempDev.id = dev_id;
                 break;
             }
         }
         getDeviceConfig(&tempDev, &sAttr);
-        compareAndUpdateDevAttr(&tempDev, &devInfo, incomingDev, &highPrioDevInfo);
-        /*incoming stream prio is greater than or equal to active streams*/
-        if (devInfo.priority <= highPrioDevInfo.priority  ) {
-            highPrioDevInfo = devInfo;
-            getSndDeviceName(dev_id, currentSndDeviceName);
-            highPrioDevInfo.sndDevName.assign(currentSndDeviceName);
+        if (!enable) {
+            compareAndUpdateDevAttr(&tempDev, &devInfo, incomingDev, &highPrioDevInfo);
+            /*incoming stream prio is greater than or equal to active streams*/
+            if (devInfo.priority < highPrioDevInfo.priority) {
+                incomingDev->id = tempDev.id;
+                getSndDeviceName(incomingDev->id, currentSndDeviceName);
+                highPrioDevInfo.sndDevName.assign(currentSndDeviceName);
+            }
+        } else {
+            if (dev_id != tempDev.id && devInfo.priority < highPrioDevInfo.priority) {
+                incomingDev->id = tempDev.id;
+                incomingDev->config.ch_info.channels = devInfo.channels;
+                incomingDev->config.sample_rate = devInfo.samplerate;
+                incomingDev->config.bit_width = devInfo.bit_width;
+                updateSndName(dev_id, devInfo.sndDevName);
+                getSndDeviceName(dev_id, currentSndDeviceName);
+                highPrioDevInfo = devInfo;
+            }
         }
     }
-    stream_count++;
 
     getSndDeviceName(dev_id, currentSndDeviceName);
     PAL_DBG(LOG_TAG,"dev attr configured are, ch %d, sr %d, bit_width %d, fmt %d, sndDev %s",
