@@ -4,6 +4,7 @@
  */
 
 #include <PalApi.h>
+#include <PalCommon.h>
 #include <memory>
 #include <mutex>
 #include <map>
@@ -1020,12 +1021,10 @@ android::status_t BnPalService::onTransact(uint32_t code,
             PalReadWriteTool::read_pal_buffer(&p_buffer, data);
 
             if (p_buffer) {
-                int input_fd = -1;
                 if (p_buffer->alloc_info.alloc_size > 0 && p_buffer->alloc_info.alloc_handle > 0) {
-                    input_fd = data.readFileDescriptor();
-                    input_fd = dup(input_fd);
-
-                    pal_add_shared_fd((uint64_t)stream_handle, input_fd);
+                    int binder_fd = data.readFileDescriptor();
+                    int input_fd = pal_add_shared_fd((uint64_t)stream_handle, p_buffer->alloc_info.alloc_handle, binder_fd);
+                    PAL_DBG(LOG_TAG, "read: client_fd: %d, binder fd: %d, dup_fd: %d, frame_id: %d\n", p_buffer->alloc_info.alloc_handle, binder_fd, input_fd, p_buffer->frame_index);
                     p_buffer->alloc_info.alloc_handle = input_fd;
                 }
 
@@ -1049,11 +1048,10 @@ android::status_t BnPalService::onTransact(uint32_t code,
             PalReadWriteTool::read_pal_buffer(&p_buffer, data);
 
             if (p_buffer) {
-                int input_fd = -1;
                 if (p_buffer->alloc_info.alloc_size > 0 && p_buffer->alloc_info.alloc_handle > 0) {
-                    input_fd = data.readFileDescriptor();
-                    input_fd = dup(input_fd);
-                    pal_add_shared_fd((uint64_t)stream_handle, input_fd);
+                    int binder_fd = data.readFileDescriptor();
+                    int input_fd = pal_add_shared_fd((uint64_t)stream_handle, p_buffer->alloc_info.alloc_handle, binder_fd);
+                    PAL_DBG(LOG_TAG, "write: client_fd: %d, binder fd: %d, dup_fd: %d, frame_id: %d\n", p_buffer->alloc_info.alloc_handle, binder_fd, input_fd, p_buffer->frame_index);
                     p_buffer->alloc_info.alloc_handle = input_fd;
                 }
 
