@@ -4,6 +4,7 @@
  */
 
 #include <PalDefs.h>
+#include <PalCommon.h>
 #include "pal_client_manager.h"
 #include "ipc_interface.h"
 
@@ -137,20 +138,19 @@ void pal_add_stream_handle(uint64_t stream_handle, struct pal_stream_attributes*
     pthread_mutex_unlock(&g_client_list_lock);
 }
 
-void pal_add_shared_fd(uint64_t stream_handle, int dup_fd) {
-    static const int MAX_FD_SIZE = 32;
+int pal_add_shared_fd(uint64_t stream_handle, int client_fd, int binder_fd) {
     pal_client_stream_handle *handle = NULL;
     get_client_stream_handle(stream_handle, NULL, &handle);
     if (!handle) {
-        return;
+        PAL_ERR(LOG_TAG, "invalid stream_handle: 0x%08X", stream_handle);
+        return 0;
     }
 
-    handle->shared_fd_list.push_back(dup_fd);
-    if (handle->shared_fd_list.size() > MAX_FD_SIZE) {
-        int fd = handle->shared_fd_list.front();
-        handle->shared_fd_list.erase(handle->shared_fd_list.begin());
-        if (fd > 0) close(fd);
+    if (!handle->shared_fd_list.count(client_fd)) {
+        handle->shared_fd_list[client_fd] = dup(binder_fd);
     }
+
+    return handle->shared_fd_list[client_fd];
 }
 
 void pal_remove_stream_handle(uint64_t stream_handle) {
@@ -167,11 +167,13 @@ void pal_remove_stream_handle(uint64_t stream_handle) {
     for (int i=0;i<client_handle->pal_client_stream_handle_list.size();i++) {
         stream_hndl = client_handle->pal_client_stream_handle_list[i];
         if (stream_hndl->stream_handle == stream_handle) {
-            while (!stream_hndl->shared_fd_list.empty()) {
-                int fd = stream_hndl->shared_fd_list.front();
-                stream_hndl->shared_fd_list.erase(stream_hndl->shared_fd_list.begin());
-                if (fd > 0) close(fd);
+            std::map<int, int>::iterator itr;
+            for (itr=stream_hndl->shared_fd_list.begin(); itr != stream_hndl->shared_fd_list.end(); itr++) {
+                if (itr->second > 0) {
+                    close(itr->second);
+                }
             }
+            stream_hndl->shared_fd_list.clear();
             client_handle->pal_client_stream_handle_list.erase(client_handle->pal_client_stream_handle_list.begin() + i);
             delete stream_hndl;
             break;
