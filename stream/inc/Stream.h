@@ -27,6 +27,13 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
+
 #ifndef STREAM_H_
 #define STREAM_H_
 
@@ -39,6 +46,7 @@
 #include <memory>
 #include <mutex>
 #include <exception>
+#include <semaphore.h>
 #include <errno.h>
 #ifdef LINUX_ENABLED
 #include <condition_variable>
@@ -159,6 +167,8 @@ protected:
     static std::condition_variable pauseCV;
     static std::mutex pauseMutex;
     bool mutexLockedbyRm = false;
+    bool mDutyCycleEnable = false;
+    sem_t mInUse;
     int connectToDefaultDevice(Stream* streamHandle, uint32_t dir);
 public:
     virtual ~Stream() {};
@@ -238,11 +248,16 @@ public:
     int32_t getEffectParameters(void *effect_query, size_t *payload_size);
     uint32_t getInstanceId() { return mInstanceID; }
     inline void setInstanceId(uint32_t sid) { mInstanceID = sid; }
+    int initStreamSmph();
+    int deinitStreamSmph();
+    int postStreamSmph();
+    int waitStreamSmph();
     bool checkStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type);
     bool checkBusStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type, char* bus_addr);
     int32_t getEffectParameters(void *effect_query);
+    int32_t setEffectParameters(void *effect_param);
     int32_t rwACDBParameters(void *payload, uint32_t sampleRate,
                                 bool isParamWrite);
     bool isActive() { return currentState == STREAM_STARTED; }

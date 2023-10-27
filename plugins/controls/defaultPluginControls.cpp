@@ -101,6 +101,7 @@
 #define COMPRESS_OFFLOAD_FRAGMENT_SIZE (32 * 1024)
 #define FLAC_COMPRESS_OFFLOAD_FRAGMENT_SIZE (256 * 1024)
 #define PCM_OFFLOAD_OUTPUT_PERIOD_DURATION 80
+#define DEEP_BUFFER_OUTPUT_PERIOD_DURATION 40
 #define MIN_PCM_FRAGMENT_SIZE 512
 #define MAX_PCM_FRAGMENT_SIZE (240 * 1024)
 
@@ -469,8 +470,13 @@ int pcm_buffer_size(pal_stream_attributes sattr)
     PAL_DBG(LOG_TAG, "config_ format:%x, SR %d ch_mask 0x%x",
             sattr.format, sattr.out_media_config.sample_rate,
             sattr.ch_mask);
-    fragment_size = PCM_OFFLOAD_OUTPUT_PERIOD_DURATION *
-        sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    if (sattr.type == PAL_STREAM_PLAYBACK_BUS) {
+        fragment_size = DEEP_BUFFER_OUTPUT_PERIOD_DURATION *
+            sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    } else {
+        fragment_size = PCM_OFFLOAD_OUTPUT_PERIOD_DURATION *
+            sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    }
     fragment_size /= 1000;
 
     if (fragment_size < MIN_PCM_FRAGMENT_SIZE)

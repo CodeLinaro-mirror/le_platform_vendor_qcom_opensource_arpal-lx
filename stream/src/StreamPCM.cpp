@@ -1166,6 +1166,15 @@ int32_t StreamPCM::resume()
     return status;
 }
 
+int32_t StreamPCM::drain(pal_drain_type_t type __unused)
+{
+    if (rm->cardState == CARD_STATUS_OFFLINE) {
+        PAL_ERR(LOG_TAG, "Sound card offline or session is null");
+        return -EINVAL;
+    }
+    return session->drain(type);
+}
+
 int32_t StreamPCM::flush()
 {
     int32_t status = 0;
