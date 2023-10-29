@@ -1003,6 +1003,11 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                 PAL_INFO(LOG_TAG, "%d state already handled", state);
             } else if (state == CARD_STATUS_OFFLINE) {
                 for (auto str: rm->mActiveStreams) {
+                    ret = increaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
+                        continue;
+                    }
                     ret = str->ssrDownHandler();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Ssr down handling failed for %pK ret %d",
@@ -1013,6 +1018,10 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                         ret = voteSleepMonitor(str, false);
                         if (ret)
                             PAL_DBG(LOG_TAG, "Failed to unvote for stream type %d", type);
+                    }
+                    ret = decreaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
                 }
                 if (isContextManagerEnabled) {
@@ -1036,10 +1045,19 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
 
                 SoundTriggerCaptureProfile = GetCaptureProfileByPriority(nullptr);
                 for (auto str: rm->mActiveStreams) {
+                    ret = increaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
+                        continue;
+                    }
                     ret = str->ssrUpHandler();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Ssr up handling failed for %pK ret %d",
                                           str, ret);
+                    }
+                    ret = decreaseStreamUserCounter(str);
+                    if (0 != ret) {
+                        PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
                 }
                 prevState = state;
@@ -2735,8 +2753,104 @@ bool isStreamActive(T s, std::list<T> &streams)
     return ret;
 }
 
-int ResourceManager::isActiveStream(Stream *s) {
-    return isStreamActive(s, mActiveStreams);
+int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
+    for (auto &s : mActiveStreams) {
+        if (handle == reinterpret_cast<uint64_t *>(s)) {
+            return true;
+        }
+    }
+    return false;
+}
+
+int ResourceManager::initStreamUserCounter(Stream *s)
+{
+    mActiveStreamUserCounter.insert(std::make_pair(s, 0));
+    return 0;
+}
+
+int ResourceManager::deinitStreamUserCounter(Stream *s)
+{
+    std::map<Stream *, uint32_t>::iterator it;
+    printStreamUserCounter(s);
+    it = mActiveStreamUserCounter.find(s);
+    if (it != mActiveStreamUserCounter.end()) {
+        PAL_INFO(LOG_TAG, "stream %p is to be erased.", s);
+        mActiveStreamUserCounter.erase(it);
+        return 0;
+    } else {
+        PAL_ERR(LOG_TAG, "stream %p is not found.", s);
+        return -EINVAL;
+    }
+}
+
+int ResourceManager::increaseStreamUserCounter(Stream* s)
+{
+    std::map<Stream *, uint32_t>::iterator it;
+    printStreamUserCounter(s);
+    it = mActiveStreamUserCounter.find(s);
+    if (it != mActiveStreamUserCounter.end()) {
+        if (0 == it->second) {
+            s->waitStreamSmph();
+            PAL_DBG(LOG_TAG, "stream %p in use", s);
+        }
+        PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second);
+        it->second = it->second + 1;
+        PAL_DBG(LOG_TAG, "stream %p counter increased to %d", s, it->second);
+        return 0;
+    } else {
+        PAL_ERR(LOG_TAG, "stream %p is not found.",s);
+        return -EINVAL;
+    }
+}
+
+int ResourceManager::decreaseStreamUserCounter(Stream* s)
+{
+    std::map<Stream *, uint32_t>::iterator it;
+    printStreamUserCounter(s);
+    it = mActiveStreamUserCounter.find(s);
+    if (it != mActiveStreamUserCounter.end()) {
+        PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second);
+        if (0 == it->second) {
+            PAL_ERR(LOG_TAG, "counter of stream %p has already been 0.",s);
+            return -EINVAL;
+        }
+
+        it->second = it->second - 1;
+        if (0 == it->second) {
+            PAL_DBG(LOG_TAG, "stream %p not in use", s);
+            s->postStreamSmph();
+        }
+        PAL_DBG(LOG_TAG, "stream %p counter decreased to %d", s, it->second);
+        return 0;
+    } else {
+        PAL_ERR(LOG_TAG, "stream %p is not found.",s);
+        return -EINVAL;
+    }
+}
+
+int ResourceManager::getStreamUserCounter(Stream *s)
+{
+    std::map<Stream *, uint32_t>::iterator it;
+    printStreamUserCounter(s);
+    it = mActiveStreamUserCounter.find(s);
+    if (it != mActiveStreamUserCounter.end()) {
+        return it->second;
+    } else {
+        PAL_ERR(LOG_TAG, "stream %p is not found.",s);
+        return -EINVAL;
+    }
+}
+
+int ResourceManager::printStreamUserCounter(Stream *s)
+{
+    std::map<Stream *, uint32_t>::iterator it;
+    for (it = mActiveStreamUserCounter.begin();
+            it != mActiveStreamUserCounter.end(); it++) {
+        PAL_VERBOSE(LOG_TAG, "stream = %p count = %d",
+                    it->first, it->second);
+    }
+
+    return 0;
 }
 
 // check if any of the ec device supports external ec
@@ -4072,7 +4186,7 @@ exit:
 int ResourceManager::HandleDetectionStreamAction(pal_stream_type_t type, int32_t action, void *data)
 {
     int status = 0;
-    pal_stream_attributes st_attr;
+    pal_stream_attributes st_attr = {};
 
     PAL_DBG(LOG_TAG, "Enter");
     mActiveStreamMutex.lock();
@@ -4442,7 +4556,7 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
     int deviceId = 0;
     int status = 0;
     std::vector<Stream*> tx_stream_list;
-    struct pal_stream_attributes tx_attr;
+    struct pal_stream_attributes tx_attr = {};
     struct pal_stream_attributes rx_attr;
     std::shared_ptr<Device> tx_device = nullptr;
     std::vector <std::shared_ptr<Device>> tx_device_list;
@@ -7433,6 +7547,7 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
         {
             bool match = false;
             std::list<Stream*>::iterator sIter;
+            lockActiveStream();
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 if (address) {
                     match = (*sIter)->checkBusStreamMatch(pal_device_id, pal_stream_type, address);
@@ -7441,10 +7556,15 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
                     match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                 }
                 if (match) {
+                    increaseStreamUserCounter(*sIter);
+                    unlockActiveStream();
                     status = (*sIter)->getEffectParameters(param_payload);
+                    lockActiveStream();
+                    decreaseStreamUserCounter(*sIter);
                     break;
                 }
             }
+            unlockActiveStream();
             break;
         }
         default:
@@ -7931,7 +8051,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         case PAL_PARAM_ID_HAPTICS_VOLUME:
         {
             std::list<Stream*>::iterator sIter;
-            pal_stream_attributes st_attr;
+            pal_stream_attributes st_attr = {};
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 (*sIter)->getStreamAttributes(&st_attr);
                 if (st_attr.type == PAL_STREAM_HAPTICS) {
@@ -8035,7 +8155,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         {
             PAL_DBG(LOG_TAG, "zonal_hfp enter param set zone");
             std::list<Stream*>::iterator sIter;
-            pal_stream_attributes st_attr;
+            pal_stream_attributes st_attr = {};
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 (*sIter)->getStreamAttributes(&st_attr);
                 if (st_attr.type == PAL_STREAM_LOOPBACK && st_attr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
@@ -8075,7 +8195,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         case PAL_PARAM_ID_UIEFFECT:
         {
             bool match = false;
-            mActiveStreamMutex.lock();
+            lockActiveStream();
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
@@ -8087,7 +8207,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                     }
                     if (match) {
+                        increaseStreamUserCounter(*sIter);
+                        unlockActiveStream();
                         status = (*sIter)->setParameters(param_id, param_payload);
+                        lockActiveStream();
+                        decreaseStreamUserCounter(*sIter);
                         if (status) {
                             PAL_ERR(LOG_TAG, "failed to set param for pal_device_id=%x stream_type=%x",
                                    pal_device_id, pal_stream_type);
@@ -8097,7 +8221,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     PAL_ERR(LOG_TAG, "There is no active stream.");
                 }
             }
-            mActiveStreamMutex.unlock();
+            unlockActiveStream();
         }
         break;
         default:
@@ -10376,7 +10500,7 @@ exit:
 
 int ResourceManager::controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size){
     int status = 0;
-    pal_stream_type_t stream_type;
+    pal_stream_type_t stream_type = (pal_stream_type_t)0;
     plugin_fn_ops_t plugin_ops;
 
     if (!s) {
@@ -10397,7 +10521,7 @@ exit:
 
 int ResourceManager::controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *payload_size){
     int status = 0;
-    pal_stream_type_t stream_type;
+    pal_stream_type_t stream_type = (pal_stream_type_t)0;
     plugin_fn_ops_t plugin_ops;
 
     if (!s) {
