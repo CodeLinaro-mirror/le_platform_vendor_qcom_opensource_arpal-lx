@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -278,8 +278,8 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
 exit:
     s->getStreamAttributes(&sAttr);
     notify_concurrent_stream(sAttr.type, sAttr.direction, false);
-    delete s;
     rm->eraseStreamUserCounter(s);
+    delete s;
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
 }
