@@ -48,8 +48,8 @@ LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinyalsa/include
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
-LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
-LOCAL_SHARED_LIBRARIES += libtinyalsa libtinycompress
+LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
+LOCAL_SHARED_LIBRARIES += libtinyalsa libqti-tinycompress
 endif
 
 LOCAL_HEADER_LIBRARIES := \
