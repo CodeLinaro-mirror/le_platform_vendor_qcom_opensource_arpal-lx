@@ -50,6 +50,8 @@
 #include "audio_dam_buffer_api.h"
 #include "apm_api.h"
 #include "us_detect_api.h"
+#include <asm-generic/ioctl.h>
+#include <sound/asound.h>
 
 std::mutex SessionAlsaPcm::pcmLpmRefCntMtx;
 int SessionAlsaPcm::pcmLpmRefCnt = 0;
@@ -579,7 +581,11 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             }
 
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                if (sAttr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
+                    tagCntrlName<<stream<<pcmDevTxIds.at(0)<<" "<<setParamTagControl;
+                } else {
+                    tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                }
             } else {
                 tagCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setParamTagControl;
             }
@@ -2405,7 +2411,26 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
 
 int SessionAlsaPcm::drain(pal_drain_type_t type __unused)
 {
-    return 0;
+    int status = 0;
+
+    if (!pcm) {
+        PAL_ERR(LOG_TAG, "PCM is invalid");
+        return -EINVAL;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "Enter drain");
+    if (pcm && isActive()) {
+        //! Short-term solution now.
+        //! Once PAL directly runs on top of upstream tinyalsa, call pcm_drain() here.
+        //! pcm_drain() has already been upstreamed, but not downstreamed to AOSP branches.
+        status = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_DRAIN);
+        if (status)
+            status = errno;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "status %d", status);
+
+    return status;
 }
 
 int SessionAlsaPcm::flush()
