@@ -50,6 +50,8 @@
 #include "ResourceManager.h"
 #include "Device.h"
 #include "USBAudio.h"
+#define CONFIG_BUFFER_COUNT 4
+#define CONFIG_BUFFER_SIZE 8192
 
 std::shared_ptr<ResourceManager> Stream::rm = nullptr;
 std::mutex Stream::mBaseStreamMutex;
@@ -535,11 +537,11 @@ int32_t Stream::setBufInfo(pal_buffer_config *in_buffer_cfg,
             outMaxMetadataSz = out_buffer_cfg->max_metadata_size;
         if (in_buffer_cfg)
             inMaxMetadataSz = in_buffer_cfg->max_metadata_size;
-         /*in EXTERN_MEM mode set buf count and size to 0*/
-         inBufCount = 0;
-         inBufSize = 0;
-         outBufCount = 0;
-         outBufSize = 0;
+         /*in EXTERN_MEM mode set buf count and size to 4 and 8192*/
+         in_buffer_cfg->buf_count = inBufCount = CONFIG_BUFFER_COUNT;
+         in_buffer_cfg->buf_size = inBufSize = CONFIG_BUFFER_SIZE;
+         out_buffer_cfg->buf_count = outBufCount = CONFIG_BUFFER_COUNT;
+         out_buffer_cfg->buf_size = outBufSize = CONFIG_BUFFER_SIZE;
     } else {
         if (in_buffer_cfg) {
             PAL_DBG(LOG_TAG, "In Buffer size %zu, In Buffer count %zu metadata sz %zu",

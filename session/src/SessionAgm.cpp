@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SessionAgm"
@@ -393,7 +398,7 @@ int SessionAgm::prepare(Stream * s)
 {
    int32_t status = 0;
    size_t in_max_metadata_sz,out_max_metadata_sz = 0;
-
+   size_t inBufSize, inBufCount, outBufSize, outBufCount = 0;
    s->getMaxMetadataSz(&in_max_metadata_sz, &out_max_metadata_sz);
 
    /*
@@ -402,6 +407,12 @@ int SessionAgm::prepare(Stream * s)
     */
    in_buff_cfg.max_metadata_size = in_max_metadata_sz;
    out_buff_cfg.max_metadata_size = out_max_metadata_sz;
+
+   s->getBufInfo(&inBufSize, &inBufCount, &outBufSize, &outBufCount);
+   in_buff_cfg.size = inBufSize;
+   in_buff_cfg.count = inBufCount;
+   out_buff_cfg.size = outBufSize;
+   out_buff_cfg.count = outBufCount;
 
    status = agm_session_set_non_tunnel_mode_config(agmSessHandle, sess_config,
                                                    in_media_cfg, out_media_cfg,

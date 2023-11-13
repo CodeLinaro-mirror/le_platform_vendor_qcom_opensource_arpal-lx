@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "pal_client_wrapper"
@@ -45,6 +50,7 @@ using android::sp;
 bool pal_server_died = false;
 android::sp<IPAL> pal_client = NULL;
 sp<server_death_notifier> Server_death_notifier = NULL;
+size_t inBufSize, inBufCount, outBufSize, outBufCount = 0;
 
 std::mutex gLock;
 
@@ -433,11 +439,15 @@ int32_t pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
                                        in_buff_cfg->buf_count = in_buff_cfg_ret.buf_count;
                                        in_buff_cfg->buf_size = in_buff_cfg_ret.buf_size;
                                        in_buff_cfg->max_metadata_size =  in_buff_cfg_ret.max_metadata_size;
+                                       inBufCount = in_buff_cfg_ret.buf_count;
+                                       inBufSize = in_buff_cfg_ret.buf_size;
                                    }
                                    if (out_buff_cfg) {
                                        out_buff_cfg->buf_count = out_buff_cfg_ret.buf_count;
                                        out_buff_cfg->buf_size = out_buff_cfg_ret.buf_size;
                                        out_buff_cfg->max_metadata_size = out_buff_cfg_ret.max_metadata_size;
+                                       outBufCount = out_buff_cfg_ret.buf_count;
+                                       outBufSize = out_buff_cfg_ret.buf_size;
                                    }
                                 }
                                 ret = ret_;
@@ -522,7 +532,7 @@ ssize_t pal_stream_read(pal_stream_handle_t *stream_handle, struct pal_buffer *b
         }
         allocHidlHandle->data[0] = buf->alloc_info.alloc_handle;
         allocHidlHandle->data[1] = buf->alloc_info.alloc_handle;
-
+        buf->size = outBufSize;
         palBuff->size = buf->size;
         palBuff->offset = buf->offset;
         palBuff->metadataSz = buf->metadata_size;
@@ -583,8 +593,8 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle,
         if (pal_client == nullptr)
             return ret;
 
-        hidl_vec<PalParamPayload> paramPayload;
-        paramPayload.resize(sizeof(PalParamPayload));
+        hidl_vec<PalParamPayload> paramPayload(1);
+        //paramPayload.resize(sizeof(PalParamPayload));
         paramPayload.data()->payload.resize(param_payload->payload_size);
         paramPayload.data()->size = param_payload->payload_size;
         memcpy(paramPayload.data()->payload.data(), param_payload->payload,
