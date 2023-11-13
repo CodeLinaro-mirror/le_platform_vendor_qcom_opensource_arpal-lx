@@ -8,6 +8,8 @@ LOCAL_CFLAGS += -v
 LOCAL_SRC_FILES := \
     src/pal_server_wrapper.cpp
 
+LOCAL_VINTF_FRAGMENTS := vendor.qti.hardware.pal@1.0-impl.xml
+
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/inc
 
 LOCAL_SHARED_LIBRARIES := \

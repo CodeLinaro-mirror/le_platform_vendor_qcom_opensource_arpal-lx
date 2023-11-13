@@ -1,0 +1,14 @@
+<!-- Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.     -->
+<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                       -->
+
+<manifest version="1.0" type="device">
+    <hal format="hidl">
+        <name>vendor.qti.hardware.pal</name>
+        <transport>hwbinder</transport>
+        <version>1.0</version>
+        <interface>
+                <name>IPAL</name>
+                <instance>default</instance>
+        </interface>
+    </hal>
+</manifest>
