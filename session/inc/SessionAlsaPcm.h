@@ -94,7 +94,7 @@ public:
     int setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable) override;
     int getTimestamp(struct pal_session_time *stime) override;
     int registerCallBack(session_callback cb, uint64_t cookie) override;
-    int drain(pal_drain_type_t type) override;
+    int drain(pal_drain_type_t type __unused) override;
     int flush();
     int setupSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToConnect) override;

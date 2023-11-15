@@ -57,6 +57,7 @@ public:
    int32_t pause_l() override;
    int32_t resume() override;
    int32_t resume_l() override;
+   int32_t drain(pal_drain_type_t type __unused) override;
    int32_t flush();
    int32_t addRemoveEffect(pal_audio_effect_t effect, bool enable) override;
    int32_t read(struct pal_buffer *buf) override;
