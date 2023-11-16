@@ -196,6 +196,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -218,6 +219,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -246,6 +248,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_A2B_SPKR,             0},
     {PAL_DEVICE_OUT_A2B2_SPKR,            0},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        0},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -268,6 +271,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, 0},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -297,6 +301,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -320,6 +325,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -523,6 +529,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "none" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "none" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -546,6 +553,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
