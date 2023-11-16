@@ -500,6 +500,10 @@
                 <priority>1</priority>
                 <samplerate>96000</samplerate>
             </usecase>
+            <usecase>
+                <name>PAL_STREAM_LOOPBACK</name>
+                <priority>4</priority>
+            </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>

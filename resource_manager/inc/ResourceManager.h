@@ -896,7 +896,8 @@ public:
     int updatePriorityAttr(pal_device_id_t dev_id,
                            std::vector <std::tuple<Stream *, uint32_t>> activestreams,
                            struct pal_device *incomingDev,
-                           const pal_stream_attributes* currentStrAttr);
+                           const pal_stream_attributes* currentStrAttr,
+                           bool enable);
     bool compareAndUpdateDevAttr(const struct pal_device *Dev1Attr,
                                  const struct pal_device_info *Dev1Info,
                                  struct pal_device *Dev2Attr,
