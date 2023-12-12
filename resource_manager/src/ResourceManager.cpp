@@ -5485,11 +5485,9 @@ const std::vector<int> ResourceManager::allocateFrontEndExtEcIds()
     const int howMany = 1;
     int id = 0;
     std::vector<int>::iterator it;
-    mActiveStreamMutex.lock();
     if (howMany > listAllPcmExtEcTxFrontEnds.size()) {
         PAL_ERR(LOG_TAG, "allocateFrontEndExtEcIds: requested for %d external ec front ends, have only %zu error",
                         howMany, listAllPcmExtEcTxFrontEnds.size());
-        mActiveStreamMutex.unlock();
         return f;
     }
     id = (listAllPcmExtEcTxFrontEnds.size() - 1);
@@ -5501,7 +5499,6 @@ const std::vector<int> ResourceManager::allocateFrontEndExtEcIds()
         it -= 1;
         id -= 1;
     }
-    mActiveStreamMutex.unlock();
     return f;
 }
 
@@ -5524,7 +5521,6 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
     int id = 0;
     std::vector<int>::iterator it;
 
-    mActiveStreamMutex.lock();
     switch(sAttr.type) {
         case PAL_STREAM_NON_TUNNEL:
             if (howMany > listAllNonTunnelSessionIds.size()) {
@@ -5775,7 +5771,6 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
     }
 
 error:
-    mActiveStreamMutex.unlock();
     return f;
 }
 
