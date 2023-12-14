@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -147,6 +147,7 @@ protected :
     static int numberOfRequest;
     static struct pal_device_info vi_device;
     static struct pal_device_info cps_device;
+    bool is_vi_low;
 
 private :
 
