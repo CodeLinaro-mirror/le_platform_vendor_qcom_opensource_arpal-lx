@@ -1389,7 +1389,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             rm->updatePriorityAttr(newDeviceId,
                                    sharedBEStreamDev,
                                    &(newDevices[newDeviceSlots[i]]),
-                                   &strAttr);
+                                   &strAttr,
+                                   true);
             for (const auto &elem : sharedBEStreamDev) {
                 struct pal_stream_attributes sAttr;
                 Stream *sharedStream = std::get<0>(elem);
