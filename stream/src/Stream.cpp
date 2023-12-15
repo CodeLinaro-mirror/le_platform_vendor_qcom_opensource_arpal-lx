@@ -371,7 +371,9 @@ int32_t Stream::getEffectParameters(void *effect_query)
     }
     pal_param_payload *pal_param = (pal_param_payload *)effect_query;
     effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
+    mGetParamMutex.lock();
     status = session->getEffectParameters(this, effectPayload);
+    mGetParamMutex.unlock();
     if (status) {
        PAL_ERR(LOG_TAG, "getParameters failed with %d", status);
     }
@@ -836,9 +838,9 @@ int32_t Stream::getTimestamp(struct pal_session_time *stime)
         PAL_ERR(LOG_TAG, "Sound card offline, status %d", status);
         goto exit;
     }
-    rm->lockResourceManagerMutex();
+    mGetParamMutex.lock();
     status = session->getTimestamp(stime);
-    rm->unlockResourceManagerMutex();
+    mGetParamMutex.unlock();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Failed to get session timestamp status %d", status);
         if (errno == -ENETRESET &&
@@ -1775,23 +1777,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                 }
                 if (voice_call_switch) {
                     for (const auto &elem : sharedBEStreamDev) {
-                        struct pal_stream_attributes sAttr;
-                        Stream *strm = std::get<0>(elem);
-                        pal_device_id_t newDeviceId = newDevices[newDeviceSlots[i]].id;
-                        int status = strm->getStreamAttributes(&sAttr);
-
-                        if (status) {
-                            PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
-                            mStreamMutex.unlock();
-                            rm->unlockActiveStream();
-                            return status;
-                        }
-
-                        if (sAttr.type == PAL_STREAM_ULTRASOUND &&
-                             (newDeviceId != PAL_DEVICE_OUT_HANDSET && newDeviceId != PAL_DEVICE_OUT_SPEAKER)) {
-                            PAL_DBG(LOG_TAG, "Ultrasound stream running on speaker/handset. Not switching to device (%d)", newDeviceId);
+                        if (!rm->isValidDeviceSwitchForStream(std::get<0>(elem), newDevices[newDeviceSlots[i]].id))
                             continue;
-                        }
 
                         streamDevDisconnect.push_back(elem);
                         StreamDevConnect.push_back({std::get<0>(elem), &newDevices[newDeviceSlots[i]]});
