@@ -2889,16 +2889,23 @@ uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
     rc = mixer_ctl_set_array(ctl, payloadData, payloadSize);
     if (rc) {
          PAL_ERR(LOG_TAG, "mixer_ctl_set_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
          return rc;
     }
 
     rc = mixer_ctl_get_array(ctl, payloadData, payloadSize);
     if (rc) {
          PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
          return rc;
     }
 
     *latency = ((apm_path_defn_for_delay_t *)((uint8_t *)payloadData + sizeof(struct apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t)))->delay_us;
+    free(payloadData);
     return 0;
 }
 
