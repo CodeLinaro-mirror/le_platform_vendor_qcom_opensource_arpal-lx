@@ -497,7 +497,6 @@ protected:
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
-    static std::mutex mValidStreamMutex;
     static std::mutex mSleepMonitorMutex;
     static std::mutex mListFrontEndsMutex;
     static int snd_virt_card;
@@ -885,8 +884,6 @@ public:
     void unlockGraph() { mGraphMutex.unlock(); };
     void lockActiveStream() { mActiveStreamMutex.lock(); };
     void unlockActiveStream() { mActiveStreamMutex.unlock(); };
-    void lockValidStreamMutex() { mValidStreamMutex.lock(); };
-    void unlockValidStreamMutex() { mValidStreamMutex.unlock(); };
     void lockResourceManagerMutex() {mResourceManagerMutex.lock();};
     void unlockResourceManagerMutex() {mResourceManagerMutex.unlock();};
     void getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream *, uint32_t>> &activeStreamDevs,
