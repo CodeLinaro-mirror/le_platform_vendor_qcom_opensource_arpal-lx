@@ -87,6 +87,8 @@ LOCAL_SRC_FILES := \
     device/src/HandsetVaMic.cpp \
     device/src/DisplayPort.cpp \
     device/src/HeadsetVaMic.cpp \
+    device/src/HfpUplink.cpp \
+    device/src/HfpDownlink.cpp \
     device/src/RTProxy.cpp \
     device/src/SpeakerProtection.cpp \
     device/src/FMDevice.cpp \
