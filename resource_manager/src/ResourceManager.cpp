@@ -6732,6 +6732,8 @@ exit:
     PAL_DBG(LOG_TAG,"Exit, status %d", ret);
     if(value != NULL)
         free(value);
+    if(kv_pairs != NULL)
+        free(kv_pairs);
     return ret;
 }
 
