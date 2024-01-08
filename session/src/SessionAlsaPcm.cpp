@@ -1953,6 +1953,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             break;
         }
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             pal_effect_custom_payload_t *customPayload;
             pal_param_payload *param_payload = (pal_param_payload *)payload;

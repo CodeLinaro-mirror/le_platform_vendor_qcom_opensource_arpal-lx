@@ -8495,6 +8495,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             bool match = false;
             lockValidStreamMutex();
