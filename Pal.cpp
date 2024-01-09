@@ -297,7 +297,8 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
     s->getStreamDirection(&dir);
     notify_concurrent_stream(type, dir, true);
 exit:
-    PAL_INFO(LOG_TAG, "Exit. status %d", status);
+    PAL_INFO(LOG_TAG, "Exit. status %d type %d dir %d stream_handle %pK",
+            status, type, dir, stream_handle );
     return status;
 }
 
