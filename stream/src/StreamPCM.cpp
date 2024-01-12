@@ -154,6 +154,9 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
 
         if (isDeviceConfigUpdated)
             PAL_VERBOSE(LOG_TAG, "Device config updated");
+        if (dattr[i].id == PAL_DEVICE_IN_RECORD_PROXY) {
+            ResourceManager::setProxyRecordActive(true);
+        }
 
         /* Create only update device attributes first time so update here using set*/
         /* this will have issues if same device is being currently used by different stream */
@@ -274,7 +277,7 @@ int32_t  StreamPCM::open()
 exit:
     palStateEnqueue(this, PAL_STATE_OPENED, status);
     mStreamMutex.unlock();
-    PAL_DBG(LOG_TAG, "Exit ret %d", status)
+    PAL_DBG(LOG_TAG, "Exit ret %d", status);
     return status;
 }
 
@@ -342,6 +345,7 @@ int32_t  StreamPCM::close()
 StreamPCM::~StreamPCM()
 {
     cachedState = STREAM_IDLE;
+    ResourceManager::setProxyRecordActive(false);
 
     rm->resetStreamInstanceID(this);
     /* Stream mutex is not taken before calling stream specific API
@@ -832,6 +836,7 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
     int32_t status = 0;
     struct volume_set_param_info vol_set_param_info;
     uint8_t volSize = 0;
+    bool forceSetParameters = false;
 
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (!volume || (volume->no_of_volpair == 0)) {
@@ -858,7 +863,12 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
      * till the stream_start is not done or if sound card is offline.
      */
     ar_mem_cpy(mVolumeData, volSize, volume, volSize);
-    for (int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
+    for (int32_t i = 0; i < (mVolumeData->no_of_volpair); i++) {
+        if ((i > 0) &&
+            (abs(mVolumeData->volume_pair[0].vol -
+                mVolumeData->volume_pair[i].vol) > VOLUME_TOLERANCE)) {
+                forceSetParameters = true;
+        }
         PAL_INFO(LOG_TAG, "Volume payload mask:%x vol:%f",
                       (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
     }
@@ -875,7 +885,12 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
         bool isStreamAvail = (find(vol_set_param_info.streams_.begin(),
                     vol_set_param_info.streams_.end(), mStreamAttr->type) !=
                     vol_set_param_info.streams_.end());
-        if (isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) {
+        if (!forceSetParameters && mVolumeData->volume_pair[0].vol == 0.0f) {
+            //if the volume is 0, force settting parameters as well
+            status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
+            forceSetParameters = true;
+        }
+        if ((isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) || forceSetParameters) {
             uint8_t *volPayload = new uint8_t[sizeof(pal_param_payload) + volSize]();
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
@@ -883,9 +898,11 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
             status = session->setParameters(this, TAG_STREAM_VOLUME,
                     PAL_PARAM_ID_VOLUME_USING_SET_PARAM, (void *)pld);
             delete[] volPayload;
+            PAL_DBG(LOG_TAG, "set volume by parameter, status: %d", status);
         } else {
             status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
         }
+
         if (0 != status) {
             PAL_ERR(LOG_TAG, "session setConfig for VOLUME_TAG failed with status %d",
                     status);
@@ -1252,7 +1269,7 @@ int32_t StreamPCM::pause_l()
         if (0 != status) {
            PAL_ERR(LOG_TAG, "session setConfig for pause failed with status %d",
                     status);
-           goto exit;
+           return status;
         }
         if (session->isPauseRegistrationDone) {
             PAL_DBG(LOG_TAG, "Waiting for Pause to complete from ADSP");
@@ -1262,8 +1279,6 @@ int32_t StreamPCM::pause_l()
                     VOLUME_RAMP_PERIOD);
             usleep(VOLUME_RAMP_PERIOD);
         }
-        isPaused = true;
-        currentState = STREAM_PAUSED;
         palStateEnqueue(this, PAL_STATE_PAUSED, status);
         PAL_DBG(LOG_TAG, "session setConfig successful");
 
@@ -1338,6 +1353,8 @@ int32_t StreamPCM::pause_l()
         }
     }
 exit:
+    isPaused = true;
+    currentState = STREAM_PAUSED;
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     if (volume) {
          free(volume);

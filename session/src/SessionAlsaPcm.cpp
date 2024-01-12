@@ -88,7 +88,7 @@ int SessionAlsaPcm::prepare(Stream * s)
 {
     int status = 0;
     uint32_t channels = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     struct pal_device dAttr = {};
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::shared_ptr<Device> dev = nullptr;
@@ -140,7 +140,7 @@ exit:
 int SessionAlsaPcm::open(Stream * s)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     std::vector<std::shared_ptr<Device>> associatedDevices;
     int ldir = 0;
     std::vector<int> pcmId;
@@ -452,7 +452,7 @@ int32_t SessionAlsaPcm::getFrontEndId(uint32_t ldir)
 {
     int32_t status = 0;
     int32_t device = -EINVAL;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     if (!streamHandle) {
         PAL_ERR(LOG_TAG, "Session handle not found");
@@ -491,7 +491,7 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
 {
     int status = 0;
     int device = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     if (!streamHandle) {
         PAL_ERR(LOG_TAG, "Session handle not found");
@@ -588,7 +588,7 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
     std::ostringstream tagCntrlName;
     std::ostringstream calCntrlName;
     std::ostringstream beCntrlName;
-    pal_stream_attributes sAttr;
+    pal_stream_attributes sAttr = {};
     int tag_config_size = 0;
     int cal_config_size = 0;
 
@@ -778,7 +778,7 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
     struct mixer_ctl *ctl;
     std::ostringstream tagCntrlName;
     int tkv_size = 0;
-    pal_stream_attributes sAttr;
+    pal_stream_attributes sAttr = {};
 
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
@@ -950,6 +950,15 @@ int SessionAlsaPcm::start(Stream * s)
     if (status != 0) {
         PAL_ERR(LOG_TAG, "stream get attributes failed");
         goto exit;
+    }
+
+    /*
+     * For VoiceUI streams, multi streams may use same session
+     * to handle graph operation, always use valid stream handle
+     * to avoid crash if one VoiceUI stream is closed.
+     */
+    if (sAttr.type == PAL_STREAM_VOICE_UI && streamHandle != s) {
+        streamHandle = s;
     }
 
     if (mState == SESSION_IDLE) {
@@ -1248,7 +1257,7 @@ int SessionAlsaPcm::start(Stream * s)
                                                txAifBackEnds[0].second.data(), DEVICE_MFC, &miid);
                     if (status != 0) {
                         PAL_ERR(LOG_TAG,"getModuleInstanceId failed\n");
-                        goto set_mixer;
+                        goto configure_pspfmfc;
                     }
                     PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
                     status = s->getAssociatedDevices(associatedDevices);
@@ -1282,6 +1291,29 @@ int SessionAlsaPcm::start(Stream * s)
                                 goto set_mixer;
                             }
                         }
+                    }
+                }
+
+configure_pspfmfc:
+                status = s->getAssociatedDevices(associatedDevices);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                    goto set_mixer;
+                }
+                if (associatedDevices.size() < 1) {
+                    PAL_ERR(LOG_TAG,"no device present\n");
+                    goto set_mixer;
+                }
+                status = associatedDevices[0]->getDeviceAttributes(&dAttr);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+                    goto set_mixer;
+                }
+                if (dAttr.id == PAL_DEVICE_IN_PROXY || dAttr.id == PAL_DEVICE_IN_RECORD_PROXY) {
+                    status = configureMFC(rm, sAttr, dAttr, pcmDevIds,
+                    txAifBackEnds[0].second.data());
+                    if(status != 0) {
+                         PAL_ERR(LOG_TAG, "configure MFC failed");
                     }
                 }
 
@@ -1869,7 +1901,7 @@ exit:
 int SessionAlsaPcm::stop(Stream * s)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     struct agm_event_reg_cfg event_cfg;
     int payload_size = 0;
     int tagId;
@@ -2043,7 +2075,7 @@ exit:
 int SessionAlsaPcm::close(Stream * s)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     std::string backendname;
     int32_t beDevId = 0;
     std::vector<std::shared_ptr<Device>> associatedDevices;
@@ -2260,7 +2292,7 @@ int SessionAlsaPcm::disconnectSessionDevice(Stream *streamHandle,
         pal_stream_type_t streamType, std::shared_ptr<Device> deviceToDisconnect)
 {
     std::vector<std::shared_ptr<Device>> deviceList;
-    struct pal_device dAttr;
+    struct pal_device dAttr = {};
     std::vector<std::pair<int32_t, std::string>> rxAifBackEndsToDisconnect;
     std::vector<std::pair<int32_t, std::string>> txAifBackEndsToDisconnect;
     int32_t status = 0;
@@ -2335,7 +2367,7 @@ int SessionAlsaPcm::setupSessionDevice(Stream* streamHandle, pal_stream_type_t s
         std::shared_ptr<Device> deviceToConnect)
 {
     std::vector<std::shared_ptr<Device>> deviceList;
-    struct pal_device dAttr;
+    struct pal_device dAttr = {};
     std::vector<std::pair<int32_t, std::string>> rxAifBackEndsToConnect;
     std::vector<std::pair<int32_t, std::string>> txAifBackEndsToConnect;
     int32_t status = 0;
@@ -2360,7 +2392,7 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
         std::shared_ptr<Device> deviceToConnect)
 {
     std::vector<std::shared_ptr<Device>> deviceList;
-    struct pal_device dAttr;
+    struct pal_device dAttr = {};
     std::vector<std::pair<int32_t, std::string>> rxAifBackEndsToConnect;
     std::vector<std::pair<int32_t, std::string>> txAifBackEndsToConnect;
     int32_t status = 0;
@@ -2433,7 +2465,7 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
 int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, int * size)
 {
     int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     PAL_VERBOSE(LOG_TAG, "Enter")
     status = s->getStreamAttributes(&sAttr);
@@ -2484,7 +2516,7 @@ int SessionAlsaPcm::write(Stream *s, int tag, struct pal_buffer *buf, int * size
 {
     int status = 0;
     size_t bytesWritten = 0, bytesRemaining = 0, offset = 0, sizeWritten = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     PAL_VERBOSE(LOG_TAG, "Enter buf:%p tag:%d flag:%d", buf, tag, flag);
 
@@ -2609,7 +2641,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
     size_t paramSize = 0;
     uint32_t miid = 0;
     effect_pal_payload_t *effectPalPayload = nullptr;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     PAL_DBG(LOG_TAG, "Enter. param id: %d", param_id);
     if (pcmDevIds.size() > 0)
@@ -2770,7 +2802,12 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 goto exit;
             }
 
-            builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            if (vdata->no_of_volpair > 1 && sAttr.out_media_config.ch_info.channels > 1) {
+                builder->payloadMultichVolumemConfig(&paramData, &paramSize, miid, vdata);
+            } else {
+                builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            }
+
             if (paramSize) {
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
@@ -3434,7 +3471,7 @@ bool SessionAlsaPcm::isActive()
 int SessionAlsaPcm::getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     int DeviceId;
 
     PAL_DBG(LOG_TAG, "Enter");
@@ -3500,7 +3537,7 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
     const char *step = "enter";
     uint32_t buffer_size;
     struct pcm_config config;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     int32_t status = 0;
     unsigned int pcm_flags = 0;
     const char *control = "getBufInfo";
@@ -3710,7 +3747,7 @@ void SessionAlsaPcm::retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struc
  int SessionAlsaPcm::GetMmapPosition(Stream *s, struct pal_mmap_position *position)
  {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     struct timespec ts = { 0, 0 };
 
     PAL_DBG(LOG_TAG, "enter");
@@ -3751,7 +3788,7 @@ void SessionAlsaPcm::retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struc
 
 int SessionAlsaPcm::ResetMmapBuffer(Stream *s) {
     int status = 0;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
@@ -3779,7 +3816,7 @@ int SessionAlsaPcm::ResetMmapBuffer(Stream *s) {
 int SessionAlsaPcm::openGraph(Stream *s) {
     int status = 0;
     struct pcm_config config;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     std::vector<std::shared_ptr<Device>> associatedDevices;
 
     PAL_DBG(LOG_TAG, "Enter");
@@ -3850,7 +3887,7 @@ exit:
 int32_t SessionAlsaPcm::configureInCallRxMFC(){
     std::vector <std::shared_ptr<Device>> devices;
     std::shared_ptr<Device> rxDev= nullptr;
-    struct pal_device dattr;
+    struct pal_device dattr = {};
     sessionToPayloadParam deviceData;
     typename std::vector<std::shared_ptr<Device>>::iterator iter;
     int32_t status = 0;

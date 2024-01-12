@@ -152,6 +152,9 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
 
         if (isDeviceConfigUpdated)
             PAL_VERBOSE(LOG_TAG, "Device config updated");
+        if (dattr[i].id == PAL_DEVICE_IN_RECORD_PROXY) {
+            ResourceManager::setProxyRecordActive(true);
+        }
 
         mDevices.push_back(dev);
         dev = nullptr;
@@ -273,6 +276,7 @@ StreamCompress::~StreamCompress()
 {
     rm->resetStreamInstanceID(this);
     rm->deregisterStream(this);
+    ResourceManager::setProxyRecordActive(false);
 
     /* remove the device-stream attribute entry for the stopped stream */
     for (int32_t i=0; i < mPalDevices.size(); i++)
@@ -781,6 +785,7 @@ int32_t StreamCompress::setVolume(struct pal_volume_data *volume)
     int32_t status = 0;
     struct volume_set_param_info vol_set_param_info;
     uint8_t volSize = 0;
+    bool forceSetParameters = false;
 
     PAL_DBG(LOG_TAG, "Enter, session handle - %p", session);
     if (!volume || (volume->no_of_volpair == 0)) {
@@ -809,6 +814,11 @@ int32_t StreamCompress::setVolume(struct pal_volume_data *volume)
      */
     ar_mem_cpy(mVolumeData, volSize, volume, volSize);
     for (int32_t i = 0; i < (mVolumeData->no_of_volpair); i++) {
+        if ((i > 0) &&
+            (abs(mVolumeData->volume_pair[0].vol -
+                mVolumeData->volume_pair[i].vol) > VOLUME_TOLERANCE)) {
+                forceSetParameters = true;
+        }
         PAL_VERBOSE(LOG_TAG, "Volume payload mask:%x vol:%f",
                (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
     }
@@ -825,7 +835,12 @@ int32_t StreamCompress::setVolume(struct pal_volume_data *volume)
         bool isStreamAvail = (find(vol_set_param_info.streams_.begin(),
                     vol_set_param_info.streams_.end(), mStreamAttr->type) !=
                     vol_set_param_info.streams_.end());
-        if (isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) {
+        if (!forceSetParameters && mVolumeData->volume_pair[0].vol == 0.0f) {
+            //if the volume is 0, force settting parameters as well
+            status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
+            forceSetParameters = true;
+        }
+        if ((isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) || forceSetParameters) {
             uint8_t *volPayload = new uint8_t[sizeof(pal_param_payload) + volSize]();
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
@@ -833,9 +848,11 @@ int32_t StreamCompress::setVolume(struct pal_volume_data *volume)
             status = session->setParameters(this, TAG_STREAM_VOLUME,
                     PAL_PARAM_ID_VOLUME_USING_SET_PARAM, (void *)pld);
             delete[] volPayload;
+            PAL_DBG(LOG_TAG, "set volume by parameter, status: %d", status);
         } else {
             status = session->setConfig(this, CALIBRATION, TAG_STREAM_VOLUME);
         }
+
         if (0 != status) {
            PAL_ERR(LOG_TAG, "session setConfig for VOLUME_TAG failed with status %d", status);
            goto exit;
@@ -919,7 +936,7 @@ int32_t StreamCompress::pause_l()
         status = session->setConfig(this, MODULE, PAUSE_TAG);
         if (0 != status) {
             PAL_ERR(LOG_TAG,"session setConfig for pause failed with status %d",status);
-            goto exit;
+            return status;
         }
         if (session->isPauseRegistrationDone) {
             PAL_DBG(LOG_TAG, "Waiting for Pause to complete from ADSP");
@@ -929,8 +946,6 @@ int32_t StreamCompress::pause_l()
                     VOLUME_RAMP_PERIOD);
             usleep(VOLUME_RAMP_PERIOD);
         }
-        isPaused = true;
-        currentState = STREAM_PAUSED;
         PAL_VERBOSE(LOG_TAG,"session pause successful, state %d", currentState);
 
         //caching the volume before setting it to 0
@@ -1005,6 +1020,8 @@ int32_t StreamCompress::pause_l()
     }
 
 exit:
+    isPaused = true;
+    currentState = STREAM_PAUSED;
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     palStateEnqueue(this, PAL_STATE_PAUSED, status);
     if (volume) {

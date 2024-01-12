@@ -72,6 +72,7 @@ typedef enum {
 #define MAX_SND_CARD 10
 #define DUMMY_SND_CARD MAX_SND_CARD
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
+#define VOLUME_TOLERANCE 0.000001
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO "audio.nat.codec.enabled"
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
 #define AUDIO_PARAMETER_KEY_MAX_SESSIONS "max_sessions"
@@ -493,8 +494,8 @@ private:
     std::shared_ptr<Device> clearInternalECRefCounts(Stream *tx_str,
                         std::shared_ptr<Device> tx_dev);
     static bool isBitWidthSupported(uint32_t bitWidth);
-    uint32_t getNTPathForStreamAttr(const pal_stream_attributes attr);
-    ssize_t getAvailableNTStreamInstance(const pal_stream_attributes attr);
+    uint32_t getNTPathForStreamAttr(const pal_stream_attributes &attr);
+    ssize_t getAvailableNTStreamInstance(const pal_stream_attributes &attr);
     int getECEnableSetting(std::shared_ptr<Device> tx_dev, Stream * streamHandle, bool *ec_enable);
     int checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_dev, Stream *tx_stream, bool ec_enable);
     int checkandEnableECForRXStream_l(std::shared_ptr<Device> rx_dev, Stream *rx_stream, bool ec_enable);
@@ -542,6 +543,7 @@ protected:
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
+    static std::mutex mValidStreamMutex;
     static std::mutex mSleepMonitorMutex;
     static std::mutex mListFrontEndsMutex;
     static int snd_virt_card;
@@ -652,6 +654,7 @@ public:
     static bool isXPANEnabled;
     static bool isCRSCallEnabled;
     static bool isDummyDevEnabled;
+    static bool isProxyRecordActive;
     static std::mutex mChargerBoostMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
@@ -839,12 +842,12 @@ public:
     int getDevicePpTag(std::vector <int> &tag);
     int getDeviceDirection(uint32_t beDevId);
     void getSpViChannelMapCfg(int32_t *channelMap, uint32_t numOfChannels);
-    const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes,
+    const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes &,
                                                 int lDirection);
     const std::vector<int> allocateFrontEndExtEcIds ();
     void freeFrontEndEcTxIds (const std::vector<int> f);
     void freeFrontEndIds (const std::vector<int> f,
-                          const struct pal_stream_attributes,
+                          const struct pal_stream_attributes &,
                           int lDirection);
     const std::vector<std::string> getBackEndNames(const std::vector<std::shared_ptr<Device>> &deviceList) const;
     void getSharedBEDevices(std::vector<std::shared_ptr<Device>> &deviceList, std::shared_ptr<Device> inDevice) const;
@@ -1008,6 +1011,8 @@ public:
     void unlockGraph() { mGraphMutex.unlock(); };
     void lockActiveStream() { mActiveStreamMutex.lock(); };
     void unlockActiveStream() { mActiveStreamMutex.unlock(); };
+    void lockValidStreamMutex() { mValidStreamMutex.lock(); };
+    void unlockValidStreamMutex() { mValidStreamMutex.unlock(); };
     void lockResourceManagerMutex() {mResourceManagerMutex.lock();};
     void unlockResourceManagerMutex() {mResourceManagerMutex.unlock();};
     void getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream *, uint32_t>> &activeStreamDevs,
@@ -1066,6 +1071,7 @@ public:
     int32_t reconfigureInCallMusicStream(struct sessionToPayloadParam deviceData);
     int32_t resumeInCallMusic();
     int32_t pauseInCallMusic();
+    static void setProxyRecordActive(bool isActive);
 };
 
 #endif

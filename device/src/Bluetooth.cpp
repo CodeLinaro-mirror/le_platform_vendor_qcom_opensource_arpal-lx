@@ -43,13 +43,17 @@
 #include "kvh2xml.h"
 #include <dlfcn.h>
 #include <unistd.h>
+#ifndef PAL_CUTILS_UNSUPPORTED
 #include <cutils/properties.h>
+#endif
 #include <sstream>
 #include <string>
 #include <regex>
+#include <system/audio.h>
 
 #define PARAM_ID_RESET_PLACEHOLDER_MODULE 0x08001173
 #define BT_IPC_SOURCE_LIB                 "btaudio_offload_if.so"
+#define BT_IPC_SOURCE_LIB2_NAME           "libbthost_if.so"
 #define BT_IPC_SINK_LIB                   "libbthost_if_sink.so"
 #define MIXER_SET_FEEDBACK_CHANNEL        "BT set feedback channel"
 #define MIXER_SET_CODEC_TYPE              "BT codec type"
@@ -289,11 +293,13 @@ int Bluetooth::configureCOPModule(int32_t pcmId, const char *backendName, uint32
             break;
 
         // PARAM_ID_COP_PACKETIZER_OUTPUT_MEDIA_FORMAT
-        builder->payloadCopPackConfig(&paramData, &paramSize, miid, &deviceAttr.config);
-        if (isFbPayload)
+        if (isFbPayload) {
+            builder->payloadCopPackConfig(&paramData, &paramSize, miid, &fbDev->deviceAttr.config);
             status = fbDev->checkAndUpdateCustomPayload(&paramData, &paramSize);
-        else
+        } else {
+            builder->payloadCopPackConfig(&paramData, &paramSize, miid, &deviceAttr.config);
             status = this->checkAndUpdateCustomPayload(&paramData, &paramSize);
+        }
         if (status) {
             PAL_ERR(LOG_TAG, "Invalid COP module param size");
             goto done;
@@ -334,11 +340,13 @@ int Bluetooth::configureRATModule(int32_t pcmId, const char *backendName, uint32
         status = 0;
         goto done;
     } else {
-        builder->payloadRATConfig(&paramData, &paramSize, miid, &codecConfig);
-        if (isFbPayload)
+        if (isFbPayload) {
+            builder->payloadRATConfig(&paramData, &paramSize, miid, &fbDev->codecConfig);
             status = fbDev->checkAndUpdateCustomPayload(&paramData, &paramSize);
-        else
+        } else {
+            builder->payloadRATConfig(&paramData, &paramSize, miid, &codecConfig);
             status = this->checkAndUpdateCustomPayload(&paramData, &paramSize);
+        }
         if (status) {
             PAL_ERR(LOG_TAG, "Invalid RAT module param size");
             goto done;
@@ -374,11 +382,13 @@ int Bluetooth::configurePCMConverterModule(int32_t pcmId, const char *backendNam
         goto done;
     }
 
-    builder->payloadPcmCnvConfig(&paramData, &paramSize, miid, &codecConfig, isRx);
-    if (isFbPayload)
+    if (isFbPayload) {
+        builder->payloadPcmCnvConfig(&paramData, &paramSize, miid, &fbDev->codecConfig, isRx);
         status = fbDev->checkAndUpdateCustomPayload(&paramData, &paramSize);
-    else
+    } else {
+        builder->payloadPcmCnvConfig(&paramData, &paramSize, miid, &codecConfig, isRx);
         status = this->checkAndUpdateCustomPayload(&paramData, &paramSize);
+    }
     if (status) {
         PAL_ERR(LOG_TAG, "Invalid PCM CNV module param size");
         goto done;
@@ -830,6 +840,9 @@ void Bluetooth::startAbr()
         goto start_pcm;
     }
 
+    /* update device attributes to reflect proper device configuration */
+    fbDev->deviceAttr.config = fbDevice.config;
+
     switch (fbDevice.id) {
     case PAL_DEVICE_OUT_BLUETOOTH_SCO:
     case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
@@ -1180,15 +1193,19 @@ BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     param_bt_a2dp.a2dp_suspended = false;
     param_bt_a2dp.a2dp_capture_suspended = false;
     param_bt_a2dp.is_force_switch = false;
+#ifndef PAL_CUTILS_UNSUPPORTED
     isA2dpOffloadSupported =
             property_get_bool("ro.bluetooth.a2dp_offload.supported", false) &&
             !property_get_bool("persist.bluetooth.a2dp_offload.disabled", false);
-
+#else
+   isA2dpOffloadSupported =true;
+#endif
     PAL_DBG(LOG_TAG, "A2DP offload supported = %d",
             isA2dpOffloadSupported);
     param_bt_a2dp.reconfig_supported = isA2dpOffloadSupported;
     param_bt_a2dp.latency = 0;
     a2dpLatencyMode = AUDIO_LATENCY_MODE_FREE;
+    support_bt_audio_pre_init = true;
 }
 
 BtA2dp::~BtA2dp()
@@ -1284,11 +1301,18 @@ void BtA2dp::init_a2dp_source()
         bt_lib_source_handle = dlopen(BT_IPC_SOURCE_LIB, RTLD_NOW);
         if (bt_lib_source_handle == nullptr) {
             PAL_ERR(LOG_TAG, "dlopen failed for %s", BT_IPC_SOURCE_LIB);
-            return;
+            PAL_ERR(LOG_TAG, "Falling back to %s since LE uses non-hidl based", BT_IPC_SOURCE_LIB2_NAME);
+            bt_lib_source_handle = dlopen(BT_IPC_SOURCE_LIB2_NAME, RTLD_NOW);
+            support_bt_audio_pre_init = false;
+            if (bt_lib_source_handle == nullptr) {
+                PAL_ERR(LOG_TAG, "dlopen failed for %s", BT_IPC_SOURCE_LIB2_NAME);
+                return;
+            }
         }
     }
-    bt_audio_pre_init = (bt_audio_pre_init_t)
-                  dlsym(bt_lib_source_handle, "bt_audio_pre_init");
+    if (support_bt_audio_pre_init)
+        bt_audio_pre_init = (bt_audio_pre_init_t)
+                      dlsym(bt_lib_source_handle, "bt_audio_pre_init");
     audio_source_open_api = (audio_source_open_api_t)
                   dlsym(bt_lib_source_handle, "audio_stream_open_api");
     audio_source_start_api = (audio_source_start_api_t)
@@ -1560,7 +1584,6 @@ int BtA2dp::stop()
 int BtA2dp::startPlayback()
 {
     int ret = 0;
-    uint32_t slatency = 0;
     uint8_t multi_cast = 0, num_dev = 1;
 
     PAL_DBG(LOG_TAG, "a2dp_start_playback start");
@@ -1648,17 +1671,8 @@ int BtA2dp::startPlayback()
             }
         }
 
-        /* Query and cache the a2dp latency */
-        if (audio_sink_get_a2dp_latency_api && (a2dpState != A2DP_STATE_DISCONNECTED)) {
-            slatency = audio_sink_get_a2dp_latency_api(get_session_type());
-        } else if (audio_sink_get_a2dp_latency && (a2dpState != A2DP_STATE_DISCONNECTED)) {
-            slatency = audio_sink_get_a2dp_latency();
-        }
         if (pluginCodec) {
-            param_bt_a2dp.latency =
-                pluginCodec->plugin_get_codec_latency(pluginCodec, slatency);
-        } else {
-            param_bt_a2dp.latency = 0;
+            codecLatency = pluginCodec->plugin_get_codec_latency(pluginCodec);
         }
 
         a2dpState = A2DP_STATE_STARTED;
@@ -1926,6 +1940,7 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
 {
     int32_t status = 0;
     pal_param_bta2dp_t* param_a2dp = (pal_param_bta2dp_t *)param;
+    bool skip_switch = false;
 
     if (isA2dpOffloadSupported == false) {
        PAL_VERBOSE(LOG_TAG, "no supported encoders identified,ignoring a2dp setparam");
@@ -2015,10 +2030,16 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                     goto exit;
                 }
             }
-            if (ResourceManager::isDummyDevEnabled) {
-                status = rm->a2dpResumeFromDummy(param_a2dp->dev_id);
-            } else {
-                status = rm->a2dpResume(param_a2dp->dev_id);
+
+            if (param_a2dp->is_suspend_setparam && param_a2dp->is_in_call)
+                skip_switch = true;
+
+            if (!skip_switch) {
+                if (ResourceManager::isDummyDevEnabled) {
+                    status = rm->a2dpResumeFromDummy(param_a2dp->dev_id);
+                } else {
+                    status = rm->a2dpResume(param_a2dp->dev_id);
+                }
             }
         }
         break;
@@ -2112,10 +2133,16 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                     goto exit;
                 }
             }
-            if (ResourceManager::isDummyDevEnabled) {
-                rm->a2dpCaptureResumeFromDummy(param_a2dp->dev_id);
-            } else {
-                rm->a2dpCaptureResume(param_a2dp->dev_id);
+
+            if (param_a2dp->is_suspend_setparam && param_a2dp->is_in_call)
+                skip_switch = true;
+
+            if (!skip_switch) {
+                if (ResourceManager::isDummyDevEnabled) {
+                    rm->a2dpCaptureResumeFromDummy(param_a2dp->dev_id);
+                } else {
+                    rm->a2dpCaptureResume(param_a2dp->dev_id);
+                }
             }
         }
         break;
@@ -2158,6 +2185,61 @@ exit:
     return status;
 }
 
+uint32_t BtA2dp::getLatency(uint32_t slatency)
+{
+    uint32_t latency = codecLatency;
+
+    switch (codecType) {
+    case ENC:
+        switch (codecFormat) {
+        case CODEC_TYPE_SBC:
+            latency += (slatency == 0) ? DEFAULT_SINK_LATENCY_SBC : slatency;
+            break;
+        case CODEC_TYPE_AAC:
+            latency += (slatency == 0) ? DEFAULT_SINK_LATENCY_AAC : slatency;
+            break;
+        case CODEC_TYPE_LDAC:
+            latency += (slatency == 0) ? DEFAULT_SINK_LATENCY_LDAC : slatency;
+            break;
+        case CODEC_TYPE_APTX:
+            latency += (slatency == 0) ? DEFAULT_SINK_LATENCY_APTX : slatency;
+            break;
+        case CODEC_TYPE_APTX_HD:
+            latency += (slatency == 0) ? DEFAULT_SINK_LATENCY_APTX_HD : slatency;
+            break;
+        case CODEC_TYPE_APTX_AD:
+        case CODEC_TYPE_LC3:
+        case CODEC_TYPE_APTX_AD_QLEA:
+        case CODEC_TYPE_APTX_AD_R4:
+            latency += slatency;
+            break;
+        default:
+            latency = DEFAULT_SINK_LATENCY;
+            break;
+        }
+        break;
+    case DEC:
+        switch (codecFormat) {
+        case CODEC_TYPE_SBC:
+            latency = DEFAULT_SINK_LATENCY_SBC;
+            break;
+        case CODEC_TYPE_AAC:
+            latency = DEFAULT_SINK_LATENCY_AAC;
+            break;
+        case CODEC_TYPE_LC3:
+            latency = slatency;
+            break;
+        default:
+            latency = DEFAULT_SINK_LATENCY;
+            break;
+        }
+        break;
+    default:
+        break;
+    }
+    return latency;
+}
+
 int32_t BtA2dp::getDeviceParameter(uint32_t param_id, void **param)
 {
     switch (param_id) {
@@ -2165,10 +2247,24 @@ int32_t BtA2dp::getDeviceParameter(uint32_t param_id, void **param)
     case PAL_PARAM_ID_BT_A2DP_RECONFIG_SUPPORTED:
     case PAL_PARAM_ID_BT_A2DP_SUSPENDED:
     case PAL_PARAM_ID_BT_A2DP_CAPTURE_SUSPENDED:
-    case PAL_PARAM_ID_BT_A2DP_DECODER_LATENCY:
-    case PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY:
         *param = &param_bt_a2dp;
         break;
+    case PAL_PARAM_ID_BT_A2DP_DECODER_LATENCY:
+    case PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY:
+    {
+        uint32_t slatency = 0;
+
+        if (a2dpState == A2DP_STATE_STARTED && totalActiveSessionRequests) {
+            if (audio_sink_get_a2dp_latency_api) {
+                slatency = audio_sink_get_a2dp_latency_api(get_session_type());
+            } else if (audio_sink_get_a2dp_latency) {
+                slatency = audio_sink_get_a2dp_latency();
+            }
+            param_bt_a2dp.latency = getLatency(slatency);
+        }
+        *param = &param_bt_a2dp;
+        break;
+    }
     case PAL_PARAM_ID_BT_A2DP_FORCE_SWITCH:
     {
         if (param_bt_a2dp.reconfig ||

@@ -569,7 +569,7 @@ int Session::rwACDBParamTunnel(void *payload, pal_device_id_t palDeviceId,
                         uint32_t instanceId, bool isParamWrite, Stream * s)
 {
     int status = -EINVAL;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     PAL_DBG(LOG_TAG, "Enter");
     status = s->getStreamAttributes(&sAttr);
@@ -654,8 +654,8 @@ int Session::handleDeviceRotation(Stream *s, pal_speaker_rotation_type rotation_
         std::vector<std::pair<int32_t, std::string>> rxAifBackEnds)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr;
-    struct pal_device dAttr;
+    struct pal_stream_attributes sAttr = {};
+    struct pal_device dAttr = {};
     uint32_t miid = 0;
     uint8_t* alsaParamData = NULL;
     size_t alsaPayloadSize = 0;
@@ -1004,13 +1004,13 @@ int Session::checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
                               Stream *s, bool is_enable)
 {
     struct pcm_config config;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     int32_t status = 0;
     std::shared_ptr<Device> dev = nullptr;
     std::vector <std::shared_ptr<Device>> extEcTxDeviceList;
     int32_t extEcbackendId;
     std::vector <std::string> extEcbackendNames;
-    struct pal_device device;
+    struct pal_device device = {};
 
     PAL_DBG(LOG_TAG, "Enter.");
 
@@ -1210,6 +1210,7 @@ int32_t Session::setInitialVolume() {
     bool isStreamAvail = false;
     struct pal_vol_ctrl_ramp_param ramp_param = {};
     Session *session = NULL;
+    bool forceSetParameters = false;
 
     PAL_DBG(LOG_TAG, "Enter status: %d", status);
 
@@ -1223,12 +1224,22 @@ int32_t Session::setInitialVolume() {
         goto exit;
     }
 
+    for (int32_t i = 0; streamHandle->mVolumeData &&
+        i < (streamHandle->mVolumeData->no_of_volpair); i++) {
+        if((i > 0) &&
+            (abs(streamHandle->mVolumeData->volume_pair[0].vol -
+                streamHandle->mVolumeData->volume_pair[i].vol) > VOLUME_TOLERANCE)) {
+                forceSetParameters = true;
+                break;
+        }
+    }
+
     memset(&vol_set_param_info, 0, sizeof(struct volume_set_param_info));
     rm->getVolumeSetParamInfo(&vol_set_param_info);
     isStreamAvail = (find(vol_set_param_info.streams_.begin(),
                 vol_set_param_info.streams_.end(), sAttr.type) !=
                 vol_set_param_info.streams_.end());
-    if (isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) {
+    if ((isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) || forceSetParameters) {
         if (sAttr.direction == PAL_AUDIO_OUTPUT) {
            /* DSP default volume is highest value, non-0 rampping period
             * brings volume burst from highest amplitude to new volume
