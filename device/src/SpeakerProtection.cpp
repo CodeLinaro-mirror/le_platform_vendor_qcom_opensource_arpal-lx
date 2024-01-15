@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -115,6 +115,8 @@
 
 #define CALIBRATION_STATUS_SUCCESS 4
 #define CALIBRATION_STATUS_FAILURE 5
+#define CALIBRATION_STATUS_IVLOW 6
+#define MAX_RETRY 2
 
 std::thread SpeakerProtection::mCalThread;
 std::condition_variable SpeakerProtection::cv;
@@ -249,6 +251,13 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
             // Restart the calibration and abort current run.
             mDspCallbackRcvd = true;
             calibrationCallbackStatus = CALIBRATION_STATUS_FAILURE;
+            cv.notify_all();
+        }
+        else if (param_data->state == CALIBRATION_STATUS_IVLOW) {
+            PAL_DBG(LOG_TAG, "Calibration is unsuccessfull, VI LOW Case");
+            // Restart the calibration and abort current run.
+            mDspCallbackRcvd = true;
+            calibrationCallbackStatus = CALIBRATION_STATUS_IVLOW;
             cv.notify_all();
         }
         break;
@@ -976,6 +985,13 @@ int SpeakerProtection::spkrStartCalibration()
             // reset the timer for retry
             clock_gettime(CLOCK_BOOTTIME, &spkrLastTimeUsed);
         }
+        else if (calibrationCallbackStatus == CALIBRATION_STATUS_IVLOW) {
+            PAL_DBG(LOG_TAG, "Calibration is not done");
+            spkrCalState = SPKR_NOT_CALIBRATED;
+            is_vi_low = true;
+            // reset the timer for retry
+            clock_gettime(CLOCK_BOOTTIME, &spkrLastTimeUsed);
+        }
     }
 
 err_pcm_open :
@@ -1075,6 +1091,7 @@ void SpeakerProtection::spkrCalibrationThread()
     unsigned long sec = 0;
     bool proceed = false;
     int i;
+    int retryCount = 0;
 
     while (!threadExit) {
         PAL_DBG(LOG_TAG, "Inside calibration while loop");
@@ -1151,6 +1168,18 @@ void SpeakerProtection::spkrCalibrationThread()
             if (spkrCalState == SPKR_CALIBRATED) {
                 threadExit = true;
             }
+            else if (spkrCalState == SPKR_NOT_CALIBRATED && is_vi_low) {
+                if (retryCount <= MAX_RETRY) {
+                    retryCount ++;
+                    is_vi_low = false;
+                    PAL_DBG(LOG_TAG, "Calibration failed retrying");
+                    continue;
+                 }
+                 else {
+                     threadExit = true;
+                     PAL_ERR(LOG_TAG, "Calibration failed Exiting Thread");
+                 }
+            }
         }
         else {
             continue;
@@ -1158,7 +1187,7 @@ void SpeakerProtection::spkrCalibrationThread()
     }
     isDynamicCalTriggered = false;
     calThrdCreated = false;
-    PAL_DBG(LOG_TAG, "Calibration done, exiting the thread");
+    PAL_DBG(LOG_TAG, "Calibration %s, exiting the thread", spkrCalState ? "Success" : "Failed");
 }
 
 SpeakerProtection::SpeakerProtection(struct pal_device *device,
@@ -1183,6 +1212,7 @@ SpeakerProtection::SpeakerProtection(struct pal_device *device,
 
     threadExit = false;
     calThrdCreated = false;
+    is_vi_low = false;
 
     triggerCal = false;
     spkrCalState = SPKR_NOT_CALIBRATED;
@@ -2369,6 +2399,7 @@ int SpeakerProtection::speakerProtectionDynamicCal()
     }
 
     threadExit = false;
+    is_vi_low = false;
     spkrCalState = SPKR_NOT_CALIBRATED;
 
     calibrationCallbackStatus = 0;
