@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1252,6 +1252,16 @@ int SessionAlsaCompress::configureEarlyEOSDelay(void)
 
 update_early_eos_delay:
     early_eos_delay->early_eos_delay_ms = EARLY_EOS_DELAY_MS + bt_latency;
+
+    /* NOTE:
+     * Below check is to avoid early_eos_delay_ms from crossing the max
+     * limit set in DSP.
+     * For playback usecase if HLOS delay between Early EOS event and next write()
+     * is greater than EARLY_EOS_DELAY_MS_MAX, Gapless playback will not work.
+     */
+
+    if (early_eos_delay->early_eos_delay_ms > EARLY_EOS_DELAY_MS_MAX)
+        early_eos_delay->early_eos_delay_ms = EARLY_EOS_DELAY_MS_MAX;
 
     status = builder->payloadCustomParam(&payload, &payloadSize,
                                         (uint32_t *)early_eos_delay,
