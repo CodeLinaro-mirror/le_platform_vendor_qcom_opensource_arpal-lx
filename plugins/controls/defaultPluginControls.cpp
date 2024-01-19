@@ -59,6 +59,7 @@
 
 #define RXDIR 0
 #define TXDIR 1
+#define HFP_VOLUME_DB_LINEAR_STEP (-3.0f)
 
 /**
 * Following are the default latencies
@@ -100,6 +101,7 @@
 #define COMPRESS_OFFLOAD_FRAGMENT_SIZE (32 * 1024)
 #define FLAC_COMPRESS_OFFLOAD_FRAGMENT_SIZE (256 * 1024)
 #define PCM_OFFLOAD_OUTPUT_PERIOD_DURATION 80
+#define DEEP_BUFFER_OUTPUT_PERIOD_DURATION 40
 #define MIN_PCM_FRAGMENT_SIZE 512
 #define MAX_PCM_FRAGMENT_SIZE (240 * 1024)
 
@@ -374,118 +376,24 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         goto exit;
     }
 
-    if ((sAttr.info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_HFP_RX) ||
-        (sAttr.info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_HFP_TX)) { 
-        if (voldB == 15.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
-        }
-        else if (voldB == 14.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
-        }
-        else if (voldB == 13.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
-
-        }
-        else if (voldB == 12.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
-        }
-        else if (voldB == 11.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
-        }
-        else if (voldB == 10.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
-        }
-        else if (voldB == 9.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
-        }
-        else if (voldB == 8.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
-        }
-        else if (voldB == 7.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
-        }
-        else if (voldB == 6.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
-        }
-        else if (voldB == 5.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
-        }
-        else if (voldB == 4.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
-        }
-        else if (voldB == 3.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
-        }
-        else if (voldB == 2.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
-        }
-        else if (voldB == 1.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
-        }
-        else if (voldB == 0.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
-        }
+    if (voldB > 1.0) {
+        // need to rebase voldB level
+        // doing a map for volume in audio hal is recommended if volume range is
+        // not 0.0 ~ 1.0
+        voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
     }
-    else {
-        if (voldB > 1.0) {
-            // need to rebase voldB level
-            voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
-            PAL_DBG(LOG_TAG,"Volume brought within range (%f)\n", voldB);
-        }
+    PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f", streamNameLUT.at(sAttr.type).c_str(), voldB);
 
-        if (voldB == 0.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
-        }
-        else if (voldB <= 0.002172f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
-        }
-        else if (voldB <= 0.004660f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
-        }
-        else if (voldB <= 0.01f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
-        }
-        else if (voldB <= 0.014877f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
-        }
-        else if (voldB <= 0.023646f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
-        }
-        else if (voldB <= 0.037584f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
-        }
-        else if (voldB <= 0.055912f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
-        }
-        else if (voldB <= 0.088869f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
-        }
-        else if (voldB <= 0.141254f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
-        }
-        else if (voldB <= 0.189453f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
-        }
-        else if (voldB <= 0.266840f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
-        }
-        else if (voldB <= 0.375838f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
-        }
-        else if (voldB <= 0.504081f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
-        }
-        else if (voldB <= 0.709987f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
-        }
-        else if (voldB <= 1.0f) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
+    for (int i = LEVEL_15; i >= LEVEL_0; i--) {
+        if (voldB <= (float)pow(10.0, i * HFP_VOLUME_DB_LINEAR_STEP / 20)) {
+            ckv.push_back(std::make_pair(VOLUME, i));
+            PAL_INFO(LOG_TAG, "select VOLUME_LEVEL_%d", i);
+            break;
         }
     }
 
     if (ckv.size() == 0) {
+        PAL_ERR(LOG_TAG, "no ckv got with voldB: %f", voldB);
         status = -EINVAL;
         goto exit;
     }
@@ -562,8 +470,13 @@ int pcm_buffer_size(pal_stream_attributes sattr)
     PAL_DBG(LOG_TAG, "config_ format:%x, SR %d ch_mask 0x%x",
             sattr.format, sattr.out_media_config.sample_rate,
             sattr.ch_mask);
-    fragment_size = PCM_OFFLOAD_OUTPUT_PERIOD_DURATION *
-        sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    if (sattr.type == PAL_STREAM_PLAYBACK_BUS) {
+        fragment_size = DEEP_BUFFER_OUTPUT_PERIOD_DURATION *
+            sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    } else {
+        fragment_size = PCM_OFFLOAD_OUTPUT_PERIOD_DURATION *
+            sattr.out_media_config.sample_rate * bytes_per_sample * channels;
+    }
     fragment_size /= 1000;
 
     if (fragment_size < MIN_PCM_FRAGMENT_SIZE)

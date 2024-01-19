@@ -20,7 +20,11 @@ LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CFLAGS        += -DVENDOR_CONFIG_PATH=\"/vendor/etc\"
 LOCAL_CFLAGS        += -DSNDPARSER=\"/vendor/etc/card-defs.xml\"
+ifeq ($(TARGET_USES_GY), true)
+LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager-VIOSND.xml\"
+else
 LOCAL_CFLAGS        += -DUSECASE_XML_FILE=\"/vendor/etc/usecaseKvManager.xml\"
+endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
 LOCAL_C_INCLUDES := \
@@ -83,6 +87,8 @@ LOCAL_SRC_FILES := \
     device/src/HandsetVaMic.cpp \
     device/src/DisplayPort.cpp \
     device/src/HeadsetVaMic.cpp \
+    device/src/HfpUplink.cpp \
+    device/src/HfpDownlink.cpp \
     device/src/RTProxy.cpp \
     device/src/SpeakerProtection.cpp \
     device/src/FMDevice.cpp \
@@ -135,8 +141,8 @@ LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 LOCAL_CFLAGS += -DTARGET_USES_QTI_TINYALSA
 else
-LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
-LOCAL_SHARED_LIBRARIES += libtinyalsa libtinycompress
+LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
+LOCAL_SHARED_LIBRARIES += libtinyalsa libqti-tinycompress
 endif
 
 include $(BUILD_SHARED_LIBRARY)

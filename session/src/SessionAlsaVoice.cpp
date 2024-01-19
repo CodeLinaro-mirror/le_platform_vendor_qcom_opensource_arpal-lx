@@ -1109,12 +1109,15 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
         PAL_ERR(LOG_TAG,"Failed to set config data\n");
         goto exit;
     }
-
-    PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
+    if(paramData != NULL){
+        PAL_VERBOSE(LOG_TAG, "%x - payload and %zu size", *paramData , paramSize);
+    }
 
 exit:
     freeCustomPayload();
-    freeCustomPayload(&paramData, &paramSize);
+    if(paramData != NULL){
+        freeCustomPayload(&paramData, &paramSize);
+    }
     PAL_DBG(LOG_TAG,"Exit status:%d ", status);
     return status;
 }

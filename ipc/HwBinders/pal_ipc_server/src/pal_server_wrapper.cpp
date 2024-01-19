@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "pal_server_wrapper"
@@ -697,6 +701,14 @@ Return<int32_t> PAL::ipc_pal_stream_set_param(const uint64_t streamHandle, uint3
 {
     int32_t ret = 0;
     pal_param_payload *param_payload;
+    if (1 != paramPayload.size()) {
+        ALOGE("Invalid vector size");
+        return -EINVAL;
+    }
+    if (paramPayload.data()->size > paramPayload.data()->payload.size()) {
+        ALOGE("Invalid payload size");
+        return -EINVAL;
+    }
     param_payload = (pal_param_payload *)calloc (1,
                                     sizeof(pal_param_payload) + paramPayload.data()->size);
     if (!param_payload) {
@@ -745,6 +757,10 @@ Return<int32_t> PAL::ipc_pal_stream_set_device(const uint64_t streamHandle,
     struct pal_device *devices = NULL;
     int cnt = 0;
     int32_t ret = -ENOMEM;
+    if (noOfDevices > devs_hidl.size()) {
+        ALOGE("Invalid noOfDevices");
+        return -EINVAL;
+    }
     if (devs_hidl.size()) {
         PalDevice *dev_hidl = NULL;
         devices = (struct pal_device *)calloc (1,
@@ -891,6 +907,7 @@ Return<void> PAL::ipc_pal_get_param(uint32_t paramId,
     ret = pal_get_param(paramId, &payLoad, &sz, NULL);
     if (!payLoad) {
         ALOGE("Not enough memory for payLoad");
+        _hidl_cb(ret, payload_hidl, sz);
         return Void();
     }
     payload_hidl.resize(sz);

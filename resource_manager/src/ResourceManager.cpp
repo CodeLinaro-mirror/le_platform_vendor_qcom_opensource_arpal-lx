@@ -115,7 +115,7 @@
 // values for max sessions number
 #define MAX_SESSIONS_LOW_LATENCY 8
 #define MAX_SESSIONS_ULTRA_LOW_LATENCY 8
-#define MAX_SESSIONS_DEEP_BUFFER 3
+#define MAX_SESSIONS_DEEP_BUFFER 5
 #define MAX_SESSIONS_COMPRESSED 10
 #define MAX_SESSIONS_GENERIC 1
 #define MAX_SESSIONS_PCM_OFFLOAD 2
@@ -196,6 +196,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -218,6 +219,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -246,6 +248,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_A2B_SPKR,             0},
     {PAL_DEVICE_OUT_A2B2_SPKR,            0},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        0},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -268,6 +271,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, 0},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -297,6 +301,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -320,6 +325,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -384,7 +390,9 @@ std::vector <int> ResourceManager::deviceTag = {0};
 std::mutex ResourceManager::mResourceManagerMutex;
 std::mutex ResourceManager::mGraphMutex;
 std::mutex ResourceManager::mActiveStreamMutex;
+std::mutex ResourceManager::mValidStreamMutex;
 std::mutex ResourceManager::mSleepMonitorMutex;
+std::mutex ResourceManager::mListFrontEndsMutex;
 std::vector <int> ResourceManager::listAllFrontEndIds = {0};
 std::vector <int> ResourceManager::listFreeFrontEndIds = {0};
 std::vector <int> ResourceManager::listAllPcmPlaybackFrontEnds = {0};
@@ -522,6 +530,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "none" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "none" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -545,6 +554,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -790,37 +800,6 @@ ResourceManager::ResourceManager()
 
 ResourceManager::~ResourceManager()
 {
-    streamTag.clear();
-    streamPpTag.clear();
-    mixerTag.clear();
-    devicePpTag.clear();
-    deviceTag.clear();
-    ControlInfo.clear();
-
-    listAllFrontEndIds.clear();
-    listAllPcmPlaybackFrontEnds.clear();
-    listAllPcmRecordFrontEnds.clear();
-    listAllPcmHostlessRxFrontEnds.clear();
-    listAllPcmHostlessTxFrontEnds.clear();
-    listAllCompressPlaybackFrontEnds.clear();
-    listAllCompressRecordFrontEnds.clear();
-    listFreeFrontEndIds.clear();
-    listAllPcmVoice1RxFrontEnds.clear();
-    listAllPcmVoice1TxFrontEnds.clear();
-    listAllPcmVoice2RxFrontEnds.clear();
-    listAllPcmVoice2TxFrontEnds.clear();
-    listAllNonTunnelSessionIds.clear();
-    listAllPcmExtEcTxFrontEnds.clear();
-    devInfo.clear();
-    deviceInfo.clear();
-    txEcInfo.clear();
-
-    STInstancesLists.clear();
-    listAllBackEndIds.clear();
-    sndDeviceNameLUT.clear();
-    devicePcmId.clear();
-    deviceLinkName.clear();
-
     if (admLibHdl) {
         if (admDeInitFn)
             admDeInitFn(admData);
@@ -1012,6 +991,9 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
             } else if (state == CARD_STATUS_OFFLINE) {
                 for (auto str: rm->mActiveStreams) {
                     ret = increaseStreamUserCounter(str);
+                    lockValidStreamMutex();
+                    ret = increaseStreamUserCounter(str);
+                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
                         continue;
@@ -1027,7 +1009,9 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                         if (ret)
                             PAL_DBG(LOG_TAG, "Failed to unvote for stream type %d", type);
                     }
+                    lockValidStreamMutex();
                     ret = decreaseStreamUserCounter(str);
+                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
@@ -1053,7 +1037,9 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
 
                 SoundTriggerCaptureProfile = GetCaptureProfileByPriority(nullptr);
                 for (auto str: rm->mActiveStreams) {
+                    lockValidStreamMutex();
                     ret = increaseStreamUserCounter(str);
+                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
                         continue;
@@ -1063,7 +1049,9 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                         PAL_ERR(LOG_TAG, "Ssr up handling failed for %pK ret %d",
                                           str, ret);
                     }
+                    lockValidStreamMutex();
                     ret = decreaseStreamUserCounter(str);
+                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
@@ -1158,13 +1146,22 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
                     strstr(snd_card_name, "sa8155")||
+                    strstr(snd_card_name, "sa8255")||
+                    strstr(snd_card_name, "sa7255")||
                     strstr(snd_card_name, "sa6155")||
                     strstr(snd_card_name, "gvmauto")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
                     break;
-                } else {
+                } else if (strstr(snd_card_name, "VIOSND")) {
+                    PAL_INFO(LOG_TAG, "Found virtio sound card");
+                    snd_card_found = true;
+                    audio_hw_mixer = tmp_mixer;
+                    snd_virt_card = snd_hw_card;
+                    break;
+                }
+                else {
                     if (snd_card_name) {
                         free(snd_card_name);
                         snd_card_name = NULL;
@@ -1852,13 +1849,6 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
         deviceattr->config.bit_width = palFormatToBitwidthLookup(devinfo.bitFormatSupported);
     }
 
-    if ((sAttr != NULL) && (sAttr->direction == PAL_AUDIO_INPUT) &&
-            (deviceattr->config.bit_width == BITWIDTH_32)) {
-        PAL_INFO(LOG_TAG, "update i/p bitwidth stream from 32b to max supported 24b");
-        deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
-        deviceattr->config.bit_width = BITWIDTH_24;
-    }
-
     /*special cases to update attrs for hot plug devices*/
     switch (deviceattr->id) {
         case PAL_DEVICE_IN_WIRED_HEADSET:
@@ -1996,8 +1986,10 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     }
                 }
             }
-
-            deviceattr->config.ch_info = candidateConfig->ch_info;
+            if (deviceattr->id == PAL_DEVICE_IN_PROXY) {
+                /* For PAL_DEVICE_IN_PROXY, copy all ch info from stream attributes*/
+                deviceattr->config.ch_info = candidateConfig->ch_info;
+            }
             if (isPalPCMFormat(candidateConfig->aud_fmt_id))
                 deviceattr->config.bit_width =
                           palFormatToBitwidthLookup(candidateConfig->aud_fmt_id);
@@ -2212,6 +2204,7 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
     // check if stream type is supported
     // and new stream session is allowed
     pal_stream_type_t type = attributes->type;
+    mActiveStreamMutex.lock();
     PAL_DBG(LOG_TAG, "Enter. type %d", type);
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
@@ -2283,8 +2276,8 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             max_sessions = MAX_SESSIONS_HAPTICS;
             break;
         case PAL_STREAM_CONTEXT_PROXY:
+            mActiveStreamMutex.unlock();
             return true;
-            break;
         case PAL_STREAM_ULTRASOUND:
             cur_sessions = active_streams_ultrasound.size();
             max_sessions = MAX_SESSIONS_ULTRASOUND;
@@ -2295,8 +2288,11 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             break;
         default:
             PAL_ERR(LOG_TAG, "Invalid stream type = %d", type);
-        return result;
+            mActiveStreamMutex.unlock();
+            return result;
     }
+    mActiveStreamMutex.unlock();
+
     if (cur_sessions == max_sessions && type != PAL_STREAM_VOICE_CALL) {
         PAL_ERR(LOG_TAG, "no new session allowed for stream %d", type);
         return result;
@@ -2449,6 +2445,7 @@ int ResourceManager::registerStream(Stream *s)
     }
     PAL_DBG(LOG_TAG, "stream type %d", type);
     mActiveStreamMutex.lock();
+    mValidStreamMutex.lock();
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
         case PAL_STREAM_VOIP_RX:
@@ -2581,7 +2578,7 @@ int ResourceManager::registerStream(Stream *s)
 
     mAllActiveStreams.push_back(s);
 #endif
-
+    mValidStreamMutex.unlock();
     mActiveStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. ret %d", ret);
     return ret;
@@ -2620,6 +2617,7 @@ int ResourceManager::deregisterStream(Stream *s)
 #endif
     PAL_INFO(LOG_TAG, "stream type %d", type);
     mActiveStreamMutex.lock();
+    mValidStreamMutex.lock();
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
         case PAL_STREAM_VOIP_RX:
@@ -2753,6 +2751,7 @@ int ResourceManager::deregisterStream(Stream *s)
     }
 
     deregisterstream(s, mActiveStreams);
+    mValidStreamMutex.unlock();
     mActiveStreamMutex.unlock();
 exit:
     PAL_DBG(LOG_TAG, "Exit. ret %d", ret);
@@ -2786,21 +2785,26 @@ int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
 
 int ResourceManager::initStreamUserCounter(Stream *s)
 {
+    lockValidStreamMutex();
     mActiveStreamUserCounter.insert(std::make_pair(s, 0));
+    unlockValidStreamMutex();
     return 0;
 }
 
 int ResourceManager::deinitStreamUserCounter(Stream *s)
 {
     std::map<Stream *, uint32_t>::iterator it;
+    lockValidStreamMutex();
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
         PAL_INFO(LOG_TAG, "stream %p is to be erased.", s);
         mActiveStreamUserCounter.erase(it);
+        unlockValidStreamMutex();
         return 0;
     } else {
         PAL_ERR(LOG_TAG, "stream %p is not found.", s);
+        unlockValidStreamMutex();
         return -EINVAL;
     }
 }
@@ -5519,6 +5523,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
     int id = 0;
     std::vector<int>::iterator it;
 
+    mListFrontEndsMutex.lock();
     switch(sAttr.type) {
         case PAL_STREAM_NON_TUNNEL:
             if (howMany > listAllNonTunnelSessionIds.size()) {
@@ -5597,7 +5602,16 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
                                           howMany, listAllPcmPlaybackFrontEnds.size());
                         goto error;
                     }
-                    id = (listAllPcmPlaybackFrontEnds.size() - 1);
+                    if (!listAllPcmPlaybackFrontEnds.size()) {
+                        PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, but we dont have any (%zu) !!!!!!! ",
+                                howMany, listAllPcmPlaybackFrontEnds.size());
+                        goto error;
+                    }
+                    id = (int)(((int)listAllPcmPlaybackFrontEnds.size()) - 1);
+                    if (id < 0) {
+                        PAL_ERR(LOG_TAG, "allocateFrontEndIds: negative iterator id %d !!!!! ", id);
+                        goto error;
+                    }
                     it =  (listAllPcmPlaybackFrontEnds.begin() + id);
                     for (int i = 0; i < howMany; i++) {
                         f.push_back(listAllPcmPlaybackFrontEnds.at(id));
@@ -5769,6 +5783,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
     }
 
 error:
+    mListFrontEndsMutex.unlock();
     return f;
 }
 
@@ -5800,8 +5815,10 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
                                       const struct pal_stream_attributes sAttr,
                                       int lDirection)
 {
+    mListFrontEndsMutex.lock();
     if (frontend.size() <= 0) {
         PAL_ERR(LOG_TAG,"frontend size is invalid");
+        mListFrontEndsMutex.unlock();
         return;
     }
     PAL_INFO(LOG_TAG, "stream type %d, freeing %d\n", sAttr.type,
@@ -5929,6 +5946,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         default:
             break;
     }
+    mListFrontEndsMutex.unlock();
     return;
 }
 
@@ -7575,19 +7593,19 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
         {
             bool match = false;
             std::list<Stream*>::iterator sIter;
-            lockActiveStream();
+            lockValidStreamMutex();
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                 if (match) {
                     increaseStreamUserCounter(*sIter);
-                    unlockActiveStream();
+                    unlockValidStreamMutex();
                     status = (*sIter)->getEffectParameters(param_payload);
-                    lockActiveStream();
+                    lockValidStreamMutex();
                     decreaseStreamUserCounter(*sIter);
                     break;
                 }
             }
-            unlockActiveStream();
+            unlockValidStreamMutex();
             break;
         }
         default:
@@ -8393,6 +8411,67 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG:
+        {
+            std::list<StreamPCM*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            struct pal_volume_data *volume = NULL;
+            size_t vol_size = 0;
+            pal_param_payload *params = NULL;
+            pal_stream_bus_duck_t *duck_param = (pal_stream_bus_duck_t *) param_payload;
+
+            volume = (struct pal_volume_data *)calloc(1, sizeof(uint32_t) +
+                        (sizeof(struct pal_channel_vol_kv) * 0xFFFF));
+            if (!volume) {
+                status = -ENOMEM;
+                break;
+            }
+
+            mActiveStreamMutex.lock();
+            for(sIter = active_streams_bus.begin(); sIter != active_streams_bus.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (!strcmp(st_attr.bus_addr, duck_param->bus_addr)) {
+                    status = (*sIter)->getVolumeData(volume, &vol_size);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "getVolumeData fail on bus %s", duck_param->bus_addr);
+                        break;
+                    }
+
+                    /*
+                     * actually only one pair is supported by session volume control
+                     */
+                    params = (pal_param_payload *)calloc(1, sizeof(pal_param_payload) +
+                        sizeof(uint32_t) +
+                        sizeof(struct pal_channel_vol_kv) * vol_size);
+                    if (!params) {
+                        status = -ENOMEM;
+                        break;
+                    }
+                    pal_volume_data *vdata = (struct pal_volume_data *)params->payload;
+                    vdata->no_of_volpair = 1;
+                    vdata->volume_pair[0].channel_mask = volume->volume_pair[0].channel_mask;
+
+                    if (duck_param->duck) {
+                        vdata->volume_pair[0].vol = duck_param->duck_volume < volume->volume_pair[0].vol?
+                                duck_param->duck_volume: volume->volume_pair[0].vol;
+                        (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                    } else {
+                        vdata->volume_pair[0].vol = volume->volume_pair[0].vol;
+                        (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                    }
+
+                    if (params) {
+                        free(params);
+                    }
+                }
+            }
+            mActiveStreamMutex.unlock();
+
+            if (volume) {
+                free(volume);
+            }
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
@@ -8419,7 +8498,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         case PAL_PARAM_ID_UIEFFECT:
         {
             bool match = false;
-            lockActiveStream();
+            lockValidStreamMutex();
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
@@ -8432,9 +8511,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     }
                     if (match) {
                         increaseStreamUserCounter(*sIter);
-                        unlockActiveStream();
+                        unlockValidStreamMutex();
                         status = (*sIter)->setParameters(param_id, param_payload);
-                        lockActiveStream();
+                        lockValidStreamMutex();
                         decreaseStreamUserCounter(*sIter);
                         if (status) {
                             PAL_ERR(LOG_TAG, "failed to set param for pal_device_id=%x stream_type=%x",
@@ -8445,7 +8524,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     PAL_ERR(LOG_TAG, "There is no active stream.");
                 }
             }
-            unlockActiveStream();
+            unlockValidStreamMutex();
         }
         break;
         default:

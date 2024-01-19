@@ -84,12 +84,6 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     std::ignore = modifiers;
     std::ignore = no_of_modifiers;
 
-    if (!sattr || !dattr) {
-        PAL_ERR(LOG_TAG,"invalid arguments");
-        mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
-    }
-
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
                       +sizeof(struct pal_channel_vol_kv));
@@ -100,14 +94,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     }
     mVolumeData->no_of_volpair = 1;
     mVolumeData->volume_pair[0].channel_mask = 0x03;
-    if (sattr->type == PAL_STREAM_LOOPBACK &&
-        ((sattr->info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_HFP_RX) ||
-        (sattr->info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_HFP_TX))) {
-        mVolumeData->volume_pair[0].vol = 15.0f;
-    } else {
-        mVolumeData->volume_pair[0].vol = 1.0f;
+    mVolumeData->volume_pair[0].vol = 1.0f;
+
+    if (!sattr || !dattr) {
+        PAL_ERR(LOG_TAG,"invalid arguments");
+        mStreamMutex.unlock();
+        throw std::runtime_error("invalid arguments");
     }
 
     attribute_size = sizeof(struct pal_stream_attributes);
@@ -755,12 +747,10 @@ int32_t  StreamPCM::read(struct pal_buffer* buf)
                 PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 size = buf->size;
-                status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
             } else if (rm->cardState == CARD_STATUS_OFFLINE) {
                 size = buf->size;
-                status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
             } else {
@@ -1164,6 +1154,15 @@ int32_t StreamPCM::resume()
     mStreamMutex.unlock();
 
     return status;
+}
+
+int32_t StreamPCM::drain(pal_drain_type_t type __unused)
+{
+    if (rm->cardState == CARD_STATUS_OFFLINE) {
+        PAL_ERR(LOG_TAG, "Sound card offline or session is null");
+        return -EINVAL;
+    }
+    return session->drain(type);
 }
 
 int32_t StreamPCM::flush()

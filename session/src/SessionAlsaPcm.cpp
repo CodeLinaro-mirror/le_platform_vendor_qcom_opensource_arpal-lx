@@ -50,6 +50,8 @@
 #include "audio_dam_buffer_api.h"
 #include "apm_api.h"
 #include "us_detect_api.h"
+#include <asm-generic/ioctl.h>
+#include <sound/asound.h>
 
 std::mutex SessionAlsaPcm::pcmLpmRefCntMtx;
 int SessionAlsaPcm::pcmLpmRefCnt = 0;
@@ -579,7 +581,11 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             }
 
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                if (sAttr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
+                    tagCntrlName<<stream<<pcmDevTxIds.at(0)<<" "<<setParamTagControl;
+                } else {
+                    tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                }
             } else {
                 tagCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setParamTagControl;
             }
@@ -724,7 +730,7 @@ int SessionAlsaPcm::start(Stream * s)
             config.period_count = out_buf_count;
         }
         config.start_threshold = 0;
-        config.stop_threshold = 0;
+        config.stop_threshold = INT32_MAX;
         config.silence_threshold = 0;
 
         switch(sAttr.direction) {
@@ -945,7 +951,8 @@ set_mixer:
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
                 }
-                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY){
+                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY
+                        || sAttr.type == PAL_STREAM_LOW_LATENCY){
                      status = setConfig(s, MODULE, PUSHPULL_CHMIXER_COEFFICIENT);
 
                         if (status)
@@ -1102,6 +1109,7 @@ pcm_start:
                 if (status) {
                     status = errno;
                     PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+                    goto exit;
                 }
             }
 
@@ -1666,8 +1674,15 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
 
 int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, int * size)
 {
-    int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0;
+    int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0, rc = 0;
     struct pal_stream_attributes sAttr;
+
+    uint64_t timestamp = 0;
+    const char *control = "bufTimestamp";
+    const char *stream = "PCM";
+    struct mixer_ctl *ctl;
+    std::ostringstream CntrlName;
+
 
     PAL_VERBOSE(LOG_TAG, "Enter")
     status = s->getStreamAttributes(&sAttr);
@@ -1703,6 +1718,30 @@ int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, in
         if ((0 != status) || (pcmReadSize == 0)) {
             PAL_ERR(LOG_TAG, "Failed to read data %d bytes read %d", status, pcmReadSize);
             break;
+        }
+
+        if (!bytesRead && buf->ts) {
+            CntrlName << stream << pcmDevIds.at(0) << " " << control;
+            ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+            if (!ctl) {
+                PAL_ERR(LOG_TAG, "fail to fetch hardware timestamp, Invalid mixer control: %s\n", CntrlName.str().data());
+                bytesRead += pcmReadSize;
+                continue;
+            }
+
+            rc = mixer_ctl_get_array(ctl, (void *)&timestamp, sizeof(uint64_t));
+            if (0 != rc) {
+                PAL_ERR(LOG_TAG, "fail to fetch hardware timestamp, Get timestamp failed, rc = %d", rc);
+                bytesRead += pcmReadSize;
+                continue;
+            }
+            /* timestamp is splitted into sec and nsec,
+               it is not the exact conversion but the fraction is converted to nsec
+            */
+            buf->ts->tv_sec = timestamp / 1000000;
+            buf->ts->tv_nsec = (timestamp - buf->ts->tv_sec * 1000000) * 1000;
+            PAL_VERBOSE(LOG_TAG, "Timestamp %llu, tv_sec = %lu, tv_nsec = %lu",
+                       (long long)timestamp, buf->ts->tv_sec, buf->ts->tv_nsec);
         }
 
         bytesRead += pcmReadSize;
@@ -2405,7 +2444,26 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
 
 int SessionAlsaPcm::drain(pal_drain_type_t type __unused)
 {
-    return 0;
+    int status = 0;
+
+    if (!pcm) {
+        PAL_ERR(LOG_TAG, "PCM is invalid");
+        return -EINVAL;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "Enter drain");
+    if (pcm && isActive()) {
+        //! Short-term solution now.
+        //! Once PAL directly runs on top of upstream tinyalsa, call pcm_drain() here.
+        //! pcm_drain() has already been upstreamed, but not downstreamed to AOSP branches.
+        status = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_DRAIN);
+        if (status)
+            status = errno;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "status %d", status);
+
+    return status;
 }
 
 int SessionAlsaPcm::flush()
@@ -2739,7 +2797,7 @@ int SessionAlsaPcm::openGraph(Stream *s) {
             config.channels, config.format);
         config.period_count = in_buf_count;
         config.start_threshold = 0;
-        config.stop_threshold = 0;
+        config.stop_threshold = INT32_MAX;
         config.silence_threshold = 0;
 
         pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0), PCM_IN, &config);
