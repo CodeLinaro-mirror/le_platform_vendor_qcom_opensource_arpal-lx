@@ -2062,7 +2062,7 @@ int32_t SpeakerProtection::getFTMParameter(void **param)
     PAL_DBG(LOG_TAG, "Got FTM value with status %d", ftm_ret[0].status);
 
     if (payload) {
-        delete payload;
+        free(payload);
         payloadSize = 0;
         payload = NULL;
     }
@@ -2098,7 +2098,7 @@ int32_t SpeakerProtection::getFTMParameter(void **param)
     PAL_DBG(LOG_TAG, "Got FTM Excursion value with status %d", exFtm_ret[0].status);
 
     if (payload) {
-        delete payload;
+        free(payload);
         payloadSize = 0;
         payload = NULL;
     }

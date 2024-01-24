@@ -1674,8 +1674,15 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
 
 int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, int * size)
 {
-    int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0;
+    int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0, rc = 0;
     struct pal_stream_attributes sAttr;
+
+    uint64_t timestamp = 0;
+    const char *control = "bufTimestamp";
+    const char *stream = "PCM";
+    struct mixer_ctl *ctl;
+    std::ostringstream CntrlName;
+
 
     PAL_VERBOSE(LOG_TAG, "Enter")
     status = s->getStreamAttributes(&sAttr);
@@ -1711,6 +1718,30 @@ int SessionAlsaPcm::read(Stream *s, int tag __unused, struct pal_buffer *buf, in
         if ((0 != status) || (pcmReadSize == 0)) {
             PAL_ERR(LOG_TAG, "Failed to read data %d bytes read %d", status, pcmReadSize);
             break;
+        }
+
+        if (!bytesRead && buf->ts) {
+            CntrlName << stream << pcmDevIds.at(0) << " " << control;
+            ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+            if (!ctl) {
+                PAL_ERR(LOG_TAG, "fail to fetch hardware timestamp, Invalid mixer control: %s\n", CntrlName.str().data());
+                bytesRead += pcmReadSize;
+                continue;
+            }
+
+            rc = mixer_ctl_get_array(ctl, (void *)&timestamp, sizeof(uint64_t));
+            if (0 != rc) {
+                PAL_ERR(LOG_TAG, "fail to fetch hardware timestamp, Get timestamp failed, rc = %d", rc);
+                bytesRead += pcmReadSize;
+                continue;
+            }
+            /* timestamp is splitted into sec and nsec,
+               it is not the exact conversion but the fraction is converted to nsec
+            */
+            buf->ts->tv_sec = timestamp / 1000000;
+            buf->ts->tv_nsec = (timestamp - buf->ts->tv_sec * 1000000) * 1000;
+            PAL_VERBOSE(LOG_TAG, "Timestamp %llu, tv_sec = %lu, tv_nsec = %lu",
+                       (long long)timestamp, buf->ts->tv_sec, buf->ts->tv_nsec);
         }
 
         bytesRead += pcmReadSize;
@@ -2889,16 +2920,23 @@ uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
     rc = mixer_ctl_set_array(ctl, payloadData, payloadSize);
     if (rc) {
          PAL_ERR(LOG_TAG, "mixer_ctl_set_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
          return rc;
     }
 
     rc = mixer_ctl_get_array(ctl, payloadData, payloadSize);
     if (rc) {
          PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
          return rc;
     }
 
     *latency = ((apm_path_defn_for_delay_t *)((uint8_t *)payloadData + sizeof(struct apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t)))->delay_us;
+    free(payloadData);
     return 0;
 }
 
