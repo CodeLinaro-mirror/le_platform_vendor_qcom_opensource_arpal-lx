@@ -942,6 +942,7 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
     // Stream may not know about tags, so use setParameters instead of setConfig
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             param_payload = (pal_param_payload *)payload;
 
