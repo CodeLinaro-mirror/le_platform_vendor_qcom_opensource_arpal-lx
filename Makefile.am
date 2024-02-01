@@ -87,6 +87,8 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/device/src/Handset.cpp \
               ${top_srcdir}/device/src/HandsetMic.cpp \
               ${top_srcdir}/device/src/HandsetVaMic.cpp \
+              ${top_srcdir}/device/src/HfpUplink.cpp \
+              ${top_srcdir}/device/src/HfpDownlink.cpp \
               ${top_srcdir}/device/src/DisplayPort.cpp \
               ${top_srcdir}/device/src/UltrasoundDevice.cpp \
               ${top_srcdir}/device/src/RTProxy.cpp \

@@ -115,7 +115,7 @@
 // values for max sessions number
 #define MAX_SESSIONS_LOW_LATENCY 8
 #define MAX_SESSIONS_ULTRA_LOW_LATENCY 8
-#define MAX_SESSIONS_DEEP_BUFFER 4
+#define MAX_SESSIONS_DEEP_BUFFER 10
 #define MAX_SESSIONS_COMPRESSED 10
 #define MAX_SESSIONS_GENERIC 1
 #define MAX_SESSIONS_PCM_OFFLOAD 2
@@ -196,6 +196,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -218,6 +219,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -246,6 +248,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_A2B_SPKR,             0},
     {PAL_DEVICE_OUT_A2B2_SPKR,            0},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        0},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -268,6 +271,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, 0},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -297,6 +301,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -320,6 +325,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -386,6 +392,7 @@ std::mutex ResourceManager::mGraphMutex;
 std::mutex ResourceManager::mActiveStreamMutex;
 std::mutex ResourceManager::mValidStreamMutex;
 std::mutex ResourceManager::mSleepMonitorMutex;
+std::mutex ResourceManager::mListFrontEndsMutex;
 std::vector <int> ResourceManager::listAllFrontEndIds = {0};
 std::vector <int> ResourceManager::listFreeFrontEndIds = {0};
 std::vector <int> ResourceManager::listAllPcmPlaybackFrontEnds = {0};
@@ -523,6 +530,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_A2B_SPKR,             {std::string{ "none" }}},
     {PAL_DEVICE_OUT_A2B2_SPKR,            {std::string{ "none" }}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO2,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -546,6 +554,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -5513,6 +5522,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
     int id = 0;
     std::vector<int>::iterator it;
 
+    mListFrontEndsMutex.lock();
     switch(sAttr.type) {
         case PAL_STREAM_NON_TUNNEL:
             if (howMany > listAllNonTunnelSessionIds.size()) {
@@ -5591,7 +5601,16 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
                                           howMany, listAllPcmPlaybackFrontEnds.size());
                         goto error;
                     }
-                    id = (listAllPcmPlaybackFrontEnds.size() - 1);
+                    if (!listAllPcmPlaybackFrontEnds.size()) {
+                        PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, but we dont have any (%zu) !!!!!!! ",
+                                howMany, listAllPcmPlaybackFrontEnds.size());
+                        goto error;
+                    }
+                    id = (int)(((int)listAllPcmPlaybackFrontEnds.size()) - 1);
+                    if (id < 0) {
+                        PAL_ERR(LOG_TAG, "allocateFrontEndIds: negative iterator id %d !!!!! ", id);
+                        goto error;
+                    }
                     it =  (listAllPcmPlaybackFrontEnds.begin() + id);
                     for (int i = 0; i < howMany; i++) {
                         f.push_back(listAllPcmPlaybackFrontEnds.at(id));
@@ -5763,6 +5782,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
     }
 
 error:
+    mListFrontEndsMutex.unlock();
     return f;
 }
 
@@ -5794,8 +5814,10 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
                                       const struct pal_stream_attributes sAttr,
                                       int lDirection)
 {
+    mListFrontEndsMutex.lock();
     if (frontend.size() <= 0) {
         PAL_ERR(LOG_TAG,"frontend size is invalid");
+        mListFrontEndsMutex.unlock();
         return;
     }
     PAL_INFO(LOG_TAG, "stream type %d, freeing %d\n", sAttr.type,
@@ -5923,6 +5945,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         default:
             break;
     }
+    mListFrontEndsMutex.unlock();
     return;
 }
 
@@ -6709,6 +6732,8 @@ exit:
     PAL_DBG(LOG_TAG,"Exit, status %d", ret);
     if(value != NULL)
         free(value);
+    if(kv_pairs != NULL)
+        free(kv_pairs);
     return ret;
 }
 
@@ -8472,6 +8497,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             bool match = false;
             lockValidStreamMutex();

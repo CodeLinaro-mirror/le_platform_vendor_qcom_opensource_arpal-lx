@@ -747,12 +747,10 @@ int32_t  StreamPCM::read(struct pal_buffer* buf)
                 PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 size = buf->size;
-                status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
             } else if (rm->cardState == CARD_STATUS_OFFLINE) {
                 size = buf->size;
-                status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
             } else {
@@ -944,6 +942,7 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
     // Stream may not know about tags, so use setParameters instead of setConfig
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             param_payload = (pal_param_payload *)payload;
 
