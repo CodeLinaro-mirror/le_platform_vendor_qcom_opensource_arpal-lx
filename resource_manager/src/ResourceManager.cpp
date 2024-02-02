@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -68,6 +68,7 @@
 #include <mutex>
 #include "kvh2xml.h"
 #include <sys/ioctl.h>
+#include "ECRefDevice.h"
 
 #ifndef FEATURE_IPQ_OPENWRT
 #include <cutils/str_parms.h>
@@ -218,6 +219,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
@@ -270,6 +272,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_TELEPHONY_RX,          0},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
+    {PAL_DEVICE_IN_ECHO_REF,              0},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, 0},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          0},
     {PAL_DEVICE_IN_MAX,                   0},
@@ -324,6 +327,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
@@ -553,6 +557,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
