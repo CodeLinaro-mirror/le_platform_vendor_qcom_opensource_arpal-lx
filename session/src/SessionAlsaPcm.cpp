@@ -1953,6 +1953,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             break;
         }
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             pal_effect_custom_payload_t *customPayload;
             pal_param_payload *param_payload = (pal_param_payload *)payload;
@@ -2920,16 +2921,23 @@ uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
     rc = mixer_ctl_set_array(ctl, payloadData, payloadSize);
     if (rc) {
          PAL_ERR(LOG_TAG, "mixer_ctl_set_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
          return rc;
     }
 
     rc = mixer_ctl_get_array(ctl, payloadData, payloadSize);
     if (rc) {
          PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
          return rc;
     }
 
     *latency = ((apm_path_defn_for_delay_t *)((uint8_t *)payloadData + sizeof(struct apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t)))->delay_us;
+    free(payloadData);
     return 0;
 }
 

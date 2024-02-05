@@ -954,6 +954,7 @@ typedef enum {
     PAL_PARAM_ID_BT_AG_SCO = 60, /* HFP AG role */
     PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG = 62,
+    PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 63,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

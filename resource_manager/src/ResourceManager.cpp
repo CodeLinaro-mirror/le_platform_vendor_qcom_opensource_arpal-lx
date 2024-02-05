@@ -115,7 +115,7 @@
 // values for max sessions number
 #define MAX_SESSIONS_LOW_LATENCY 8
 #define MAX_SESSIONS_ULTRA_LOW_LATENCY 8
-#define MAX_SESSIONS_DEEP_BUFFER 5
+#define MAX_SESSIONS_DEEP_BUFFER 10
 #define MAX_SESSIONS_COMPRESSED 10
 #define MAX_SESSIONS_GENERIC 1
 #define MAX_SESSIONS_PCM_OFFLOAD 2
@@ -6732,6 +6732,8 @@ exit:
     PAL_DBG(LOG_TAG,"Exit, status %d", ret);
     if(value != NULL)
         free(value);
+    if(kv_pairs != NULL)
+        free(kv_pairs);
     return ret;
 }
 
@@ -8495,6 +8497,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             bool match = false;
             lockValidStreamMutex();
