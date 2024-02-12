@@ -1954,9 +1954,8 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             }
             break;
         case PAL_DEVICE_IN_PROXY:
-        case PAL_DEVICE_IN_FM_TUNER:
             {
-            /* For PAL_DEVICE_IN_FM_TUNER/PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
+            /* For PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
             if (!sAttr) {
                 PAL_ERR(LOG_TAG, "Invalid parameter.");
                 return -EINVAL;
