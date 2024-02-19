@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -529,6 +529,8 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
                 break;
             case RAT_RENDER:
             case BT_PCM_CONVERTER:
+            case MODULE_CONGESTION_BUFFER:
+            case MODULE_JITTER_BUFFER:
                 if(strstr(backendName,"TX")) {
                     if (!pcmDevTxIds.size()) {
                         PAL_ERR(LOG_TAG, "pcmDevTxIds not found.");
@@ -950,6 +952,15 @@ int SessionAlsaPcm::start(Stream * s)
     if (status != 0) {
         PAL_ERR(LOG_TAG, "stream get attributes failed");
         goto exit;
+    }
+
+    /*
+     * For VoiceUI streams, multi streams may use same session
+     * to handle graph operation, always use valid stream handle
+     * to avoid crash if one VoiceUI stream is closed.
+     */
+    if (sAttr.type == PAL_STREAM_VOICE_UI && streamHandle != s) {
+        streamHandle = s;
     }
 
     if (mState == SESSION_IDLE) {
@@ -2793,7 +2804,12 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 goto exit;
             }
 
-            builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            if (vdata->no_of_volpair > 1 && sAttr.out_media_config.ch_info.channels > 1) {
+                builder->payloadMultichVolumemConfig(&paramData, &paramSize, miid, vdata);
+            } else {
+                builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            }
+
             if (paramSize) {
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
@@ -3273,10 +3289,17 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
     }
 exit:
     if (status == 0) {
-        if (is_enable && rx_dev)
+        if (is_enable && rx_dev) {
             ecRefDevId = static_cast<pal_device_id_t>(rx_dev->getSndDeviceId());
-        else
-            ecRefDevId = PAL_DEVICE_OUT_MIN;
+        } else {
+            if (!is_enable && rx_dev &&
+                rxDevInfo.isExternalECRefEnabledFlag &&
+                ecRefDevId != rx_dev->getSndDeviceId()) {
+                PAL_DBG(LOG_TAG, "internal EC recovered, skip resetting ecRefDevId");
+            } else {
+                ecRefDevId = PAL_DEVICE_OUT_MIN;
+            }
+        }
     }
     PAL_DBG(LOG_TAG, "Exit, status: %d", status);
     return status;

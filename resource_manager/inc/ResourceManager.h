@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -72,6 +72,7 @@ typedef enum {
 #define MAX_SND_CARD 10
 #define DUMMY_SND_CARD MAX_SND_CARD
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
+#define VOLUME_TOLERANCE 0.000001
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO "audio.nat.codec.enabled"
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
 #define AUDIO_PARAMETER_KEY_MAX_SESSIONS "max_sessions"
@@ -302,6 +303,7 @@ struct pal_device_info {
      bool bit_width_overwrite;
      uint32_t bit_width;
      pal_audio_fmt_t bitFormatSupported;
+     bool is32BitSupported;
 };
 
 struct vsid_modepair {
@@ -457,6 +459,7 @@ struct deviceIn {
     uint32_t bit_width;
     pal_audio_fmt_t bitFormatSupported;
     bool ec_enable;
+    bool is32BitSupported;
 };
 
 class ResourceManager
@@ -542,7 +545,6 @@ protected:
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
-    static std::mutex mValidStreamMutex;
     static std::mutex mSleepMonitorMutex;
     static std::mutex mListFrontEndsMutex;
     static int snd_virt_card;
@@ -986,7 +988,11 @@ public:
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceAvailable(std::vector<std::shared_ptr<Device>> devices, pal_device_id_t id);
     bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
-    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices, pal_device_id_t id);
+    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices,
+                                         std::set<pal_device_id_t> &activeDevices,
+                                         const std::set<pal_device_id_t> &extDeviceList);
+    bool isDeviceGroupInList(std::set<pal_device_id_t> &devicelist,
+                             const std::set<pal_device_id_t> &devicegroup);
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
     static bool isBtDevice(pal_device_id_t id);
@@ -1010,8 +1016,6 @@ public:
     void unlockGraph() { mGraphMutex.unlock(); };
     void lockActiveStream() { mActiveStreamMutex.lock(); };
     void unlockActiveStream() { mActiveStreamMutex.unlock(); };
-    void lockValidStreamMutex() { mValidStreamMutex.lock(); };
-    void unlockValidStreamMutex() { mValidStreamMutex.unlock(); };
     void lockResourceManagerMutex() {mResourceManagerMutex.lock();};
     void unlockResourceManagerMutex() {mResourceManagerMutex.unlock();};
     void getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream *, uint32_t>> &activeStreamDevs,

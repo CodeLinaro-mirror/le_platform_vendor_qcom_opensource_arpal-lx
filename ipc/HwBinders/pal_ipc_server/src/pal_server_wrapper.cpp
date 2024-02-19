@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -103,6 +103,7 @@ void PalClientDeathRecipient::serviceDied(uint64_t cookie,
     std::lock_guard<std::mutex> guard(mLock);
     ALOGD("%s : client died pid : %d", __func__, cookie);
     int pid = (int) cookie;
+    std::lock_guard<std::mutex> lock(mPalInstance->mClientLock);
     auto &clients = mPalInstance->mPalClients;
     for (auto itr = clients.begin(); itr != clients.end(); itr++) {
         auto client = *itr;
@@ -134,6 +135,7 @@ void PalClientDeathRecipient::serviceDied(uint64_t cookie,
 void PAL::add_input_and_dup_fd(const uint64_t streamHandle, int input_fd, int dup_fd)
 {
     std::vector<std::pair<int, int>>::iterator it;
+    std::lock_guard<std::mutex> guard(mClientLock);
     for (auto& s: mPalClients) {
         std::lock_guard<std::mutex> lock(s->mActiveSessionsLock);
         for (int i = 0; i < s->mActiveSessions.size(); i++) {
@@ -246,6 +248,7 @@ static int32_t pal_callback(pal_stream_handle_t *stream_handle,
            ALOGE("%s: No PAL instance running", __func__);
            return false;
         }
+        std::lock_guard<std::mutex> guard(PAL::getInstance()->mClientLock);
         for (auto& s: PAL::getInstance()->mPalClients) {
             std::lock_guard<std::mutex> lock(s->mActiveSessionsLock);
             for (int idx = 0; idx < s->mActiveSessions.size(); idx++) {
@@ -278,6 +281,7 @@ static int32_t pal_callback(pal_stream_handle_t *stream_handle,
          * Find the original fd that was passed by client based on what
          * input and dup fd list and send that back.
          */
+        PAL::getInstance()->mClientLock.lock();
         for (auto& s: PAL::getInstance()->mPalClients) {
             std::lock_guard<std::mutex> lock(s->mActiveSessionsLock);
             for (int idx = 0; idx < s->mActiveSessions.size(); idx++) {
@@ -301,6 +305,7 @@ static int32_t pal_callback(pal_stream_handle_t *stream_handle,
                 }
             }
         }
+        PAL::getInstance()->mClientLock.unlock();
 
         rwDonePayloadHidl.resize(sizeof(pal_callback_buffer));
         rwDonePayload = (PalCallbackBuffer *)rwDonePayloadHidl.data();
@@ -446,6 +451,32 @@ static void print_attr(struct pal_stream_attributes *attr)
    print_media_config(&attr->out_media_config);
 }
 
+bool PAL::isValidstreamHandle(const uint64_t streamHandle) {
+    int pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
+
+    std::lock_guard<std::mutex> guard(mClientLock);
+    for (auto itr = mPalClients.begin(); itr != mPalClients.end(); ) {
+        auto client = *itr;
+        if (client->pid == pid) {
+            std::lock_guard<std::mutex> lock(client->mActiveSessionsLock);
+            auto sItr = client->mActiveSessions.begin();
+            for (; sItr != client->mActiveSessions.end(); sItr++) {
+                if (sItr->session_handle == streamHandle) {
+                    return true;
+                }
+            }
+            ALOGE("%s: streamHandle: %pK for pid %d not found",
+                    __func__, streamHandle, pid);
+            return false;
+        }
+        itr++;
+    }
+
+    ALOGE("%s: client info for pid %d not found",
+            __func__, pid);
+    return false;
+}
+
 Return<void> PAL::ipc_pal_stream_open(const hidl_vec<PalStreamAttributes>& attr_hidl,
                             uint32_t noOfDevices,
                             const hidl_vec<PalDevice>& devs_hidl,
@@ -515,31 +546,29 @@ Return<void> PAL::ipc_pal_stream_open(const hidl_vec<PalStreamAttributes>& attr_
     }
 
     if (devs_hidl.size()) {
-        PalDevice *dev_hidl = NULL;
         devices = (struct pal_device *)calloc (1,
                                       sizeof(struct pal_device) * noOfDevices);
         if (!devices) {
             ALOGE("Not enough memory for devices");
             goto exit;
         }
-        dev_hidl = (PalDevice *)devs_hidl.data();
+
         for ( cnt = 0; cnt < noOfDevices; cnt++) {
-             devices[cnt].id = (pal_device_id_t)dev_hidl->id;
-             devices[cnt].config.sample_rate = dev_hidl->config.sample_rate;
-             devices[cnt].config.bit_width = dev_hidl->config.bit_width;
-             devices[cnt].config.ch_info.channels = dev_hidl->config.ch_info.channels;
-             memcpy(&devices[cnt].config.ch_info.ch_map, &dev_hidl->config.ch_info.ch_map,
+             devices[cnt].id = (pal_device_id_t)devs_hidl[cnt].id;
+             devices[cnt].config.sample_rate = devs_hidl[cnt].config.sample_rate;
+             devices[cnt].config.bit_width = devs_hidl[cnt].config.bit_width;
+             devices[cnt].config.ch_info.channels = devs_hidl[cnt].config.ch_info.channels;
+             memcpy(&devices[cnt].config.ch_info.ch_map, &devs_hidl[cnt].config.ch_info.ch_map,
                     sizeof(uint8_t [64]));
              devices[cnt].config.aud_fmt_id =
-                                  (pal_audio_fmt_t)dev_hidl->config.aud_fmt_id;
-             devices[cnt].address.card_id = dev_hidl->address.card_id;
-             devices[cnt].address.device_num = dev_hidl->address.device_num;
-             strlcpy(devices[cnt].sndDevName, dev_hidl->sndDevName.c_str(),
+                                  (pal_audio_fmt_t)devs_hidl[cnt].config.aud_fmt_id;
+             devices[cnt].address.card_id = devs_hidl[cnt].address.card_id;
+             devices[cnt].address.device_num = devs_hidl[cnt].address.device_num;
+             strlcpy(devices[cnt].sndDevName, devs_hidl[cnt].sndDevName.c_str(),
                      sizeof(char [DEVICE_NAME_MAX_SIZE]));
              strlcpy(devices[cnt].custom_config.custom_key,
-                     dev_hidl->custom_config.custom_key.c_str(),
+                     devs_hidl[cnt].custom_config.custom_key.c_str(),
                      sizeof(char [PAL_MAX_CUSTOM_KEY_SIZE]));
-             dev_hidl =  (PalDevice *)(dev_hidl + sizeof(PalDevice));
         }
     }
 
@@ -560,6 +589,7 @@ Return<void> PAL::ipc_pal_stream_open(const hidl_vec<PalStreamAttributes>& attr_
                           callback, (uint64_t)sr_clbk_data.get(), &stream_handle);
 
     if (!ret) {
+        std::lock_guard<std::mutex> guard(mClientLock);
         for(auto& client: mPalClients) {
             if (client->pid == pid) {
                 /*Another session from the same client*/
@@ -615,8 +645,13 @@ exit:
 Return<int32_t> PAL::ipc_pal_stream_close(const uint64_t streamHandle)
 {
     int pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
-    Return<int32_t> status = pal_stream_close((pal_stream_handle_t *)streamHandle);
 
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
+    mClientLock.lock();
     for (auto itr = mPalClients.begin(); itr != mPalClients.end(); ) {
         auto client = *itr;
         if (client->pid == pid) {
@@ -649,38 +684,77 @@ Return<int32_t> PAL::ipc_pal_stream_close(const uint64_t streamHandle)
             break;
         }
     }
+    mClientLock.unlock();
+
+    Return<int32_t> status = pal_stream_close((pal_stream_handle_t *)streamHandle);
+
     return status;
 }
 
 Return<int32_t> PAL::ipc_pal_stream_start(const uint64_t streamHandle) {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
 
     return pal_stream_start((pal_stream_handle_t *)streamHandle);
 }
 
 Return<int32_t> PAL::ipc_pal_stream_stop(const uint64_t streamHandle) {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_stop((pal_stream_handle_t *)streamHandle);
 }
 
 Return<int32_t> PAL::ipc_pal_stream_pause(const uint64_t streamHandle) {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_pause((pal_stream_handle_t *)streamHandle);
 }
 
 Return<int32_t> PAL::ipc_pal_stream_drain(uint64_t streamHandle, PalDrainType type)
 {
     pal_drain_type_t drain_type = (pal_drain_type_t) type;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_drain((pal_stream_handle_t *)streamHandle,
                              drain_type);
 }
 
 Return<int32_t> PAL::ipc_pal_stream_flush(const uint64_t streamHandle) {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_flush((pal_stream_handle_t *)streamHandle);
 }
 
 Return<int32_t> PAL::ipc_pal_stream_suspend(const uint64_t streamHandle) {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_suspend((pal_stream_handle_t *)streamHandle);
 }
 
 Return<int32_t> PAL::ipc_pal_stream_resume(const uint64_t streamHandle) {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_resume((pal_stream_handle_t *)streamHandle);
 }
 
@@ -692,6 +766,11 @@ Return<void> PAL::ipc_pal_stream_set_buffer_size(const uint64_t streamHandle,
     int32_t ret = 0;
     pal_buffer_config_t out_buf_cfg, in_buf_cfg;
     PalBufferConfig in_buff_config_ret, out_buff_config_ret;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
 
     in_buf_cfg.buf_count = in_buff_config.buf_count;
     in_buf_cfg.buf_size = in_buff_config.buf_size;
@@ -745,6 +824,11 @@ Return<int32_t> PAL::ipc_pal_stream_write(const uint64_t streamHandle,
                                           const hidl_vec<PalBuffer>& buff_hidl) {
     struct pal_buffer buf = {0};
 
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     buf.size = buff_hidl.data()->size;
     std::vector<uint8_t> dataBuffer;
     if (buff_hidl.data()->buffer.size() == buf.size) {
@@ -763,6 +847,7 @@ Return<int32_t> PAL::ipc_pal_stream_write(const uint64_t streamHandle,
     std::vector<uint8_t> bufMetadata(buf.metadata_size, 0);
     buf.metadata = bufMetadata.data();
     auto stream_media_config = std::make_shared<pal_media_config>();
+    mClientLock.lock();
     for (auto& s: PAL::getInstance()->mPalClients) {
         std::lock_guard<std::mutex> lock(s->mActiveSessionsLock);
         for (auto session : s->mActiveSessions) {
@@ -773,6 +858,7 @@ Return<int32_t> PAL::ipc_pal_stream_write(const uint64_t streamHandle,
             }
         }
     }
+    mClientLock.unlock();
     auto metadataParser = std::make_unique<MetadataParser>();
     metadataParser->fillMetaData(buf.metadata, buf.frame_index, buf.size,
                                  stream_media_config.get());
@@ -800,6 +886,11 @@ Return<void> PAL::ipc_pal_stream_read(const uint64_t streamHandle,
                                       ipc_pal_stream_read_cb _hidl_cb) {
     struct pal_buffer buf = {0};
     hidl_vec<PalBuffer> outBuff_hidl;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
 
     buf.size = inBuff_hidl.data()->size;
     std::vector<uint8_t> dataBuffer(buf.size, 0);
@@ -840,6 +931,16 @@ Return<int32_t> PAL::ipc_pal_stream_set_param(const uint64_t streamHandle, uint3
     sp<IMemory> memory;
     void *payload = NULL;
 
+    if (payloadSize > paramPayload.size()) {
+        ALOGE("Invalid payloadSize");
+        return -EINVAL;
+    }
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     memory = mapMemory(paramPayload);
     if (!memory) {
         ALOGE("Not able to map HIDl memory");
@@ -867,6 +968,12 @@ Return<void> PAL::ipc_pal_stream_get_param(const uint64_t streamHandle,
     int32_t ret = 0;
     pal_param_payload *param_payload;
     hidl_vec<PalParamPayload> paramPayload;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
+
     ret = pal_stream_get_param((pal_stream_handle_t *)streamHandle, paramId, &param_payload);
     if (ret == 0) {
         paramPayload.resize(sizeof(PalParamPayload));
@@ -894,32 +1001,41 @@ Return<int32_t> PAL::ipc_pal_stream_set_device(const uint64_t streamHandle,
     struct pal_device *devices = NULL;
     int cnt = 0;
     int32_t ret = -ENOMEM;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
+    if (noOfDevices > devs_hidl.size()) {
+        ALOGE("Invalid noOfDevices");
+        return -EINVAL;
+    }
+
     if (devs_hidl.size()) {
-        PalDevice *dev_hidl = NULL;
         devices = (struct pal_device *)calloc (1,
                                     sizeof(struct pal_device) * noOfDevices);
         if (!devices) {
             ALOGE("Not enough memory for devices");
             goto exit;
         }
-        dev_hidl = (PalDevice *)devs_hidl.data();
+
         for (cnt = 0; cnt < noOfDevices; cnt++) {
-            devices[cnt].id = (pal_device_id_t)dev_hidl->id;
-            devices[cnt].config.sample_rate = dev_hidl->config.sample_rate;
-            devices[cnt].config.bit_width = dev_hidl->config.bit_width;
-            devices[cnt].config.ch_info.channels = dev_hidl->config.ch_info.channels;
-            memcpy(&devices[cnt].config.ch_info.ch_map, &dev_hidl->config.ch_info.ch_map,
+            devices[cnt].id = (pal_device_id_t)devs_hidl[cnt].id;
+            devices[cnt].config.sample_rate = devs_hidl[cnt].config.sample_rate;
+            devices[cnt].config.bit_width = devs_hidl[cnt].config.bit_width;
+            devices[cnt].config.ch_info.channels = devs_hidl[cnt].config.ch_info.channels;
+            memcpy(&devices[cnt].config.ch_info.ch_map, &devs_hidl[cnt].config.ch_info.ch_map,
                    sizeof(uint8_t [64]));
             devices[cnt].config.aud_fmt_id =
-                                (pal_audio_fmt_t)dev_hidl->config.aud_fmt_id;
-            devices[cnt].address.card_id = dev_hidl->address.card_id;
-            devices[cnt].address.device_num = dev_hidl->address.device_num;
-            strlcpy(devices[cnt].sndDevName, dev_hidl->sndDevName.c_str(),
+                                (pal_audio_fmt_t)devs_hidl[cnt].config.aud_fmt_id;
+            devices[cnt].address.card_id = devs_hidl[cnt].address.card_id;
+            devices[cnt].address.device_num = devs_hidl[cnt].address.device_num;
+            strlcpy(devices[cnt].sndDevName, devs_hidl[cnt].sndDevName.c_str(),
                    sizeof(char [DEVICE_NAME_MAX_SIZE]));
             strlcpy(devices[cnt].custom_config.custom_key,
-                   dev_hidl->custom_config.custom_key.c_str(),
+                   devs_hidl[cnt].custom_config.custom_key.c_str(),
                    sizeof(char [PAL_MAX_CUSTOM_KEY_SIZE]));
-            dev_hidl = (PalDevice *)(dev_hidl + sizeof(PalDevice));
         }
     }
 
@@ -943,6 +1059,12 @@ Return<int32_t> PAL::ipc_pal_stream_set_volume(const uint64_t streamHandle,
     struct pal_volume_data *volume = nullptr;
     uint32_t noOfVolPairs = vol.data()->noOfVolPairs;
     int32_t ret = -ENOMEM;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     if (1 != vol.size()) {
         ALOGE("Invalid vol pairs");
         return -EINVAL;
@@ -983,6 +1105,11 @@ Return<void> PAL::ipc_pal_stream_get_mute(const uint64_t streamHandle,
 Return<int32_t> PAL::ipc_pal_stream_set_mute(const uint64_t streamHandle,
                                     bool state)
 {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_stream_set_mute((pal_stream_handle_t *)streamHandle, state);
 }
 
@@ -1001,6 +1128,12 @@ Return<void> PAL::ipc_pal_get_timestamp(const uint64_t streamHandle,
 {
     struct pal_session_time stime;
     int32_t ret = 0;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
+
     hidl_vec<PalSessionTime> sessTime_hidl;
     sessTime_hidl.resize(sizeof(struct pal_session_time));
     ret = pal_get_timestamp((pal_stream_handle_t *)streamHandle, &stime);
@@ -1013,6 +1146,11 @@ Return<int32_t> PAL::ipc_pal_add_remove_effect(const uint64_t streamHandle,
                                           const PalAudioEffect effect,
                                           bool enable)
 {
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return -EINVAL;
+    }
+
     return pal_add_remove_effect((pal_stream_handle_t *)streamHandle,
                                    (pal_audio_effect_t) effect, enable);
 }
@@ -1072,6 +1210,12 @@ Return<void>PAL::ipc_pal_stream_create_mmap_buffer(PalStreamHandle streamHandle,
     int32_t ret = 0;
     struct pal_mmap_buffer info;
     hidl_vec<PalMmapBuffer> mMapBuffer_hidl;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
+
     mMapBuffer_hidl.resize(sizeof(struct pal_mmap_buffer));
     ret = pal_stream_create_mmap_buffer((pal_stream_handle_t *)streamHandle, min_size_frames, &info);
     mMapBuffer_hidl.data()->buffer = (uint64_t)info.buffer;
@@ -1089,6 +1233,12 @@ Return<void>PAL::ipc_pal_stream_get_mmap_position(PalStreamHandle streamHandle,
     int32_t ret = 0;
     struct pal_mmap_position mmap_position;
     hidl_vec<PalMmapPosition> mmap_position_hidl;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
+
     mmap_position_hidl.resize(sizeof(struct pal_mmap_position));
     ret = pal_stream_get_mmap_position((pal_stream_handle_t *)streamHandle, &mmap_position);
     memcpy(mmap_position_hidl.data(), &mmap_position, sizeof(struct pal_mmap_position));
@@ -1117,6 +1267,11 @@ Return<void>PAL::ipc_pal_stream_get_tags_with_module_info(PalStreamHandle stream
     uint8_t *payload = NULL;
     size_t sz = size;
     hidl_vec<uint8_t> payloadRet;
+
+    if (!isValidstreamHandle(streamHandle)) {
+        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
+        return Void();
+    }
 
     if (size > 0) {
         payload = (uint8_t *)calloc(1, size);

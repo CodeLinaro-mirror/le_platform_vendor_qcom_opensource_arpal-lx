@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -458,7 +458,6 @@ std::mutex ResourceManager::mResourceManagerMutex;
 std::mutex ResourceManager::mChargerBoostMutex;
 std::mutex ResourceManager::mGraphMutex;
 std::mutex ResourceManager::mActiveStreamMutex;
-std::mutex ResourceManager::mValidStreamMutex;
 std::mutex ResourceManager::mSleepMonitorMutex;
 std::mutex ResourceManager::mListFrontEndsMutex;
 std::vector <int> ResourceManager::listAllFrontEndIds = {0};
@@ -1401,9 +1400,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                 PAL_INFO(LOG_TAG, "%d state already handled", state);
             } else if (PAL_CARD_STATUS_DOWN(state)) {
                 for (auto str: rm->mActiveStreams) {
-                    lockValidStreamMutex();
                     ret = increaseStreamUserCounter(str);
-                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
                         continue;
@@ -1419,9 +1416,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                         if (ret)
                             PAL_DBG(LOG_TAG, "Failed to unvote for stream type %d", type);
                     }
-                    lockValidStreamMutex();
                     ret = decreaseStreamUserCounter(str);
-                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
@@ -1447,9 +1442,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
 
                 SoundTriggerCaptureProfile = GetCaptureProfileByPriority(nullptr);
                 for (auto str: rm->mActiveStreams) {
-                    lockValidStreamMutex();
                     ret = increaseStreamUserCounter(str);
-                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error incrementing the stream counter for the stream handle: %pK", str);
                         continue;
@@ -1459,9 +1452,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                         PAL_ERR(LOG_TAG, "Ssr up handling failed for %pK ret %d",
                                           str, ret);
                     }
-                    lockValidStreamMutex();
                     ret = decreaseStreamUserCounter(str);
-                    unlockValidStreamMutex();
                     if (0 != ret) {
                         PAL_ERR(LOG_TAG, "Error decrementing the stream counter for the stream handle: %pK", str);
                     }
@@ -1553,6 +1544,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "kalama") ||
                     strstr(snd_card_name, "pineapple") ||
                     strstr(snd_card_name, "cliffs") ||
+                    strstr(snd_card_name, "pitti") ||
                     strstr(snd_card_name, "anorak") ||
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "qcm6490") ||
@@ -2496,6 +2488,7 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
             devinfo->isUSBUUIdBasedTuningEnabledFlag = deviceInfo[i].isUSBUUIdBasedTuningEnabled;
             devinfo->bit_width = deviceInfo[i].bit_width;
             devinfo->bitFormatSupported = deviceInfo[i].bitFormatSupported;
+            devinfo->is32BitSupported = deviceInfo[i].is32BitSupported;
             devinfo->channels_overwrite = false;
             devinfo->samplerate_overwrite = false;
             devinfo->sndDevName_overwrite = false;
@@ -2732,6 +2725,66 @@ void ResourceManager::getChannelMap(uint8_t *channel_map, int channels)
        channel_map[6] = PAL_CHMAP_CHANNEL_LS;
        channel_map[7] = PAL_CHMAP_CHANNEL_RS;
        break;
+    case CHANNELS_10:
+       channel_map[0] = PAL_CHMAP_CHANNEL_FL;
+       channel_map[1] = PAL_CHMAP_CHANNEL_FR;
+       channel_map[2] = PAL_CHMAP_CHANNEL_C;
+       channel_map[3] = PAL_CHMAP_CHANNEL_LS;
+       channel_map[4] = PAL_CHMAP_CHANNEL_RS;
+       channel_map[5] = PAL_CHMAP_CHANNEL_LFE;
+       channel_map[6] = PAL_CHMAP_CHANNEL_LB;
+       channel_map[7] = PAL_CHMAP_CHANNEL_RB;
+       channel_map[8] = PAL_CHMAP_CHANNEL_RC;
+       channel_map[9] = PAL_CHMAP_CHANNEL_TS;
+       break;
+    case CHANNELS_12:
+       channel_map[0] = PAL_CHMAP_CHANNEL_FL;
+       channel_map[1] = PAL_CHMAP_CHANNEL_FR;
+       channel_map[2] = PAL_CHMAP_CHANNEL_C;
+       channel_map[3] = PAL_CHMAP_CHANNEL_LS;
+       channel_map[4] = PAL_CHMAP_CHANNEL_RS;
+       channel_map[5] = PAL_CHMAP_CHANNEL_LFE;
+       channel_map[6] = PAL_CHMAP_CHANNEL_LB;
+       channel_map[7] = PAL_CHMAP_CHANNEL_RB;
+       channel_map[8] = PAL_CHMAP_CHANNEL_RC;
+       channel_map[9] = PAL_CHMAP_CHANNEL_TS;
+       channel_map[10] = PAL_CHMAP_CHANNEL_TFC;
+       channel_map[11] = PAL_CHMAP_CHANNEL_MS;
+       break;
+    case CHANNELS_14:
+       channel_map[0] = PAL_CHMAP_CHANNEL_FL;
+       channel_map[1] = PAL_CHMAP_CHANNEL_FR;
+       channel_map[2] = PAL_CHMAP_CHANNEL_C;
+       channel_map[3] = PAL_CHMAP_CHANNEL_LS;
+       channel_map[4] = PAL_CHMAP_CHANNEL_RS;
+       channel_map[5] = PAL_CHMAP_CHANNEL_LFE;
+       channel_map[6] = PAL_CHMAP_CHANNEL_LB;
+       channel_map[7] = PAL_CHMAP_CHANNEL_RB;
+       channel_map[8] = PAL_CHMAP_CHANNEL_RC;
+       channel_map[9] = PAL_CHMAP_CHANNEL_TS;
+       channel_map[10] = PAL_CHMAP_CHANNEL_TFC;
+       channel_map[11] = PAL_CHMAP_CHANNEL_MS;
+       channel_map[12] = PAL_CHMAP_CHANNEL_FLC;
+       channel_map[13] = PAL_CHMAP_CHANNEL_FRC;
+       break;
+    case CHANNELS_16:
+       channel_map[0] = PAL_CHMAP_CHANNEL_FL;
+       channel_map[1] = PAL_CHMAP_CHANNEL_FR;
+       channel_map[2] = PAL_CHMAP_CHANNEL_C;
+       channel_map[3] = PAL_CHMAP_CHANNEL_LS;
+       channel_map[4] = PAL_CHMAP_CHANNEL_RS;
+       channel_map[5] = PAL_CHMAP_CHANNEL_LFE;
+       channel_map[6] = PAL_CHMAP_CHANNEL_LB;
+       channel_map[7] = PAL_CHMAP_CHANNEL_RB;
+       channel_map[8] = PAL_CHMAP_CHANNEL_RC;
+       channel_map[9] = PAL_CHMAP_CHANNEL_TS;
+       channel_map[10] = PAL_CHMAP_CHANNEL_TFC;
+       channel_map[11] = PAL_CHMAP_CHANNEL_MS;
+       channel_map[12] = PAL_CHMAP_CHANNEL_FLC;
+       channel_map[13] = PAL_CHMAP_CHANNEL_FRC;
+       channel_map[14] = PAL_CHMAP_CHANNEL_RLC;
+       channel_map[15] = PAL_CHMAP_CHANNEL_RRC;
+       break;
    }
 }
 
@@ -2805,7 +2858,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
     deviceattr->config.aud_fmt_id = bitWidthToFormat.at(deviceattr->config.bit_width);
 
     if ((sAttr != NULL) && (sAttr->direction == PAL_AUDIO_INPUT) &&
-            (deviceattr->config.bit_width == BITWIDTH_32)) {
+            (deviceattr->config.bit_width == BITWIDTH_32 && !devinfo.is32BitSupported)) {
         PAL_INFO(LOG_TAG, "update i/p bitwidth stream from 32b to max supported 24b");
         deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S24_LE;
         deviceattr->config.bit_width = BITWIDTH_24;
@@ -3430,7 +3483,6 @@ int ResourceManager::registerStream(Stream *s)
     PAL_DBG(LOG_TAG, "stream type %d", type);
 
     mActiveStreamMutex.lock();
-    mValidStreamMutex.lock();
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
         case PAL_STREAM_VOIP_RX:
@@ -3578,7 +3630,7 @@ int ResourceManager::registerStream(Stream *s)
 
     mAllActiveStreams.push_back(s);
 #endif
-    mValidStreamMutex.unlock();
+
     mActiveStreamMutex.unlock();
     if (ret)
         PAL_ERR(LOG_TAG, "Failed to register stream type: %d, ret %d", type, ret);
@@ -3618,7 +3670,6 @@ int ResourceManager::deregisterStream(Stream *s)
 
     PAL_INFO(LOG_TAG, "stream type %d", type);
     mActiveStreamMutex.lock();
-    mValidStreamMutex.lock();
     switch (type) {
         case PAL_STREAM_LOW_LATENCY:
         case PAL_STREAM_VOIP_RX:
@@ -3756,7 +3807,7 @@ int ResourceManager::deregisterStream(Stream *s)
     }
 
     deregisterstream(s, mActiveStreams);
-    mValidStreamMutex.unlock();
+
     mActiveStreamMutex.unlock();
 exit:
     if (ret)
@@ -3793,30 +3844,30 @@ int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
 
 int ResourceManager::initStreamUserCounter(Stream *s)
 {
-    lockValidStreamMutex();
+    lockActiveStream();
     mActiveStreamUserCounter.insert(std::make_pair(s, std::make_pair(0, true)));
     s->initStreamSmph();
-    unlockValidStreamMutex();
+    unlockActiveStream();
     return 0;
 }
 
 int ResourceManager::deactivateStreamUserCounter(Stream *s)
 {
     std::map<Stream*, std::pair<uint32_t, bool>>::iterator it;
-    lockValidStreamMutex();
+    lockActiveStream();
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end() && it->second.second == true) {
         PAL_DBG(LOG_TAG, "stream %p is to be deactivated.", s);
         it->second.second = false;
-        unlockValidStreamMutex();
+        unlockActiveStream();
         s->waitStreamSmph();
         PAL_DBG(LOG_TAG, "stream %p is inactive.", s);
         s->deinitStreamSmph();
         return 0;
     } else {
         PAL_ERR(LOG_TAG, "stream %p is not found or inactive", s);
-        unlockValidStreamMutex();
+        unlockActiveStream();
         return -EINVAL;
     }
 }
@@ -3824,16 +3875,16 @@ int ResourceManager::deactivateStreamUserCounter(Stream *s)
 int ResourceManager::eraseStreamUserCounter(Stream *s)
 {
     std::map<Stream*, std::pair<uint32_t, bool>>::iterator it;
-    lockValidStreamMutex();
+    lockActiveStream();
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
         mActiveStreamUserCounter.erase(it);
         PAL_DBG(LOG_TAG, "stream counter for %p is erased.", s);
-        unlockValidStreamMutex();
+        unlockActiveStream();
         return 0;
     } else {
         PAL_ERR(LOG_TAG, "stream counter for %p is not found.", s);
-        unlockValidStreamMutex();
+        unlockActiveStream();
         return -EINVAL;
     }
 }
@@ -7780,13 +7831,15 @@ int ResourceManager::restoreDeviceConfigForUPD(
         goto exit_on_error;
     }
 
-    hs_dev = Device::getObject(PAL_DEVICE_OUT_HANDSET);
-    if (hs_dev)
-        hs_dev->getDeviceAttributes(&curDevAttr);
+    if (devId == PAL_DEVICE_OUT_HANDSET) {
+        hs_dev = Device::getObject(PAL_DEVICE_OUT_HANDSET);
+        if (hs_dev)
+            hs_dev->getDeviceAttributes(&curDevAttr);
 
-    if (!doDevAttrDiffer(&dAttr, &curDevAttr)) {
-        PAL_DBG(LOG_TAG, "No need to update device attr for UPD");
-        return ret;
+        if (!doDevAttrDiffer(&dAttr, &curDevAttr)) {
+            PAL_DBG(LOG_TAG, "No need to update device attr for UPD");
+            return ret;
+        }
     }
 
     /*
@@ -8462,6 +8515,12 @@ int ResourceManager::getNativeAudioSupport()
         na_props.ui_na_prop_enabled) {
         ret = na_props.na_mode;
     }
+
+#ifdef PAL_CUTILS_UNSUPPORTED
+    na_props.rm_na_prop_enabled = na_props.ui_na_prop_enabled = true;
+    na_props.na_mode = 4; // NATIVE_AUDIO_MODE_MULTIPLE_MIX_IN_DSP = 4
+#endif
+
     PAL_ERR(LOG_TAG,"napb: ui Prop enabled(%d) mode(%d)",
            na_props.ui_na_prop_enabled, na_props.na_mode);
     return ret;
@@ -9309,9 +9368,11 @@ int32_t ResourceManager::a2dpResumeFromDummy(pal_device_id_t dev_id)
             (*sIter)->getAssociatedDevices(devices);
             if (devices.size() > 0) {
                 for (auto device: devices) {
-                    if (device->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
-                        streamDevDisconnect.push_back({(*sIter), PAL_DEVICE_OUT_BLUETOOTH_SCO});
-                        break;
+                    if (NULL != device) {
+                        if (device->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
+                            streamDevDisconnect.push_back({(*sIter), PAL_DEVICE_OUT_BLUETOOTH_SCO});
+                            break;
+                        }
                     }
                 }
             }
@@ -9552,7 +9613,9 @@ int32_t ResourceManager::a2dpCaptureResumeFromDummy(pal_device_id_t dev_id)
             (*sIter)->getAssociatedDevices(devices);
             if (devices.size() > 0) {
                 for (auto device : devices) {
-                    streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
+                    if (NULL != device) {
+                        streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
+                    }
                 }
             }
             restoredStreams.push_back((*sIter));
@@ -10151,7 +10214,9 @@ int32_t ResourceManager::a2dpCaptureResume(pal_device_id_t dev_id)
             (*sIter)->getAssociatedDevices(devices);
             if (devices.size() > 0) {
                 for (auto device : devices) {
-                    streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
+                    if(NULL != device) {
+                        streamDevDisconnect.push_back({ (*sIter), device->getSndDeviceId() });
+                    }
                 }
             }
             restoredStreams.push_back((*sIter));
@@ -10360,20 +10425,20 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
         {
             bool match = false;
             std::list<Stream*>::iterator sIter;
-            lockValidStreamMutex();
+            lockActiveStream();
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                 if (match) {
                     if (increaseStreamUserCounter(*sIter) < 0)
                         continue;
-                    unlockValidStreamMutex();
+                    unlockActiveStream();
                     status = (*sIter)->getEffectParameters(param_payload);
-                    lockValidStreamMutex();
+                    lockActiveStream();
                     decreaseStreamUserCounter(*sIter);
                     break;
                 }
             }
-            unlockValidStreamMutex();
+            unlockActiveStream();
             break;
         }
         default:
@@ -11476,7 +11541,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         case PAL_PARAM_ID_UIEFFECT:
         {
             bool match = false;
-            lockValidStreamMutex();
+            lockActiveStream();
             std::list<Stream*>::iterator sIter;
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
                     sIter++) {
@@ -11486,9 +11551,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     if (match) {
                         if (increaseStreamUserCounter(*sIter) < 0)
                             continue;
-                        unlockValidStreamMutex();
+                        unlockActiveStream();
                         status = (*sIter)->setEffectParameters(param_payload);
-                        lockValidStreamMutex();
+                        lockActiveStream();
                         decreaseStreamUserCounter(*sIter);
                         if (status) {
                             PAL_ERR(LOG_TAG, "failed to set param for pal_device_id=%x stream_type=%x",
@@ -11499,7 +11564,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     PAL_ERR(LOG_TAG, "There is no active stream.");
                 }
             }
-            unlockValidStreamMutex();
+            unlockActiveStream();
         }
         break;
         default:
@@ -12230,11 +12295,25 @@ bool ResourceManager::isDeviceAvailable(
 
 bool ResourceManager::isDisconnectedDeviceStillActive(
     std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices,
-    pal_device_id_t id)
+    const std::set<pal_device_id_t> &extDeviceList)
 {
-    return (!isDeviceAvailable(id)) &&
-        (curPalDevices.find(id) != curPalDevices.end()) &&
-        (activeDevices.find(id) != activeDevices.end());
+    for (pal_device_id_t id : extDeviceList) {
+        if ((curPalDevices.find(id) != curPalDevices.end() &&
+            activeDevices.find(id) != activeDevices.end()) &&
+            ((isBtDevice(id) && !isDeviceReady(id)) || !isDeviceAvailable(id))) {
+             return true;
+        }
+    }
+    return false;
+}
+
+bool ResourceManager::isDeviceGroupInList(std::set<pal_device_id_t> &devicelist,
+                                          const std::set<pal_device_id_t> &devicegroup) {
+    for (pal_device_id_t id : devicelist) {
+        if (devicegroup.find(id) != devicegroup.end())
+            return true;
+    }
+    return false;
 }
 
 bool ResourceManager::isDeviceReady(pal_device_id_t id)
@@ -12837,6 +12916,7 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
     struct deviceIn dev = {
         .bitFormatSupported = PAL_AUDIO_FMT_PCM_S16_LE,
         .ec_enable = true,
+        .is32BitSupported = false,
     };
     int size = 0 , sizeusecase = 0, sizecustomconfig = 0;
 
@@ -12896,6 +12976,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "Charge_concurrency_enabled")) {
             if (atoi(data->data_buf))
                 isChargeConcurrencyEnabled = true;
+        } else if (!strcmp(tag_name, "is32BitSupported")) {
+            size = deviceInfo.size() - 1;
+            if (atoi(data->data_buf))
+                deviceInfo[size].is32BitSupported = true;
         } else if (!strcmp(tag_name, "cps_mode")) {
             cpsMode = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "supported_bit_format")) {
@@ -13537,8 +13621,8 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
         PAL_ERR(LOG_TAG, "invalid dev cannot restore device");
         goto exit;
     }
-
-    if (isPluginPlaybackDevice((pal_device_id_t)dev->getSndDeviceId())) {
+    if (isPluginPlaybackDevice((pal_device_id_t)dev->getSndDeviceId()) &&
+        (dev->getDeviceCount() != 0)) {
         PAL_ERR(LOG_TAG, "don't restore device for usb/3.5 hs playback");
         goto exit;
     }

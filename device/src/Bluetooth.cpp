@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -146,7 +146,10 @@ void Bluetooth::updateDeviceAttributes()
         deviceAttr.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
         break;
     case CODEC_TYPE_APTX_AD_QLEA:
-        deviceAttr.config.sample_rate = SAMPLINGRATE_192K;
+        if (codecVersion == V1)
+            deviceAttr.config.sample_rate = SAMPLINGRATE_96K;
+        else
+            deviceAttr.config.sample_rate = SAMPLINGRATE_192K;
         deviceAttr.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
         break;
     default:
@@ -188,11 +191,10 @@ int Bluetooth::getPluginPayload(void **libHandle, bt_codec_t **btCodec,
 
     handle = dlopen(lib_path.c_str(), RTLD_NOW);
     if (handle == NULL) {
-        PAL_ERR(LOG_TAG, "failed to dlopen lib %s", lib_path.c_str());
+        PAL_ERR(LOG_TAG, "failed to dlopen lib %s. Error: %s", lib_path.c_str(), dlerror());
         return -EINVAL;
     }
 
-    dlerror();
     plugin_open_fn = (open_fn_t)dlsym(handle, "plugin_open");
     if (!plugin_open_fn) {
         PAL_ERR(LOG_TAG, "dlsym to open fn failed, err = '%s'", dlerror());
@@ -432,8 +434,12 @@ int Bluetooth::configureGraphModules()
     int status = 0, i;
     int32_t pcmId;
     bt_enc_payload_t *out_buf = NULL;
+    Stream *stream = NULL;
+    Session *session = NULL;
+    std::vector<Stream*> activestreams;
     PayloadBuilder* builder = new PayloadBuilder();
     std::string backEndName;
+    std::shared_ptr<Device> dev = nullptr;
     uint8_t* paramData = NULL;
     size_t paramSize = 0;
     uint32_t tagId = 0, streamMapDir = 0;
@@ -451,6 +457,16 @@ int Bluetooth::configureGraphModules()
         goto error;
     }
 
+    dev = Device::getInstance(&deviceAttr, rm);
+    status = rm->getActiveStream_l(activestreams, dev);
+    if ((0 != status) || (activestreams.size() == 0)) {
+        PAL_ERR(LOG_TAG, "no active stream available");
+        status = -EINVAL;
+        goto error;
+    }
+    stream = static_cast<Stream *>(activestreams[0]);
+    stream->getAssociatedSession(&session);
+
     /* Retrieve plugin library from resource manager.
      * Map to interested symbols.
      */
@@ -466,6 +482,7 @@ int Bluetooth::configureGraphModules()
 
     isAbrEnabled = out_buf->is_abr_enabled;
     isEncDecConfigured = (out_buf->is_enc_config_set && out_buf->is_dec_config_set);
+    codecVersion = out_buf->codec_version;
 
     /* Reset device GKV for AAC ABR */
     if ((codecFormat == CODEC_TYPE_AAC) && isAbrEnabled)
@@ -602,6 +619,87 @@ int Bluetooth::configureGraphModules()
             }
             break;
         case DEC:
+            if (!isDummySink && (codecFormat == CODEC_TYPE_SBC || codecFormat == CODEC_TYPE_AAC))
+            {
+                status = session->getMIID(backEndName.c_str(), MODULE_CONGESTION_BUFFER, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            MODULE_CONGESTION_BUFFER, status);
+                    goto error;
+                }
+
+                builder->payloadCABConfig(&paramData, &paramSize, miid, out_buf);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid CAB module param size");
+                    goto error;
+                }
+
+                status = session->getMIID(backEndName.c_str(), MODULE_JITTER_BUFFER, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            MODULE_JITTER_BUFFER, status);
+                    goto error;
+                }
+
+                builder->payloadJBMConfig(&paramData, &paramSize, miid, out_buf);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid JBM module param size");
+                    goto error;
+                }
+
+                status = session->getMIID(backEndName.c_str(), tagId, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            tagId, status);
+                    goto error;
+                }
+
+                builder->payloadPcmCnvConfig(&paramData, &paramSize, miid, &codecConfig, false);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid Output format Config module param size");
+                    goto error;
+                }
+
+                status = session->getMIID(backEndName.c_str(), BT_PCM_CONVERTER, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
+                            BT_PCM_CONVERTER, status);
+                    goto error;
+                }
+
+                builder->payloadPcmCnvConfig(&paramData, &paramSize, miid, &codecConfig, false);
+                if (paramSize) {
+                    dev->updateCustomPayload(paramData, paramSize);
+                    delete [] paramData;
+                    paramData = NULL;
+                    paramSize = 0;
+                } else {
+                    status = -EINVAL;
+                    PAL_ERR(LOG_TAG, "Invalid PCM CNV module param size");
+                    goto error;
+                }
+                goto done;
+            } else {
+                goto done;
+            }
         default:
             break;
         }
@@ -729,15 +827,12 @@ void Bluetooth::startAbr()
 
     if ((codecFormat == CODEC_TYPE_APTX_AD_SPEECH) ||
             (codecFormat == CODEC_TYPE_LC3) ||
-            (codecFormat == CODEC_TYPE_APTX_AD_QLEA)) {
-        fbDevice.config.sample_rate = SAMPLINGRATE_96K;
+            (codecFormat == CODEC_TYPE_APTX_AD_QLEA) ||
+            (codecFormat == CODEC_TYPE_APTX_AD_R4)) {
+        fbDevice.config.sample_rate = deviceAttr.config.sample_rate;
     } else {
         fbDevice.config.sample_rate = SAMPLINGRATE_8K;
     }
-
-    /* Use Rx path device configuration, in case of APTx Ad R4 */
-    if (codecFormat == CODEC_TYPE_APTX_AD_R4)
-        fbDevice.config.sample_rate = deviceAttr.config.sample_rate;
 
     if (codecType == DEC) { /* Usecase is TX, feedback device will be RX */
         if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP) {
@@ -1519,10 +1614,10 @@ bool BtA2dp::a2dp_send_sink_setup_complete()
     uint64_t system_latency = 0;
     bool is_complete = false;
 
-    /* TODO : Replace this with call to plugin */
-    system_latency = 200;
-
-    if (audio_sink_session_setup_complete(system_latency) == 0) {
+    if (pluginCodec) {
+        system_latency = pluginCodec->plugin_get_codec_latency(pluginCodec);
+    }
+    if (audio_sink_session_setup_complete && audio_sink_session_setup_complete(system_latency)) {
         is_complete = true;
     }
     return is_complete;
@@ -1959,7 +2054,6 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
 
             else {
 #ifdef A2DP_SINK_SUPPORTED
-
                 open_a2dp_sink();
 #else
                 a2dpState = A2DP_STATE_CONNECTED;
