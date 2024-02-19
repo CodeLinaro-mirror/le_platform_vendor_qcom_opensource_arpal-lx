@@ -1105,7 +1105,9 @@ int SessionAlsaPcm::start(Stream * s)
                     }
                 }
 
-                if (sAttr.type == PAL_STREAM_VOIP_TX) {
+                if ((sAttr.type == PAL_STREAM_VOIP_TX) ||
+                    ((sAttr.type == PAL_STREAM_DEEP_BUFFER) &&
+                     (sAttr.direction == PAL_AUDIO_INPUT))) {
                     status = populateECMFCPayload(s, &payloadSize, &payload);
                     if (status != 0) {
                         PAL_ERR(LOG_TAG, "populate EC MFC payload failed");
@@ -1906,13 +1908,15 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
         }
     }
 
-    if (streamType == PAL_STREAM_VOIP_TX) {
-        status = streamHandle->getStreamAttributes(&sAttr);
-        if (status != 0) {
-            PAL_ERR(LOG_TAG, "stream get attributes failed");
-            goto exit;
-        }
+    status = streamHandle->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
+        goto exit;
+    }
 
+    if ((streamType == PAL_STREAM_VOIP_TX) ||
+        ((streamType == PAL_STREAM_DEEP_BUFFER) &&
+         (sAttr.direction == PAL_AUDIO_INPUT))) {
         status = populateECMFCPayload(streamHandle, &payloadSize, &payload);
         if (status != 0) {
             PAL_ERR(LOG_TAG, "Failed to populate EC MFC Payload");
