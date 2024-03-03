@@ -26,6 +26,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #define LOG_TAG "PAL: StreamCompress"
 #include "StreamCompress.h"
@@ -291,7 +297,7 @@ int32_t StreamCompress::stop()
             PAL_VERBOSE(LOG_TAG,"session stop successful");
 
             for (int32_t i = 0; i < mDevices.size(); i++) {
-                PAL_ERR(LOG_TAG, "device %d name %s, going to stop",
+                PAL_INFO(LOG_TAG, "device %d name %s, going to stop",
                     mDevices[i]->getSndDeviceId(), mDevices[i]->getPALDeviceName().c_str());
 
                 status = mDevices[i]->stop();
@@ -351,7 +357,7 @@ int32_t StreamCompress::start()
 
             rm->lockGraph();
             for (int32_t i=0; i < mDevices.size(); i++) {
-                PAL_ERR(LOG_TAG, "device %d name %s, going to start",
+                PAL_INFO(LOG_TAG, "device %d name %s, going to start",
                     mDevices[i]->getSndDeviceId(), mDevices[i]->getPALDeviceName().c_str());
 
                 status = mDevices[i]->start();
