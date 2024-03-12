@@ -113,6 +113,7 @@
 
 #define CALIBRATION_STATUS_SUCCESS 4
 #define CALIBRATION_STATUS_FAILURE 5
+#define CALIBRATION_STATUS_IVLOW 7
 
 #define MAX_RETRY 3
 
@@ -232,7 +233,8 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
             PAL_DBG(LOG_TAG, "Calibration state %d for Spkr %d", param_data->cali_param[i].state, i+1);
             if (param_data->cali_param[i].state != CALIBRATION_STATUS_SUCCESS)
                 calSuccess = false;
-            if (param_data->cali_param[i].state == CALIBRATION_STATUS_FAILURE) {
+            if (param_data->cali_param[i].state == CALIBRATION_STATUS_FAILURE ||
+                param_data->cali_param[i].state == CALIBRATION_STATUS_IVLOW) {
                 PAL_ERR(LOG_TAG, "Calibration failed for Speaker no %d", i+1);
                 calFailure = true;
             }
@@ -723,6 +725,7 @@ int SpeakerProtection::spkrStartCalibration()
         }
     }
 
+    enableDevice(audioRoute, mSndDeviceName_vi);
     txPcm = pcm_open(rm->getVirtualSndCard(), pcmDevIdsTx.at(0), flags, &config);
     if (!txPcm) {
         PAL_ERR(LOG_TAG, "txPcm open failed");
@@ -759,7 +762,6 @@ int SpeakerProtection::spkrStartCalibration()
         goto err_pcm_open;
     }
 
-    enableDevice(audioRoute, mSndDeviceName_vi);
 
     PAL_DBG(LOG_TAG, "pcm start for TX path");
     if (pcm_start(txPcm) < 0) {
@@ -938,6 +940,7 @@ int SpeakerProtection::spkrStartCalibration()
         }
     }
 
+    enableDevice(audioRoute, mSndDeviceName_rx);
     rxPcm = pcm_open(rm->getVirtualSndCard(), pcmDevIdsRx.at(0), flags, &config);
     if (!rxPcm) {
         PAL_ERR(LOG_TAG, "pcm open failed for RX path");
@@ -951,8 +954,6 @@ int SpeakerProtection::spkrStartCalibration()
         goto err_pcm_open;
     }
 
-
-    enableDevice(audioRoute, mSndDeviceName_rx);
     PAL_DBG(LOG_TAG, "pcm start for RX path");
     if (pcm_start(rxPcm) < 0) {
         PAL_ERR(LOG_TAG, "pcm start failed for RX path");

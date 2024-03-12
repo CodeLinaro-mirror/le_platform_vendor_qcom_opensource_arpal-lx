@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -72,6 +72,7 @@ typedef enum {
 #define MAX_SND_CARD 10
 #define DUMMY_SND_CARD MAX_SND_CARD
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
+#define VOLUME_TOLERANCE 0.000001
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO "audio.nat.codec.enabled"
 #define AUDIO_PARAMETER_KEY_NATIVE_AUDIO_MODE "native_audio_mode"
 #define AUDIO_PARAMETER_KEY_MAX_SESSIONS "max_sessions"
@@ -81,6 +82,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_HIFI_FILTER "hifi_filter"
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
+#define AUDIO_PARAMETER_KEY_UPD_SET_CUSTOM_GAIN "upd_set_custom_gain"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
 #define AUDIO_PARAMETER_KEY_SIGNAL_HANDLER "signal_handler"
 #define AUDIO_PARAMETER_KEY_DEVICE_MUX "device_mux_config"
@@ -302,6 +304,7 @@ struct pal_device_info {
      bool bit_width_overwrite;
      uint32_t bit_width;
      pal_audio_fmt_t bitFormatSupported;
+     bool is32BitSupported;
 };
 
 struct vsid_modepair {
@@ -457,6 +460,7 @@ struct deviceIn {
     uint32_t bit_width;
     pal_audio_fmt_t bitFormatSupported;
     bool ec_enable;
+    bool is32BitSupported;
 };
 
 class ResourceManager
@@ -493,8 +497,8 @@ private:
     std::shared_ptr<Device> clearInternalECRefCounts(Stream *tx_str,
                         std::shared_ptr<Device> tx_dev);
     static bool isBitWidthSupported(uint32_t bitWidth);
-    uint32_t getNTPathForStreamAttr(const pal_stream_attributes attr);
-    ssize_t getAvailableNTStreamInstance(const pal_stream_attributes attr);
+    uint32_t getNTPathForStreamAttr(const pal_stream_attributes &attr);
+    ssize_t getAvailableNTStreamInstance(const pal_stream_attributes &attr);
     int getECEnableSetting(std::shared_ptr<Device> tx_dev, Stream * streamHandle, bool *ec_enable);
     int checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_dev, Stream *tx_stream, bool ec_enable);
     int checkandEnableECForRXStream_l(std::shared_ptr<Device> rx_dev, Stream *rx_stream, bool ec_enable);
@@ -502,6 +506,7 @@ private:
     void onChargingStateChange();
     void onVUIStreamRegistered();
     void onVUIStreamDeregistered();
+    int setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s);
     bool checkDeviceSwitchForHaptics(struct pal_device *inDevAttr, struct pal_device *curDevAttr);
 protected:
     std::list <Stream*> mActiveStreams;
@@ -542,7 +547,6 @@ protected:
     static std::mutex mResourceManagerMutex;
     static std::mutex mGraphMutex;
     static std::mutex mActiveStreamMutex;
-    static std::mutex mValidStreamMutex;
     static std::mutex mSleepMonitorMutex;
     static std::mutex mListFrontEndsMutex;
     static int snd_virt_card;
@@ -653,6 +657,7 @@ public:
     static bool isXPANEnabled;
     static bool isCRSCallEnabled;
     static bool isDummyDevEnabled;
+    static bool isProxyRecordActive;
     static std::mutex mChargerBoostMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
@@ -677,6 +682,8 @@ public:
     static bool isUPDVirtualPortEnabled;
     /* Flag to indicate if Haptics isdriven thorugh WSA */
     static bool isHapticsthroughWSA;
+    /* Flag to indicate whether to send custom gain commands to UPD modules or not? */
+    static bool isUpdSetCustomGainEnabled;
     /* Variable to store max volume index for voice call */
     static int max_voice_vol;
     /*variable to store MSPP linear gain*/
@@ -827,7 +834,8 @@ public:
     int getActiveStream_l(std::vector<Stream*> &activestreams,std::shared_ptr<Device> d = nullptr);
     int getOrphanStream(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
     int getOrphanStream_l(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
-    int getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
+    void getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
+    void getActiveDevices_l(std::vector<std::shared_ptr<Device>> &deviceList);
     int getSndDeviceName(int deviceId, char *device_name);
     int getDeviceEpName(int deviceId, std::string &epName);
     int getBackendName(int deviceId, std::string &backendName);
@@ -840,12 +848,12 @@ public:
     int getDevicePpTag(std::vector <int> &tag);
     int getDeviceDirection(uint32_t beDevId);
     void getSpViChannelMapCfg(int32_t *channelMap, uint32_t numOfChannels);
-    const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes,
+    const std::vector<int> allocateFrontEndIds (const struct pal_stream_attributes &,
                                                 int lDirection);
     const std::vector<int> allocateFrontEndExtEcIds ();
     void freeFrontEndEcTxIds (const std::vector<int> f);
     void freeFrontEndIds (const std::vector<int> f,
-                          const struct pal_stream_attributes,
+                          const struct pal_stream_attributes &,
                           int lDirection);
     const std::vector<std::string> getBackEndNames(const std::vector<std::shared_ptr<Device>> &deviceList) const;
     void getSharedBEDevices(std::vector<std::shared_ptr<Device>> &deviceList, std::shared_ptr<Device> inDevice) const;
@@ -877,6 +885,7 @@ public:
     bool IsDedicatedBEForUPDEnabled();
     bool IsDutyCycleForUPDEnabled();
     bool IsVirtualPortForUPDEnabled();
+    bool IsCustomGainEnabledForUPD();
     uint32_t getHapticsPriority();
     bool IsHapticsThroughWSA();
     void GetSoundTriggerConcurrencyCount(pal_stream_type_t type, int32_t *enable_count, int32_t *disable_count);
@@ -964,6 +973,7 @@ public:
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setUpdDutyCycleEnableParam(struct str_parms *parms,char *value, int len);
     static int setUpdVirtualPortParam(struct str_parms *parms, char *value, int len);
+    static int setUpdCustomGainParam(struct str_parms *parms,char *value, int len);
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
     static int setSignalHandlerEnableParam(struct str_parms *parms,char *value, int len);
     static int setMuxconfigEnableParam(struct str_parms *parms,char *value, int len);
@@ -985,7 +995,11 @@ public:
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceAvailable(std::vector<std::shared_ptr<Device>> devices, pal_device_id_t id);
     bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
-    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices, pal_device_id_t id);
+    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices,
+                                         std::set<pal_device_id_t> &activeDevices,
+                                         const std::set<pal_device_id_t> &extDeviceList);
+    bool isDeviceGroupInList(std::set<pal_device_id_t> &devicelist,
+                             const std::set<pal_device_id_t> &devicegroup);
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
     static bool isBtDevice(pal_device_id_t id);
@@ -1009,8 +1023,6 @@ public:
     void unlockGraph() { mGraphMutex.unlock(); };
     void lockActiveStream() { mActiveStreamMutex.lock(); };
     void unlockActiveStream() { mActiveStreamMutex.unlock(); };
-    void lockValidStreamMutex() { mValidStreamMutex.lock(); };
-    void unlockValidStreamMutex() { mValidStreamMutex.unlock(); };
     void lockResourceManagerMutex() {mResourceManagerMutex.lock();};
     void unlockResourceManagerMutex() {mResourceManagerMutex.unlock();};
     void getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream *, uint32_t>> &activeStreamDevs,
@@ -1069,6 +1081,7 @@ public:
     int32_t reconfigureInCallMusicStream(struct sessionToPayloadParam deviceData);
     int32_t resumeInCallMusic();
     int32_t pauseInCallMusic();
+    static void setProxyRecordActive(bool isActive);
 };
 
 #endif

@@ -28,16 +28,18 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
+#ifndef ATRACE_UNSUPPORTED
 #define ATRACE_TAG (ATRACE_TAG_AUDIO | ATRACE_TAG_HAL)
+#endif
 #define LOG_TAG "PAL: SoundTriggerEngineCapi"
 
 #include "SoundTriggerEngineCapi.h"
-
+#ifndef PAL_CUTILS_UNSUPPORTED
 #include <cutils/trace.h>
+#endif
 #include <dlfcn.h>
 
 #include "StreamSoundTrigger.h"
@@ -256,7 +258,7 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
             }
         }
 
-        if (reader_->getUnreadSize() < buffer_size_)
+        if (!reader_->waitForBuffers(buffer_size_))
             continue;
 
         read_size = reader_->read((void*)process_input_buff, buffer_size_);
@@ -280,10 +282,14 @@ int32_t SoundTriggerEngineCapi::StartKeywordDetection()
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi Process");
         capi_call_start = std::chrono::steady_clock::now();
+#ifndef ATRACE_UNSUPPORTED
         ATRACE_BEGIN("Second stage KW process");
+#endif
         rc = capi_handle_->vtbl_ptr->process(capi_handle_,
             &stream_input, nullptr);
+#ifndef ATRACE_UNSUPPORTED
         ATRACE_END();
+#endif
         capi_call_end = std::chrono::steady_clock::now();
         total_capi_process_duration +=
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -537,7 +543,7 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
             }
         }
 
-        if (reader_->getUnreadSize() < max_processing_sz)
+        if (!reader_->waitForBuffers(max_processing_sz))
             continue;
 
         read_size = reader_->read((void*)process_input_buff, max_processing_sz);
@@ -560,10 +566,14 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi Process\n");
         capi_call_start = std::chrono::steady_clock::now();
+#ifndef ATRACE_UNSUPPORTED
         ATRACE_BEGIN("Second stage uv process");
+#endif
         rc = capi_handle_->vtbl_ptr->process(capi_handle_,
             &stream_input, nullptr);
+#ifndef ATRACE_UNSUPPORTED
         ATRACE_END();
+#endif
         capi_call_end = std::chrono::steady_clock::now();
         total_capi_process_duration +=
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -582,10 +592,14 @@ int32_t SoundTriggerEngineCapi::StartUserVerification()
 
         PAL_VERBOSE(LOG_TAG, "Calling Capi get param for result\n");
         capi_call_start = std::chrono::steady_clock::now();
+#ifndef ATRACE_UNSUPPORTED
         ATRACE_BEGIN("Second stage uv get result");
+#endif
         rc = capi_handle_->vtbl_ptr->get_param(capi_handle_,
             STAGE2_UV_WRAPPER_ID_RESULT, nullptr, &capi_result);
+#ifndef ATRACE_UNSUPPORTED
         ATRACE_END();
+#endif
         capi_call_end = std::chrono::steady_clock::now();
         total_capi_get_param_duration +=
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -832,13 +846,11 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
 
         status = capi_handle_->vtbl_ptr->set_param(capi_handle_,
             SVA_ID_THRESHOLD_CONFIG, nullptr, &capi_buf);
-
+        free(threshold_cfg);
         if (CAPI_V2_EOK != status) {
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "set param SVA_ID_THRESHOLD_CONFIG failed with %d",
                     status);
-            if (threshold_cfg)
-                free(threshold_cfg);
             return status;
         }
 
@@ -851,8 +863,6 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "set param SVA_ID_REINIT_ALL failed, status = %d",
                     status);
-            if (threshold_cfg)
-                free(threshold_cfg);
             return status;
         }
         detection_state_ = KEYWORD_DETECTION_PENDING;
@@ -879,13 +889,11 @@ int32_t SoundTriggerEngineCapi::StartSoundEngine()
 
         rc = capi_handle_->vtbl_ptr->set_param(capi_handle_,
             STAGE2_UV_WRAPPER_ID_THRESHOLD, nullptr, &capi_buf);
-
+        free(threshold_cfg);
         if (CAPI_V2_EOK != rc) {
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "set param %d failed with %d",
                     STAGE2_UV_WRAPPER_ID_THRESHOLD, rc);
-            if (threshold_cfg)
-                free(threshold_cfg);
             return status;
         }
         detection_state_ =  USER_VERIFICATION_PENDING;

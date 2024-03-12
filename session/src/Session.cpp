@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -242,9 +242,13 @@ uint32_t Session::getModuleInfo(const char *control, uint32_t tagId, uint32_t *m
             status = -ENOENT;
             goto exit;
         }
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, rxAifBackEnds[0].second.data(), tagId, miid);
-        if (status) /** if not found, reset miid to 0 again */
-            *miid = 0;
+        for (int i = 0; i < rxAifBackEnds.size(); i++) {
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, rxAifBackEnds[i].second.data(), tagId, miid);
+            if (status) /** if not found, reset miid to 0 again */
+                *miid = 0;
+            else
+                break;
+        }
     }
 
     if (!txAifBackEnds.empty() && !(*miid)) { /** search in TX GKV */
@@ -254,9 +258,13 @@ uint32_t Session::getModuleInfo(const char *control, uint32_t tagId, uint32_t *m
             status = -ENOENT;
             goto exit;
         }
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, txAifBackEnds[0].second.data(), tagId, miid);
-        if (status)
-            *miid = 0;
+        for (int i = 0; i < txAifBackEnds.size(); i++) {
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, txAifBackEnds[i].second.data(), tagId, miid);
+            if (status)
+                *miid = 0;
+            else
+                break;
+        }
     }
 
     if (*miid == 0) {
@@ -1050,6 +1058,7 @@ int Session::checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
 
                 rm->freeFrontEndEcTxIds(pcmDevEcTxIds);
                 pcmEcTx = NULL;
+                ecRefDevId = PAL_DEVICE_OUT_MIN;
                 extECMutex.unlock();
                 rm->restoreInternalECRefs();
                 extECMutex.lock();
@@ -1210,6 +1219,7 @@ int32_t Session::setInitialVolume() {
     bool isStreamAvail = false;
     struct pal_vol_ctrl_ramp_param ramp_param = {};
     Session *session = NULL;
+    bool forceSetParameters = false;
 
     PAL_DBG(LOG_TAG, "Enter status: %d", status);
 
@@ -1223,12 +1233,22 @@ int32_t Session::setInitialVolume() {
         goto exit;
     }
 
+    for (int32_t i = 0; streamHandle->mVolumeData &&
+        i < (streamHandle->mVolumeData->no_of_volpair); i++) {
+        if((i > 0) &&
+            (abs(streamHandle->mVolumeData->volume_pair[0].vol -
+                streamHandle->mVolumeData->volume_pair[i].vol) > VOLUME_TOLERANCE)) {
+                forceSetParameters = true;
+                break;
+        }
+    }
+
     memset(&vol_set_param_info, 0, sizeof(struct volume_set_param_info));
     rm->getVolumeSetParamInfo(&vol_set_param_info);
     isStreamAvail = (find(vol_set_param_info.streams_.begin(),
                 vol_set_param_info.streams_.end(), sAttr.type) !=
                 vol_set_param_info.streams_.end());
-    if (isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) {
+    if ((isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) || forceSetParameters) {
         if (sAttr.direction == PAL_AUDIO_OUTPUT) {
            /* DSP default volume is highest value, non-0 rampping period
             * brings volume burst from highest amplitude to new volume

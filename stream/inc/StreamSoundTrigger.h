@@ -164,6 +164,7 @@ public:
     int32_t HandleConcurrentStream(bool active);
     int32_t setECRef(std::shared_ptr<Device> dev, bool is_enable) override;
     int32_t setECRef_l(std::shared_ptr<Device> dev, bool is_enable) override;
+    bool ConfigSupportLPI() override;
     void TransitTo(int32_t state_id);
 
     friend class PalRingBufferReader;
@@ -519,7 +520,8 @@ private:
     void PostDelayedStop();
     void CancelDelayedStop();
     void InternalStopRecognition();
-    int32_t DisconnectEvent(std::shared_ptr<StEventConfig> ev_cfg);
+    int32_t DisconnectEvent(std::shared_ptr<StEventConfig> ev_cfg,
+          bool device_switch_event = false);
     int32_t ConnectEvent(std::shared_ptr<StEventConfig> ev_cfg);
     std::thread timer_thread_;
     std::mutex timer_mutex_;

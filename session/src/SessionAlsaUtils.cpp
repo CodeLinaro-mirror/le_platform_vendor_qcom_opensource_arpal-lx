@@ -26,9 +26,9 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
@@ -316,7 +316,7 @@ error:
     return status;
 }
 
-bool SessionAlsaUtils::isMmapUsecase(struct pal_stream_attributes sAttr)
+bool SessionAlsaUtils::isMmapUsecase(struct pal_stream_attributes &sAttr)
 {
 
     return ((sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) &&
@@ -2330,18 +2330,51 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
             if (sess) {
                 sess->configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                     aifBackEndsToConnect[0].second.data());
-                sess->getCustomPayload(&payload, &payloadSize);
-                if (payload) {
-                    status = SessionAlsaUtils::setMixerParameter(mixerHandle, pcmDevIds.at(0),
-                                                             payload, payloadSize);
-                    sess->freeCustomPayload();
-                    payload = NULL;
-                    payloadSize = 0;
+
+                if (strcmp(dAttr.custom_config.custom_key, "mspp") &&
+                    dAttr.id == PAL_DEVICE_OUT_SPEAKER &&
+                    dAttr.config.ch_info.channels == 2 &&
+                    ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                    (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) ||
+                    (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+                    (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                    (sAttr.type == PAL_STREAM_COMPRESSED))) {
+                    pal_param_device_rotation_t rotation;
+                    rotation.rotation_type = rm->mOrientation == ORIENTATION_270 ?
+                                            PAL_SPEAKER_ROTATION_RL : PAL_SPEAKER_ROTATION_LR;
+                    status = sess->setParameters(streamHandle, 0, PAL_PARAM_ID_DEVICE_ROTATION, &rotation);
                     if (status != 0) {
-                        PAL_ERR(LOG_TAG, "setMixerParameter failed");
-                        goto exit;
+                        PAL_ERR(LOG_TAG,"handleDeviceRotation failed");
+                        status = 0; //rotaton setting failed is not fatal.
+                        sess->getCustomPayload(&payload, &payloadSize);
+                        if (payload) {
+                            status = SessionAlsaUtils::setMixerParameter(mixerHandle,
+                                                                     pcmDevIds.at(0),
+                                                                     payload, payloadSize);
+                            sess->freeCustomPayload();
+                            payload = NULL;
+                            payloadSize = 0;
+                            if (status != 0) {
+                                PAL_ERR(LOG_TAG, "setMixerParameter failed");
+                                goto exit;
+                            }
+                        }
+                    }
+                } else {
+                    sess->getCustomPayload(&payload, &payloadSize);
+                    if (payload) {
+                        status = SessionAlsaUtils::setMixerParameter(mixerHandle, pcmDevIds.at(0),
+                                                                 payload, payloadSize);
+                        sess->freeCustomPayload();
+                        payload = NULL;
+                        payloadSize = 0;
+                        if (status != 0) {
+                            PAL_ERR(LOG_TAG, "setMixerParameter failed");
+                            goto exit;
+                        }
                     }
                 }
+
             } else {
                 PAL_ERR(LOG_TAG, "invalid session audio object");
                 status = -EINVAL;
@@ -2356,7 +2389,8 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
                     goto exit;
                 }
             }
-            if (streamType == PAL_STREAM_ULTRA_LOW_LATENCY) {
+            if (streamType == PAL_STREAM_ULTRA_LOW_LATENCY ||
+               (dAttr.id == PAL_DEVICE_IN_PROXY || dAttr.id == PAL_DEVICE_IN_RECORD_PROXY)) {
                 if (sess) {
                     sess->configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                     aifBackEndsToConnect[0].second.data());
@@ -2449,14 +2483,23 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
     } else if (dAttr.id > PAL_DEVICE_IN_MIN && dAttr.id < PAL_DEVICE_IN_MAX) {
         connectCtrlName << PCM_SND_DEV_NAME_PREFIX << pcmTxDevIds.at(0) << " connect";
     }
-
+    if (rmHandle == nullptr || streamHandle == nullptr) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "rmHandle or streamHandle is invalid");
+        goto exit;
+    }
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
     if (status) {
         PAL_ERR(LOG_TAG, "get mixer handle failed %d", status);
         goto exit;
     }
+    status = streamHandle->getStreamAttributes(&sAttr);
+    if (status) {
+        PAL_ERR(LOG_TAG, "could not get stream attributes, status:%d", status);
+        goto exit;
+    }
     if ((((dAttr.id == PAL_DEVICE_OUT_SPEAKER || dAttr.id == PAL_DEVICE_OUT_HANDSET) ||
-          (rmHandle->activeGroupDevConfig && dAttr.id == PAL_DEVICE_OUT_ULTRASOUND))&&
+          (rmHandle->activeGroupDevConfig && dAttr.id == PAL_DEVICE_OUT_ULTRASOUND)) &&
           (streamType == PAL_STREAM_ULTRASOUND)) ||
         (is_out_dev && streamType == PAL_STREAM_LOOPBACK)) {
         if (sess) {

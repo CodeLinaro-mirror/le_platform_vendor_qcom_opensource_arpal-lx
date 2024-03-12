@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -50,7 +50,7 @@
 
 #include <map>
 #include <string>
-
+#include <set>
 extern "C" {
 #endif
 
@@ -58,7 +58,6 @@ extern "C" {
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
 #define PAL_MAX_LATENCY_MODES 8
-
 #define PAL_VERSION "1.0"
 
 /** Audio stream handle */
@@ -431,8 +430,9 @@ typedef enum {
     PAL_DEVICE_OUT_BLUETOOTH_BLE = 22,
     PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST = 23,
     PAL_DEVICE_OUT_DUMMY = 24,
+    PAL_DEVICE_OUT_RECORD_PROXY = 25,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 25,
+    PAL_DEVICE_OUT_MAX = 26,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN +1,
@@ -460,8 +460,10 @@ typedef enum {
     PAL_DEVICE_IN_BLUETOOTH_BLE = PAL_DEVICE_IN_MIN + 23,
     PAL_DEVICE_IN_CPS_FEEDBACK = PAL_DEVICE_IN_MIN + 24,
     PAL_DEVICE_IN_DUMMY = PAL_DEVICE_IN_MIN + 25,
+    PAL_DEVICE_IN_CPS2_FEEDBACK = PAL_DEVICE_IN_MIN + 26,
+    PAL_DEVICE_IN_RECORD_PROXY = PAL_DEVICE_IN_MIN + 27,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 26,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 28,
 } pal_device_id_t;
 
 typedef enum {
@@ -489,6 +491,10 @@ typedef enum {
 } pal_stream_proxy_tx_type_t;
 
 typedef enum {
+    PAL_STREAM_PROXY_RX_WFD = 1,
+} pal_stream_proxy_rx_type_t;
+
+typedef enum {
     PAL_STREAM_HAPTICS_RINGTONE,
     PAL_STREAM_HAPTICS_TOUCH = 1,
 } pal_stream_haptics_type_t;
@@ -514,6 +520,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_FM" },                   PAL_DEVICE_OUT_FM},
     {std::string{ "PAL_DEVICE_OUT_AUX_LINE" },             PAL_DEVICE_OUT_AUX_LINE},
     {std::string{ "PAL_DEVICE_OUT_PROXY" },                PAL_DEVICE_OUT_PROXY},
+    {std::string{ "PAL_DEVICE_OUT_RECORD_PROXY" },         PAL_DEVICE_OUT_RECORD_PROXY},
     {std::string{ "PAL_DEVICE_OUT_AUX_DIGITAL_1" },        PAL_DEVICE_OUT_AUX_DIGITAL_1},
     {std::string{ "PAL_DEVICE_OUT_HEARING_AID" },          PAL_DEVICE_OUT_HEARING_AID},
     {std::string{ "PAL_DEVICE_OUT_HAPTICS_DEVICE" },       PAL_DEVICE_OUT_HAPTICS_DEVICE},
@@ -534,6 +541,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_LINE" },                  PAL_DEVICE_IN_LINE},
     {std::string{ "PAL_DEVICE_IN_SPDIF" },                 PAL_DEVICE_IN_SPDIF},
     {std::string{ "PAL_DEVICE_IN_PROXY" },                 PAL_DEVICE_IN_PROXY},
+    {std::string{ "PAL_DEVICE_IN_RECORD_PROXY" },          PAL_DEVICE_IN_RECORD_PROXY},
     {std::string{ "PAL_DEVICE_IN_HANDSET_VA_MIC" },        PAL_DEVICE_IN_HANDSET_VA_MIC},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_A2DP" },        PAL_DEVICE_IN_BLUETOOTH_A2DP},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_BLE" },         PAL_DEVICE_IN_BLUETOOTH_BLE},
@@ -569,6 +577,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_FM,                   std::string{"PAL_DEVICE_OUT_FM"}},
     {PAL_DEVICE_OUT_AUX_LINE,             std::string{"PAL_DEVICE_OUT_AUX_LINE"}},
     {PAL_DEVICE_OUT_PROXY,                std::string{"PAL_DEVICE_OUT_PROXY"}},
+    {PAL_DEVICE_OUT_RECORD_PROXY,         std::string{"PAL_DEVICE_OUT_RECORD_PROXY"}},
     {PAL_DEVICE_OUT_AUX_DIGITAL_1,        std::string{"PAL_DEVICE_OUT_AUX_DIGITAL_1"}},
     {PAL_DEVICE_OUT_HEARING_AID,          std::string{"PAL_DEVICE_OUT_HEARING_AID"}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       std::string{"PAL_DEVICE_OUT_HAPTICS_DEVICE"}},
@@ -589,6 +598,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_LINE,                  std::string{"PAL_DEVICE_IN_LINE"}},
     {PAL_DEVICE_IN_SPDIF,                 std::string{"PAL_DEVICE_IN_SPDIF"}},
     {PAL_DEVICE_IN_PROXY,                 std::string{"PAL_DEVICE_IN_PROXY"}},
+    {PAL_DEVICE_IN_RECORD_PROXY,          std::string{"PAL_DEVICE_IN_RECORD_PROXY"}},
     {PAL_DEVICE_IN_HANDSET_VA_MIC,        std::string{"PAL_DEVICE_IN_HANDSET_VA_MIC"}},
     {PAL_DEVICE_IN_BLUETOOTH_A2DP,        std::string{"PAL_DEVICE_IN_BLUETOOTH_A2DP"}},
     {PAL_DEVICE_IN_BLUETOOTH_BLE,         std::string{"PAL_DEVICE_IN_BLUETOOTH_BLE"}},
@@ -631,6 +641,7 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_SENSOR_PCM_DATA" },          PAL_STREAM_SENSOR_PCM_DATA},
     {std::string{ "PAL_STREAM_SPATIAL_AUDIO" },            PAL_STREAM_SPATIAL_AUDIO},
     {std::string{ "PAL_STREAM_CONTEXT_PROXY" },            PAL_STREAM_CONTEXT_PROXY},
+    {std::string{ "PAL_STREAM_COMMON_PROXY" },             PAL_STREAM_COMMON_PROXY},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -657,10 +668,12 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_PROXY,              std::string{ "PAL_STREAM_PROXY" } },
     {PAL_STREAM_NON_TUNNEL,         std::string{ "PAL_STREAM_NON_TUNNEL" } },
     {PAL_STREAM_HAPTICS,            std::string{ "PAL_STREAM_HAPTICS" } },
+    {PAL_STREAM_CONTEXT_PROXY,      std::string{ "PAL_STREAM_CONTEXT_PROXY" } },
     {PAL_STREAM_ACD,                std::string{ "PAL_STREAM_ACD" } },
     {PAL_STREAM_ULTRASOUND,         std::string{ "PAL_STREAM_ULTRASOUND" } },
     {PAL_STREAM_SENSOR_PCM_DATA,    std::string{ "PAL_STREAM_SENSOR_PCM_DATA" } },
     {PAL_STREAM_SPATIAL_AUDIO,      std::string{ "PAL_STREAM_SPATIAL_AUDIO" } },
+    {PAL_STREAM_COMMON_PROXY,       std::string{ "PAL_STREAM_COMMON_PROXY" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {
@@ -686,8 +699,28 @@ const std::map<uint32_t, std::string> hapticsLUT {
     {PAL_STREAM_HAPTICS_RINGTONE,     std::string{ "PAL_STREAM_HAPTICS_RINGTONE" } },
 };
 
-#endif
+const std::set<pal_device_id_t> pluginDeviceList {
+    PAL_DEVICE_OUT_USB_DEVICE,
+    PAL_DEVICE_OUT_USB_HEADSET,
+    PAL_DEVICE_OUT_WIRED_HEADPHONE,
+    PAL_DEVICE_OUT_WIRED_HEADSET,
+    PAL_DEVICE_OUT_BLUETOOTH_A2DP,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO,
+    PAL_DEVICE_OUT_PROXY,
+    PAL_DEVICE_OUT_AUX_DIGITAL,
+    PAL_DEVICE_OUT_AUX_DIGITAL_1,
+    PAL_DEVICE_OUT_HDMI
+};
 
+const std::set<pal_device_id_t> BTPlaybackDeviceList {
+    PAL_DEVICE_OUT_BLUETOOTH_A2DP,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO
+};
+#endif
 
 /* type of asynchronous write callback events. Mutually exclusive */
 typedef enum {
@@ -712,6 +745,7 @@ struct pal_stream_info {
     int32_t loopback_type;              /** used only if stream_type is LOOPBACK. One of the */
                                         /** enums defined in enum pal_stream_loopback_type */
     int32_t tx_proxy_type;   /** enums defined in enum pal_stream_proxy_tx_types */
+    int32_t rx_proxy_type;   /** enums defined in enum pal_stream_proxy_rx_types */
     int32_t haptics_type;    /** enums defined in enum pal_sream_haptics_types */
     //pal_audio_attributes_t usage;       /** Not sure if we make use of this */
 };
@@ -1012,6 +1046,8 @@ typedef enum {
     PAL_PARAM_ID_VUI_CAPTURE_META_DATA = 71,
     PAL_PARAM_ID_TIMESTRETCH_PARAMS = 72,
     PAL_PARAM_ID_LATENCY_MODE = 73,
+    PAL_PARAM_ID_PROXY_RECORD_SESSION = 74,
+    PAL_PARAM_ID_ULTRASOUND_SET_GAIN = 75,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1241,6 +1277,7 @@ typedef struct pal_param_bta2dp {
     uint32_t latency;
     pal_device_id_t   dev_id;
     bool     is_suspend_setparam;
+    bool     is_in_call;
 } pal_param_bta2dp_t;
 
 /* Payload For ID: PAL_PARAM_ID_LATENCY_MODE
@@ -1277,6 +1314,13 @@ typedef struct pal_bt_lc3_payload_s {
 typedef struct pal_param_haptics_intensity {
     int intensity;
 } pal_param_haptics_intensity_t;
+
+/* Type of Ultrasound Gain */
+typedef enum {
+    PAL_ULTRASOUND_GAIN_MUTE = 0,
+    PAL_ULTRASOUND_GAIN_LOW,
+    PAL_ULTRASOUND_GAIN_HIGH,
+} pal_ultrasound_gain_t;
 
 /**< PAL device */
 #define DEVICE_NAME_MAX_SIZE 128

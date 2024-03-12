@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SESSION_ALSAUTILS_H
@@ -151,7 +155,7 @@ public:
                            std::string backEndName, void *payload, size_t size);
     static unsigned int bytesToFrames(size_t bufSizeInBytes, unsigned int channels,
                            enum pcm_format format);
-    static bool isMmapUsecase(struct pal_stream_attributes attr);
+    static bool isMmapUsecase(struct pal_stream_attributes &attr);
     static void getAgmMetaData(const std::vector <std::pair<int, int>> &kv,
                         const std::vector <std::pair<int, int>> &ckv,
                         struct prop_data *propData,

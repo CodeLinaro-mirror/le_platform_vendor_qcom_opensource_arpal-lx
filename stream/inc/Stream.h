@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -187,6 +187,7 @@ protected:
     int mGainLevel;
     int mOrientation = 0;
     std::mutex mStreamMutex;
+    std::mutex mGetParamMutex;
     static std::mutex mBaseStreamMutex; //TBD change this. as having a single static mutex for all instances of Stream is incorrect. Replace
     static std::shared_ptr<ResourceManager> rm;
     struct modifier_kv *mModifiers;
@@ -216,6 +217,7 @@ public:
     uint64_t cookie;
     bool isPaused = false;
     bool a2dpMuted = false;
+    bool speakerTempMuted = false;
     bool unMutePending = false;
     bool a2dpPaused = false;
     bool force_nlpi_vote = false;
@@ -253,6 +255,7 @@ public:
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int32_t GetMmapPosition(struct pal_mmap_position *position __unused) {return -EINVAL;}
     virtual int32_t getTagsWithModuleInfo(size_t *size __unused, uint8_t *payload __unused) {return -EINVAL;};
+    virtual bool ConfigSupportLPI() {return true;}; //Only LPI streams can update their vote to NLPI
     int32_t getStreamAttributes(struct pal_stream_attributes *sattr);
     int32_t getModifiers(struct modifier_kv *modifiers,uint32_t *noOfModifiers);
     const std::string& getStreamSelector() const;
@@ -330,11 +333,17 @@ public:
         mStreamMutex.unlock();
     };
     bool isMutexLockedbyRm() { return mutexLockedbyRm; }
+    void lockGetParamMutex() { mGetParamMutex.lock(); };
+    void unlockGetParamMutex() { mGetParamMutex.unlock(); };
     /* GetPalDevice only applies to Sound Trigger streams */
     std::shared_ptr<Device> GetPalDevice(Stream *streamHandle, pal_device_id_t dev_id);
     void setCachedState(stream_state_t state);
     void clearmDevices();
+    void removemDevice(int palDevId);
     void addmDevice(struct pal_device *dattr);
+    int32_t setTempMute();
+    int32_t restoreVolume();
+    static void setRampDuration(Stream *stream, uint32_t duration);
 };
 
 class StreamNonTunnel : public Stream

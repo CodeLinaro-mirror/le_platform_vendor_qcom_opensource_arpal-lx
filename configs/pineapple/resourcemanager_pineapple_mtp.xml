@@ -26,8 +26,8 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-* Changes from Qualcomm Innovation Center are provided under the following license:
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 * -->
 
@@ -43,6 +43,7 @@
         <param key="logging_level" value ="3" />
         <param key="context_manager_enable" value ="true" />
         <param key="upd_dedicated_be" value ="false" />
+        <param key="upd_set_custom_gain" value ="false" />
         <param key="upd_duty_cycle_enable" value="false" />
         <param key="dual_mono" value ="false" />
         <param key="signal_handler" value ="true" />
@@ -551,6 +552,16 @@
             </usecase>
         </in-device>
         <in-device>
+            <id>PAL_DEVICE_IN_RECORD_PROXY</id>
+            <back_end_name>PCM_RT_PROXY-TX-2</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>afe-proxy</snd_device_name>
+            <usecase>
+                <name>PAL_STREAM_PROXY</name>
+            </usecase>
+        </in-device>
+        <in-device>
             <id>PAL_DEVICE_IN_VI_FEEDBACK</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-TX-0</back_end_name>
             <max_channels>2</max_channels>
@@ -990,6 +1001,19 @@
         <out-device>
             <id>PAL_DEVICE_OUT_PROXY</id>
             <back_end_name>PCM_RT_PROXY-RX-1</back_end_name>
+            <max_channels>8</max_channels>
+            <channels>2</channels>
+            <snd_device_name>afe-proxy</snd_device_name>
+            <fractional_sr>0</fractional_sr>
+            <samplerate>48000</samplerate>
+            <usecase>
+                <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
+            </usecase>
+        </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_RECORD_PROXY</id>
+            <back_end_name>PCM_RT_PROXY-RX-2</back_end_name>
             <max_channels>8</max_channels>
             <channels>2</channels>
             <snd_device_name>afe-proxy</snd_device_name>
@@ -1585,7 +1609,6 @@
                 <param version="0x0103" />
                 <param enable_failure_detection="false" />
                 <param notify_second_stage_failure="false" />
-                <param enable_concurrent_event_capture="true" />
                 <param mmap_enable="true" />
                 <param mmap_buffer_duration="5000" />
                 <!-- 5ms duration of data -->
@@ -1603,6 +1626,7 @@
                 <!--For now total 3 engines are supported, if more engine instances are needed,-->
                 <!-- do update acdb and usecaseKvManager.xml files by adding more instances    -->
                 <param pdk_first_stage_max_engine_count="1"/>
+                <param enable_concurrent_event_capture="true" />
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->
                 <param client_capture_read_delay="2000" /> <!-- reserved buffer duration for rt data -->
