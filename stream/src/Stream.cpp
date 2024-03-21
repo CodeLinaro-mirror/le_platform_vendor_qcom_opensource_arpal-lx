@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1677,7 +1677,8 @@ int32_t Stream::setVolume(struct pal_volume_data *volume){
     size_t vol_size = 0;
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (!volume || volume->no_of_volpair == 0) {
-        PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
+        if (volume)
+            PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
         status = -EINVAL;
         goto exit;
     }

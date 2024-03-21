@@ -5056,7 +5056,7 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
                     continue;
                 }
                 curDev->getDeviceAttributes(curDevAttr);
-                if ((curDevAttr->config.sample_rate % SAMPLINGRATE_44K == 0) &&
+                if (sAttr && (curDevAttr->config.sample_rate % SAMPLINGRATE_44K == 0) &&
                     (sAttr->out_media_config.sample_rate % SAMPLINGRATE_44K != 0)) {
                     curDevAttr->config.sample_rate = sAttr->out_media_config.sample_rate;
                     curDevAttr->config.bit_width = sAttr->out_media_config.bit_width;
