@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1619,6 +1619,13 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                         if (sAttr.type == PAL_STREAM_ULTRASOUND &&
                              (newDeviceId != PAL_DEVICE_OUT_HANDSET && newDeviceId != PAL_DEVICE_OUT_SPEAKER)) {
                             PAL_DBG(LOG_TAG, "Ultrasound stream running on speaker/handset. Not switching to device (%d)", newDeviceId);
+                            continue;
+                        }
+                        /* Avoid switching Voice_UI stream to unsupported devices */
+                        if (sAttr.type == PAL_STREAM_VOICE_UI &&
+                             (newDeviceId != PAL_DEVICE_IN_HANDSET_VA_MIC && newDeviceId != PAL_DEVICE_IN_SPEAKER_MIC &&
+                              newDeviceId != PAL_DEVICE_IN_HANDSET_MIC)) {
+                            PAL_DBG(LOG_TAG, "SVA stream running on speaker/va-mic/handset-mic. Not switching to device (%d)", newDeviceId);
                             continue;
                         }
 
