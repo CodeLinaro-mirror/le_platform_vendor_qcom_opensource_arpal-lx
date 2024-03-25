@@ -93,6 +93,7 @@ LOCAL_SRC_FILES := \
     device/src/SpeakerProtection.cpp \
     device/src/FMDevice.cpp \
     device/src/ExtEC.cpp \
+    device/src/ECRefDevice.cpp \
     device/src/HapticsDev.cpp \
     device/src/UltrasoundDevice.cpp \
     session/src/Session.cpp \
