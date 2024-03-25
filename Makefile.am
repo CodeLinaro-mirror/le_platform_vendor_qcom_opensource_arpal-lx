@@ -66,7 +66,7 @@ AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/spf
 AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/
 AM_CPPFLAGS += -I ${WORKSPACE}/audio/mm-audio-headers/audio-listen/
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result
-AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
+AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DLVDPK_ENABLED
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DCONFIG_GSL
 

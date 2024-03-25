@@ -168,8 +168,8 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     }
 
 
-    // Register for Soft pause events
-    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT )
+    // Register for Soft pause/Xrun events
+    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT || mStreamAttr->direction == PAL_AUDIO_INPUT)
         session->registerCallBack(handleSoftPauseCallBack, (uint64_t)this);
 
     mStreamMutex.unlock();
@@ -872,13 +872,23 @@ exit:
     return status;
 }
 
-int32_t  StreamPCM::registerCallBack(pal_stream_callback /*cb*/, uint64_t /*cookie*/)
+int32_t  StreamPCM::registerCallBack(pal_stream_callback cb, uint64_t cookie)
 {
+    streamCb = cb;
+    this->cookie = cookie;
+
+    PAL_VERBOSE(LOG_TAG, "streamCb = %pK", streamCb);
     return 0;
 }
 
-int32_t  StreamPCM::getCallBack(pal_stream_callback * /*cb*/)
+int32_t  StreamPCM::getCallBack(pal_stream_callback *cb)
 {
+    if (!cb) {
+        PAL_ERR(LOG_TAG, "Invalid cb");
+        return -EINVAL;
+    }
+
+    *cb = streamCb;
     return 0;
 }
 

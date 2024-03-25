@@ -675,6 +675,8 @@ typedef enum {
     PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY, /* partial drain completed */
     PAL_STREAM_CBK_EVENT_READ_DONE, /* stream hit some error, let AF take action */
     PAL_STREAM_CBK_EVENT_ERROR, /* stream hit some error, let AF take action */
+    PAL_STREAM_EVENT_UNDERRUN, /* stream detect underrun happened */
+    PAL_STREAM_EVENT_OVERRUN, /* stream detect overrun happened */
 } pal_stream_callback_event_t;
 
 /* type of global callback events. */
