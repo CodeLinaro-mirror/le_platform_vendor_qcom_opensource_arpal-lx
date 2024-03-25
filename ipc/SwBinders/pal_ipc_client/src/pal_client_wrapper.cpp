@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -17,6 +17,8 @@ static char pal_version[32];
 static android::sp<IPalService> pal_client = NULL;
 static android::sp<ServerDeathNotifier> server_death_notifier = NULL;
 static bool pal_server_died = false;
+static pal_stream_callback codec2_client_callback = NULL;
+static uint64_t codec2_client_cookie;
 
 ServerDeathNotifier::ServerDeathNotifier() {
     android::sp<android::ProcessState> proc(android::ProcessState::self());
@@ -25,6 +27,9 @@ ServerDeathNotifier::ServerDeathNotifier() {
 
 void ServerDeathNotifier::binderDied(const android::wp<android::IBinder>& who __attribute__((unused))) {
     pal_server_died = true;
+    if (codec2_client_callback && codec2_client_cookie) {
+        codec2_client_callback(NULL, PAL_STREAM_CBK_EVENT_ERROR, NULL, 0, codec2_client_cookie);
+    }
 }
 
 static android::sp<IPalService> get_pal_server() {
@@ -70,6 +75,8 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
     if (!pal_server_died) {
         android::sp<IPalService> pal = get_pal_server();
         if (pal.get()) {
+            codec2_client_callback = cb;
+            codec2_client_cookie = cookie;
             return pal->ipc_pal_stream_open(attributes, no_of_devices, devices, no_of_modifiers, modifiers,
                                             cb, cookie, stream_handle);
         }
@@ -82,6 +89,8 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle) {
     if (!pal_server_died) {
         android::sp<IPalService> pal = get_pal_server();
         if (pal.get()) {
+            codec2_client_callback = NULL;
+            codec2_client_cookie = 0;
             return pal->ipc_pal_stream_close(stream_handle);
         }
     }
