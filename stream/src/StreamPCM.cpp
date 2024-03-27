@@ -1176,8 +1176,9 @@ int32_t StreamPCM::flush()
          goto exit;
     }
 
-    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD) {
-         PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD stream, ignore");
+    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD && mStreamAttr->type != PAL_STREAM_PLAYBACK_BUS
+                                                  && mStreamAttr->type != PAL_STREAM_DEEP_BUFFER) {
+         PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD/PLAYBACK BUS/DEEP BUFFER stream, ignore");
          goto exit;
     }
 
