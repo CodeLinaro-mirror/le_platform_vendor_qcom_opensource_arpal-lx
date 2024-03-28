@@ -2182,6 +2182,59 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             }
             return 0;
         }
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            status = streamHandle->getStreamAttributes(&sAttr);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get attributes status= %d", status);
+                return status;
+            }
+            status = getPCMDeviceID(streamHandle,&device);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get Deivce id status = %d", status);
+                return status;
+            }
+
+            if (PAL_AUDIO_INPUT == sAttr.direction)
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                               txAifBackEnds[0].second.data(),
+                                                               tagId, &miid);
+            else if (PAL_AUDIO_OUTPUT == sAttr.direction)
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                               rxAifBackEnds[0].second.data(),
+                                                               tagId, &miid);
+            else {
+                if (pcmDevRxIds.size() > 0) {
+                    device = pcmDevRxIds.at(0);
+                    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                                    rxAifBackEnds[0].second.data(),
+                                                                    tagId, &miid);
+                    if (status) {
+                        if (pcmDevTxIds.size() > 0)
+                            device = pcmDevTxIds.at(0);
+                        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                                        txAifBackEnds[0].second.data(),
+                                                                        tagId, &miid);
+                    }
+                }
+            }
+            if (miid == 0) {
+                PAL_ERR(LOG_TAG, "failed to look for module with tagID 0x%x", tagId);
+                status = -EINVAL;
+                goto exit;
+            }
+            pal_param_payload *param_payload = (pal_param_payload *)payload;
+            struct apm_module_param_data_t* header =
+                (struct apm_module_param_data_t *)param_payload->payload;
+            header->module_instance_id = miid;
+            if (param_payload->payload_size) {
+                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
+                                                              param_payload->payload,
+                                                              param_payload->payload_size);
+                 PAL_INFO(LOG_TAG, "mixer set module config status=%d\n", status);
+            }
+            return 0;
+        }
         case PAL_PARAM_ID_UPD_REGISTER_FOR_EVENTS:
         {
             pal_param_payload *param_payload = (pal_param_payload *)payload;
@@ -2433,34 +2486,43 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     uint8_t *payloadData = NULL;
     size_t payloadSize = 0;
     size_t configSize = 0;
-    int device = pcmDevIds.at(0);
+    int device = 0;
     uint32_t miid = 0;
     const char *control = "getParam";
     const char *stream = "PCM";
     struct mixer_ctl *ctl;
     std::ostringstream CntrlName;
+    struct pal_stream_attributes sAttr;
+
     PAL_DBG(LOG_TAG, "Enter.");
 
-    CntrlName << stream << pcmDevIds.at(0) << " " << control;
-    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
-    if (!ctl) {
-        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
-        status = -ENOENT;
-        goto exit;
+    if (pcmDevIds.size() > 0) {
+        device = pcmDevIds.at(0);
     }
+    status = streamHandle->getStreamAttributes(&sAttr);
 
-    if (!rxAifBackEnds.empty()) { /** search in RX GKV */
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, device, rxAifBackEnds[0].second.data(),
-                tagId, &miid);
-        if (status) /** if not found, reset miid to 0 again */
-            miid = 0;
-    }
-
-    if (!txAifBackEnds.empty()) { /** search in TX GKV */
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, device, txAifBackEnds[0].second.data(),
-                tagId, &miid);
-        if (status)
-            miid = 0;
+    if (PAL_AUDIO_INPUT == sAttr.direction)
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                        txAifBackEnds[0].second.data(),
+                                                        tagId, &miid);
+    else if (PAL_AUDIO_OUTPUT == sAttr.direction)
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                        rxAifBackEnds[0].second.data(),
+                                                        tagId, &miid);
+    else {
+        if (pcmDevRxIds.size() > 0) {
+            device = pcmDevRxIds.at(0);
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                            rxAifBackEnds[0].second.data(),
+                                                            tagId, &miid);
+            if (status) {
+                if (pcmDevTxIds.size() > 0)
+                    device = pcmDevTxIds.at(0);
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                            txAifBackEnds[0].second.data(),
+                                                            tagId, &miid);
+            }
+        }
     }
 
     if (miid == 0) {
@@ -2469,8 +2531,27 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
         goto exit;
     }
 
+    CntrlName << stream <<device  << " " << control;
+
+    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
+        status = -ENOENT;
+        goto exit;
+    }
 
     switch (param_id) {
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            payloadData = (uint8_t *)*payload;
+            struct apm_module_param_data_t *header =
+                (struct apm_module_param_data_t *)payloadData;
+            configSize = header->param_size;
+            header->module_instance_id = miid;
+            payloadSize = PAL_ALIGN_8BYTE(
+                configSize + sizeof(struct apm_module_param_data_t));
+            break;
+        }
         case PAL_PARAM_ID_DIRECTION_OF_ARRIVAL:
         {
             configSize = sizeof(struct ffv_doa_tracking_monitor_t);
