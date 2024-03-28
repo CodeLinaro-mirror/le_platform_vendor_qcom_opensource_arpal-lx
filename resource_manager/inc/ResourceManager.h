@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -238,6 +238,7 @@ struct usecase_info {
     std::vector<usecase_custom_config_info> config;
     uint32_t priority;
     uint32_t bit_width;
+    uint32_t awe_support;
 
 };
 
@@ -847,6 +848,9 @@ public:
     void ssrHandler(card_status_t state);
     int32_t getSidetoneMode(pal_device_id_t deviceId, pal_stream_type_t type,
                             sidetone_mode_t *mode);
+    int32_t getAweSupport(pal_device_id_t deviceId,
+                                    pal_stream_type_t type,
+                                    uint32_t *awe_support);
     int getStreamInstanceID(Stream *str);
     int resetStreamInstanceID(Stream *str);
     int resetStreamInstanceID(Stream *str, uint32_t sInstanceID);

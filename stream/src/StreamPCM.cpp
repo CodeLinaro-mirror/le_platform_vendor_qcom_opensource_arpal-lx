@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -921,6 +921,14 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
             }
             break;
         }
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            status = session->getParameters(this, TAG_MODULE_CUSTOM_FWK, param_id, payload);
+            if (status) {
+               PAL_ERR(LOG_TAG, "getParameters for %d failed with %d", param_id, status);
+            }
+            break;
+        }
         default:
             PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
             status = -EINVAL;
@@ -1045,6 +1053,15 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
                        status);
             break;
         }
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            status = session->setParameters(this, TAG_MODULE_CUSTOM_FWK, param_id, payload);
+            if (status)
+                PAL_ERR(LOG_TAG, "setParam for AWE failed with %d",
+                                            status);
+            break;
+        }
+
         default:
             PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
             status = -EINVAL;
