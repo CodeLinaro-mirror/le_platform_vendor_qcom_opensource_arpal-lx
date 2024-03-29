@@ -26,8 +26,8 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-* Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Changes from Qualcomm Innovation Center are provided under the following license:
+* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 * -->
 
@@ -44,11 +44,12 @@
         <param key="context_manager_enable" value ="true" />
         <param key="lpi_logging_enable" value ="false" />
         <param key="upd_dedicated_be" value ="false" />
-        <param key="upd_set_custom_gain" value ="false" />
         <param key="signal_handler" value ="true" />
         <param key="device_mux_config" value ="false" />
         <param key="upd_duty_cycle_enable" value="false" />
         <param key="upd_virtual_port" value ="false" />
+        <param key="haptics_priority" value ="touch_haptics" />
+        <param key="haptics_through_wsa" value ="false" />
         <param key="dummy_dev_enable" value ="false" />
     </config_params>
     <config_volume>
@@ -356,6 +357,10 @@
             </usecase>
             <usecase>
                 <name>PAL_STREAM_ULTRA_LOW_LATENCY</name>
+                <custom-config key="dual-mic">
+                    <channels>2</channels>
+                    <snd_device_name>speaker-dmic-endfire</snd_device_name>
+                </custom-config>
             </usecase>
             <ec_rx_device>
                 <id>PAL_DEVICE_OUT_SPEAKER</id>
@@ -459,6 +464,7 @@
                 <id>PAL_DEVICE_OUT_BLUETOOTH_A2DP</id>
                 <id>PAL_DEVICE_OUT_BLUETOOTH_BLE</id>
                 <id>PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST</id>
+                <id>PAL_DEVICE_OUT_USB_HEADSET</id>
             </ec_rx_device>
         </in-device>
         <in-device>
@@ -558,8 +564,8 @@
             <id>PAL_DEVICE_IN_VI_FEEDBACK</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-TX-0</back_end_name>
             <max_channels>2</max_channels>
-            <channels>2</channels>
-            <samplerate>48000</samplerate>
+            <channels>1</channels>
+            <samplerate>8000</samplerate>
             <bit_width>32</bit_width>
             <snd_device_name>vi-feedback</snd_device_name>
             <usecase>
@@ -572,7 +578,7 @@
             <id>PAL_DEVICE_IN_CPS_FEEDBACK</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-TX-2</back_end_name>
             <max_channels>2</max_channels>
-            <channels>2</channels>
+            <channels>1</channels>
             <samplerate>24000</samplerate>
             <bit_width>32</bit_width>
             <snd_device_name>cps-feedback</snd_device_name>
@@ -663,6 +669,18 @@
             </usecase>
         </in-device>
         <in-device>
+            <id>PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK</id>
+            <back_end_name>CODEC_DMA-LPAIF_WSA2-TX-0</back_end_name>
+            <snd_device_name>haptics-vi-feedback-mono</snd_device_name>
+            <max_channels>1</max_channels>
+            <channels>1</channels>
+            <bit_width>32</bit_width>
+            <samplerate>48000</samplerate>
+            <usecase>
+                <name>PAL_STREAM_HAPTICS</name>
+            </usecase>
+        </in-device>
+        <in-device>
             <id>PAL_DEVICE_IN_DUMMY</id>
             <back_end_name>PCM_DUMMY-TX-1</back_end_name>
             <max_channels>2</max_channels>
@@ -684,7 +702,7 @@
             <id>PAL_DEVICE_OUT_SPEAKER</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
             <max_channels>2</max_channels>
-            <channels>2</channels>
+            <channels>1</channels>
             <samplerate>48000</samplerate>
             <snd_device_name>speaker</snd_device_name>
             <speaker_protection_enabled>1</speaker_protection_enabled>
@@ -696,7 +714,7 @@
                          CPS streaming: 1
                          ADSP control mode: 2
             -->
-            <cps_mode>1</cps_mode>
+            <cps_mode>2</cps_mode>
             <vbat_enabled>1</vbat_enabled>
             <!--specify the supported bit format on speaker end point -->
             <!--this should be in the form of pal_audio_fmt_id-->
@@ -1024,6 +1042,16 @@
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>haptics-dev</snd_device_name>
+            <haptics_protection_enabled>1</haptics_protection_enabled>
+            <usecase>
+                <name>PAL_STREAM_HAPTICS</name>
+                <custom-config key="haptics-over-wsa">
+                    <backend_name>CODEC_DMA-LPAIF_WSA2-RX-0</backend_name>
+                    <snd_device_name>haptics-dev-wsa</snd_device_name>
+                    <samplerate>48000</samplerate>
+                    <bit_width>32</bit_width>
+                </custom-config>
+            </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND</id>
@@ -1058,6 +1086,7 @@
             <name>PAL_STREAM_VOIP_TX</name>
                 <policies>
                     <ec_ref>
+                        <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
                         <disabled_stream>PAL_STREAM_GENERIC</disabled_stream>
                     </ec_ref>
                 </policies>
@@ -1620,6 +1649,7 @@
                 <sound_model_info>
                     <first_stage_module_params>
                         <param module_type="GMM" />
+                        <param lpi_supported="false"/>
                         <param load_sound_model_ids="0xC0000008, 0x0800104C" />
                         <param wakeup_config_ids="0xC0000008, 0x08001049" />
                         <param buffering_config_ids="0xC0000008, 0x08001044" />

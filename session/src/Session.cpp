@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -242,9 +242,13 @@ uint32_t Session::getModuleInfo(const char *control, uint32_t tagId, uint32_t *m
             status = -ENOENT;
             goto exit;
         }
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, rxAifBackEnds[0].second.data(), tagId, miid);
-        if (status) /** if not found, reset miid to 0 again */
-            *miid = 0;
+        for (int i = 0; i < rxAifBackEnds.size(); i++) {
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, rxAifBackEnds[i].second.data(), tagId, miid);
+            if (status) /** if not found, reset miid to 0 again */
+                *miid = 0;
+            else
+                break;
+        }
     }
 
     if (!txAifBackEnds.empty() && !(*miid)) { /** search in TX GKV */
@@ -254,9 +258,13 @@ uint32_t Session::getModuleInfo(const char *control, uint32_t tagId, uint32_t *m
             status = -ENOENT;
             goto exit;
         }
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, txAifBackEnds[0].second.data(), tagId, miid);
-        if (status)
-            *miid = 0;
+        for (int i = 0; i < txAifBackEnds.size(); i++) {
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, txAifBackEnds[i].second.data(), tagId, miid);
+            if (status)
+                *miid = 0;
+            else
+                break;
+        }
     }
 
     if (*miid == 0) {
@@ -1259,6 +1267,10 @@ int32_t Session::setInitialVolume() {
                       (streamHandle->mVolumeData->no_of_volpair)));
             volPayload = new uint8_t[sizeof(pal_param_payload) +
                 volSize]();
+            if (volPayload == NULL) {
+                status = -ENOMEM;
+                goto exit;
+            }
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
             memcpy(pld->payload, streamHandle->mVolumeData, volSize);
