@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -803,6 +803,8 @@ int SessionAlsaPcm::populateECMFCPayload(Stream *s, size_t *payloadSize, uint8_t
                                 txAifBackEnds[0].second.data(), TAG_DEVICEPP_EC_MFC, &miid);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"getModuleInstanceId failed\n");
+        /* Returning success status, as usecase will fail if tagged module is not present in ACDB */
+        status = 0;
         goto exit;
     }
 
@@ -2346,6 +2348,26 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             }
             return 0;
 
+        }
+
+        case PAL_PARAM_ID_VOLUME_CTRL_RAMP:
+        {
+            struct pal_vol_ctrl_ramp_param *rampParam = (struct pal_vol_ctrl_ramp_param *)payload;
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                               rxAifBackEnds[0].second.data(), tagId, &miid);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
+                return status;
+            }
+            builder->payloadVolumeCtrlRamp(&paramData, &paramSize,
+                 miid, rampParam->ramp_period_ms);
+            if (paramSize) {
+                status = SessionAlsaUtils::setMixerParameter(mixer, device,
+                                               paramData, paramSize);
+                PAL_INFO(LOG_TAG, "mixer set vol ctrl ramp status=%d\n", status);
+                freeCustomPayload(&paramData, &paramSize);
+            }
+            return 0;
         }
         default:
             status = -EINVAL;
