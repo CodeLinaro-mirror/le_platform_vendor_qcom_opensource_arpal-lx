@@ -153,6 +153,7 @@ int32_t HeadsetMic::checkAndUpdateSampleRate(uint32_t *sampleRate)
     else if (*sampleRate == SAMPLINGRATE_32K)
         *sampleRate = SAMPLINGRATE_32K;
     else if (*sampleRate <= SAMPLINGRATE_48K)
+        *sampleRate = SAMPLINGRATE_48K;
 #else
     if (*sampleRate < SAMPLINGRATE_48K)
         *sampleRate = SAMPLINGRATE_48K;
