@@ -283,7 +283,9 @@ closeDevice:
         }
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_OPENED, status);
+#endif
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit ret %d", status);
     return status;
@@ -342,7 +344,9 @@ int32_t  StreamPCM::close()
     currentState = STREAM_IDLE;
     rm->unlockGraph();
     rm->checkAndSetDutyCycleParam();
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+#endif
     mStreamMutex.unlock();
 
     PAL_DBG(LOG_TAG, "Exit. closed the stream successfully %d status %d",
@@ -664,7 +668,9 @@ session_fail:
             status = devStatus;
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. state %d, status %d", currentState, status);
     mStreamMutex.unlock();
     return status;
@@ -787,7 +793,9 @@ int32_t StreamPCM::stop()
     }
 
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STOPPED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. status %d, state %d", status, currentState);
     mStreamMutex.unlock();
     return status;
@@ -1068,7 +1076,9 @@ int32_t StreamPCM::write(struct pal_buffer* buf)
             mStreamMutex.unlock();
             rm->unlockActiveStream();
             currentState = STREAM_STARTED;
+#ifndef PAL_MEMLOG_UNSUPPORTED
             palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
         }
         PAL_VERBOSE(LOG_TAG, "Exit. session write successful size - %d", size);
         return size;
@@ -1285,7 +1295,9 @@ int32_t StreamPCM::pause_l()
                     VOLUME_RAMP_PERIOD);
             usleep(VOLUME_RAMP_PERIOD);
         }
+#ifndef PAL_MEMLOG_UNSUPPORTED
         palStateEnqueue(this, PAL_STATE_PAUSED, status);
+#endif
         PAL_DBG(LOG_TAG, "session setConfig successful");
 
         /* set temp mute to avoid volume burst if resuming it on new device.

@@ -492,13 +492,17 @@ cl_init_t ResourceManager::cl_init = NULL;
 cl_deinit_t ResourceManager::cl_deinit = NULL;
 cl_set_boost_state_t ResourceManager::cl_set_boost_state = NULL;
 
+#ifndef VUI_DMGR_AUDIO_UNSUPPORTED
 void* ResourceManager::vui_dmgr_lib_handle = NULL;
 vui_dmgr_init_t ResourceManager::vui_dmgr_init = NULL;
 vui_dmgr_deinit_t ResourceManager::vui_dmgr_deinit = NULL;
+#endif
 
+#ifndef AUDIO_FEATURE_STATS_UNSUPPORTED
 void* ResourceManager::feature_stats_handle = NULL;
 afs_init_t ResourceManager::feature_stats_init = NULL;
 afs_deinit_t ResourceManager::feature_stats_deinit = NULL;
+#endif
 
 std::mutex ResourceManager::cvMutex;
 std::queue<card_status_t> ResourceManager::msgQ;
@@ -1637,7 +1641,7 @@ exit:
 
     return status;
 }
-
+#ifndef VUI_DMGR_AUDIO_UNSUPPORTED
 template <class T>
 void getMatchingStStreams(std::list<T> &active_streams, std::vector<Stream*> &st_streams, vui_dmgr_uuid_t &uuid)
 {
@@ -1768,6 +1772,7 @@ exit:
     vui_dmgr_init = NULL;
     vui_dmgr_deinit = NULL;
 }
+#endif
 
 void ResourceManager::checkQVAAppPresence(afs_param_payload_t *payload)
 {
@@ -1843,6 +1848,7 @@ close_stream:
     return NULL;
 }
 
+#ifndef AUDIO_FEATURE_STATS_UNSUPPORTED
 int ResourceManager::AudioFeatureStatsGetInfo(void **afs_payload,
                                                size_t *afs_payload_size)
 {
@@ -1899,6 +1905,7 @@ int ResourceManager::AudioFeatureStatsGetInfo(void **afs_payload,
     return 0;
 }
 
+
 void ResourceManager::AudioFeatureStatsInit()
 {
     int status = 0;
@@ -1949,6 +1956,9 @@ void ResourceManager::AudioFeatureStatsDeInit()
     feature_stats_deinit = NULL;
 }
 
+#endif
+
+#ifndef VUI_DMGR_AUDIO_UNSUPPORTED
 void ResourceManager::voiceuiDmgrManagerDeInit()
 {
     if (vui_dmgr_deinit)
@@ -1961,6 +1971,7 @@ void ResourceManager::voiceuiDmgrManagerDeInit()
     vui_dmgr_init = NULL;
     vui_dmgr_deinit = NULL;
 }
+#endif
 
 int ResourceManager::initContextManager()
 {
@@ -2018,11 +2029,13 @@ int ResourceManager::init()
     }
 
     PAL_INFO(LOG_TAG, "Initialize voiceui dmgr");
+#ifndef VUI_DMGR_AUDIO_UNSUPPORTED
     voiceuiDmgrManagerInit();
-
+#endif
     PAL_INFO(LOG_TAG, "Initialize Audio Feature Stats");
+#ifndef AUDIO_FEATURE_STATS_UNSUPPORTED
     AudioFeatureStatsInit();
-
+#endif
     return 0;
 }
 
@@ -3659,7 +3672,10 @@ int deregisterstream(T s, std::list<T> &streams)
 
 int ResourceManager::deregisterStream(Stream *s)
 {
+
+#ifndef PAL_MEMLOG_UNSUPPORTED 
     struct pal_state_queue que;
+#endif
     int ret = 0;
     pal_stream_type_t type;
     PAL_DBG(LOG_TAG, "Enter. stream %pK", s);
@@ -6749,10 +6765,12 @@ void ResourceManager::deinit()
 
    if (isChargeConcurrencyEnabled)
        chargerListenerDeinit();
-
+#ifndef VUI_DMGR_AUDIO_UNSUPPORTED
     voiceuiDmgrManagerDeInit();
+#endif
+#ifndef AUDIO_FEATURE_STATS_UNSUPPORTED
     AudioFeatureStatsDeInit();
-
+#endif
     cvMutex.lock();
     msgQ.push(state);
     cvMutex.unlock();

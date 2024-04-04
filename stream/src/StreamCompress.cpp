@@ -226,7 +226,9 @@ closeDevice:
         }
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_OPENED, status);
+#endif
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
@@ -272,7 +274,9 @@ int32_t StreamCompress::close()
     currentState = STREAM_IDLE;
     rm->unlockGraph();
     rm->checkAndSetDutyCycleParam();
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+#endif
     mStreamMutex.unlock();
 
     PAL_DBG(LOG_TAG,"Exit status: %d",status);
@@ -387,7 +391,9 @@ int32_t StreamCompress::stop()
         goto exit;
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STOPPED, status);
+#endif
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
@@ -570,7 +576,9 @@ session_fail:
     for (int32_t i=0; i < mDevices.size(); i++)
         status = mDevices[i]->stop();
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     mStreamMutex.unlock();
     return status;
@@ -695,7 +703,9 @@ int32_t StreamCompress::write(struct pal_buffer *buf)
         if ((currentState != STREAM_STARTED) &&
             !(currentState == STREAM_PAUSED && isPaused)) {
             currentState = STREAM_STARTED;
+#ifndef PAL_MEMLOG_UNSUPPORTED
             palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
             // register device only after graph is actually started
             mStreamMutex.unlock();
             rm->lockActiveStream();
@@ -966,8 +976,9 @@ exit:
     isPaused = true;
     currentState = STREAM_PAUSED;
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_PAUSED, status);
-
+#endif
     return status;
 }
 

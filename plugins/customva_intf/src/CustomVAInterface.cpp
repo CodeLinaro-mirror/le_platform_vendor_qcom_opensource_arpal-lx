@@ -34,7 +34,10 @@
 #define LOG_TAG "PAL: CustomVAInterface"
 //#define LOG_NDEBUG 0
 
+#ifndef PAL_USE_SYSLOG
 #include <log/log.h>
+#endif
+#include "PalCommon.h"
 #include "CustomVAInterface.h"
 #ifndef PAL_CUTILS_UNSUPPORTED
 #include <cutils/properties.h>
