@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -60,6 +60,7 @@
 #include "HapticsDev.h"
 #include "UltrasoundDevice.h"
 #include "ExtEC.h"
+#include "ECRefDevice.h"
 
 #define MAX_CHANNEL_SUPPORTED 2
 
@@ -166,6 +167,9 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     case PAL_DEVICE_OUT_HFP_UPLINK:
         PAL_VERBOSE(LOG_TAG, "HFP uplink device");
         return HfpUplink::getInstance(device, Rm);
+    case PAL_DEVICE_IN_ECHO_REF:
+        PAL_VERBOSE(LOG_TAG, "Echo ref device");
+        return ECRefDevice::getInstance(device, Rm);
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",device->id);
         return nullptr;
@@ -255,6 +259,9 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_OUT_HFP_UPLINK:
         PAL_VERBOSE(LOG_TAG, "HFP uplink device");
         return HfpUplink::getObject();
+    case PAL_DEVICE_IN_ECHO_REF:
+        PAL_VERBOSE(LOG_TAG, "Echo ref device");
+        return ECRefDevice::getObject();
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",dev_id);
         return nullptr;
