@@ -25,6 +25,7 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/device/inc/UltrasoundDevice.h \
             ${top_srcdir}/device/inc/RTProxy.h \
             ${top_srcdir}/device/inc/SpeakerProtection.h \
+            ${top_srcdir}/device/inc/ECRefDevice.h \
             ${top_srcdir}/session/inc/ACDEngine.h \
             ${top_srcdir}/session/inc/Session.h \
             ${top_srcdir}/session/inc/PayloadBuilder.h \
@@ -95,6 +96,7 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/device/src/SpeakerProtection.cpp \
               ${top_srcdir}/device/src/USBAudio.cpp \
               ${top_srcdir}/device/src/ExtEC.cpp \
+              ${top_srcdir}/device/src/ECRefDevice.cpp \
               ${top_srcdir}/session/src/Session.cpp \
               ${top_srcdir}/session/src/PayloadBuilder.cpp \
               ${top_srcdir}/session/src/SessionAlsaUtils.cpp \
