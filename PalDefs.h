@@ -1449,6 +1449,19 @@ struct pal_event_read_write_done_payload {
     struct pal_buffer buff; /**< buffer that was passed to pal_stream_read/pal_stream_write */
 };
 
+/**
+ * Event payload passed to client with PAL_STREAM_EVENT_OVERRUN events
+  */
+struct pal_event_overrun_payload {
+    uint32_t flags; /**< Frame flags.
+                         - 1 -- Timestamp is valid
+                         - 0 -- Timestamp is not valid */
+    uint32_t timestamp_disc_duration_us_msw; /**< MSW of difference in timestamp detected that
+                                              *led to the discontinuity in microseconds.  */
+    uint32_t timestamp_disc_duration_us_lsw; /**< LSW of difference in timestamp detected that
+                                              *led to the discontinuity in microseconds.  */
+};
+
 /** @brief Callback function prototype to be given for
  *         pal_open_stream.
  *
