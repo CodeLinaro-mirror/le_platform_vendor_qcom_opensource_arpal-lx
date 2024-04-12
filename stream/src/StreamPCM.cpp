@@ -747,10 +747,12 @@ int32_t  StreamPCM::read(struct pal_buffer* buf)
                 PAL_ERR(LOG_TAG, "Sound card offline, informing RM");
                 rm->ssrHandler(CARD_STATUS_OFFLINE);
                 size = buf->size;
+                status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
             } else if (rm->cardState == CARD_STATUS_OFFLINE) {
                 size = buf->size;
+                status = size;
                 PAL_DBG(LOG_TAG, "dropped buffer size - %d", size);
                 goto exit;
             } else {
