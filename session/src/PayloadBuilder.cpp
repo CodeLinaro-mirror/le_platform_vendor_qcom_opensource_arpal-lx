@@ -3069,18 +3069,15 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                     (dAttr.id == PAL_DEVICE_OUT_HANDSET) ||
                     (dAttr.id == PAL_DEVICE_OUT_WIRED_HEADSET) ||
                     (dAttr.id == PAL_DEVICE_OUT_WIRED_HEADPHONE) ||
+                    (dAttr.id == PAL_DEVICE_OUT_USB_HEADSET) ||
+                    (dAttr.id == PAL_DEVICE_OUT_USB_DEVICE) ||
                     (dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) ||
                     (dAttr.id == PAL_DEVICE_IN_HANDSET_MIC) ||
-                    (dAttr.id == PAL_DEVICE_IN_WIRED_HEADSET)) {
-                    if (dAttr.config.sample_rate == 8000) {
-                        keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
-                    } else if (dAttr.config.sample_rate == 16000) {
-                        keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
-                    } else if (dAttr.config.sample_rate == 32000) {
-                        keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_32K));
-                    } else if (dAttr.config.sample_rate == 48000) {
-                        keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_48K));
-                    }
+                    (dAttr.id == PAL_DEVICE_IN_WIRED_HEADSET) ||
+                    (dAttr.id == PAL_DEVICE_IN_USB_HEADSET)) {
+                    if ((sampleRateKv = getSamplerateKv(dAttr.config.sample_rate)) != 0)
+                        keyVector.push_back(std::make_pair(SAMPLINGRATE, sampleRateKv));
+                    PAL_DBG(LOG_TAG,"stream type %d Sample Rate[%d]\n", sattr->type, dAttr.config.sample_rate);
                 }
 
                 /* TBD: Push Channels for these types once Channels are added */
@@ -3091,36 +3088,26 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 if ((dAttr.id != PAL_DEVICE_OUT_SPEAKER) &&
                     (dAttr.id != PAL_DEVICE_OUT_HANDSET) &&
                     (dAttr.id != PAL_DEVICE_OUT_WIRED_HEADSET) &&
-                    (dAttr.id != PAL_DEVICE_OUT_WIRED_HEADPHONE))
+                    (dAttr.id != PAL_DEVICE_OUT_WIRED_HEADPHONE) &&
+                    (dAttr.id != PAL_DEVICE_OUT_USB_HEADSET) &&
+                    (dAttr.id != PAL_DEVICE_OUT_USB_DEVICE))
                     break;
 
                 PAL_DBG(LOG_TAG,"VoiP_RX Sample Rate[%d]\n", dAttr.config.sample_rate);
-                if (dAttr.config.sample_rate == 8000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
-                } else if (dAttr.config.sample_rate == 16000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
-                } else if (dAttr.config.sample_rate == 32000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_32K));
-                } else if (dAttr.config.sample_rate == 48000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_48K));
-                }
+                if ((sampleRateKv = getSamplerateKv(dAttr.config.sample_rate)) != 0)
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, sampleRateKv));
                 break;
            case PAL_STREAM_VOIP_TX:
+           case PAL_STREAM_VOICE_RECOGNITION:
                 if ((dAttr.id != PAL_DEVICE_IN_SPEAKER_MIC) &&
                     (dAttr.id != PAL_DEVICE_IN_HANDSET_MIC) &&
-                    (dAttr.id != PAL_DEVICE_IN_WIRED_HEADSET))
+                    (dAttr.id != PAL_DEVICE_IN_WIRED_HEADSET) &&
+                    (dAttr.id != PAL_DEVICE_IN_USB_HEADSET))
                     break;
 
-                PAL_DBG(LOG_TAG,"VoiP_TX Sample Rate[%d]\n", dAttr.config.sample_rate);
-                if (dAttr.config.sample_rate == 8000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
-                } else if (dAttr.config.sample_rate == 16000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
-                } else if (dAttr.config.sample_rate == 32000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_32K));
-                } else if (dAttr.config.sample_rate == 48000) {
-                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_48K));
-                }
+                PAL_DBG(LOG_TAG,"stream type %d Sample Rate[%d]\n", sattr->type, dAttr.config.sample_rate);
+                if ((sampleRateKv = getSamplerateKv(dAttr.config.sample_rate)) != 0)
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, sampleRateKv));
                 break;
             default:
                 PAL_VERBOSE(LOG_TAG,"stream type %d doesn't support DevicePP CKV ", sattr->type);
