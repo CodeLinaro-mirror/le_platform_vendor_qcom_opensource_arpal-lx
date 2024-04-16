@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -597,6 +597,8 @@ public:
     static bool mixerClosed;
     enum card_status_t cardState;
     bool ssrStarted = false;
+    /* Variable to cache a2dp suspended state for a2dp device */
+    static bool a2dpSuspended;
     static int spVersion;
     static int isVIDataInterleaved;
     /* Variable to store whether Speaker protection is enabled or not */

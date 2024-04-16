@@ -507,6 +507,7 @@ bool ResourceManager::isUPDVirtualPortEnabled = false;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 
 bool ResourceManager::isSignalHandlerEnabled = false;
+bool ResourceManager::a2dpSuspended = false;
 #ifdef SOC_PERIPHERAL_PROT
 std::thread ResourceManager::socPerithread;
 bool ResourceManager::isTZSecureZone = false;
@@ -8861,6 +8862,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             std::shared_ptr<Device> dev = nullptr;
             struct pal_device dattr;
             pal_device_id_t st_device;
+            pal_param_bta2dp_t param_bt_a2dp;
 
             PAL_INFO(LOG_TAG, "Device %d connected = %d",
                         device_connection->id,
@@ -8874,8 +8876,29 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
                     dattr.id = device_connection->id;
                     dev = Device::getInstance(&dattr, rm);
-                    if (dev)
+                    if (dev) {
                         status = dev->setDeviceParameter(param_id, param_payload);
+                        /* Set a2dp_suspended true if it is set to true before device
+                         * connection, and reset it at device device disconnection
+                         */
+                        if (!status && a2dpSuspended &&
+                            device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) {
+                           if (device_connection->connection_state) {
+                               param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+                               param_bt_a2dp.a2dp_suspended = true;
+                               PAL_DBG(LOG_TAG, "Applying cached a2dp_suspended true param");
+                               mResourceManagerMutex.unlock();
+                               status = dev->setDeviceParameter(PAL_PARAM_ID_BT_A2DP_SUSPENDED,
+                                                                &param_bt_a2dp);
+                               mResourceManagerMutex.lock();
+                               if (status) {
+                                   PAL_ERR(LOG_TAG, "set Parameter %d failed\n", param_id);
+                               }
+                           } else {
+                               a2dpSuspended = false;
+                           }
+                        }
+                    }
                 } else {
                     /* Handle device switch for Sound Trigger streams */
                     if (device_connection->id == PAL_DEVICE_IN_WIRED_HEADSET) {
@@ -9224,6 +9247,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             mResourceManagerMutex.unlock();
             param_bt_a2dp = (pal_param_bta2dp_t*)param_payload;
 
+            // Cache a2dpSuspended state for a2dp devices if it is coming from framework
+            if (param_bt_a2dp->dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP &&
+                param_bt_a2dp->is_suspend_setparam)
+                a2dpSuspended = param_bt_a2dp->a2dp_suspended;
+
             if (isDeviceAvailable(param_bt_a2dp->dev_id)) {
                 a2dp_dattr.id = param_bt_a2dp->dev_id;
             } else {
@@ -9241,6 +9269,17 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
 
             a2dp_dev->getDeviceParameter(param_id, (void **)&current_param_bt_a2dp);
+
+            /* If device is already suspended from framework, ignore suspend/resume
+             * which is sent via reconfig_cb. Honouring the param in such scenario
+             * will lead to incorrect stream state.
+             */
+            if (current_param_bt_a2dp->a2dp_suspended && current_param_bt_a2dp->is_suspend_setparam &&
+                !param_bt_a2dp->is_suspend_setparam) {
+                PAL_INFO(LOG_TAG, "suspend/resume from reconfig_cb ignored");
+                goto exit_no_unlock;
+            }
+
             if (current_param_bt_a2dp->a2dp_suspended == param_bt_a2dp->a2dp_suspended) {
                 PAL_INFO(LOG_TAG, "A2DP/BLE already in requested state, ignoring");
                 goto exit_no_unlock;
