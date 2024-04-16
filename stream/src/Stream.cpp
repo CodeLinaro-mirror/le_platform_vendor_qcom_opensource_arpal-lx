@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -62,10 +62,35 @@ void Stream::handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id,
                                         uint32_t event_size __unused) {
 
     PAL_DBG(LOG_TAG,"Event id %x ", event_id);
+    Stream *s = NULL;
+    uint32_t pal_event_id = 0;
 
-    if (event_id == EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE) {
-        PAL_DBG(LOG_TAG, "Pause done");
-        pauseCV.notify_all();
+    switch (event_id) {
+        case EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE: {
+            PAL_DBG(LOG_TAG, "Pause done");
+            pauseCV.notify_all();
+            break;
+        }
+        case EVENT_ID_UNDERRUN: {
+            pal_event_id = PAL_STREAM_EVENT_UNDERRUN;
+            s = reinterpret_cast<Stream *>(hdl);
+            if (s->streamCb) {
+                s->streamCb(reinterpret_cast<pal_stream_handle_t *>(s),
+                            pal_event_id, (uint32_t *)data, event_size, s->cookie);
+            }
+            break;
+        }
+        case EVENT_ID_OVERRUN: {
+            pal_event_id = PAL_STREAM_EVENT_OVERRUN;
+            s = reinterpret_cast<Stream *>(hdl);
+            if (s->streamCb) {
+                s->streamCb(reinterpret_cast<pal_stream_handle_t *>(s),
+                            pal_event_id, (uint32_t *)data, event_size, s->cookie);
+            }
+            break;
+        }
+        default:
+            break;
     }
 }
 
@@ -524,7 +549,7 @@ int32_t Stream::setBufInfo(pal_buffer_config *in_buffer_cfg,
                            pal_buffer_config *out_buffer_cfg)
 {
     int32_t status = 0;
-    struct pal_stream_attributes sattr;
+    struct pal_stream_attributes sattr = {};
     int16_t nBlockAlignIn, nBlockAlignOut ;        // block size of data
 
     status = getStreamAttributes(&sattr);
@@ -1677,7 +1702,8 @@ int32_t Stream::setVolume(struct pal_volume_data *volume){
     size_t vol_size = 0;
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (!volume || volume->no_of_volpair == 0) {
-        PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
+        if (volume)
+            PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
         status = -EINVAL;
         goto exit;
     }

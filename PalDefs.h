@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -388,8 +388,9 @@ typedef enum {
     PAL_DEVICE_IN_EXT_EC_REF = PAL_DEVICE_IN_MIN + 20,
     PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 21,
     PAL_DEVICE_IN_HFP_DOWNLINK = PAL_DEVICE_IN_MIN + 22,
+    PAL_DEVICE_IN_ECHO_REF = PAL_DEVICE_IN_MIN + 23,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 23,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 24,
 } pal_device_id_t;
 
 typedef enum {
@@ -532,6 +533,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET" }, PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET},
     {std::string{ "PAL_DEVICE_IN_HFP_DOWNLINK" },          PAL_DEVICE_IN_HFP_DOWNLINK},
+    {std::string{ "PAL_DEVICE_IN_ECHO_REF" },              PAL_DEVICE_IN_ECHO_REF},
 };
 
 //reverse mapping
@@ -584,6 +586,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET"}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          std::string{"PAL_DEVICE_IN_HFP_DOWNLINK"}},
+    {PAL_DEVICE_IN_ECHO_REF,              std::string{"PAL_DEVICE_IN_ECHO_REF"}},
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -672,6 +675,8 @@ typedef enum {
     PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY, /* partial drain completed */
     PAL_STREAM_CBK_EVENT_READ_DONE, /* stream hit some error, let AF take action */
     PAL_STREAM_CBK_EVENT_ERROR, /* stream hit some error, let AF take action */
+    PAL_STREAM_EVENT_UNDERRUN, /* stream detect underrun happened */
+    PAL_STREAM_EVENT_OVERRUN, /* stream detect overrun happened */
 } pal_stream_callback_event_t;
 
 /* type of global callback events. */
@@ -954,6 +959,7 @@ typedef enum {
     PAL_PARAM_ID_BT_AG_SCO = 60, /* HFP AG role */
     PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG = 62,
+    PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 63,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

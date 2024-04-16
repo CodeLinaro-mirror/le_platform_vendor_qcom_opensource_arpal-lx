@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -68,6 +68,7 @@
 #include <mutex>
 #include "kvh2xml.h"
 #include <sys/ioctl.h>
+#include "ECRefDevice.h"
 
 #ifndef FEATURE_IPQ_OPENWRT
 #include <cutils/str_parms.h>
@@ -218,6 +219,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
@@ -270,6 +272,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_TELEPHONY_RX,          0},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
+    {PAL_DEVICE_IN_ECHO_REF,              0},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, 0},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          0},
     {PAL_DEVICE_IN_MAX,                   0},
@@ -324,6 +327,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
@@ -553,6 +557,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
@@ -1392,14 +1397,17 @@ int ResourceManager::setDeviceParamConfig(uint32_t param_id, std::shared_ptr<Dev
         {
             if (dev) {
                 //Setting deviceRX: Config ICL Tag in AL module.
+                lockActiveStream();
                 status = rm->getActiveStream_l(dev, activestreams);
                 if ((0 != status) || (activestreams.size() == 0)) {
                     PAL_DBG(LOG_TAG, "no active stream available");
+                    unlockActiveStream();
                     goto exit;
                 }
                 stream = static_cast<Stream*>(activestreams[0]);
                 stream->getAssociatedSession(&session);
                 status = session->setConfig(stream, MODULE, tag);
+                unlockActiveStream();
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "Setting Param failed with status %d", status);
                     goto exit;
@@ -1949,9 +1957,8 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             }
             break;
         case PAL_DEVICE_IN_PROXY:
-        case PAL_DEVICE_IN_FM_TUNER:
             {
-            /* For PAL_DEVICE_IN_FM_TUNER/PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
+            /* For PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
             if (!sAttr) {
                 PAL_ERR(LOG_TAG, "Invalid parameter.");
                 return -EINVAL;
@@ -5049,7 +5056,7 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
                     continue;
                 }
                 curDev->getDeviceAttributes(curDevAttr);
-                if ((curDevAttr->config.sample_rate % SAMPLINGRATE_44K == 0) &&
+                if (sAttr && (curDevAttr->config.sample_rate % SAMPLINGRATE_44K == 0) &&
                     (sAttr->out_media_config.sample_rate % SAMPLINGRATE_44K != 0)) {
                     curDevAttr->config.sample_rate = sAttr->out_media_config.sample_rate;
                     curDevAttr->config.bit_width = sAttr->out_media_config.bit_width;
@@ -5962,12 +5969,14 @@ void ResourceManager::getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream
         if (backEndName == listAllBackEndIds[i].second) {
             dev = Device::getObject((pal_device_id_t) i);
             if(dev) {
+                lockActiveStream();
                 getActiveStream_l(dev, activeStreams);
                 PAL_DBG(LOG_TAG, "got dev %d active streams on dev is %zu", i, activeStreams.size() );
                 for (int j=0; j < activeStreams.size(); j++) {
                     activeStreamsDevices.push_back({activeStreams[j], i});
                     PAL_DBG(LOG_TAG, "found shared BE stream %pK with dev %d", activeStreams[j], i );
                 }
+                unlockActiveStream();
             }
             activeStreams.clear();
         }
@@ -6495,14 +6504,15 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     }
 
     // get active streams on the device
+    mActiveStreamMutex.lock();
     getActiveStream_l(inDev, activeStreams);
     if (activeStreams.size() == 0) {
+        mActiveStreamMutex.unlock();
         PAL_ERR(LOG_TAG, "no other active streams found");
         goto done;
     }
 
     // create dev switch vectors
-    mActiveStreamMutex.lock();
     for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
         (*sIter)->getStreamType(&type); // TODO: Someday might need to extend new API to decouple HFP&ICC.
         if (type == PAL_STREAM_LOOPBACK) {
@@ -7310,9 +7320,11 @@ int32_t ResourceManager::a2dpCaptureSuspend()
     a2dpDattr.id = PAL_DEVICE_IN_BLUETOOTH_A2DP;
     a2dpDev = Device::getInstance(&a2dpDattr, rm);
 
+    lockActiveStream();
     getActiveStream_l(a2dpDev, activeStreams);
     if (activeStreams.size() == 0) {
         PAL_DBG(LOG_TAG, "no active streams found");
+        unlockActiveStream();
         goto exit;
     }
 
@@ -7322,6 +7334,7 @@ int32_t ResourceManager::a2dpCaptureSuspend()
             (*sIter)->a2dpMuted = true;
         }
     }
+    unlockActiveStream();
 
     // force switch to handset_mic
     handsetmicDattr.id = PAL_DEVICE_IN_HANDSET_MIC;
@@ -7330,10 +7343,12 @@ int32_t ResourceManager::a2dpCaptureSuspend()
     PAL_DBG(LOG_TAG, "selecting hadset_mic and muting stream");
     forceDeviceSwitch(a2dpDev, &handsetmicDattr);
 
+    lockActiveStream();
     for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
         (*sIter)->suspendedDevIds.clear();
         (*sIter)->suspendedDevIds.push_back(PAL_DEVICE_IN_BLUETOOTH_A2DP);
     }
+    unlockActiveStream();
 
 exit:
     PAL_DBG(LOG_TAG, "exit status: %d", status);
@@ -8136,11 +8151,13 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 if (isDeviceAvailable(sco_tx_dattr.id)) {
                     handset_tx_dattr.id = PAL_DEVICE_IN_HANDSET_MIC;
                     sco_tx_dev = Device::getInstance(&sco_tx_dattr, rm);
+                    lockActiveStream();
                     getActiveStream_l(sco_tx_dev, activestreams);
                     if (activestreams.size() > 0) {
                         PAL_DBG(LOG_TAG, "a2dp resumed, switch bt sco mic to handset mic");
                         stream = static_cast<Stream *>(activestreams[0]);
                         stream->getStreamAttributes(&sAttr);
+                        unlockActiveStream();
                         getDeviceConfig(&handset_tx_dattr, &sAttr);
                         getDeviceInfo(handset_tx_dattr.id, sAttr.type,
                                 handset_tx_dattr.custom_config.custom_key, &devInfo);
@@ -8148,6 +8165,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         mResourceManagerMutex.unlock();
                         rm->forceDeviceSwitch(sco_tx_dev, &handset_tx_dattr);
                         mResourceManagerMutex.lock();
+                    } else {
+                        unlockActiveStream();
                     }
                 }
 
@@ -8222,9 +8241,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     (PAL_DEVICE_OUT_A2B2_SPKR == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADSET == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADPHONE == deviceId)) {
+                    lockActiveStream();
                     status = getActiveStream_l(active_devices[i].first, activestreams);
                     if ((0 != status) || (activestreams.size() == 0)) {
                        PAL_ERR(LOG_TAG, "no other active streams found");
+                       unlockActiveStream();
                        status = -EINVAL;
                        goto exit;
                     }
@@ -8242,9 +8263,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         status = session->setConfig(stream, CALIBRATION, TAG_DEVICE_PP_MBDRC);
                         if (0 != status) {
                             PAL_ERR(LOG_TAG, "session setConfig failed with status %d", status);
+                            unlockActiveStream();
                             goto exit;
                         }
                     }
+                    unlockActiveStream();
                 }
             }
         }
@@ -8351,14 +8374,18 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
                     speaker_dattr.id = PAL_DEVICE_OUT_SPEAKER;
                     sco_rx_dev = Device::getInstance(&sco_rx_dattr, rm);
+                    lockActiveStream();
                     getActiveStream_l(sco_rx_dev, activestreams);
                     if (activestreams.size() > 0) {
                         stream = static_cast<Stream*>(activestreams[0]);
                         stream->getStreamAttributes(&sAttr);
+                        unlockActiveStream();
                         getDeviceConfig(&speaker_dattr, &sAttr);
                         mResourceManagerMutex.unlock();
                         rm->forceDeviceSwitch(sco_rx_dev, &speaker_dattr);
                         mResourceManagerMutex.lock();
+                    } else {
+                        unlockActiveStream();
                     }
                 }
             }
@@ -8497,6 +8524,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             bool match = false;
             lockValidStreamMutex();
@@ -8725,11 +8753,13 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
 
             PAL_INFO(LOG_TAG, "Device is Stereo Speaker");
             std::vector <Stream *> activeStreams;
+            lockActiveStream();
             getActiveStream_l(active_devices[i].first, activeStreams);
             for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
                 status = (*sIter)->getStreamType(&streamType);
                 if(0 != status) {
                    PAL_ERR(LOG_TAG,"setParameters Failed");
+                   unlockActiveStream();
                    goto error;
                 }
                 /** Check for the Streams which can require Stereo speaker functionality.
@@ -8751,6 +8781,7 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
                                                      (void*)&rotation_type);
                     if(0 != status) {
                        PAL_ERR(LOG_TAG,"setParameters Failed");
+                       unlockActiveStream();
                        goto error;
                     }
                     /** As we are configuring MFC on DevicePP, so handling device rotation
@@ -8759,6 +8790,7 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
                     break;
                 }
             }
+            unlockActiveStream();
         }
     }
 error :

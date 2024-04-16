@@ -69,6 +69,8 @@ typedef enum {
 } pmQosVote;
 
 #define EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE 0x0800103F
+#define EVENT_ID_UNDERRUN 0x080011E6
+#define EVENT_ID_OVERRUN 0x08001A98
 
 class Stream;
 class ResourceManager;
@@ -97,6 +99,8 @@ protected:
     bool frontEndIdAllocated = false;
 public:
     bool isPauseRegistrationDone;
+    bool isOverrunRegistrationDone;
+    bool isUnderrunRegistrationDone;
     virtual ~Session();
     static Session* makeSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
     int handleHFPZoneSetting(Stream *s, int zone_id,

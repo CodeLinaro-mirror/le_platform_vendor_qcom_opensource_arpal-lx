@@ -168,8 +168,8 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     }
 
 
-    // Register for Soft pause events
-    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT )
+    // Register for Soft pause/Xrun events
+    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT || mStreamAttr->direction == PAL_AUDIO_INPUT)
         session->registerCallBack(handleSoftPauseCallBack, (uint64_t)this);
 
     mStreamMutex.unlock();
@@ -872,13 +872,23 @@ exit:
     return status;
 }
 
-int32_t  StreamPCM::registerCallBack(pal_stream_callback /*cb*/, uint64_t /*cookie*/)
+int32_t  StreamPCM::registerCallBack(pal_stream_callback cb, uint64_t cookie)
 {
+    streamCb = cb;
+    this->cookie = cookie;
+
+    PAL_VERBOSE(LOG_TAG, "streamCb = %pK", streamCb);
     return 0;
 }
 
-int32_t  StreamPCM::getCallBack(pal_stream_callback * /*cb*/)
+int32_t  StreamPCM::getCallBack(pal_stream_callback *cb)
 {
+    if (!cb) {
+        PAL_ERR(LOG_TAG, "Invalid cb");
+        return -EINVAL;
+    }
+
+    *cb = streamCb;
     return 0;
 }
 
@@ -942,6 +952,7 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
     // Stream may not know about tags, so use setParameters instead of setConfig
     switch (param_id) {
         case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
             param_payload = (pal_param_payload *)payload;
 
@@ -1175,8 +1186,9 @@ int32_t StreamPCM::flush()
          goto exit;
     }
 
-    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD) {
-         PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD stream, ignore");
+    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD && mStreamAttr->type != PAL_STREAM_PLAYBACK_BUS
+                                                  && mStreamAttr->type != PAL_STREAM_DEEP_BUFFER) {
+         PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD/PLAYBACK BUS/DEEP BUFFER stream, ignore");
          goto exit;
     }
 
