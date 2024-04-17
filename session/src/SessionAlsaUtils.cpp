@@ -49,6 +49,7 @@
 static constexpr const char* const COMPRESS_SND_DEV_NAME_PREFIX = "COMPRESS";
 static constexpr const char* const PCM_SND_DEV_NAME_PREFIX = "PCM";
 static constexpr const char* const PCM_SND_VOICE_DEV_NAME_PREFIX = "VOICEMMODE";
+static std::mutex mSetGetMutex;
 
 static const char *feCtrlNames[] = {
     " control",
@@ -834,17 +835,25 @@ int SessionAlsaUtils::getTimestamp(struct mixer *mixer, const std::vector<int> &
         status = -EINVAL;
         goto exit;
     }
+
+    mSetGetMutex.lock();
+
     status = mixer_ctl_set_array(ctl, payload->data(), payloadSize);
     if (0 != status) {
          PAL_ERR(LOG_TAG, "Set failed status = %d", status);
+         mSetGetMutex.unlock();
          goto exit;
     }
     memset(payload->data(), 0, payloadSize);
     status = mixer_ctl_get_array(ctl, payload->data(), payloadSize);
     if (0 != status) {
          PAL_ERR(LOG_TAG, "Get failed status = %d", status);
+         mSetGetMutex.unlock();
          goto exit;
     }
+
+    mSetGetMutex.unlock();
+
     spr_session_time = (struct param_id_spr_session_time_t *)
                      (payload->data() + sizeof(struct apm_module_param_data_t));
     stime->session_time.value_lsw = spr_session_time->session_time.value_lsw;
