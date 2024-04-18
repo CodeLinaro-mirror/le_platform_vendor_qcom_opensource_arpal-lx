@@ -10728,6 +10728,14 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
         }
     }
 
+    /* Special case - stream switch not needed for FM_Tuner and Handset_mic/Speaker_Mic concurrency */
+    if (inDevAttr->id != curDevAttr->id &&
+        (curDevAttr->id == PAL_DEVICE_IN_HANDSET_MIC || curDevAttr->id == PAL_DEVICE_IN_SPEAKER_MIC || curDevAttr->id == PAL_DEVICE_IN_FM_TUNER) &&
+        (inDevAttr->id == PAL_DEVICE_IN_HANDSET_MIC || inDevAttr->id == PAL_DEVICE_IN_SPEAKER_MIC || inDevAttr->id == PAL_DEVICE_IN_FM_TUNER)) {
+            PAL_INFO(LOG_TAG, "No stream switch is needed as current device %d and incoming device %d need to run concurrently", curDevAttr->id, inDevAttr->id);
+            ret = false;
+    }
+
 exit:
     return ret;
 }
