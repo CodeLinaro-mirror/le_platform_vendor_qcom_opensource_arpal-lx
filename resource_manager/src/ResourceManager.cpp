@@ -1688,6 +1688,25 @@ int32_t ResourceManager::getSidetoneMode(pal_device_id_t deviceId,
     return status;
 }
 
+int32_t ResourceManager::getAweSupport(pal_device_id_t deviceId, pal_stream_type_t type, uint32_t *awe_support)
+{
+    int32_t status = 0;
+
+    *awe_support = 0;
+    for (int32_t size1 = 0; size1 < deviceInfo.size(); size1++) {
+        if (deviceId == deviceInfo[size1].deviceId) {
+            for (int32_t size2 = 0; size2 < deviceInfo[size1].usecase.size(); size2++) {
+                if (type == deviceInfo[size1].usecase[size2].type) {
+                    *awe_support = deviceInfo[size1].usecase[size2].awe_support;
+                    PAL_DBG(LOG_TAG, "found AWE flag %d for dev %d", *awe_support, deviceId);
+                    break;
+                }
+            }
+        }
+    }
+    return status;
+}
+
 int32_t ResourceManager::getVolumeSetParamInfo(struct volume_set_param_info *volinfo)
 {
     if (!volinfo)
@@ -7584,6 +7603,37 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             **(bool **)param_payload = isHifiFilterEnabled;
         }
         break;
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            PAL_ERR(LOG_TAG, "AWE enter param get config");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+
+            for (int i = 0; i < active_devices.size(); i++) {
+                int deviceId = active_devices[i].first->getSndDeviceId();
+
+                for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                    uint32_t awe_support = 0;
+                    if (*sIter == NULL) {
+                        PAL_ERR(LOG_TAG, "streamIter value is null");
+                        continue;
+                    }
+                    (*sIter)->getStreamAttributes(&st_attr);
+                    getAweSupport((pal_device_id_t)deviceId,st_attr.type,&awe_support);
+                    if (awe_support) {
+                        PAL_ERR(LOG_TAG, "%s :AWE get Config",__func__);
+                        status = (*sIter)->getParameters(param_id, param_payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "Failed to get config for AWE");
+                            continue;
+                        } else {
+                            goto exit;
+                        }
+                    }
+                }
+            }
+        }
+        break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
@@ -8434,6 +8484,36 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     if (status) {
                         PAL_ERR(LOG_TAG, "Failed to set zoneid for ECNR");
                         goto exit;
+                    }
+                }
+            }
+        }
+        break;
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            PAL_ERR(LOG_TAG, "AWE enter param set config");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+
+            for (int i = 0; i < active_devices.size(); i++) {
+                int deviceId = active_devices[i].first->getSndDeviceId();
+
+                for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                    uint32_t awe_support = 0;
+                    if (*sIter == NULL) {
+                        PAL_ERR(LOG_TAG, "streamIter value is null");
+                        continue;
+                    }
+                    (*sIter)->getStreamAttributes(&st_attr);
+                    getAweSupport((pal_device_id_t)deviceId,st_attr.type, &awe_support);
+                    if (awe_support) {
+                        status = (*sIter)->setParameters(param_id, param_payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "Failed to set AWE");
+                            continue;
+                        } else {
+                            goto exit;
+                        }
                     }
                 }
             }
@@ -9924,6 +10004,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
                         deviceInfo[size].usecase[sizeusecase].bit_width);
                 deviceInfo[size].usecase[sizeusecase].bit_width = BITWIDTH_16;
             }
+        }  else if (!strcmp(tag_name, "awe_support")) {
+            size = deviceInfo.size() - 1;
+            sizeusecase = deviceInfo[size].usecase.size() - 1;
+            deviceInfo[size].usecase[sizeusecase].awe_support = atoi(data->data_buf);
         }
     } else if (data->tag == TAG_ECREF) {
         if (!strcmp(tag_name, "id")) {

@@ -960,6 +960,7 @@ typedef enum {
     PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG = 62,
     PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 63,
+    PAL_PARAM_ID_CUSTOM_MODULE_CONFIG = 64, /*Clients directly configure custom modules*/
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
