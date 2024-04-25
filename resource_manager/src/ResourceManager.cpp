@@ -26,8 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -466,7 +465,6 @@ bool ResourceManager::isUpdDedicatedBeEnabled = false;
 bool ResourceManager::isUpdSetCustomGainEnabled = false;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 bool ResourceManager::isSignalHandlerEnabled = false;
-bool ResourceManager::a2dp_suspended = false;
 
 //TODO:Needs to define below APIs so that functionality won't break
 #ifdef FEATURE_IPQ_OPENWRT
@@ -8885,7 +8883,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 (pal_param_device_connection_t *)param_payload;
             std::shared_ptr<Device> dev = nullptr;
             struct pal_device dattr;
-            pal_param_bta2dp_t param_bt_a2dp;
 
             PAL_INFO(LOG_TAG, "Device %d connected = %d",
                         device_connection->id,
@@ -8898,25 +8895,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BLE)) {
                     dattr.id = device_connection->id;
                     dev = Device::getInstance(&dattr, rm);
-                    if (dev) {
+                    if (dev)
                         status = dev->setDeviceParameter(param_id, param_payload);
-                        /* Set a2dp_suspended true if it is set to true before device
-                         * connection, and reset it at device device disconnection
-                         */
-                        if (!status && a2dp_suspended &&
-                            device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) {
-                           if (device_connection->connection_state) {
-                               param_bt_a2dp.a2dp_suspended = true;
-                               PAL_DBG(LOG_TAG, "Applying cached a2dp_suspended true param");
-                               mResourceManagerMutex.unlock();
-                               status = dev->setDeviceParameter(PAL_PARAM_ID_BT_A2DP_SUSPENDED,
-                                                                &param_bt_a2dp);
-                               mResourceManagerMutex.lock();
-                           } else {
-                               a2dp_suspended = false;
-                           }
-                        }
-                    }
                 } else {
                     status = SwitchSoundTriggerDevices(
                         device_connection->connection_state,
@@ -9248,24 +9228,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             struct pal_device a2dp_dattr;
             pal_param_bta2dp_t *current_param_bt_a2dp = nullptr;
             pal_param_bta2dp_t *param_bt_a2dp = nullptr;
+            bool skip_switch = false;
 
             mResourceManagerMutex.unlock();
             param_bt_a2dp = (pal_param_bta2dp_t*)param_payload;
-
-            if (param_bt_a2dp->a2dp_suspended == true) {
-                //TODO:Need to check for Broadcast and BLE unicast concurrency UC
-                if (isDeviceAvailable(param_bt_a2dp->dev_id)) {
-                    a2dp_dattr.id = param_bt_a2dp->dev_id;
-                } else {
-                    PAL_ERR(LOG_TAG, "a2dp/ble device %d is unavailable, set param %d failed",
-                        param_bt_a2dp->dev_id, param_id);
-                    status = -EIO;
-                    goto exit_no_unlock;
-                }
-            } else {
-                a2dp_dattr.id = param_bt_a2dp->dev_id;
-            }
-
+            a2dp_dattr.id = param_bt_a2dp->dev_id;
             a2dp_dev = Device::getInstance(&a2dp_dattr , rm);
             if (!a2dp_dev) {
                 PAL_ERR(LOG_TAG, "Failed to get A2DP/BLE instance");
@@ -9278,8 +9245,10 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 PAL_INFO(LOG_TAG, "A2DP/BLE already in requested state, ignoring");
                 goto exit_no_unlock;
             }
+            if (!isDeviceAvailable(param_bt_a2dp->dev_id))
+                skip_switch = true;
 
-            if (param_bt_a2dp->a2dp_suspended == false) {
+            if (!skip_switch && param_bt_a2dp->a2dp_suspended == false) {
                 struct pal_device sco_tx_dattr;
                 struct pal_device sco_rx_dattr;
                 std::shared_ptr<Device> sco_tx_dev = nullptr;
@@ -9465,22 +9434,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             struct pal_device a2dp_dattr;
             pal_param_bta2dp_t* current_param_bt_a2dp = nullptr;
             pal_param_bta2dp_t* param_bt_a2dp = nullptr;
+            bool skip_switch = false;
 
             mResourceManagerMutex.unlock();
             param_bt_a2dp = (pal_param_bta2dp_t*)param_payload;
-
-            if (param_bt_a2dp->a2dp_capture_suspended == true) {
-                if (isDeviceAvailable(param_bt_a2dp->dev_id)) {
-                    a2dp_dattr.id = param_bt_a2dp->dev_id;
-                } else {
-                    PAL_ERR(LOG_TAG, "a2dp/ble device %d is unavailable, set param %d failed",
-                        param_bt_a2dp->dev_id, param_id);
-                    status = -EIO;
-                    goto exit_no_unlock;
-                }
-            } else {
-                a2dp_dattr.id = param_bt_a2dp->dev_id;
-            }
+            a2dp_dattr.id = param_bt_a2dp->dev_id;
 
             a2dp_dev = Device::getInstance(&a2dp_dattr, rm);
             if (!a2dp_dev) {
@@ -9494,8 +9452,10 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 PAL_INFO(LOG_TAG, "A2DP/BLE already in requested state, ignoring");
                 goto exit_no_unlock;
             }
+            if (!isDeviceAvailable(param_bt_a2dp->dev_id))
+                skip_switch = true;
 
-            if (param_bt_a2dp->a2dp_capture_suspended == false) {
+            if (!skip_switch && param_bt_a2dp->a2dp_capture_suspended == false) {
                 /* Handle bt sco out running usecase */
                 struct pal_device sco_rx_dattr;
                 struct pal_stream_attributes sAttr;
