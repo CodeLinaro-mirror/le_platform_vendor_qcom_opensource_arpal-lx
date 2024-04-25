@@ -28,7 +28,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -583,8 +583,6 @@ public:
     static bool mixerClosed;
     enum card_status_t cardState;
     bool ssrStarted = false;
-    /* Variable to cache a2dp suspended state for a2dp device */
-    static bool a2dp_suspended;
     //Variable to check if multiple sampe rate during combo device supported
     bool is_multiple_sample_rate_combo_supported = true;
     /* Variable to store whether Speaker protection is enabled or not */
