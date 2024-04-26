@@ -84,6 +84,9 @@ AC_SUBST([KVH2XML_CFLAGS])
 PKG_CHECK_MODULES([CAPIV2], [capiv2headers])
 AC_SUBST([CAPIV2_CFLAGS])
 
+PKG_CHECK_MODULES([AUDIOLISTEN], [audio-listen])
+AC_SUBST([AUDIOLISTEN_CFLAGS])
+
 AC_ARG_WITH([compress],
     AS_HELP_STRING([compile compress (default is no)]),
     [with_compress=$withval],
