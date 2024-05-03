@@ -909,10 +909,10 @@ int SessionAlsaPcm::start(Stream * s)
                     goto exit;
                 }
                 if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
-                    PAL_ERR(LOG_TAG, "miid : %x id = %d, data %s\n", miid,
+                    PAL_INFO(LOG_TAG, "miid : %x id = %d, data %s\n", miid,
                         pcmDevIds.at(0), txAifBackEnds[0].second.data());
                 } else {
-                    PAL_ERR(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
+                    PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
                 }
 
                 if (isPalPCMFormat(sAttr.in_media_config.aud_fmt_id))
