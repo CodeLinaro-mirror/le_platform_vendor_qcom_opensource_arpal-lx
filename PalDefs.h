@@ -304,6 +304,7 @@ typedef enum {
 
 /** Audio stream types */
 typedef enum {
+    PAL_STREAM_INVALID = -1,              /**< :invalid streamtype*/
     PAL_STREAM_LOW_LATENCY = 1,           /**< :low latency, higher power*/
     PAL_STREAM_DEEP_BUFFER = 2,           /**< :low power, higher latency*/
     PAL_STREAM_COMPRESSED = 3,            /**< :compresssed audio*/
@@ -330,7 +331,8 @@ typedef enum {
     PAL_STREAM_CONTEXT_PROXY = 24,        /**< Context Proxy Stream */
     PAL_STREAM_SENSOR_PCM_DATA = 25,      /**< Sensor Pcm Data Stream */
     PAL_STREAM_ULTRASOUND = 26,           /**< Ultrasound Proximity detection */
-    PAL_STREAM_PLAYBACK_BUS = 27,         /**< BUS type pal streams */
+    PAL_STREAM_PLAYBACK_BUS = 27,         /**< PLAYBACK BUS type pal streams */
+    PAL_STREAM_CAPTURE_BUS = 28,          /**< CAPTURE BUS type pal streams */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -389,8 +391,10 @@ typedef enum {
     PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 21,
     PAL_DEVICE_IN_HFP_DOWNLINK = PAL_DEVICE_IN_MIN + 22,
     PAL_DEVICE_IN_ECHO_REF = PAL_DEVICE_IN_MIN + 23,
+    PAL_DEVICE_IN_A2B_MIC = PAL_DEVICE_IN_MIN + 24,
+    PAL_DEVICE_IN_A2B2_MIC = PAL_DEVICE_IN_MIN + 25,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 24,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 26,
 } pal_device_id_t;
 
 typedef enum {
@@ -512,6 +516,8 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_HFP_UPLINK" },           PAL_DEVICE_OUT_HFP_UPLINK},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
+    {std::string{ "PAL_DEVICE_IN_A2B_MIC" },               PAL_DEVICE_IN_A2B_MIC},
+    {std::string{ "PAL_DEVICE_IN_A2B2_MIC" },              PAL_DEVICE_IN_A2B2_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET" }, PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET},
     {std::string{ "PAL_DEVICE_IN_WIRED_HEADSET" },         PAL_DEVICE_IN_WIRED_HEADSET},
@@ -565,6 +571,8 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_HFP_UPLINK,           std::string{"PAL_DEVICE_OUT_HFP_UPLINK"}},
     {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
     {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
+    {PAL_DEVICE_IN_A2B_MIC,               std::string{"PAL_DEVICE_IN_A2B_MIC"}},
+    {PAL_DEVICE_IN_A2B2_MIC,              std::string{"PAL_DEVICE_IN_A2B2_MIC"}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET, std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET"}},
     {PAL_DEVICE_IN_WIRED_HEADSET,         std::string{"PAL_DEVICE_IN_WIRED_HEADSET"}},
@@ -615,7 +623,8 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_ACD" },                      PAL_STREAM_ACD},
     {std::string{ "PAL_STREAM_ULTRASOUND" },               PAL_STREAM_ULTRASOUND},
     {std::string{ "PAL_STREAM_SENSOR_PCM_DATA" },          PAL_STREAM_SENSOR_PCM_DATA},
-    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },           PAL_STREAM_PLAYBACK_BUS},
+    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },             PAL_STREAM_PLAYBACK_BUS},
+    {std::string{ "PAL_STREAM_CAPTURE_BUS" },              PAL_STREAM_CAPTURE_BUS},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -645,7 +654,8 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_ACD,                std::string{ "PAL_STREAM_ACD" } },
     {PAL_STREAM_ULTRASOUND,         std::string{ "PAL_STREAM_ULTRASOUND" } },
     {PAL_STREAM_SENSOR_PCM_DATA,    std::string{ "PAL_STREAM_SENSOR_PCM_DATA" } },
-    {PAL_STREAM_PLAYBACK_BUS,              std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
+    {PAL_STREAM_PLAYBACK_BUS,       std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
+    {PAL_STREAM_CAPTURE_BUS,        std::string{ "PAL_STREAM_CAPTURE_BUS" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {

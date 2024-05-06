@@ -558,6 +558,8 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
     {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
+    {PAL_DEVICE_IN_A2B_MIC,               {std::string{ "" }}},
+    {PAL_DEVICE_IN_A2B2_MIC,               {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET, {std::string{ "" }}},
     {PAL_DEVICE_IN_HFP_DOWNLINK,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
@@ -2241,6 +2243,7 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
             max_sessions = MAX_SESSIONS_RAW;
             break;
         case PAL_STREAM_PLAYBACK_BUS:
+        case PAL_STREAM_CAPTURE_BUS:
             cur_sessions = active_streams_bus.size();
             max_sessions = MAX_SESSIONS_DEEP_BUFFER;
             break;
@@ -2319,6 +2322,7 @@ bool ResourceManager::isStreamSupported(struct pal_stream_attributes *attributes
         case PAL_STREAM_PROXY:
         case PAL_STREAM_VOICE_CALL_MUSIC:
         case PAL_STREAM_PLAYBACK_BUS:
+        case PAL_STREAM_CAPTURE_BUS:
         case PAL_STREAM_HAPTICS:
             if (attributes->direction == PAL_AUDIO_INPUT) {
                 channels = attributes->in_media_config.ch_info.channels;
@@ -2488,6 +2492,7 @@ int ResourceManager::registerStream(Stream *s)
             break;
         }
         case PAL_STREAM_PLAYBACK_BUS:
+        case PAL_STREAM_CAPTURE_BUS:
         {
             StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
             ret = registerstream(sDB, active_streams_bus);
@@ -2683,6 +2688,7 @@ int ResourceManager::deregisterStream(Stream *s)
             break;
         }
         case PAL_STREAM_PLAYBACK_BUS:
+        case PAL_STREAM_CAPTURE_BUS:
         {
             StreamPCM* sDB = dynamic_cast<StreamPCM*>(s);
             ret = deregisterstream(sDB, active_streams_bus);
@@ -5560,6 +5566,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
         case PAL_STREAM_LOOPBACK:
         case PAL_STREAM_PROXY:
         case PAL_STREAM_PLAYBACK_BUS:
+        case PAL_STREAM_CAPTURE_BUS:
         case PAL_STREAM_HAPTICS:
         case PAL_STREAM_ULTRASOUND:
         case PAL_STREAM_RAW:
@@ -5849,6 +5856,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         case PAL_STREAM_ACD:
         case PAL_STREAM_PCM_OFFLOAD:
         case PAL_STREAM_PLAYBACK_BUS:
+        case PAL_STREAM_CAPTURE_BUS:
         case PAL_STREAM_HAPTICS:
         case PAL_STREAM_ULTRASOUND:
         case PAL_STREAM_SENSOR_PCM_DATA:
