@@ -304,6 +304,7 @@ typedef enum {
 
 /** Audio stream types */
 typedef enum {
+    PAL_STREAM_INVALID = -1,              /**< :invalid streamtype*/
     PAL_STREAM_LOW_LATENCY = 1,           /**< :low latency, higher power*/
     PAL_STREAM_DEEP_BUFFER = 2,           /**< :low power, higher latency*/
     PAL_STREAM_COMPRESSED = 3,            /**< :compresssed audio*/
@@ -330,7 +331,8 @@ typedef enum {
     PAL_STREAM_CONTEXT_PROXY = 24,        /**< Context Proxy Stream */
     PAL_STREAM_SENSOR_PCM_DATA = 25,      /**< Sensor Pcm Data Stream */
     PAL_STREAM_ULTRASOUND = 26,           /**< Ultrasound Proximity detection */
-    PAL_STREAM_PLAYBACK_BUS = 27,         /**< BUS type pal streams */
+    PAL_STREAM_PLAYBACK_BUS = 27,         /**< PLAYBACK BUS type pal streams */
+    PAL_STREAM_CAPTURE_BUS = 28,          /**< CAPTURE BUS type pal streams */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -389,8 +391,10 @@ typedef enum {
     PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 21,
     PAL_DEVICE_IN_HFP_DOWNLINK = PAL_DEVICE_IN_MIN + 22,
     PAL_DEVICE_IN_ECHO_REF = PAL_DEVICE_IN_MIN + 23,
+    PAL_DEVICE_IN_A2B_MIC = PAL_DEVICE_IN_MIN + 24,
+    PAL_DEVICE_IN_A2B2_MIC = PAL_DEVICE_IN_MIN + 25,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 24,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 26,
 } pal_device_id_t;
 
 typedef enum {
@@ -512,6 +516,8 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_HFP_UPLINK" },           PAL_DEVICE_OUT_HFP_UPLINK},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
+    {std::string{ "PAL_DEVICE_IN_A2B_MIC" },               PAL_DEVICE_IN_A2B_MIC},
+    {std::string{ "PAL_DEVICE_IN_A2B2_MIC" },              PAL_DEVICE_IN_A2B2_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET" }, PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET},
     {std::string{ "PAL_DEVICE_IN_WIRED_HEADSET" },         PAL_DEVICE_IN_WIRED_HEADSET},
@@ -565,6 +571,8 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_HFP_UPLINK,           std::string{"PAL_DEVICE_OUT_HFP_UPLINK"}},
     {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
     {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
+    {PAL_DEVICE_IN_A2B_MIC,               std::string{"PAL_DEVICE_IN_A2B_MIC"}},
+    {PAL_DEVICE_IN_A2B2_MIC,              std::string{"PAL_DEVICE_IN_A2B2_MIC"}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET, std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET"}},
     {PAL_DEVICE_IN_WIRED_HEADSET,         std::string{"PAL_DEVICE_IN_WIRED_HEADSET"}},
@@ -615,7 +623,8 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_ACD" },                      PAL_STREAM_ACD},
     {std::string{ "PAL_STREAM_ULTRASOUND" },               PAL_STREAM_ULTRASOUND},
     {std::string{ "PAL_STREAM_SENSOR_PCM_DATA" },          PAL_STREAM_SENSOR_PCM_DATA},
-    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },           PAL_STREAM_PLAYBACK_BUS},
+    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },             PAL_STREAM_PLAYBACK_BUS},
+    {std::string{ "PAL_STREAM_CAPTURE_BUS" },              PAL_STREAM_CAPTURE_BUS},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -645,7 +654,8 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_ACD,                std::string{ "PAL_STREAM_ACD" } },
     {PAL_STREAM_ULTRASOUND,         std::string{ "PAL_STREAM_ULTRASOUND" } },
     {PAL_STREAM_SENSOR_PCM_DATA,    std::string{ "PAL_STREAM_SENSOR_PCM_DATA" } },
-    {PAL_STREAM_PLAYBACK_BUS,              std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
+    {PAL_STREAM_PLAYBACK_BUS,       std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
+    {PAL_STREAM_CAPTURE_BUS,        std::string{ "PAL_STREAM_CAPTURE_BUS" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {
@@ -675,6 +685,8 @@ typedef enum {
     PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY, /* partial drain completed */
     PAL_STREAM_CBK_EVENT_READ_DONE, /* stream hit some error, let AF take action */
     PAL_STREAM_CBK_EVENT_ERROR, /* stream hit some error, let AF take action */
+    PAL_STREAM_EVENT_UNDERRUN, /* stream detect underrun happened */
+    PAL_STREAM_EVENT_OVERRUN, /* stream detect overrun happened */
 } pal_stream_callback_event_t;
 
 /* type of global callback events. */
@@ -958,6 +970,7 @@ typedef enum {
     PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG = 62,
     PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 63,
+    PAL_PARAM_ID_CUSTOM_MODULE_CONFIG = 64, /*Clients directly configure custom modules*/
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
@@ -1445,6 +1458,19 @@ struct pal_event_read_write_done_payload {
     uint32_t status; /**< data buffer status as defined in ar_osal_error.h */
     uint32_t md_status; /**< meta-data status as defined in ar_osal_error.h */
     struct pal_buffer buff; /**< buffer that was passed to pal_stream_read/pal_stream_write */
+};
+
+/**
+ * Event payload passed to client with PAL_STREAM_EVENT_OVERRUN events
+  */
+struct pal_event_overrun_payload {
+    uint32_t flags; /**< Frame flags.
+                         - 1 -- Timestamp is valid
+                         - 0 -- Timestamp is not valid */
+    uint32_t timestamp_disc_duration_us_msw; /**< MSW of difference in timestamp detected that
+                                              *led to the discontinuity in microseconds.  */
+    uint32_t timestamp_disc_duration_us_lsw; /**< LSW of difference in timestamp detected that
+                                              *led to the discontinuity in microseconds.  */
 };
 
 /** @brief Callback function prototype to be given for

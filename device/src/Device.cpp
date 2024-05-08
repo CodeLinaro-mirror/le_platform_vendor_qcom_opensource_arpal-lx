@@ -37,10 +37,11 @@
 #include <tinyalsa/asoundlib.h>
 #include "ResourceManager.h"
 #include "SessionAlsaUtils.h"
-#include "Device.h"
 #include "Speaker.h"
 #include "A2BSpeaker.h"
 #include "A2B2Speaker.h"
+#include "A2BMic.h"
+#include "A2B2Mic.h"
 #include "SpeakerProtection.h"
 #include "Headphone.h"
 #include "USBAudio.h"
@@ -107,6 +108,12 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     case PAL_DEVICE_IN_HANDSET_MIC:
         PAL_VERBOSE(LOG_TAG, "HandsetMic device");
         return HandsetMic::getInstance(device, Rm);
+    case PAL_DEVICE_IN_A2B_MIC:
+        PAL_VERBOSE(LOG_TAG, "A2BMic device");
+        return A2BMic::getInstance(device, Rm);
+    case PAL_DEVICE_IN_A2B2_MIC:
+        PAL_VERBOSE(LOG_TAG, "A2B2Mic device");
+        return A2B2Mic::getInstance(device, Rm);
     case PAL_DEVICE_IN_SPEAKER_MIC:
         PAL_VERBOSE(LOG_TAG, "speakerMic device");
         return SpeakerMic::getInstance(device, Rm);
@@ -213,6 +220,12 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_IN_HANDSET_MIC:
         PAL_VERBOSE(LOG_TAG, "handset mic device");
         return HandsetMic::getObject();
+    case PAL_DEVICE_IN_A2B_MIC:
+        PAL_VERBOSE(LOG_TAG, "a2b mic device");
+        return A2BMic::getObject();
+    case PAL_DEVICE_IN_A2B2_MIC:
+        PAL_VERBOSE(LOG_TAG, "a2b2 mic device");
+        return A2B2Mic::getObject();
     case PAL_DEVICE_IN_SPEAKER_MIC:
         PAL_VERBOSE(LOG_TAG, "speaker mic device");
         return SpeakerMic::getObject();

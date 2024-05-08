@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -168,8 +168,8 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     }
 
 
-    // Register for Soft pause events
-    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT )
+    // Register for Soft pause/Xrun events
+    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT || mStreamAttr->direction == PAL_AUDIO_INPUT)
         session->registerCallBack(handleSoftPauseCallBack, (uint64_t)this);
 
     mStreamMutex.unlock();
@@ -872,13 +872,23 @@ exit:
     return status;
 }
 
-int32_t  StreamPCM::registerCallBack(pal_stream_callback /*cb*/, uint64_t /*cookie*/)
+int32_t  StreamPCM::registerCallBack(pal_stream_callback cb, uint64_t cookie)
 {
+    streamCb = cb;
+    this->cookie = cookie;
+
+    PAL_VERBOSE(LOG_TAG, "streamCb = %pK", streamCb);
     return 0;
 }
 
-int32_t  StreamPCM::getCallBack(pal_stream_callback * /*cb*/)
+int32_t  StreamPCM::getCallBack(pal_stream_callback *cb)
 {
+    if (!cb) {
+        PAL_ERR(LOG_TAG, "Invalid cb");
+        return -EINVAL;
+    }
+
+    *cb = streamCb;
     return 0;
 }
 
@@ -908,6 +918,14 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
             status = session->getParameters(this, effectPalPayload->tag, param_id, payload);
             if (status) {
                PAL_ERR(LOG_TAG, "getParameters %d failed with %d", param_id, status);
+            }
+            break;
+        }
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            status = session->getParameters(this, TAG_MODULE_CUSTOM_FWK, param_id, payload);
+            if (status) {
+               PAL_ERR(LOG_TAG, "getParameters for %d failed with %d", param_id, status);
             }
             break;
         }
@@ -1035,6 +1053,15 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
                        status);
             break;
         }
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            status = session->setParameters(this, TAG_MODULE_CUSTOM_FWK, param_id, payload);
+            if (status)
+                PAL_ERR(LOG_TAG, "setParam for AWE failed with %d",
+                                            status);
+            break;
+        }
+
         default:
             PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
             status = -EINVAL;

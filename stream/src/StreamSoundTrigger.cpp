@@ -29,7 +29,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2037,12 +2037,17 @@ void StreamSoundTrigger::FillCallbackConfLevels(uint8_t *opaque_data,
         conf_levels = (struct st_confidence_levels_info *)opaque_data;
         for (i = 0; i < conf_levels->num_sound_models; i++) {
             if (conf_levels->conf_levels[i].sm_id == ST_SM_ID_SVA_F_STAGE_GMM) {
-                conf_levels->conf_levels[i].kw_levels[det_keyword_id].
-                    kw_level = best_conf_level;
-                conf_levels->conf_levels[i].kw_levels[det_keyword_id].
-                    user_levels[0].level = 0;
-                PAL_DBG(LOG_TAG, "First stage returning conf level : %d",
-                    best_conf_level);
+                if ((det_keyword_id >= 0) && (det_keyword_id < ST_MAX_KEYWORDS)) {
+                    conf_levels->conf_levels[i].kw_levels[det_keyword_id].
+                        kw_level = best_conf_level;
+                    conf_levels->conf_levels[i].kw_levels[det_keyword_id].
+                        user_levels[0].level = 0;
+                    PAL_DBG(LOG_TAG, "First stage returning conf level : %d",
+                        best_conf_level);
+                } else {
+                    PAL_ERR(LOG_TAG, "det_keyword_id is %d, exceeds the range 0-%d",
+                        det_keyword_id, ST_MAX_KEYWORDS-1);
+                }
             } else if (conf_levels->conf_levels[i].sm_id & ST_SM_ID_SVA_S_STAGE_KWD) {
                 for (auto& eng: engines_) {
                     if (eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_KWD) {
@@ -2070,12 +2075,17 @@ void StreamSoundTrigger::FillCallbackConfLevels(uint8_t *opaque_data,
         conf_levels_v2 = (struct st_confidence_levels_info_v2 *)opaque_data;
         for (i = 0; i < conf_levels_v2->num_sound_models; i++) {
             if (conf_levels_v2->conf_levels[i].sm_id == ST_SM_ID_SVA_F_STAGE_GMM) {
-                conf_levels_v2->conf_levels[i].kw_levels[det_keyword_id].
-                    kw_level = best_conf_level;
-                conf_levels_v2->conf_levels[i].kw_levels[det_keyword_id].
-                    user_levels[0].level = 0;
-                PAL_DBG(LOG_TAG, "First stage returning conf level: %d",
-                    best_conf_level);
+                if ((det_keyword_id >= 0) && (det_keyword_id < ST_MAX_KEYWORDS)) {
+                    conf_levels_v2->conf_levels[i].kw_levels[det_keyword_id].
+                        kw_level = best_conf_level;
+                    conf_levels_v2->conf_levels[i].kw_levels[det_keyword_id].
+                        user_levels[0].level = 0;
+                    PAL_DBG(LOG_TAG, "First stage returning conf level: %d",
+                        best_conf_level);
+                } else {
+                    PAL_ERR(LOG_TAG, "det_keyword_id is %d exceeds the range 0-%d",
+                        det_keyword_id, ST_MAX_KEYWORDS-1);
+                }
             } else if (conf_levels_v2->conf_levels[i].sm_id & ST_SM_ID_SVA_S_STAGE_KWD) {
                 for (auto& eng: engines_) {
                     if (eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_KWD) {
