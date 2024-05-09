@@ -4544,6 +4544,7 @@ std::shared_ptr<Device> ResourceManager::getActiveEchoReferenceRxDevices_l(
         PAL_ERR(LOG_TAG, "stream get attributes failed");
         goto exit;
     }
+
     if (tx_attr.direction != PAL_AUDIO_INPUT) {
         PAL_ERR(LOG_TAG, "invalid stream direction %d", tx_attr.direction);
         status = -EINVAL;
@@ -9072,6 +9073,11 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
         return status;
     }
 
+    if (StrAttr.type == PAL_STREAM_INVALID) {
+        PAL_ERR(LOG_TAG,"invalid streamtype \n");
+        return -EINVAL;
+    }
+
     mResourceManagerMutex.lock();
 
     switch (StrAttr.type) {
@@ -9138,6 +9144,11 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
     if (status != 0) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
         return status;
+    }
+
+    if (StrAttr.type == PAL_STREAM_INVALID) {
+        PAL_ERR(LOG_TAG,"invalid streamtype \n");
+        return -EINVAL;
     }
 
     mResourceManagerMutex.lock();
