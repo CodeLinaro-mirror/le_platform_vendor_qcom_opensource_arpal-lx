@@ -1054,10 +1054,13 @@ int32_t StreamCompress::drain(pal_drain_type_t type)
 int32_t StreamCompress::flush()
 {
     std::lock_guard<std::mutex> lck(mStreamMutex);
+/*TODO: Need to call pause before flush api from pa plugins*/
+#ifndef LINUX_ENABLED
     if (isPaused == false) {
         PAL_DBG(LOG_TAG, "Flush called while stream is not Paused");
         return 0;
     }
+#endif
     if (currentState == STREAM_STOPPED ||
         currentState == STREAM_IDLE) {
         PAL_ERR(LOG_TAG, "Session already flushed, state %d",
