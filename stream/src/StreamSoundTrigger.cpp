@@ -317,7 +317,9 @@ int32_t StreamSoundTrigger::close() {
     }
 
     currentState = STREAM_IDLE;
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -386,7 +388,9 @@ int32_t StreamSoundTrigger::stop() {
        new StStopRecognitionEventConfig(false));
     status = cur_state_->ProcessEvent(ev_cfg);
 
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STOPPED, status);
+#endif
     rm->unlockActiveStream();
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
@@ -582,7 +586,9 @@ int32_t StreamSoundTrigger::setParameters(uint32_t param_id, void *payload) {
             if (!status)
             {
                 currentState = STREAM_OPENED;
+#ifndef PAL_MEMLOG_UNSUPPORTED
                 palStateEnqueue(this, PAL_STATE_OPENED, status);
+#endif
             }
             break;
         }

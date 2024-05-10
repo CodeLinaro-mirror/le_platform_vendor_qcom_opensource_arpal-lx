@@ -163,7 +163,9 @@ int32_t  StreamInCall::open()
         goto exit;
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_OPENED, status);
+#endif
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
@@ -200,7 +202,9 @@ int32_t  StreamInCall::close()
     }
 
     currentState = STREAM_IDLE;
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+#endif
     mStreamMutex.unlock();
 
 
@@ -315,7 +319,9 @@ int32_t StreamInCall::start()
     }
 
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
     mStreamMutex.unlock();
     rm->unlockActiveStream();
@@ -372,7 +378,9 @@ int32_t StreamInCall::stop()
     }
 
 exit:
-   palStateEnqueue(this, PAL_STATE_STOPPED, status);
+#ifndef PAL_MEMLOG_UNSUPPORTED
+    palStateEnqueue(this, PAL_STATE_STOPPED, status);
+#endif
    mStreamMutex.unlock();
    PAL_DBG(LOG_TAG, "Exit. status %d, state %d", status, currentState);
    return status;
@@ -742,7 +750,9 @@ int32_t StreamInCall::pause_l()
 
     isPaused = true;
     currentState = STREAM_PAUSED;
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_PAUSED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. session setConfig successful");
 exit:
     return status;
@@ -777,7 +787,9 @@ int32_t StreamInCall::resume_l()
     }
     isPaused = false;
     currentState = STREAM_STARTED;
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. session setConfig successful");
 exit:
     return status;
@@ -1046,7 +1058,7 @@ int32_t StreamInCall::reconfigureModule(uint32_t tagID, const char* BE, struct s
     uint32_t status =0;
     SessionAlsaPcm* sPCM = nullptr;
     if(!session){
-        PAL_ERR(LOG_TAG,"no session cannot configure")
+        PAL_ERR(LOG_TAG,"no session cannot configure");
         status = -EINVAL;
         goto exit;
    }

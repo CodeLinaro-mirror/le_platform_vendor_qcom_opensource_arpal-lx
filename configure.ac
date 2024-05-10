@@ -43,6 +43,13 @@ AC_ARG_WITH([glib],
       AS_HELP_STRING([--with-glib],
          [enable glib, Build against glib. Use this when building for HLOS systems which use glib]))
 
+
+AC_ARG_WITH([syslog],
+    AS_HELP_STRING([use syslog (default is no)]),
+        [with_syslog=$withval],
+            [with_syslog=no])
+            AM_CONDITIONAL([USE_SYSLOG], [test "x${with_syslog}" = "xyes"])
+
 if (test "x${with_glib}" = "xyes"); then
         PKG_CHECK_MODULES(GTHREAD, gthread-2.0 >= 2.16, dummy=yes,
                                 AC_MSG_ERROR(GThread >= 2.16 is required))
@@ -61,11 +68,24 @@ AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
 PKG_CHECK_MODULES([AGM], [agm])
 AC_SUBST([AGM_CFLAGS])
 
-PKG_CHECK_MODULES([SPF], [spf])
-AC_SUBST([SPF_CFLAGS])
+PKG_CHECK_MODULES([PALHEADERS], [pal-headers])
+AC_SUBST([PALHEADERS_CFLAGS])
 
-PKG_CHECK_MODULES([MMHEADERS], [mm-audio-headers])
-AC_SUBST([MMHEADERS_CFLAGS])
+PKG_CHECK_MODULES([SPFHEADERS], [spf])
+AC_SUBST([SPFHEADERS_CFLAGS])
+AC_SUBST([SPFHEADERS_LIBS])
+
+PKG_CHECK_MODULES([AROUTE], [audioroute])
+AC_SUBST([AROUTE_CFLAGS])
+
+PKG_CHECK_MODULES([KVH2XML], [kvh2xml])
+AC_SUBST([KVH2XML_CFLAGS])
+
+PKG_CHECK_MODULES([CAPIV2], [capiv2headers])
+AC_SUBST([CAPIV2_CFLAGS])
+
+PKG_CHECK_MODULES([AUDIOLISTEN], [audio-listen])
+AC_SUBST([AUDIOLISTEN_CFLAGS])
 
 AC_ARG_WITH([compress],
     AS_HELP_STRING([compile compress (default is no)]),

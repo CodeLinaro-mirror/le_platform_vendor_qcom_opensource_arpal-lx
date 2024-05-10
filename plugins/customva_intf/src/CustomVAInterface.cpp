@@ -34,11 +34,14 @@
 #define LOG_TAG "PAL: CustomVAInterface"
 //#define LOG_NDEBUG 0
 
+#ifndef PAL_USE_SYSLOG
 #include <log/log.h>
+#endif
+#include "PalCommon.h"
 #include "CustomVAInterface.h"
-
+#ifndef PAL_CUTILS_UNSUPPORTED
 #include <cutils/properties.h>
-
+#endif
 #define ST_MAX_FSTAGE_CONF_LEVEL  (100)
 #define CUSTOM_CONFIG_OPAQUE_DATA_SIZE 12
 #define CONF_LEVELS_INTF_VERSION_0002 0x02
@@ -109,7 +112,7 @@ CustomVAInterface::CustomVAInterface(
      */
     char value[256] = {0};
 
-#ifndef FEATURE_IPQ_OPENWRT
+#ifndef PAL_CUTILS_UNSUPPORTED
     property_get("vendor.audio.use_qc_wakeup_config", value, "");
     if (!strcmp("true", value))
         use_qc_wakeup_config_ = true;

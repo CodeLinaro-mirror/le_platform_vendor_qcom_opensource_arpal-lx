@@ -50,7 +50,7 @@
 
 #include <map>
 #include <string>
-
+#include <set>
 extern "C" {
 #endif
 
@@ -58,7 +58,6 @@ extern "C" {
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
 #define PAL_MAX_LATENCY_MODES 8
-
 #define PAL_VERSION "1.0"
 
 /** Audio stream handle */
@@ -703,8 +702,28 @@ const std::map<uint32_t, std::string> hapticsLUT {
     {PAL_STREAM_HAPTICS_RINGTONE,     std::string{ "PAL_STREAM_HAPTICS_RINGTONE" } },
 };
 
-#endif
+const std::set<pal_device_id_t> pluginDeviceList {
+    PAL_DEVICE_OUT_USB_DEVICE,
+    PAL_DEVICE_OUT_USB_HEADSET,
+    PAL_DEVICE_OUT_WIRED_HEADPHONE,
+    PAL_DEVICE_OUT_WIRED_HEADSET,
+    PAL_DEVICE_OUT_BLUETOOTH_A2DP,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO,
+    PAL_DEVICE_OUT_PROXY,
+    PAL_DEVICE_OUT_AUX_DIGITAL,
+    PAL_DEVICE_OUT_AUX_DIGITAL_1,
+    PAL_DEVICE_OUT_HDMI
+};
 
+const std::set<pal_device_id_t> BTPlaybackDeviceList {
+    PAL_DEVICE_OUT_BLUETOOTH_A2DP,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO
+};
+#endif
 
 /* type of asynchronous write callback events. Mutually exclusive */
 typedef enum {
@@ -1278,6 +1297,7 @@ typedef struct pal_param_bta2dp {
     uint32_t latency;
     pal_device_id_t   dev_id;
     bool     is_suspend_setparam;
+    bool     is_in_call;
 } pal_param_bta2dp_t;
 
 /* Payload For ID: PAL_PARAM_ID_LATENCY_MODE
@@ -1314,6 +1334,13 @@ typedef struct pal_bt_lc3_payload_s {
 typedef struct pal_param_haptics_intensity {
     int intensity;
 } pal_param_haptics_intensity_t;
+
+/* Type of Ultrasound Gain */
+typedef enum {
+    PAL_ULTRASOUND_GAIN_MUTE = 0,
+    PAL_ULTRASOUND_GAIN_LOW,
+    PAL_ULTRASOUND_GAIN_HIGH,
+} pal_ultrasound_gain_t;
 
 /**< PAL device */
 #define DEVICE_NAME_MAX_SIZE 128

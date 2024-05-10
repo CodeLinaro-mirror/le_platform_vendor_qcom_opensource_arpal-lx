@@ -258,9 +258,11 @@ closeDevice:
         }
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_OPENED, status);
+#endif
     mStreamMutex.unlock();
-    PAL_DBG(LOG_TAG, "Exit ret %d", status)
+    PAL_DBG(LOG_TAG, "Exit ret %d", status);
     return status;
 }
 
@@ -303,7 +305,9 @@ int32_t  StreamCommon::close()
     currentState = STREAM_IDLE;
     rm->unlockGraph();
     rm->checkAndSetDutyCycleParam();
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+#endif
     mStreamMutex.unlock();
 
     PAL_DBG(LOG_TAG, "Exit. closed the stream successfully %d status %d",
@@ -362,7 +366,9 @@ int32_t StreamCommon::start()
         status = -EINVAL;
     }
 exit:
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STARTED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
     mStreamMutex.unlock();
     return status;
@@ -462,7 +468,9 @@ int32_t StreamCommon::stop()
         PAL_ERR(LOG_TAG, "Error:Stream should be in start/pause state, %d", currentState);
         status = -EINVAL;
     }
+#ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_STOPPED, status);
+#endif
     PAL_DBG(LOG_TAG, "Exit. status %d, state %d", status, currentState);
 
     mStreamMutex.unlock();
