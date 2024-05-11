@@ -163,7 +163,9 @@ libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_rb3_vision.xml \
                       ./configs/qcm6490/mixer_paths_qcm6490_rb3_vc.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_rb3_vc.xml \
-                      ./configs/qcm6490/usecaseKvManager.xml
+                      ./configs/qcm6490/usecaseKvManager.xml \
+                      ./configs/qcm6490/mixer_paths_qcm6490_rb3_ia.xml \
+                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_ia.xml
 
 lib_LTLIBRARIES     += lib_bt_bundle.la
 lib_bt_bundle_la_SOURCES   = $(btbundle_plugin_sources)
@@ -193,6 +195,8 @@ install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_vc.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_vc.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_ia.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_ia.xml
 
 adsprpc_sources = adsprpcd/adsprpcd.c
 
