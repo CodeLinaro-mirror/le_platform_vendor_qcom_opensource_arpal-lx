@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -107,7 +107,7 @@ typedef bool (*audio_is_tws_mono_mode_enable_t)(void);
 typedef int (*audio_sink_start_api_t)(tSESSION_TYPE session_type);
 typedef int (*audio_sink_stop_api_t)(tSESSION_TYPE session_type);
 typedef void * (*audio_get_dec_config_t)(audio_format_t *codec_format);
-typedef void * (*audio_sink_session_setup_complete_t)(uint64_t system_latency);
+typedef int (*audio_sink_session_setup_complete_t)(uint64_t system_latency);
 typedef int (*audio_sink_check_a2dp_ready_t)(void);
 typedef uint16_t (*audio_sink_get_a2dp_latency_api_t)(tSESSION_TYPE session_type);
 typedef bool (*audio_is_scrambling_enabled_t)(void);
@@ -159,6 +159,7 @@ protected:
     int                        abrRefCnt;
     std::mutex                 mAbrMutex;
     int                        totalActiveSessionRequests;
+    codec_version_t            codecVersion;
 
     int32_t getPCMId();
     int checkAndUpdateCustomPayload(uint8_t **paramData, size_t *paramSize);
@@ -298,7 +299,7 @@ public:
     int stop();
     bool isDeviceReady() override;
     int32_t setDeviceParameter(uint32_t param_id, void *param) override;
-    void convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo, btsco_lc3_cfg_t &lc3Cfg);
+    int convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo, btsco_lc3_cfg_t &lc3Cfg);
     void updateSampleRate(uint32_t *sampleRate);
 
     static std::shared_ptr<Device> getObject(pal_device_id_t id);

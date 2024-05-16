@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -369,6 +369,12 @@ int32_t pal_stream_open(struct pal_stream_attributes *attr,
         in_channels = attr->in_media_config.ch_info.channels;
         out_channels = attr->out_media_config.ch_info.channels;
 
+        if ((in_channels > PAL_MAX_CHANNELS_SUPPORTED) ||
+            (out_channels > PAL_MAX_CHANNELS_SUPPORTED)) {
+            ALOGE("%s:%d Invalid number of channels", __func__, __LINE__);
+            return ret;
+        }
+
         ALOGV("ver [%ld] sz [%ld] dur[%ld] has_video [%d] is_streaming [%d] lpbk_type [%d]",
             info.version, info.size, info.duration_us, info.has_video, info.is_streaming,
             info.loopback_type);
@@ -390,8 +396,8 @@ int32_t pal_stream_open(struct pal_stream_attributes *attr,
 
         if (in_channels) {
             attr_hidl.data()->in_media_config.ch_info.channels = attr->in_media_config.ch_info.channels;
-            memcpy(&attr_hidl.data()->in_media_config.ch_info.ch_map, &attr->in_media_config.ch_info.ch_map,
-                sizeof(uint8_t[64]));
+            memset(&attr_hidl.data()->in_media_config.ch_info.ch_map, 0, sizeof(uint8_t[PAL_MAX_CHANNELS_SUPPORTED]));
+            memcpy(&attr_hidl.data()->in_media_config.ch_info.ch_map, &attr->in_media_config.ch_info.ch_map, in_channels);
         }
         attr_hidl.data()->in_media_config.aud_fmt_id = (PalAudioFmt)attr->in_media_config.aud_fmt_id;
 
@@ -403,8 +409,8 @@ int32_t pal_stream_open(struct pal_stream_attributes *attr,
         attr_hidl.data()->out_media_config.bit_width = attr->out_media_config.bit_width;
         if (out_channels) {
             attr_hidl.data()->out_media_config.ch_info.channels = attr->out_media_config.ch_info.channels;
-            memcpy(&attr_hidl.data()->in_media_config.ch_info.ch_map, &attr->in_media_config.ch_info.ch_map,
-                sizeof(uint8_t[64]));
+            memset(&attr_hidl.data()->out_media_config.ch_info.ch_map, 0, sizeof(uint8_t[PAL_MAX_CHANNELS_SUPPORTED]));
+            memcpy(&attr_hidl.data()->out_media_config.ch_info.ch_map, &attr->out_media_config.ch_info.ch_map, out_channels);
         }
         attr_hidl.data()->out_media_config.aud_fmt_id = (PalAudioFmt)attr->out_media_config.aud_fmt_id;
         if (devices) {
@@ -430,7 +436,7 @@ int32_t pal_stream_open(struct pal_stream_attributes *attr,
                 modskv_hidl[cnt].value = modifiers[cnt].value;
             }
         }
-        pal_client->ipc_pal_stream_open(attr_hidl, no_of_devices, devs_hidl, no_of_modifiers,
+        auto transStatus = pal_client->ipc_pal_stream_open(attr_hidl, no_of_devices, devs_hidl, no_of_modifiers,
                                         modskv_hidl, ClbkBinder, cookie,
                                         [&](int32_t ret_, PalStreamHandle streamHandleRet)
                                           {
@@ -438,6 +444,9 @@ int32_t pal_stream_open(struct pal_stream_attributes *attr,
                                                *stream_handle = (uint64_t *)streamHandleRet;
                                           }
                                          );
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
     }
     return ret;
 }
@@ -578,7 +587,7 @@ int32_t pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
                out_buffer_cfg.max_metadata_size = out_buff_cfg->max_metadata_size;
         }
 
-        pal_client->ipc_pal_stream_set_buffer_size((PalStreamHandle)stream_handle, in_buffer_cfg, out_buffer_cfg,
+        auto transStatus = pal_client->ipc_pal_stream_set_buffer_size((PalStreamHandle)stream_handle, in_buffer_cfg, out_buffer_cfg,
                        [&](int32_t ret_, PalBufferConfig in_buff_cfg_ret, PalBufferConfig out_buff_cfg_ret)
                            {
                                if (!ret_) {
@@ -595,6 +604,9 @@ int32_t pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
                                 }
                                 ret = ret_;
                            });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
     }
     return ret;
 }
@@ -683,7 +695,7 @@ ssize_t pal_stream_read(pal_stream_handle_t *stream_handle, struct pal_buffer *b
         ALOGV("%s:%d size %d %d",__func__,__LINE__,buf_hidl.data()->size, buf->size);
         ALOGV("%s:%d alloc handle %d sending %d",__func__,__LINE__,
                    buf->alloc_info.alloc_handle, allocHidlHandle->data[0]);
-        pal_client->ipc_pal_stream_read((PalStreamHandle)stream_handle, buf_hidl,
+        auto transStatus = pal_client->ipc_pal_stream_read((PalStreamHandle)stream_handle, buf_hidl,
                [&](int32_t ret_, hidl_vec<PalBuffer> ret_buf_hidl)
                   {
                       if (ret_ > 0) {
@@ -708,7 +720,9 @@ ssize_t pal_stream_read(pal_stream_handle_t *stream_handle, struct pal_buffer *b
                       }
                       ret = ret_;
                   });
-
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
         if (allocHidlHandle)
             native_handle_delete(allocHidlHandle);
     }
@@ -750,7 +764,7 @@ int32_t getHidlMemory(void *inp_data, int32_t size, hidl_memory& hidl_mem)
         return -ENOMEM;
     }
 
-    ashmemAllocator->allocate(size, [&](bool success, const hidl_memory& mem) {
+    auto ret = ashmemAllocator->allocate(size, [&](bool success, const hidl_memory& mem) {
         if (!success) {
             ALOGE("%s: Memory allocation failed", __func__);
             status = -ENOMEM;
@@ -762,6 +776,11 @@ int32_t getHidlMemory(void *inp_data, int32_t size, hidl_memory& hidl_mem)
             return;
         }
     });
+
+    if (!ret.isOk()) {
+        ALOGE("%s: HIDL call failed", __func__);
+        status = -ENOMEM;
+    }
 
     return status;
 }
@@ -808,7 +827,7 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
             return ret;
 
 
-        pal_client->ipc_pal_stream_get_param((PalStreamHandle)stream_handle, param_id,
+        auto transStatus = pal_client->ipc_pal_stream_get_param((PalStreamHandle)stream_handle, param_id,
                   [&](int32_t ret_, hidl_vec<PalParamPayload> paramPayload) 
                   {
                      if (!ret_) {
@@ -826,6 +845,9 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
                      }
                      ret = ret_;
                   });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
      }
 done:
     return ret;
@@ -958,7 +980,7 @@ int32_t pal_get_timestamp(pal_stream_handle_t *stream_handle,
             return ret;
 
         ALOGV("%s:%d:", __func__, __LINE__);
-        pal_client->ipc_pal_get_timestamp((PalStreamHandle)stream_handle,
+        auto transStatus = pal_client->ipc_pal_get_timestamp((PalStreamHandle)stream_handle,
                     [&](int32_t ret_, hidl_vec<PalSessionTime> sessTime_hidl)
                        {
                            if(!ret_) {
@@ -968,6 +990,9 @@ int32_t pal_get_timestamp(pal_stream_handle_t *stream_handle,
                            }
                            ret = ret_;
                        });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
     }
     return ret;
 }
@@ -1024,7 +1049,7 @@ int32_t pal_get_param(uint32_t param_id, void **param_payload,
             return ret;
 
         ALOGV("%s:%d:", __func__, __LINE__);
-        pal_client->ipc_pal_get_param(param_id,
+        auto transStatus = pal_client->ipc_pal_get_param(param_id,
                  [&](int32_t ret_, hidl_vec<uint8_t>paramPayload,
                      uint32_t size)
                      {
@@ -1044,6 +1069,9 @@ int32_t pal_get_param(uint32_t param_id, void **param_payload,
                           }
                           ret = ret_;
                      });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
     }
     return ret;
 }
@@ -1058,7 +1086,7 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
        android::sp<IPAL> pal_client = get_pal_server();
        if (pal_client == nullptr)
            return ret;
-       pal_client->ipc_pal_stream_create_mmap_buffer((PalStreamHandle)stream_handle,
+       auto transStatus = pal_client->ipc_pal_stream_create_mmap_buffer((PalStreamHandle)stream_handle,
                          min_size_frames,
                           [&](int32_t ret_, hidl_vec<PalMmapBuffer> mMapBuffer_hidl)
                            {
@@ -1074,6 +1102,9 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
                                  }
                                  ret = ret_;
                            });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
 
    }
    return ret;
@@ -1088,7 +1119,7 @@ int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
         android::sp<IPAL> pal_client = get_pal_server();
         if (pal_client == nullptr)
             return ret;
-        pal_client->ipc_pal_stream_get_mmap_position((PalStreamHandle)stream_handle,
+        auto transStatus = pal_client->ipc_pal_stream_get_mmap_position((PalStreamHandle)stream_handle,
                              [&](int32_t ret_, hidl_vec<PalMmapPosition> position_hidl)
                               {
                                     if (!ret) {
@@ -1097,6 +1128,9 @@ int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
                                      }
                                      ret = ret_;
                               });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
     }
     return ret;
 }
@@ -1130,7 +1164,7 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
         android::sp<IPAL> pal_client = get_pal_server();
         if (pal_client == nullptr)
             return ret;
-        pal_client->ipc_pal_stream_get_tags_with_module_info((PalStreamHandle)stream_handle,(uint32_t)*size,
+        auto transStatus = pal_client->ipc_pal_stream_get_tags_with_module_info((PalStreamHandle)stream_handle,(uint32_t)*size,
                              [&](int32_t ret_, uint32_t size_ret, hidl_vec<uint8_t> payload_ret)
                               {
                                     if (!ret_) {
@@ -1144,6 +1178,9 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
                                     ALOGV("ret %d size_ret %d", ret_, size_ret);
                                     ret = ret_;
                               });
+        if (!transStatus.isOk()) {
+            ALOGE("%s: IPC call failed.", __func__);
+        }
     }
     return ret;
 }

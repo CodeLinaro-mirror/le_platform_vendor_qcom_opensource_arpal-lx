@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -242,9 +242,13 @@ uint32_t Session::getModuleInfo(const char *control, uint32_t tagId, uint32_t *m
             status = -ENOENT;
             goto exit;
         }
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, rxAifBackEnds[0].second.data(), tagId, miid);
-        if (status) /** if not found, reset miid to 0 again */
-            *miid = 0;
+        for (int i = 0; i < rxAifBackEnds.size(); i++) {
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, rxAifBackEnds[i].second.data(), tagId, miid);
+            if (status) /** if not found, reset miid to 0 again */
+                *miid = 0;
+            else
+                break;
+        }
     }
 
     if (!txAifBackEnds.empty() && !(*miid)) { /** search in TX GKV */
@@ -254,9 +258,13 @@ uint32_t Session::getModuleInfo(const char *control, uint32_t tagId, uint32_t *m
             status = -ENOENT;
             goto exit;
         }
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, txAifBackEnds[0].second.data(), tagId, miid);
-        if (status)
-            *miid = 0;
+        for (int i = 0; i < txAifBackEnds.size(); i++) {
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, dev, txAifBackEnds[i].second.data(), tagId, miid);
+            if (status)
+                *miid = 0;
+            else
+                break;
+        }
     }
 
     if (*miid == 0) {
@@ -1204,6 +1212,7 @@ exit:
 
 int32_t Session::setInitialVolume() {
     int32_t status = 0;
+    int32_t status_ramp = 0;
     struct volume_set_param_info vol_set_param_info = {};
     uint16_t volSize = 0;
     uint8_t *volPayload = nullptr;
@@ -1249,8 +1258,11 @@ int32_t Session::setInitialVolume() {
             * so desired volume can take effect instantly at the begining.
             */
             ramp_param.ramp_period_ms = 0;
-            status = setParameters(streamHandle, TAG_STREAM_VOLUME,
+            status_ramp = setParameters(streamHandle, TAG_STREAM_VOLUME,
                                    PAL_PARAM_ID_VOLUME_CTRL_RAMP, &ramp_param);
+            if (status_ramp) {// not functional fault
+                PAL_DBG(LOG_TAG, "setting ramp period failed");
+            }
         }
         // apply if there is any cached volume
         if (streamHandle->mVolumeData) {
@@ -1259,18 +1271,29 @@ int32_t Session::setInitialVolume() {
                       (streamHandle->mVolumeData->no_of_volpair)));
             volPayload = new uint8_t[sizeof(pal_param_payload) +
                 volSize]();
+            if (volPayload == NULL) {
+                status = -ENOMEM;
+                goto exit;
+            }
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
             memcpy(pld->payload, streamHandle->mVolumeData, volSize);
             status = setParameters(streamHandle, TAG_STREAM_VOLUME,
                     PAL_PARAM_ID_VOLUME_USING_SET_PARAM, (void *)pld);
             delete[] volPayload;
+            if (status) {
+                PAL_ERR(LOG_TAG, "failed to set volume");
+                goto exit;
+            }
         }
         if (sAttr.direction == PAL_AUDIO_OUTPUT) {
             //set ramp period back to default.
             ramp_param.ramp_period_ms = DEFAULT_RAMP_PERIOD;
-            status = setParameters(streamHandle, TAG_STREAM_VOLUME,
+            status_ramp = setParameters(streamHandle, TAG_STREAM_VOLUME,
                                    PAL_PARAM_ID_VOLUME_CTRL_RAMP, &ramp_param);
+            if (status_ramp) {// not functional fault
+                PAL_DBG(LOG_TAG, "setting ramp period failed");
+            }
         }
     } else {
         // Setting the volume as in stream open, no default volume is set.

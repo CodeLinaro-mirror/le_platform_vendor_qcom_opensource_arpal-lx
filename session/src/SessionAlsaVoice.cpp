@@ -28,8 +28,8 @@
  */
 
 /*
-Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 
 Redistribution and use in source and binary forms, with or without
@@ -75,6 +75,9 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <string>
 #include <agm/agm_api.h>
 #include "audio_route/audio_route.h"
+#ifndef PAL_CUTILS_UNSUPPORTED
+#include <cutils/properties.h>
+#endif
 
 #define PAL_PADDING_8BYTE_ALIGN(x)  ((((x) + 7) & 7) ^ 7)
 #define MAX_VOL_INDEX 5
@@ -83,6 +86,10 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             ((val) * ((max) - (min)) * 0.01 + (min) + .5)
 
 #define NUM_OF_CAL_KEYS 3
+#define MAX_RETRY 3
+#define POP_SUPPRESSOR_RAMP_DELAY (1*1000)
+
+static uint32_t retries = 0;
 
 SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
 {
@@ -1029,6 +1036,7 @@ int SessionAlsaVoice::start(Stream * s)
             }
         }
     }
+    retries = 0;
     status = 0;
     goto exit;
 
@@ -1047,6 +1055,19 @@ err_pcm_open:
         pcm_close(pcmTx);
         pcmTx = NULL;
     }
+    retries++;
+    if (retries >= MAX_RETRY) {
+        if (status)
+            rm->voteSleepMonitor(s, false);
+        PAL_ERR(LOG_TAG,"graph open failure reach to max allowed value");
+#ifndef PAL_CUTILS_UNSUPPORTED
+        if (property_set("vendor.audio.ssr.trigger", "1")) {
+            PAL_ERR(LOG_TAG, "set property failed");
+        }
+#endif
+        status = 0;
+        retries = 0;
+     }
 
 exit:
     freeCustomPayload();
@@ -1082,6 +1103,10 @@ int SessionAlsaVoice::stop(Stream * s)
             }
         }
     }
+    /*config mute on pop suppressor*/
+    setPopSuppressorMute(s);
+    usleep(POP_SUPPRESSOR_RAMP_DELAY);
+
     if (pcmRx) {
         status = pcm_stop(pcmRx);
         if (status) {
@@ -1846,6 +1871,7 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
     if (rxAifBackEnds.size() > 0) {
         /*config mute on pop suppressor*/
         setPopSuppressorMute(streamHandle);
+        usleep(POP_SUPPRESSOR_RAMP_DELAY);
 
         /*if HW sidetone is enable disable it */
         if (sideTone_cnt > 0) {

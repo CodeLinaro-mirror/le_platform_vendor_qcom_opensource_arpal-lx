@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -241,7 +241,7 @@ int32_t  StreamPCM::open()
         rm->unlockGraph();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "session open failed with status %d", status);
-            goto exit;
+            goto closeDevice;
         }
         PAL_VERBOSE(LOG_TAG, "session open successful");
 
@@ -264,6 +264,7 @@ int32_t  StreamPCM::open()
         }
         currentState = STREAM_INIT;
         PAL_DBG(LOG_TAG, "stream pcm opened. state %d", currentState);
+        goto exit;
     } else if (currentState == STREAM_INIT) {
         PAL_INFO(LOG_TAG, "Stream is already opened, state %d", currentState);
         status = 0;
@@ -273,6 +274,13 @@ int32_t  StreamPCM::open()
         //TBD : which error code to return here.
         status = -EINVAL;
         goto exit;
+    }
+closeDevice:
+    for (int32_t i = 0; i < mDevices.size(); i++) {
+        status = mDevices[i]->close();
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "device close is failed with status %d", status);
+        }
     }
 exit:
     palStateEnqueue(this, PAL_STATE_OPENED, status);
@@ -893,6 +901,11 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
         }
         if ((isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) || forceSetParameters) {
             uint8_t *volPayload = new uint8_t[sizeof(pal_param_payload) + volSize]();
+            if (volPayload == NULL) {
+                status = -ENOMEM;
+                goto exit;
+            }
+
             pal_param_payload *pld = (pal_param_payload *)volPayload;
             pld->payload_size = sizeof(struct pal_volume_data);
             memcpy(pld->payload, mVolumeData, volSize);
@@ -1223,7 +1236,8 @@ int32_t StreamPCM::mute_l(bool state)
             }
         }
     }
-    if (mute_by_volume) {
+    if (mute_by_volume &&
+        mStreamAttr->direction == PAL_AUDIO_OUTPUT) {
         PAL_DBG(LOG_TAG, "Skip mute/unmute as stream muted by volume");
         unMutePending = !state;
         goto exit;
@@ -1250,10 +1264,6 @@ int32_t StreamPCM::pause_l()
 {
     int32_t status = 0;
     std::unique_lock<std::mutex> pauseLock(pauseMutex);
-    struct pal_vol_ctrl_ramp_param ramp_param;
-    struct pal_volume_data *volume = NULL;
-    uint8_t volSize = 0;
-    struct pal_volume_data *voldata = NULL;
 
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
@@ -1283,88 +1293,18 @@ int32_t StreamPCM::pause_l()
         palStateEnqueue(this, PAL_STATE_PAUSED, status);
         PAL_DBG(LOG_TAG, "session setConfig successful");
 
-        //caching the volume before setting it to 0
-        if (mVolumeData) {
-            voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
-                        (sizeof(struct pal_channel_vol_kv) *
-                        (mVolumeData->no_of_volpair))));
-        }
-        if (!voldata) {
-            status = -ENOMEM;
-            goto exit;
-        }
-
-        status = this->getVolumeData(voldata);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
-            goto exit;
-        }
-        /* set ramp period to 0 to make volume be changed to 0 instantly.
+        /* set temp mute to avoid volume burst if resuming it on new device.
+         * set ramp period to 0 to make volume be changed to 0 instantly.
          * ramp down is already done in soft pause, ramp down twice both
          * in volume module and pause with non-0 period, the curve of
-         * final ramp down becomes not smooth. 
+         * final ramp down becomes not smooth.
          */
-        ramp_param.ramp_period_ms = 0;
-        status = session->setParameters(this,
-                                        TAG_STREAM_VOLUME,
-                                        PAL_PARAM_ID_VOLUME_CTRL_RAMP,
-                                        &ramp_param);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG, "setParam for vol ctrl failed, status %d", status);
-            status = 0; //non-fatal
-        }
-
-        volSize = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
-                                            (voldata->no_of_volpair));
-        /* set volume to 0 to avoid the secerio of doing ramping up
-         * from higher volume to lower volume in coming resume.
-         */
-        volume = (struct pal_volume_data *)calloc(1, volSize);
-        if (!volume) {
-            PAL_ERR(LOG_TAG, "Failed to allocate mem for volume");
-            status = -ENOMEM;
-            goto exit;
-        }
-        ar_mem_cpy(volume, volSize, voldata, volSize);
-        for (int32_t i = 0; i < (voldata->no_of_volpair); i++) {
-            volume->volume_pair[i].vol = 0x0;
-        }
-        setVolume(volume);
-        if (mVolumeData) {
-            free(mVolumeData);
-            mVolumeData = NULL;
-        }
-        mVolumeData = (struct pal_volume_data *)calloc(1, volSize);
-        if (!mVolumeData) {
-            PAL_ERR(LOG_TAG, "failed to calloc for volume data");
-            status = -ENOMEM;
-            goto exit;
-        }
-        ar_mem_cpy(mVolumeData, volSize, voldata, volSize);
-
-         /* set ramp period to default */
-        ramp_param.ramp_period_ms = DEFAULT_RAMP_PERIOD;
-        status = session->setParameters(this,
-                                        TAG_STREAM_VOLUME,
-                                        PAL_PARAM_ID_VOLUME_CTRL_RAMP,
-                                        &ramp_param);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG,"setParam for vol ctrl failed, status %d", status);
-            status = 0; //non-fatal
-        }
+        setTempMute();
     }
 exit:
     isPaused = true;
     currentState = STREAM_PAUSED;
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
-    if (volume) {
-         free(volume);
-         volume = NULL;
-    }
-    if (voldata) {
-         free(voldata);
-         voldata = NULL;
-    }
     return status;
 }
 
@@ -1382,8 +1322,6 @@ int32_t StreamPCM::pause()
 int32_t StreamPCM::resume_l()
 {
     int32_t status = 0;
-    struct pal_vol_ctrl_ramp_param ramp_param;
-    struct pal_volume_data *voldata = NULL;
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
         cachedState = STREAM_STARTED;
@@ -1413,25 +1351,8 @@ int32_t StreamPCM::resume_l()
         }
 
     isPaused = false;
-
     //since we set the volume to 0 in pause, in resume we need to set vol back to default
-    if (mVolumeData) {
-        voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair))));
-    }
-    if (!voldata) {
-        status = -ENOMEM;
-        goto exit;
-    }
-
-    status = this->getVolumeData(voldata);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
-        goto exit;
-    }
-
-    setVolume(voldata);
-    free(voldata);
+    restoreVolume();
     PAL_DBG(LOG_TAG, "session setConfig successful");
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
@@ -1511,6 +1432,10 @@ int32_t StreamPCM::isChannelSupported(uint32_t numChannels)
         case CHANNELS_5_1:
         case CHANNELS_7:
         case CHANNELS_8:
+        case CHANNELS_10:
+        case CHANNELS_12:
+        case CHANNELS_14:
+        case CHANNELS_16:
             break;
         default:
             rc = -EINVAL;

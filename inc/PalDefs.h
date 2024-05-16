@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -50,7 +50,7 @@
 
 #include <map>
 #include <string>
-
+#include <set>
 extern "C" {
 #endif
 
@@ -58,7 +58,6 @@ extern "C" {
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
 #define PAL_MAX_LATENCY_MODES 8
-
 #define PAL_VERSION "1.0"
 
 /** Audio stream handle */
@@ -700,8 +699,28 @@ const std::map<uint32_t, std::string> hapticsLUT {
     {PAL_STREAM_HAPTICS_RINGTONE,     std::string{ "PAL_STREAM_HAPTICS_RINGTONE" } },
 };
 
-#endif
+const std::set<pal_device_id_t> pluginDeviceList {
+    PAL_DEVICE_OUT_USB_DEVICE,
+    PAL_DEVICE_OUT_USB_HEADSET,
+    PAL_DEVICE_OUT_WIRED_HEADPHONE,
+    PAL_DEVICE_OUT_WIRED_HEADSET,
+    PAL_DEVICE_OUT_BLUETOOTH_A2DP,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO,
+    PAL_DEVICE_OUT_PROXY,
+    PAL_DEVICE_OUT_AUX_DIGITAL,
+    PAL_DEVICE_OUT_AUX_DIGITAL_1,
+    PAL_DEVICE_OUT_HDMI
+};
 
+const std::set<pal_device_id_t> BTPlaybackDeviceList {
+    PAL_DEVICE_OUT_BLUETOOTH_A2DP,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO
+};
+#endif
 
 /* type of asynchronous write callback events. Mutually exclusive */
 typedef enum {
@@ -1028,6 +1047,7 @@ typedef enum {
     PAL_PARAM_ID_TIMESTRETCH_PARAMS = 72,
     PAL_PARAM_ID_LATENCY_MODE = 73,
     PAL_PARAM_ID_PROXY_RECORD_SESSION = 74,
+    PAL_PARAM_ID_ULTRASOUND_SET_GAIN = 75,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1294,6 +1314,13 @@ typedef struct pal_bt_lc3_payload_s {
 typedef struct pal_param_haptics_intensity {
     int intensity;
 } pal_param_haptics_intensity_t;
+
+/* Type of Ultrasound Gain */
+typedef enum {
+    PAL_ULTRASOUND_GAIN_MUTE = 0,
+    PAL_ULTRASOUND_GAIN_LOW,
+    PAL_ULTRASOUND_GAIN_HIGH,
+} pal_ultrasound_gain_t;
 
 /**< PAL device */
 #define DEVICE_NAME_MAX_SIZE 128
