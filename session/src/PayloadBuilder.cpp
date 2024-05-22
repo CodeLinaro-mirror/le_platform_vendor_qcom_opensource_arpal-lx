@@ -387,65 +387,9 @@ void PayloadBuilder::populateChannelMap(T pcmChannel, uint8_t numChannel)
         pcmChannel[2] = PCM_CHANNEL_C;
         pcmChannel[3] = PCM_CHANNEL_LS;
         pcmChannel[4] = PCM_CHANNEL_RS;
-        pcmChannel[5] = PCM_CHANNEL_LFE;
+        pcmChannel[5] = PCM_CHANNEL_CS;
         pcmChannel[6] = PCM_CHANNEL_LB;
         pcmChannel[7] = PCM_CHANNEL_RB;
-    } else if (numChannel == 10) {
-        pcmChannel[0] = PCM_CHANNEL_L;
-        pcmChannel[1] = PCM_CHANNEL_R;
-        pcmChannel[2] = PCM_CHANNEL_C;
-        pcmChannel[3] = PCM_CHANNEL_LS;
-        pcmChannel[4] = PCM_CHANNEL_RS;
-        pcmChannel[5] = PCM_CHANNEL_LFE;
-        pcmChannel[6] = PCM_CHANNEL_LB;
-        pcmChannel[7] = PCM_CHANNEL_RB;
-        pcmChannel[8] = PCM_CHANNEL_CS;
-        pcmChannel[9] = PCM_CHANNEL_TS;
-    } else if (numChannel == 12) {
-        pcmChannel[0] = PCM_CHANNEL_L;
-        pcmChannel[1] = PCM_CHANNEL_R;
-        pcmChannel[2] = PCM_CHANNEL_C;
-        pcmChannel[3] = PCM_CHANNEL_LS;
-        pcmChannel[4] = PCM_CHANNEL_RS;
-        pcmChannel[5] = PCM_CHANNEL_LFE;
-        pcmChannel[6] = PCM_CHANNEL_LB;
-        pcmChannel[7] = PCM_CHANNEL_RB;
-        pcmChannel[8] = PCM_CHANNEL_CS;
-        pcmChannel[9] = PCM_CHANNEL_TS;
-        pcmChannel[10] = PCM_CHANNEL_TFC;
-        pcmChannel[11] = PCM_CHANNEL_MS;
-    } else if (numChannel == 14) {
-        pcmChannel[0] = PCM_CHANNEL_L;
-        pcmChannel[1] = PCM_CHANNEL_R;
-        pcmChannel[2] = PCM_CHANNEL_C;
-        pcmChannel[3] = PCM_CHANNEL_LS;
-        pcmChannel[4] = PCM_CHANNEL_RS;
-        pcmChannel[5] = PCM_CHANNEL_LFE;
-        pcmChannel[6] = PCM_CHANNEL_LB;
-        pcmChannel[7] = PCM_CHANNEL_RB;
-        pcmChannel[8] = PCM_CHANNEL_CS;
-        pcmChannel[9] = PCM_CHANNEL_TS;
-        pcmChannel[10] = PCM_CHANNEL_TFC;
-        pcmChannel[11] = PCM_CHANNEL_MS;
-        pcmChannel[12] = PCM_CHANNEL_FLC;
-        pcmChannel[13] = PCM_CHANNEL_FRC;
-    } else if (numChannel == 16) {
-        pcmChannel[0] = PCM_CHANNEL_L;
-        pcmChannel[1] = PCM_CHANNEL_R;
-        pcmChannel[2] = PCM_CHANNEL_C;
-        pcmChannel[3] = PCM_CHANNEL_LS;
-        pcmChannel[4] = PCM_CHANNEL_RS;
-        pcmChannel[5] = PCM_CHANNEL_LFE;
-        pcmChannel[6] = PCM_CHANNEL_LB;
-        pcmChannel[7] = PCM_CHANNEL_RB;
-        pcmChannel[8] = PCM_CHANNEL_CS;
-        pcmChannel[9] = PCM_CHANNEL_TS;
-        pcmChannel[10] = PCM_CHANNEL_TFC;
-        pcmChannel[11] = PCM_CHANNEL_MS;
-        pcmChannel[12] = PCM_CHANNEL_FLC;
-        pcmChannel[13] = PCM_CHANNEL_FRC;
-        pcmChannel[14] = PCM_CHANNEL_RLC;
-        pcmChannel[15] = PCM_CHANNEL_RRC;
     }
 }
 
@@ -2451,12 +2395,12 @@ void PayloadBuilder::payloadCopV2StreamInfo(uint8_t **payload, size_t *size,
         else
             streamMapSize = bleCfg->enc_cfg.stream_map_size;
         payloadSize = sizeof(struct apm_module_param_data_t) +
-                      sizeof(struct param_id_cop_pack_output_media_fmt_t) +
+                      sizeof(struct param_id_cop_v2_stream_info_t) +
                       sizeof(struct cop_v2_stream_info_map_t) * streamMapSize;
     } else if (isStreamMapDirIn && bleCfg->dec_cfg.stream_map_size != 0) {
         streamMapSize = bleCfg->dec_cfg.stream_map_size;
         payloadSize = sizeof(struct apm_module_param_data_t) +
-                      sizeof(struct param_id_cop_pack_output_media_fmt_t) +
+                      sizeof(struct param_id_cop_v2_stream_info_t) +
                       sizeof(struct cop_v2_stream_info_map_t) * streamMapSize;
     } else if (isStreamMapDirIn && bleCfg->dec_cfg.stream_map_size == 0) {
         PAL_ERR(LOG_TAG, "isStreamMapDirIn is true, but empty streamMapIn");
@@ -2478,7 +2422,7 @@ void PayloadBuilder::payloadCopV2StreamInfo(uint8_t **payload, size_t *size,
                  sizeof(struct param_id_cop_v2_stream_info_t));
 
     header->module_instance_id = miid;
-    header->param_id = ResourceManager::isXPANEnabled ? PARAM_ID_CONN_PROXY_STREAM_INFO : PARAM_ID_COP_V2_STREAM_INFO;
+    header->param_id = ResourceManager::isCPEnabled ? PARAM_ID_CONN_PROXY_STREAM_INFO : PARAM_ID_COP_V2_STREAM_INFO;
     header->error_code = 0x0;
     header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
     PAL_DBG(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
