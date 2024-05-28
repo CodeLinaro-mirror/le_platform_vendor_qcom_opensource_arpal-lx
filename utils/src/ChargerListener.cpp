@@ -16,6 +16,8 @@
 * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 * See the License for the specific language governing permissions and
 * limitations under the License.
+*
+* Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
 */
 #include <unistd.h>
 #include <mutex>
@@ -43,6 +45,13 @@ int ChargerListenerImpl::readSysfsPath(const char *path, int flag, int length,
 {
     int fd, status = 0;
     ssize_t bytes;
+
+    if (CHARGER_STATE_BUFF_MAX_LEN < length){
+        ALOGE("%s %d, Buffer length too long, size is %d", __func__, __LINE__,
+              length);
+        status = -1;
+        goto exit;
+    }
 
     fd = ::open(path, flag);
     if (fd == -1) {

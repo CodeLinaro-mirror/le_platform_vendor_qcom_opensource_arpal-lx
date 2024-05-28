@@ -1550,6 +1550,7 @@ int SessionAlsaVoice::setVoiceMixerParameter(Stream * s, struct mixer *mixer,
     mixer_str = (char *)calloc(1, ctl_len);
     if (!mixer_str) {
         free(payload);
+        payload = nullptr;
         return -ENOMEM;
     }
     snprintf(mixer_str, ctl_len, "%s %s", stream, control);
