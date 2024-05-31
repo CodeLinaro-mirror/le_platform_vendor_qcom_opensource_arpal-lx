@@ -35,10 +35,7 @@
 #define LOG_TAG "PAL: bt_ble"
 //#define LOG_NDEBUG 0
 
-#ifndef PAL_USE_SYSLOG
 #include <log/log.h>
-#endif
-#include "PalCommon.h"
 #include <errno.h>
 #include <stdlib.h>
 #include <string.h>

@@ -34,9 +34,7 @@
 #define LOG_TAG "PAL: HotwordInterface"
 //#define LOG_NDEBUG 0
 
-#ifndef PAL_USE_SYSLOG
 #include <log/log.h>
-#endif
 #include "HotwordInterface.h"
 
 extern "C" int32_t get_vui_interface(struct vui_intf_t *intf,
