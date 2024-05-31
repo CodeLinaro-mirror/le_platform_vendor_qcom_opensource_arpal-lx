@@ -15,6 +15,7 @@ LOCAL_CFLAGS        += -Wno-macro-redefined
 LOCAL_CFLAGS        += -Wall -Werror -Wno-unused-variable -Wno-unused-parameter
 LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
+LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR
 LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
@@ -24,10 +25,6 @@ LOCAL_CPPFLAGS      += -fexceptions -frtti
 
 ifneq ($(TARGET_BOARD_PLATFORM), anorak)
 LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
-endif
-
-ifeq ($(TARGET_BOARD_PLATFORM), volcano)
-LOCAL_CFLAGS        += -DWSA_V883X_ADDR
 endif
 
 LOCAL_C_INCLUDES := \
@@ -121,7 +118,8 @@ LOCAL_SRC_FILES := \
     utils/src/SignalHandler.cpp \
     utils/src/AudioHapticsInterface.cpp \
     utils/src/MetadataParser.cpp \
-    utils/src/MemLogBuilder.cpp
+    utils/src/MemLogBuilder.cpp \
+    utils/src/PerfLock.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
