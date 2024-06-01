@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -713,8 +713,7 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle,
         if (pal_client == nullptr)
             return ret;
 
-        hidl_vec<PalParamPayload> paramPayload;
-        paramPayload.resize(sizeof(PalParamPayload));
+        hidl_vec<PalParamPayload> paramPayload(1);
         paramPayload.data()->payload.resize(param_payload->payload_size);
         paramPayload.data()->size = param_payload->payload_size;
         memcpy(paramPayload.data()->payload.data(), param_payload->payload,
