@@ -25,6 +25,10 @@
 <!-- WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE      -->
 <!-- OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN    -->
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                             -->
+<!--                                                                           -->
+<!-- Changes from Qualcomm Innovation Center are provided under the following license: -->
+<!-- Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.          -->
+<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                       -->
 
 <graph_key_value_pair_info>
     <streams>
@@ -285,6 +289,14 @@
             <keys_and_values ACDModuleType="QC_SENSOR_PCM_DATA">
                 <!-- STREAMTX - SENSOR_PCM_DATA -->
                 <graph_kv key="0xB1000000" value="0xB100000E"/>
+            </keys_and_values>
+        </stream>
+        <stream type="PAL_STREAM_VOICE_RECOGNITION">
+            <keys_and_values Direction="TX" Instance="1">
+                <!-- STREAMTX - PCM_RECORD -->
+                <graph_kv key="0xB1000000" value="0xB1000001"/>
+                <!-- INSTANCE - INSTANCE_1 -->
+                <graph_kv key="0xAB000000" value="0x1"/>
             </keys_and_values>
         </stream>
     </streams>
@@ -643,7 +655,7 @@
         </devicepp>
         <!-- IN Handset MIC DevicePPs -->
         <devicepp id="PAL_DEVICE_IN_HANDSET_MIC">
-            <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER">
+            <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER,PAL_STREAM_VOICE_RECOGNITION">
                 <!-- DEVICETX - HANDSETMIC -->
                 <graph_kv key="0xA3000000" value="0xA3000004"/>
                 <!-- DEVICEPP_TX - DEVICEPP_TX_AUDIO_FLUENCE_SMECNS -->
@@ -718,7 +730,7 @@
         </devicepp>
         <!-- IN Speaker MIC DevicePPs -->
         <devicepp id="PAL_DEVICE_IN_SPEAKER_MIC">
-            <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER">
+            <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER,PAL_STREAM_VOICE_RECOGNITION">
                 <!-- DEVICETX - SPEAKER_MIC -->
                 <graph_kv key="0xA3000000" value="0xA3000001"/>
                 <!-- DEVICEPP_TX - DEVICEPP_TX_AUDIO_FLUENCE_SMECNS -->
