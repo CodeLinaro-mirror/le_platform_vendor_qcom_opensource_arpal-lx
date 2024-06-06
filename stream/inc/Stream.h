@@ -188,7 +188,6 @@ protected:
     int mGainLevel;
     int mOrientation = 0;
     std::mutex mStreamMutex;
-    std::mutex mGetParamMutex;
     static std::mutex mBaseStreamMutex; //TBD change this. as having a single static mutex for all instances of Stream is incorrect. Replace
     static std::shared_ptr<ResourceManager> rm;
     struct modifier_kv *mModifiers;
@@ -218,7 +217,6 @@ public:
     uint64_t cookie;
     bool isPaused = false;
     bool a2dpMuted = false;
-    bool speakerTempMuted = false;
     bool unMutePending = false;
     bool a2dpPaused = false;
     bool force_nlpi_vote = false;
@@ -316,8 +314,8 @@ public:
     bool isAlive() { return currentState != STREAM_IDLE; }
     bool isA2dpMuted() { return a2dpMuted; }
     /* Detection stream related APIs */
-    virtual int32_t Resume() { return 0; }
-    virtual int32_t Pause() { return 0; }
+    virtual int32_t Resume(bool is_internal = false) { return 0; }
+    virtual int32_t Pause(bool is_internal = false) { return 0; }
     virtual int32_t HandleConcurrentStream(bool active) { return 0; }
     virtual int32_t DisconnectDevice(pal_device_id_t device_id) { return 0; }
     virtual int32_t ConnectDevice(pal_device_id_t device_id) { return 0; }
@@ -334,17 +332,12 @@ public:
         mStreamMutex.unlock();
     };
     bool isMutexLockedbyRm() { return mutexLockedbyRm; }
-    void lockGetParamMutex() { mGetParamMutex.lock(); };
-    void unlockGetParamMutex() { mGetParamMutex.unlock(); };
     /* GetPalDevice only applies to Sound Trigger streams */
     std::shared_ptr<Device> GetPalDevice(Stream *streamHandle, pal_device_id_t dev_id);
     void setCachedState(stream_state_t state);
     void clearmDevices();
     void removemDevice(int palDevId);
     void addmDevice(struct pal_device *dattr);
-    int32_t setTempMute();
-    int32_t restoreVolume();
-    static void setRampDuration(Stream *stream, uint32_t duration);
 };
 
 class StreamNonTunnel : public Stream
