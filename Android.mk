@@ -59,6 +59,7 @@ LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/tech
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)
+LOCAL_EXPORT_SHARED_LIBRARY_HEADERS := libar-gsl
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
@@ -79,6 +80,8 @@ LOCAL_SRC_FILES := \
     device/src/Speaker.cpp \
     device/src/A2BSpeaker.cpp \
     device/src/A2B2Speaker.cpp \
+    device/src/A2BMic.cpp \
+    device/src/A2B2Mic.cpp \
     device/src/Bluetooth.cpp \
     device/src/SpeakerMic.cpp \
     device/src/HeadsetMic.cpp \
