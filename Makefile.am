@@ -165,7 +165,9 @@ libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_rb3_vc.xml \
                       ./configs/qcm6490/usecaseKvManager.xml \
                       ./configs/qcm6490/mixer_paths_qcm6490_rb3_ia.xml \
-                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_ia.xml
+                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_ia.xml \
+                      ./configs/qcs9100/mixer_paths_qcs9100_ridesx.xml \
+                      ./configs/qcs9100/resourcemanager_qcs9100_ridesx.xml
 
 lib_LTLIBRARIES     += lib_bt_bundle.la
 lib_bt_bundle_la_SOURCES   = $(btbundle_plugin_sources)
@@ -186,6 +188,8 @@ endif
 root_etcdir      = "/etc"
 root_etc_SCRIPTS = $(libpal_la_list)
 install-data-hook:
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs9100_ridesx.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs9100_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3.xml
