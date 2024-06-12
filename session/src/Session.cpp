@@ -48,7 +48,8 @@ int Session::extECRefCnt = 0;
 Session::Session()
 {
     isPauseRegistrationDone = false;
-
+    isOverrunRegistrationDone = false;
+    isUnderrunRegistrationDone = false;
 }
 
 Session::~Session()

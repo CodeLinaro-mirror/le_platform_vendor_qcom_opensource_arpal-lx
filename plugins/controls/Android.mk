@@ -27,7 +27,6 @@ LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/device/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/utils/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/context_manager/inc
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/ar_osal
-LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/gsl
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/spf/api/apm
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/spf/api/vcpm
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/acdbdata/
@@ -58,7 +57,8 @@ LOCAL_HEADER_LIBRARIES := \
     libarosal_headers \
     libaudiologutils_headers \
     libacdb_headers \
-    liblisten_headers
+    liblisten_headers \
+    libar-gsl_headers
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := lib_default_plugin_controls
