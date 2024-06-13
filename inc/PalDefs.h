@@ -481,6 +481,10 @@ typedef enum {
     PAL_STREAM_PROXY_TX_TELEPHONY_RX,
 } pal_stream_proxy_tx_type_t;
 
+typedef enum {
+    PAL_STREAM_PROXY_RX_WFD = 1,
+} pal_stream_proxy_rx_type_t;
+
 #ifdef __cplusplus
 static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_MIN" },                  PAL_DEVICE_OUT_MIN},
@@ -692,6 +696,7 @@ struct pal_stream_info {
     int32_t loopback_type;              /** used only if stream_type is LOOPBACK. One of the */
                                         /** enums defined in enum pal_stream_loopback_type */
     int32_t tx_proxy_type;   /** enums defined in enum pal_stream_proxy_tx_types */
+    int32_t rx_proxy_type;   /** enums defined in enum pal_stream_proxy_rx_types */
     int32_t haptics_type;    /** enums defined in enum pal_sream_haptics_types */
     //pal_audio_attributes_t usage;       /** Not sure if we make use of this */
 };
