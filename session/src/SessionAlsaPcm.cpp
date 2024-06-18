@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -3325,7 +3325,12 @@ void SessionAlsaPcm::retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struc
 
      status = pcm_mmap_get_hw_ptr(pcm, (unsigned int *)&position->position_frames, &ts);
      if (status < 0) {
-         status = -errno;
+         /* returning errno for every failure here is erronious */
+         /* as errno can be changed by any service/thread       */
+         /* system wide. Hence returning ENXIO - no device      */
+         /* available which turned out to be no timestamp data  */
+         /* is available yet.                                   */
+         status = -ENXIO;
          PAL_ERR(LOG_TAG, "%d", status);
          return status;
      }
