@@ -2884,7 +2884,6 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
             }
             info->flags |= PAL_MMMAP_BUFF_FLAGS_APP_SHAREABLE;
         }
-        memset(info->buffer, 0, pcm_frames_to_bytes(pcm,info->buffer_size_frames));
 
         status = pcm_mmap_commit(pcm, 0, SESSION_ALSA_MMAP_PERIOD_SIZE);
         if (status < 0) {
