@@ -26,6 +26,12 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #define LOG_TAG "PAL: USB"
 #include "USBAudio.h"
@@ -667,10 +673,9 @@ unsigned int USBCardConfig::readDefaultChannelMask(bool is_playback) {
 
 int USBCardConfig::readSupportedConfig(struct dynamic_media_config *config, bool is_playback)
 {
-    config->format = readDefaultFormat(is_playback);
-    config->sample_rate = readDefaultSampleRate(is_playback);
-    config->mask = readDefaultChannelMask(is_playback);
-
+    config->format[0] = readDefaultFormat(is_playback);
+    config->sample_rate[0] = readDefaultSampleRate(is_playback);
+    config->mask[0] = readDefaultChannelMask(is_playback);
     return 0;
 }
 

@@ -28,6 +28,8 @@ endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
 LOCAL_C_INCLUDES := \
+    $(TOP)/system/media/audio_route/include \
+    $(TOP)/system/media/audio/include \
     $(LOCAL_PATH)/stream/inc \
     $(LOCAL_PATH)/device/inc \
     $(LOCAL_PATH)/session/inc \
@@ -35,9 +37,7 @@ LOCAL_C_INCLUDES := \
     $(LOCAL_PATH)/context_manager/inc \
     $(LOCAL_PATH)/utils/inc \
     $(LOCAL_PATH)/plugins/codecs \
-    $(LOCAL_PATH)/plugins/controls \
-    $(TOP)/system/media/audio_route/include \
-    $(TOP)/system/media/audio/include
+    $(LOCAL_PATH)/plugins/controls
 
 ifneq ($(TARGET_KERNEL_VERSION), 3.18)
 ifneq ($(TARGET_KERNEL_VERSION), 4.14)
@@ -122,6 +122,7 @@ LOCAL_SRC_FILES := \
     utils/src/SharedMemoryUtils.cpp
 
 LOCAL_HEADER_LIBRARIES := \
+    libarpal_headers \
     libspf-headers \
     libcapiv2_headers \
     libagm_headers \
