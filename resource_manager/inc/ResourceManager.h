@@ -91,6 +91,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_HAPTICS_PRIORITY "haptics_priority"
 #define AUDIO_PARAMETER_KEY_WSA_HAPTICS "haptics_through_wsa"
 #define AUDIO_PARAMETER_KEY_DUMMY_DEV_ENABLE "dummy_dev_enable"
+#define AUDIO_PARAMETER_MULTI_SR_COMBO_SUPPORTED "multiple_sample_rate_combo_supported"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -638,8 +639,8 @@ public:
     static bool mixerClosed;
     enum card_status_t cardState;
     bool ssrStarted = false;
-    /* Variable to cache a2dp suspended state for a2dp device */
-    static bool a2dp_suspended;
+    //Variable to check if multiple sampe rate during combo device supported
+    static bool is_multiple_sample_rate_combo_supported;
     /* Variable to store whether Speaker protection is enabled or not */
     static bool isSpeakerProtectionEnabled;
     static bool isHandsetProtectionEnabled;
@@ -1073,6 +1074,7 @@ public:
                              const struct pal_stream_attributes *sAttr,
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
+    void checkAndUpdateHeadsetDevConfig(struct pal_device *newDevAttr, bool isSwitchCase);
     static void sendCrashSignal(int signal, pid_t pid, uid_t uid);
     static bool isSsrDownFeasible(std::shared_ptr<ResourceManager> rm, int type);
     bool isStreamSupportedInsndCardStandy(uint32_t type);
