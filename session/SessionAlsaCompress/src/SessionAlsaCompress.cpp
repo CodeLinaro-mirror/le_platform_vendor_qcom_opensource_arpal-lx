@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1900,7 +1900,8 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                  */
                 if (isCodecConfigNeeded(audio_fmt, sAttr.direction)) {
                     PAL_DBG(LOG_TAG, "Setting params for second clip for gapless");
-                    status = compress_set_codec_params(compress, &codec);
+                    // status = compress_set_codec_params(compress, &codec);
+                    status = 0;
                 } else {
                     PAL_INFO(LOG_TAG, "No need to send params for second clip fmt %x", audio_fmt);
                 }
