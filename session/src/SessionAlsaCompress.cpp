@@ -2245,7 +2245,8 @@ int SessionAlsaCompress::setParameters(Stream *s __unused, int tagId, uint32_t p
                  */
                 if (isCodecConfigNeeded(audio_fmt, sAttr.direction)) {
                     PAL_DBG(LOG_TAG, "Setting params for second clip for gapless");
-                    status = compress_set_codec_params(compress, &codec);
+                    //status = compress_set_codec_params(compress, &codec);
+                    status = 0;
                 } else {
                     PAL_INFO(LOG_TAG, "No need to send params for second clip fmt %x", audio_fmt);
                 }
