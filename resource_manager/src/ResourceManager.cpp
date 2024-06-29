@@ -333,6 +333,11 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_BLE,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST, {std::string{ "" }}},
+    {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_RECORD_PROXY,         {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -358,6 +363,12 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
 #ifdef EC_REF_CAPTURE_ENABLED
     {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
 #endif
+    {PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK,   {std::string{ "" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_BLE,         {std::string{ "" }}},
+    {PAL_DEVICE_IN_CPS_FEEDBACK,          {std::string{ "" }}},
+    {PAL_DEVICE_IN_DUMMY,                 {std::string{ "" }}},
+    {PAL_DEVICE_IN_CPS2_FEEDBACK,         {std::string{ "" }}},
+    {PAL_DEVICE_IN_RECORD_PROXY,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -558,8 +569,12 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_HEARING_AID,          {std::string{ "" }}},
     {PAL_DEVICE_OUT_HAPTICS_DEVICE,       {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_BLE,        {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST, {std::string{ "" }}},
+    {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_RECORD_PROXY,         {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
-
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           {std::string{ "none" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET, {std::string{ "" }}},
@@ -583,6 +598,12 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
 #ifdef EC_REF_CAPTURE_ENABLED
     {PAL_DEVICE_IN_ECHO_REF,              {std::string{ "" }}},
 #endif
+    {PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK,   {std::string{ "" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_BLE,         {std::string{ "" }}},
+    {PAL_DEVICE_IN_CPS_FEEDBACK,          {std::string{ "" }}},
+    {PAL_DEVICE_IN_DUMMY,                 {std::string{ "" }}},
+    {PAL_DEVICE_IN_CPS2_FEEDBACK,         {std::string{ "" }}},
+    {PAL_DEVICE_IN_RECORD_PROXY,          {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
