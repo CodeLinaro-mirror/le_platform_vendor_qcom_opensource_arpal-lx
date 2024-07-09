@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -994,7 +994,7 @@ typedef enum {
     PAL_PARAM_ID_LATENCY_MODE = 73,
     PAL_PARAM_ID_PROXY_RECORD_SESSION = 74,
     PAL_PARAM_ID_ST_CAPTURE_INFO = 75,
-    PAL_PARAM_ID_ST_RESOURCES_AVAILABLE = 76,
+    PAL_PARAM_ID_RESOURCES_AVAILABLE = 76,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
