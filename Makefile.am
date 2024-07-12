@@ -63,19 +63,17 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
 AM_CPPFLAGS := -I $(top_srcdir)/stream/inc
 AM_CPPFLAGS += -I $(top_srcdir)/device/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/inc
+AM_CPPFLAGS += -I $(top_srcdir)/api/vui-interface
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
 AM_CPPFLAGS += -I $(top_srcdir)/inc
 AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
-AM_CPPFLAGS += -I $(top_srcdir)/
 AM_CPPFLAGS += @AGM_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 AM_CPPFLAGS += @AROUTE_CFLAGS@
-AM_CPPFLAGS += @KVH2XML_CFLAGS@
-AM_CPPFLAGS += @CAPIV2_CFLAGS@
 AM_CPPFLAGS += @PALHEADERS_CFLAGS@
-AM_CPPFLAGS += @AUDIOLISTEN_CFLAGS@
+AM_CPPFLAGS += @KVH2XML_CFLAGS@
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result -Wl,-z,defs
 AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
@@ -144,12 +142,9 @@ pal_sources = ${top_srcdir}/Pal.cpp \
 btbundle_plugin_sources = ${top_srcdir}/plugins/codecs/bt_base.c \
                           ${top_srcdir}/plugins/codecs/bt_bundle.c
 
-library_include_HEADERS = $(h_sources)
-library_includedir = $(includedir)/pal
-
 lib_LTLIBRARIES     = libpal.la
 libpal_la_SOURCES   = $(pal_sources)
-libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -lar_osal -laudioroute -lspfheaders -lexpat -ltinycompress -lvuiinterface
+libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -lar_osal -laudioroute -lspfheaders -lexpat -ltinycompress
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -avoid-version
