@@ -28,7 +28,7 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -581,6 +581,16 @@ pal_stream_type_t ResourceManager::getStreamType(std::string stream_name)
 {
     pal_stream_type_t type = (pal_stream_type_t )usecaseIdLUT.at(stream_name);
     return type;
+}
+
+int ResourceManager::getSndDeviceIndex(int32_t sndDeviceId) {
+    for (int devLis = 0; devLis < deviceInfo.size(); ++devLis) {
+        if (deviceInfo[devLis].deviceId == sndDeviceId) {
+            //iterating through list of devices to find the calling device's index
+            return devLis;
+        }
+    }
+    return -1;
 }
 
 uint32_t ResourceManager::getNTPathForStreamAttr(
@@ -3032,6 +3042,10 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
     std::vector <Stream *> activeStreams;
     int rxdevcount = 0;
     struct pal_stream_attributes rx_attr;
+    bool isEcRefEnabled_d = false;
+    int deviceIndex = getSndDeviceIndex(d->getSndDeviceId());
+    if (deviceIndex >= 0)
+        isEcRefEnabled_d = deviceInfo[deviceIndex].isExternalECRefEnabled;
 
     PAL_DBG(LOG_TAG, "Enter. dev id: %d", d->getSndDeviceId());
     status = s->getStreamAttributes(&sAttr);
@@ -3133,7 +3147,8 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
             }
         }
     } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
-        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        (sAttr.type == PAL_STREAM_VOICE_CALL ||
+         sAttr.type == PAL_STREAM_LOOPBACK) && isEcRefEnabled_d) {
         if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
             PAL_DBG(LOG_TAG, "Enter enable EC Ref");
             status = s->setECRef_l(d, true);
@@ -3229,6 +3244,10 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::vector<std::shared_ptr<Device>> tx_devices;
     std::vector<Stream*> str_list;
+    bool isEcRefEnabled_d = false;
+    int deviceIndex = getSndDeviceIndex(d->getSndDeviceId());
+    if (deviceIndex >= 0)
+        isEcRefEnabled_d = deviceInfo[deviceIndex].isExternalECRefEnabled;
 
     PAL_DBG(LOG_TAG, "Enter. dev id: %d", d->getSndDeviceId());
     status = s->getStreamAttributes(&sAttr);
@@ -3248,7 +3267,8 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
             PAL_ERR(LOG_TAG, "Failed to disable EC Ref");
         }
     }  else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
-        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        (sAttr.type == PAL_STREAM_VOICE_CALL ||
+         sAttr.type == PAL_STREAM_LOOPBACK) && isEcRefEnabled_d) {
         if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
             PAL_DBG(LOG_TAG, "Enter disable EC Ref");
             status = s->setECRef_l(d, false);
