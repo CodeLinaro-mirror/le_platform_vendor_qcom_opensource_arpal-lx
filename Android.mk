@@ -35,7 +35,7 @@ LOCAL_CPPFLAGS      += -fexceptions -frtti
 
 # Define A2DP_SINK_SUPPORTED for targets other than anorak, and
 # for anorak target that uses Android U
-ifneq ($(TARGET_BOARD_PLATFORM), anorak anorak61)
+ifneq ($(filter $(TARGET_BOARD_PLATFORM), anorak anorak61), $(TARGET_BOARD_PLATFORM))
 LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
 else
 ifneq ($(filter 14 U, $(PLATFORM_VERSION)),)
