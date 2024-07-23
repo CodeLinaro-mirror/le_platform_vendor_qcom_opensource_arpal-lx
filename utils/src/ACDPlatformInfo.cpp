@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -92,7 +92,7 @@ void ACDSoundModelInfo::HandleEndTag(struct xml_userdata *data, const char* tag_
         std::string type(data->data_buf);
 
         if (!strstr(type.c_str(), "ACD_SOUND_MODEL")) {
-            PAL_ERR(LOG_TAG, "Error:%d invalid sound model: %s", type.c_str());
+            PAL_ERR(LOG_TAG, "Error: invalid sound model: %s", type.c_str());
         } else {
             model_type_ = type;
             model_id_ = sm_cfg_->GetAndUpdateSndMdlCnt();
