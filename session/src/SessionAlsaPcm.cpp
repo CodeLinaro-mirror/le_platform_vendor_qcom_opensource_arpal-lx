@@ -909,10 +909,10 @@ int SessionAlsaPcm::start(Stream * s)
                     goto exit;
                 }
                 if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
-                    PAL_ERR(LOG_TAG, "miid : %x id = %d, data %s\n", miid,
+                    PAL_INFO(LOG_TAG, "miid : %x id = %d, data %s\n", miid,
                         pcmDevIds.at(0), txAifBackEnds[0].second.data());
                 } else {
-                    PAL_ERR(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
+                    PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
                 }
 
                 if (isPalPCMFormat(sAttr.in_media_config.aud_fmt_id))
@@ -2884,7 +2884,6 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
             }
             info->flags |= PAL_MMMAP_BUFF_FLAGS_APP_SHAREABLE;
         }
-        memset(info->buffer, 0, pcm_frames_to_bytes(pcm,info->buffer_size_frames));
 
         status = pcm_mmap_commit(pcm, 0, SESSION_ALSA_MMAP_PERIOD_SIZE);
         if (status < 0) {
