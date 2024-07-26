@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -194,7 +194,9 @@ int32_t StreamSensorPCMData::start()
             goto exit;
         }
 
+        rm->voteSleepMonitor(this, true);
         status = device->open();
+        rm->voteSleepMonitor(this, false);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Error: device [%d] open failed with status %d",
                     device->getSndDeviceId(), status);
@@ -499,18 +501,10 @@ std::shared_ptr<CaptureProfile> StreamSensorPCMData::GetCurrentCaptureProfile()
         else if (bit_width == 24)
             capture_profile_name.append("24BIT_");
 
-        if (operating_mode == ST_OPERATING_MODE_LOW_POWER_TX_MACRO &&
-            pcm_data_buffering == 1)
+        if (pcm_data_buffering == 1)
             capture_profile_name.append("RAW_LPI_TX_MACRO");
-        else if (operating_mode == ST_OPERATING_MODE_LOW_POWER_TX_MACRO &&
-                 pcm_data_buffering == 0)
+        else
             capture_profile_name.append("RAW_LPI_NO_BUFFER_TX_MACRO");
-        else if (operating_mode == ST_OPERATING_MODE_HIGH_PERF_TX_MACRO &&
-                 pcm_data_buffering == 1)
-            capture_profile_name.append("FFEC_TX_MACRO");
-        else if (operating_mode == ST_OPERATING_MODE_HIGH_PERF_TX_MACRO &&
-                 pcm_data_buffering == 0)
-            capture_profile_name.append("FFEC_NO_BUFFER_TX_MACRO");
 
         PAL_DBG(LOG_TAG, "capture_profile_name: %s", capture_profile_name.c_str());
         st_info = SoundTriggerPlatformInfo::GetInstance();
@@ -721,7 +715,9 @@ int32_t StreamSensorPCMData::ConnectDevice_l(pal_device_id_t device_id)
         goto connect_err;
     }
 
+    rm->voteSleepMonitor(this, true);
     status = device->open();
+    rm->voteSleepMonitor(this, false);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Error:%d device %d open failed", status,
                 device->getSndDeviceId());

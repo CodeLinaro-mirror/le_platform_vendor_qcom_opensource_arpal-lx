@@ -52,15 +52,62 @@
 #include "ResourceManager.h"
 #include "detection_cmn_api.h"
 #include "acd_api.h"
+#include "asr_module_calibration_api.h"
+#include "hw_intf_cmn_api.h"
+#include <errno.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/klog.h>        /* Definition of SYSLOG_* constants */
+#include <time.h>
+
+#ifndef DUMP_OUT_PATH
+#define DUMP_OUT_PATH "/data/vendor/audio/"
+#endif //DUMP_OUT_PATH
+
+#define MAX_DUMP_FILENAME_SIZE 255
+#define REGDUMP_OUT_SIZE 256*1024
+#define SYSLOG_ACTION_READ_ALL 3
+#define SYSLOG_ACTION_SIZE_BUFFER 10
+#define TIMESTAMP_FORMAT_STRING "_%Y_%m_%d_%H_%M_%S"
+
+#define BOLERO_PROC_INTF    "/proc/lpass_cdc_reginfo/lpass_cdc_regdump"
+#define WCD939X_PROC_INTF   "/proc/wcd939x_reginfo/wcd939x_regdump"
+#define WSA884X_1_PROC_INTF "/proc/wsa884x_reginfo_1/wsa884x_regdump"
+#define WSA884X_2_PROC_INTF "/proc/wsa884x_reginfo_2/wsa884x_regdump"
+#define WSA883X_1_PROC_INTF "/proc/wsa883x_reginfo_1/wsa883x_regdump"
+#define WSA883X_2_PROC_INTF "/proc/wsa883x_reginfo_2/wsa883x_regdump"
+#define WSA_SWR_PROC_INTF  "/proc/wsa_swr_ctrl/swr_mstr_ctrl_regdump"
+#define WSA2_SWR_PROC_INTF "/proc/wsa2_swr_ctrl/swr_mstr_ctrl_regdump"
+#define VA_SWR_PROC_INTF   "/proc/va_swr_ctrl/swr_mstr_ctrl_regdump"
+#define RX_SWR_PROC_INTF   "/proc/rx_swr_ctrl/swr_mstr_ctrl_regdump"
+
+#define KMSG_FILE     "kernel_log"
+#define SILENCE_EVENT_INFO DUMP_OUT_PATH "silence_event_info"
+#define BOLERO_REGDUMP_OUT_FILE          "lpass_cdc_regdump"
+#define WCD939X_REGDUMP_OUT_FILE         "wcd939x_regdump"
+#define VA_SWR_REGDUMP_OUT_FILE          "va_swr_regdump"
+
+#define KMSG_OUT_FILE              DUMP_OUT_PATH KMSG_FILE TIMESTAMP_FORMAT_STRING
+#define SILENCE_EVENT_INFO         DUMP_OUT_PATH "silence_event_info" TIMESTAMP_FORMAT_STRING
+#define BOLERO_REGDUMP_OUT_PATH    DUMP_OUT_PATH BOLERO_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
+#define WCD939X_REGDUMP_OUT_PATH   DUMP_OUT_PATH WCD939X_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
+#define VA_SWR_REGDUM_OUT_PATH     DUMP_OUT_PATH VA_SWR_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
+
+/* Forward Declaration for Silence Detection Callback */
+void handleSilenceDetectionCb(uint64_t hdl __unused,
+                uint32_t event_id, void *event_data, uint32_t event_size);
 
 std::mutex SessionAlsaPcm::pcmLpmRefCntMtx;
 int SessionAlsaPcm::pcmLpmRefCnt = 0;
+bool SessionAlsaPcm::silenceEventRegistered = false;
 
 #define SESSION_ALSA_MMAP_DEFAULT_OUTPUT_SAMPLING_RATE (48000)
 #define SESSION_ALSA_MMAP_PERIOD_SIZE (SESSION_ALSA_MMAP_DEFAULT_OUTPUT_SAMPLING_RATE/1000)
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_MIN 64
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_MAX 2048
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_DEFAULT (SESSION_ALSA_MMAP_PERIOD_COUNT_MAX)
+/* Param ID definitions */
+#define PARAM_ID_FFV_DOA_TRACKING_MONITOR 0x080010A4
 
 SessionAlsaPcm::SessionAlsaPcm(std::shared_ptr<ResourceManager> Rm)
 {
@@ -107,7 +154,8 @@ int SessionAlsaPcm::prepare(Stream * s)
     // explicitly set ckv for VoiceUI/ACD/SPCM
     if (sAttr.type == PAL_STREAM_VOICE_UI ||
         sAttr.type == PAL_STREAM_ACD ||
-        sAttr.type == PAL_STREAM_SENSOR_PCM_DATA) {
+        sAttr.type == PAL_STREAM_SENSOR_PCM_DATA ||
+        sAttr.type == PAL_STREAM_ASR) {
         status = s->getAssociatedDevices(associatedDevices);
         if (status != 0) {
             PAL_ERR(LOG_TAG, "getAssociatedDevices Failed");
@@ -122,9 +170,14 @@ int SessionAlsaPcm::prepare(Stream * s)
                     PAL_DBG(LOG_TAG, "Set device ckv");
                     status = setConfig(s, CALIBRATION, HW_EP_TX);
                     if (status != 0) {
-                        PAL_ERR(LOG_TAG,
-                            "Failed to set devicepp ckv, status %d", status);
-                        goto exit;
+                        if (status == -EALREADY) {
+                            PAL_ERR(LOG_TAG, "Calibration already set, ignore");
+                            status = 0;
+                        } else {
+                            PAL_ERR(LOG_TAG,
+                               "Failed to set devicepp ckv, status %d", status);
+                            goto exit;
+                        }
                     }
                 }
                 vaMicChannels = channels;
@@ -169,6 +222,21 @@ int SessionAlsaPcm::open(Stream * s)
             goto exit;
 
         }
+        if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
+            sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC) {
+            if (sAttr.direction == PAL_AUDIO_INPUT) {
+                if (txAifBackEnds.empty() || !rxAifBackEnds.empty()) {
+                    PAL_ERR(LOG_TAG, "backend specified incorrectly for this stream\n");
+                    return -EINVAL;
+                }
+            }
+            if (sAttr.direction == PAL_AUDIO_OUTPUT) {
+                if (rxAifBackEnds.empty() || !txAifBackEnds.empty()) {
+                    PAL_ERR(LOG_TAG, "backend specified incorrectly for this stream\n");
+                    return -EINVAL;
+                }
+            }
+        }
     }
     status = rm->getVirtualAudioMixer(&mixer);
     if (status) {
@@ -177,7 +245,8 @@ int SessionAlsaPcm::open(Stream * s)
     }
     if (sAttr.type != PAL_STREAM_LOOPBACK) {
         if (sAttr.direction == PAL_AUDIO_INPUT) {
-            if (sAttr.type == PAL_STREAM_ACD || sAttr.type == PAL_STREAM_SENSOR_PCM_DATA)
+            if (sAttr.type == PAL_STREAM_ACD || sAttr.type == PAL_STREAM_SENSOR_PCM_DATA ||
+                sAttr.type == PAL_STREAM_ASR)
                 ldir = TX_HOSTLESS;
 
             pcmDevIds = rm->allocateFrontEndIds(sAttr, ldir);
@@ -234,6 +303,14 @@ int SessionAlsaPcm::open(Stream * s)
             pcmDevRxIds = rm->allocateFrontEndIds(sAttr, RX_HOSTLESS);
             pcmDevTxIds = rm->allocateFrontEndIds(sAttr, TX_HOSTLESS);
             if (!pcmDevRxIds.size() || !pcmDevTxIds.size()) {
+                if (pcmDevRxIds.size()) {
+                    PAL_ERR(LOG_TAG, "freeFrontEndIds Rx called as failed");
+                    rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
+                }
+                if (pcmDevTxIds.size()) {
+                    PAL_ERR(LOG_TAG, "freeFrontEndIds Tx called as failed");
+                    rm->freeFrontEndIds(pcmDevTxIds, sAttr, TX_HOSTLESS);
+                }
                 PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
                 status = -EINVAL;
                 goto exit;
@@ -296,8 +373,14 @@ int SessionAlsaPcm::open(Stream * s)
                 }
             }
             else {
-                status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, pcmDevTxIds,
-                        rxAifBackEnds, txAifBackEnds);
+                if (txAifBackEnds.empty() || rxAifBackEnds.empty()){
+                    PAL_ERR(LOG_TAG, "tx and rx backends are not specified correctly for this stream\n");
+                    status = -EINVAL;
+                }
+                if (0 == status) {
+                    status = SessionAlsaUtils::open(s, rm, pcmDevRxIds, pcmDevTxIds,
+                             rxAifBackEnds, txAifBackEnds);
+                }
                 if (status) {
                     PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                     rm->freeFrontEndIds(pcmDevRxIds, sAttr, RX_HOSTLESS);
@@ -316,6 +399,7 @@ int SessionAlsaPcm::open(Stream * s)
 
     if (sAttr.type == PAL_STREAM_VOICE_UI ||
         sAttr.type == PAL_STREAM_ACD ||
+        sAttr.type == PAL_STREAM_ASR ||
         sAttr.type == PAL_STREAM_CONTEXT_PROXY ||
         sAttr.type == PAL_STREAM_ULTRASOUND ||
        (sAttr.type == PAL_STREAM_HAPTICS &&
@@ -324,6 +408,7 @@ int SessionAlsaPcm::open(Stream * s)
             case PAL_STREAM_VOICE_UI:
             case PAL_STREAM_CONTEXT_PROXY:
             case PAL_STREAM_ACD:
+            case PAL_STREAM_ASR:
             case PAL_STREAM_HAPTICS:
                 pcmId = pcmDevIds;
                 break;
@@ -689,7 +774,8 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
             ckv.clear();
             if (sAttr.type == PAL_STREAM_VOICE_UI ||
                 sAttr.type == PAL_STREAM_ACD ||
-                sAttr.type == PAL_STREAM_SENSOR_PCM_DATA) {
+                sAttr.type == PAL_STREAM_SENSOR_PCM_DATA ||
+                sAttr.type == PAL_STREAM_ASR) {
                 status = builder->populateDevicePPCkv(s, ckv);
             } else {
                 status = builder->populateCalKeyVector(s, ckv, tag);
@@ -940,6 +1026,7 @@ int SessionAlsaPcm::start(Stream * s)
     int payload_size = 0;
     struct agm_event_reg_cfg event_cfg = {};
     struct agm_event_reg_cfg *acd_event_cfg = nullptr;
+    struct agm_event_reg_cfg *asr_event_cfg = nullptr;
     int tagId = 0;
     int DeviceId;
     struct disable_lpm_info lpm_info = {};
@@ -1096,7 +1183,7 @@ int SessionAlsaPcm::start(Stream * s)
         memset(&event_cfg, 0, sizeof(event_cfg));
         event_cfg.event_config_payload_size = 0;
         event_cfg.is_register = 1;
-        event_cfg.event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+        event_cfg.event_id = s->getCallbackEventId();
         event_cfg.module_instance_id = svaMiid;
         if (pcmDevIds.size() == 0) {
             PAL_ERR(LOG_TAG, "frontendIDs is not available.");
@@ -1131,14 +1218,14 @@ int SessionAlsaPcm::start(Stream * s)
         SessionAlsaUtils::registerMixerEvent(mixer, DeviceId,
                 txAifBackEnds[0].second.data(), tagId, (void *)&event_cfg,
                 payload_size);
-    } else if(sAttr.type == PAL_STREAM_ACD) {
+    } else if (sAttr.type == PAL_STREAM_ACD) {
         PAL_DBG(LOG_TAG, "register ACD models");
         SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
                                             customPayload, customPayloadSize);
         freeCustomPayload();
-    } else if(sAttr.type == PAL_STREAM_CONTEXT_PROXY) {
+    } else if (sAttr.type == PAL_STREAM_CONTEXT_PROXY) {
         status = register_asps_event(1);
-    } else if(sAttr.type == PAL_STREAM_HAPTICS &&
+    } else if (sAttr.type == PAL_STREAM_HAPTICS &&
               sAttr.info.opt_stream_info.haptics_type == PAL_STREAM_HAPTICS_TOUCH) {
         payload_size = sizeof(struct agm_event_reg_cfg);
 
@@ -1150,6 +1237,22 @@ int SessionAlsaPcm::start(Stream * s)
                 rxAifBackEnds[0].second.data(), MODULE_HAPTICS_GEN, (void *)&event_cfg,
                 payload_size);
 
+    } else if (sAttr.type == PAL_STREAM_ASR) {
+        payload_size = sizeof(struct agm_event_reg_cfg) + eventPayloadSize;
+        asr_event_cfg = (struct agm_event_reg_cfg *)calloc(1, payload_size);
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        asr_event_cfg->event_config_payload_size = eventPayloadSize;
+        asr_event_cfg->is_register = 1;
+        asr_event_cfg->event_id = eventId;
+        asr_event_cfg->module_instance_id = asrMiid;
+        memcpy(asr_event_cfg->event_config_payload, eventPayload, eventPayloadSize);
+        if (pcmDevIds.size() == 0) {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            status = -EINVAL;
+            goto exit;
+        }
+        SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+            (void *)asr_event_cfg, payload_size);
     }
 
     switch (sAttr.direction) {
@@ -1161,6 +1264,7 @@ int SessionAlsaPcm::start(Stream * s)
             }
             if ((sAttr.type != PAL_STREAM_VOICE_UI) &&
                 (sAttr.type != PAL_STREAM_ACD) &&
+                (sAttr.type != PAL_STREAM_ASR) &&
                 (sAttr.type != PAL_STREAM_CONTEXT_PROXY) &&
                 (sAttr.type != PAL_STREAM_SENSOR_PCM_DATA) &&
                 (sAttr.type != PAL_STREAM_ULTRA_LOW_LATENCY) &&
@@ -1387,7 +1491,8 @@ set_mixer:
                     if (status)
                         PAL_ERR(LOG_TAG, "Failed to set incall record params status = %d", status);
                 }
-            } else if (sAttr.type == PAL_STREAM_VOICE_UI) {
+            } else if (sAttr.type == PAL_STREAM_VOICE_UI ||
+                       sAttr.type == PAL_STREAM_ASR) {
                 SessionAlsaUtils::setMixerParameter(mixer,
                     pcmDevIds.at(0), customPayload, customPayloadSize);
                 freeCustomPayload();
@@ -1515,6 +1620,102 @@ set_mixer:
                 }
             }
 
+            status = s->getAssociatedDevices(associatedDevices);
+            if (0 != status) {
+                    PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                goto exit;
+            }
+            for (int i = 0; i < associatedDevices.size();i++) {
+                    status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+                if (0 != status) {
+                       PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+                       goto exit;
+                }
+            }
+
+            /* Silence Detection Configuration */
+            if ((ResourceManager::isSilenceDetectionEnabled) && (!silenceEventRegistered) &&
+                            (dAttr.id == PAL_DEVICE_IN_HANDSET_MIC || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC)) {
+            /*
+             *
+             * 1. Register to listen at AGM level for Silence Detection Even
+             * 2. Register a Callback to receive events from DSP
+             * 3. Get MIID of HW_ENDPOINT_TX
+             * 4. Configure PARAM_ID_SILECENCE_DETECTION payload
+             *
+             **/
+                PAL_INFO(LOG_TAG, "Registering For Silence Detection Events \n");
+
+                struct apm_module_param_data_t* header = NULL;
+                param_id_silence_detection_t *silence_detection_cfg = NULL;
+                size_t pad_bytes;
+
+                event_cfg.event_id = EVENT_ID_SILENCE_DETECTION;
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 1;
+
+                status  = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                                txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, (void *)&event_cfg,
+                                 sizeof(struct agm_event_reg_cfg));
+                if (status) {
+                   PAL_ERR(LOG_TAG, "Failed Registering for SILENCE DETECTION EVENT\n");
+                   goto exit;
+                }
+                PAL_INFO(LOG_TAG, "Registered for Silence Detection Event\n");
+
+                status = rm->registerMixerEventCallback(pcmDevIds, handleSilenceDetectionCb, (uint64_t)this, true);
+                if (status != 0) {
+                  PAL_ERR(LOG_TAG, "Failed to register DSP cb for silence detection Event");
+                  goto exit;
+                }
+                PAL_INFO(LOG_TAG, "Registered CB for Silence Detection\n");
+
+                 status =  SessionAlsaUtils::getModuleInstanceId(mixer,
+                                 pcmDevIds.at(0), txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, &miid);
+                 if (status != 0) {
+                   PAL_ERR(LOG_TAG, "Error retriving MIID for HW_ENDPOINT_TX\n");
+                   goto exit;
+                 }
+
+                payloadSize = sizeof(struct apm_module_param_data_t)+sizeof(param_id_silence_detection_t);
+                pad_bytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+
+                payload = (uint8_t *)calloc(1, payloadSize+pad_bytes);
+                if (!payload){
+                    PAL_ERR(LOG_TAG, "payload info calloc failed \n");
+                    goto exit;
+                }
+
+                header = (struct apm_module_param_data_t  *)payload;
+                header->module_instance_id = miid;
+                header->param_id =  PARAM_ID_SILENCE_DETECTION;
+                header->error_code = 0x0;
+                header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+                silence_detection_cfg = (param_id_silence_detection_t *)(payload +
+                                sizeof(struct apm_module_param_data_t));
+                silence_detection_cfg->enable_detection = 1;
+                silence_detection_cfg->detection_duration_ms = 3000;
+
+                PAL_INFO(LOG_TAG, "Sending Silence Detection Custom Payload\n");
+                status = updateCustomPayload(payload, (payloadSize+pad_bytes));
+                freeCustomPayload(&payload, &payloadSize);
+                if (status !=0) {
+                    PAL_ERR(LOG_TAG, "updateCustomPayload failed for SILENCE DETECTION \n");
+                    goto exit;
+                }
+                status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
+                                customPayload, customPayloadSize);
+                freeCustomPayload();
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "setMixerParameter failed for Silence Detection Parameter");
+                    goto exit;
+                }
+                /* disable temporarily Silence Detection to prevent multiple registration */
+                silenceEventRegistered = true;
+
+            }
+
             if (ResourceManager::isLpiLoggingEnabled()) {
                 struct audio_route *audioRoute;
 
@@ -1531,6 +1732,7 @@ set_mixer:
                 if (status) {
                     status = errno;
                     PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
+                    silenceEventRegistered = false;
                     goto exit;
                 }
             }
@@ -1891,10 +2093,7 @@ pcm_start:
                     goto exit;
                 }
             }
-            status = setInitialVolume();
-            if (status != 0) {
-                PAL_ERR(LOG_TAG, "setVolume failed");
-            }
+            setInitialVolume();
             memset(&lpm_info, 0, sizeof(struct disable_lpm_info));
             rm->getDisableLpmInfo(&lpm_info);
             isStreamAvail = (find(lpm_info.streams_.begin(),
@@ -2031,7 +2230,7 @@ pcm_start:
            break;
     }
     if (sAttr.direction != PAL_AUDIO_OUTPUT) {
-        status = setInitialVolume();
+        setInitialVolume();
     }
     mState = SESSION_STARTED;
 
@@ -2046,6 +2245,8 @@ int SessionAlsaPcm::stop(Stream * s)
 {
     int status = 0;
     struct pal_stream_attributes sAttr = {};
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    struct pal_device dAttr = {};
     struct agm_event_reg_cfg event_cfg;
     int payload_size = 0;
     int tagId;
@@ -2072,6 +2273,46 @@ int SessionAlsaPcm::stop(Stream * s)
                 status = rm->getAudioRoute(&audioRoute);
                 if (!status)
                     audio_route_reset_and_update_path(audioRoute, "lpi-pcm-logging");
+            }
+
+
+            if (ResourceManager::isSilenceDetectionEnabled && silenceEventRegistered) {
+
+                status = s->getAssociatedDevices(associatedDevices);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                    goto exit;
+                }
+
+                for (int i = 0; i < associatedDevices.size();i++) {
+                    status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+                        goto exit;
+                    }
+                }
+                if (dAttr.id != PAL_DEVICE_IN_HANDSET_MIC && dAttr.id != PAL_DEVICE_IN_SPEAKER_MIC) {
+                    status = 0;
+                    break;
+                }
+
+                PAL_INFO(LOG_TAG, "De-registering For Silence Detection Events\n");
+                event_cfg.event_id = EVENT_ID_SILENCE_DETECTION;
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 0;
+                status  = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                             txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX,
+                             (void *)&event_cfg, sizeof(struct agm_event_reg_cfg));
+                if (status)
+                    PAL_ERR(LOG_TAG, "Unable to deregister SILENCE DETECTION EVENT\n");
+
+               status = rm->registerMixerEventCallback(pcmDevIds, handleSilenceDetectionCb, (uint64_t)this, false);
+               if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to deregister  silence detection Callback to rm");
+               }
+               /* re-enable Silence Detection to allow registrations */
+               silenceEventRegistered = false;
+
             }
         break;
         case PAL_AUDIO_OUTPUT:
@@ -2140,7 +2381,7 @@ int SessionAlsaPcm::stop(Stream * s)
         memset(&event_cfg, 0, sizeof(event_cfg));
         event_cfg.event_config_payload_size = 0;
         event_cfg.is_register = 0;
-        event_cfg.event_id = EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+        event_cfg.event_id = s->getCallbackEventId();
         event_cfg.module_instance_id = svaMiid;
         if (!pcmDevIds.size()) {
             PAL_ERR(LOG_TAG, "pcmDevIds not found.");
@@ -2176,7 +2417,7 @@ int SessionAlsaPcm::stop(Stream * s)
         SessionAlsaUtils::registerMixerEvent(mixer, DeviceId,
                 txAifBackEnds[0].second.data(), tagId, (void *)&event_cfg,
                 payload_size);
-    } else if (sAttr.type == PAL_STREAM_ACD) {
+    } else if (sAttr.type == PAL_STREAM_ACD || sAttr.type == PAL_STREAM_ASR) {
         if (eventPayload == NULL) {
             PAL_INFO(LOG_TAG, "eventPayload is NULL");
             goto exit;
@@ -2187,6 +2428,8 @@ int SessionAlsaPcm::stop(Stream * s)
         event_cfg.event_id = eventId;
         event_cfg.event_config_payload_size = 0;
         event_cfg.is_register = 0;
+        tagId = sAttr.type == PAL_STREAM_ACD ? CONTEXT_DETECTION_ENGINE :
+                                               TAG_MODULE_ASR;
         if (!txAifBackEnds.empty()) {
             if (!pcmDevIds.size()) {
                 PAL_ERR(LOG_TAG, "pcmDevIds not found.");
@@ -2194,7 +2437,7 @@ int SessionAlsaPcm::stop(Stream * s)
                 goto exit;
             }
             SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
-                    txAifBackEnds[0].second.data(), CONTEXT_DETECTION_ENGINE, (void *)&event_cfg,
+                    txAifBackEnds[0].second.data(), tagId, (void *)&event_cfg,
                     payload_size);
         }
     } else if(sAttr.type == PAL_STREAM_CONTEXT_PROXY) {
@@ -2227,6 +2470,7 @@ int SessionAlsaPcm::close(Stream * s)
     std::vector<int> pcmId;
     struct disable_lpm_info lpm_info;
     bool isStreamAvail = false;
+    int devCount = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
     if (!frontEndIdAllocated) {
@@ -2278,6 +2522,7 @@ int SessionAlsaPcm::close(Stream * s)
                 PAL_ERR(LOG_TAG, "pcm_close failed %d", status);
             }
             if (sAttr.type == PAL_STREAM_ACD ||
+                sAttr.type == PAL_STREAM_ASR ||
                 sAttr.type == PAL_STREAM_SENSOR_PCM_DATA)
                 ldir = TX_HOSTLESS;
 
@@ -2289,7 +2534,11 @@ int SessionAlsaPcm::close(Stream * s)
                 beDevId = dev->getSndDeviceId();
                 rm->getBackendName(beDevId, backendname);
                 PAL_DBG(LOG_TAG, "backendname %s", backendname.c_str());
-                if (dev->getDeviceCount() > 1) {
+                devCount = dev->getDeviceCount();
+                // Do not clear device metadata for A2DP device if SCO device is active
+                if ((devCount == 1) && rm->isBtA2dpDevice((pal_device_id_t) beDevId))
+                    devCount += SessionAlsaUtils::getScoDevCount();
+                if (devCount > 1) {
                     PAL_DBG(LOG_TAG, "Rx dev still active");
                     freeDeviceMetadata.push_back(std::make_pair(backendname, 0));
                 } else {
@@ -2364,11 +2613,27 @@ int SessionAlsaPcm::close(Stream * s)
                     freeDeviceMetadata.push_back(std::make_pair(backendname, 1));
                 }
             }
-            status = SessionAlsaUtils::close(s, rm, pcmDevRxIds, pcmDevTxIds,
-                    rxAifBackEnds, txAifBackEnds, freeDeviceMetadata);
-            if (status) {
-                PAL_ERR(LOG_TAG, "session alsa close failed with %d", status);
+            if (sAttr.info.opt_stream_info.loopback_type ==
+                    PAL_STREAM_LOOPBACK_CAPTURE_ONLY) {
+                status = SessionAlsaUtils::close(s, rm, pcmDevTxIds, txAifBackEnds, freeDeviceMetadata);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa close failed with %d", status);
+                }
             }
+            else if (sAttr.info.opt_stream_info.loopback_type ==
+                       PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) {
+                status = SessionAlsaUtils::close(s, rm, pcmDevRxIds, rxAifBackEnds, freeDeviceMetadata);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa close failed with %d", status);
+                }
+            }
+            else {
+                status = SessionAlsaUtils::close(s, rm, pcmDevRxIds, pcmDevTxIds,
+                        rxAifBackEnds, txAifBackEnds, freeDeviceMetadata);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "session alsa close failed with %d", status);
+                }
+           }
             if (pcmRx)
                 status = pcm_close(pcmRx);
             if (status) {
@@ -2395,6 +2660,7 @@ int SessionAlsaPcm::close(Stream * s)
 
     if (sAttr.type == PAL_STREAM_VOICE_UI ||
         sAttr.type == PAL_STREAM_ACD ||
+        sAttr.type == PAL_STREAM_ASR ||
         sAttr.type == PAL_STREAM_CONTEXT_PROXY ||
         sAttr.type == PAL_STREAM_ULTRASOUND ||
         (sAttr.type == PAL_STREAM_HAPTICS &&
@@ -2402,6 +2668,7 @@ int SessionAlsaPcm::close(Stream * s)
         switch (sAttr.type) {
             case PAL_STREAM_VOICE_UI:
             case PAL_STREAM_ACD:
+            case PAL_STREAM_ASR:
             case PAL_STREAM_CONTEXT_PROXY:
             case PAL_STREAM_HAPTICS:
                 pcmId = pcmDevIds;
@@ -2850,10 +3117,20 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
         case PAL_PARAM_ID_WAKEUP_ENGINE_RESET:
         case PAL_PARAM_ID_WAKEUP_ENGINE_PER_MODEL_RESET:
         case PAL_PARAM_ID_WAKEUP_CUSTOM_CONFIG:
+        case PAL_PARAM_ID_ASR_CONFIG:
+        case PAL_PARAM_ID_ASR_OUTPUT:
+        case PAL_PARAM_ID_ASR_FORCE_OUTPUT:
+        case PAL_PARAM_ID_ASR_SET_PARAM:
         {
             struct apm_module_param_data_t* header =
                 (struct apm_module_param_data_t *)payload;
-            svaMiid = header->module_instance_id;
+            if (param_id == PAL_PARAM_ID_ASR_CONFIG ||
+                param_id == PAL_PARAM_ID_ASR_OUTPUT ||
+                param_id == PAL_PARAM_ID_ASR_FORCE_OUTPUT ||
+                param_id == PAL_PARAM_ID_ASR_SET_PARAM)
+                asrMiid = header->module_instance_id;
+            else
+                svaMiid = header->module_instance_id;
             paramData = (uint8_t *)payload;
             paramSize = PAL_ALIGN_8BYTE(header->param_size +
                 sizeof(struct apm_module_param_data_t));
@@ -3504,7 +3781,7 @@ exit:
     return status;
 }
 
-int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_id, void **payload)
+int SessionAlsaPcm::getParameters(Stream *s, int tagId, uint32_t param_id, void **payload)
 {
     int status = 0;
     uint8_t *ptr = NULL;
@@ -3518,7 +3795,7 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     const char *stream = "PCM";
     struct mixer_ctl *ctl;
     std::ostringstream CntrlName;
-    PAL_DBG(LOG_TAG, "Enter.");
+    PAL_INFO(LOG_TAG, "Enter, param id 0x%x, tag id : 0x%x", param_id, tagId);
 
     if (pcmDevIds.size() > 0) {
         device = pcmDevIds.at(0);
@@ -3560,7 +3837,8 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
         case PAL_PARAM_ID_DIRECTION_OF_ARRIVAL:
         {
             configSize = sizeof(struct ffv_doa_tracking_monitor_t);
-            builder->payloadDOAInfo(&payloadData, &payloadSize, miid);
+            builder->payloadGetParam(s, &payloadData, &payloadSize, miid,
+                                    PARAM_ID_FFV_DOA_TRACKING_MONITOR, configSize);
             break;
         }
         case PAL_PARAM_ID_WAKEUP_MODULE_VERSION:
@@ -3580,6 +3858,14 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
             builder->payloadAFSInfo(&payloadData, &payloadSize, miid);
             break;
         }
+        case PAL_PARAM_ID_ASR_OUTPUT:
+        {
+            configSize = sizeof(param_id_asr_output_t) +
+                          (s->GetNumEvents() * sizeof(asr_output_status_t));
+            builder->payloadGetParam(s, &payloadData, &payloadSize, miid,
+                          PARAM_ID_ASR_OUTPUT, configSize);
+            break;
+        }
         default:
             status = EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -3592,10 +3878,22 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
         goto exit;
     }
 
-    status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
-        goto exit;
+    if (payloadData && payloadSize <= MAX_PCM_PAYLOAD_SIZE) {
+        status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
+            goto exit;
+        }
+    } else {
+        if (!payloadData) {
+            PAL_ERR(LOG_TAG, "Failed to allocate payloadData memory\n");
+            status = -ENOMEM;
+            goto exit;
+        } else {
+            PAL_ERR(LOG_TAG, "Payloadsize exceeds max permissible value");
+            status = -EINVAL;
+            goto exit;
+        }
     }
 
     ptr = (uint8_t *)payloadData + sizeof(struct apm_module_param_data_t);
@@ -3612,7 +3910,7 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
 
 exit:
     freeCustomPayload(&payloadData, &payloadSize);
-    PAL_DBG(LOG_TAG, "Exit. status %d", status);
+    PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
 }
 
@@ -4198,5 +4496,188 @@ int SessionAlsaPcm::notifyUPDToneRendererFmtChng(struct pal_device *dAttr,
     }
 
     return 0;
+}
+
+int dump_kernel_log(char *kmsg_out_file)
+{
+    int kmsg_fd = 0, log_out_size = 0;
+    ssize_t kernel_buf_size = 0;
+    char *kernel_buf = NULL;
+
+    kernel_buf_size = klogctl(SYSLOG_ACTION_SIZE_BUFFER, NULL, 0);
+    PAL_INFO(LOG_TAG, "%s::kernel_buf_size :: %zd", __func__, kernel_buf_size);
+
+    kernel_buf = (char *)malloc(kernel_buf_size);
+    if (!kernel_buf) {
+        PAL_ERR(LOG_TAG, "%s:: error allocating memory", __func__);
+        return -ENOMEM;
+    }
+
+    kmsg_fd = open(kmsg_out_file, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    if (kmsg_fd < 0){
+        PAL_ERR(LOG_TAG, "%s::Error opening kernel msg out file", __func__);
+        free(kernel_buf);
+        return kmsg_fd;
+    }
+
+    klogctl(SYSLOG_ACTION_READ_ALL, kernel_buf, kernel_buf_size);
+    log_out_size = write(kmsg_fd, kernel_buf, kernel_buf_size);
+    if (log_out_size < 0) {
+       PAL_ERR(LOG_TAG, "%s: %s  Unable to write.\n", __func__, kmsg_out_file);
+       goto close_kmsg_fd;
+    }
+    PAL_INFO(LOG_TAG, "%s: Writing %s log, %d bytes\n",__func__,
+                    kmsg_out_file, log_out_size);
+
+close_kmsg_fd:
+    close(kmsg_fd);
+    free(kernel_buf);
+    return log_out_size;
+}
+
+int dump_registers(char *in_file_path, char *regdump_out_file)
+{
+    char *reg_dump = NULL;
+    int infile_fd = 0,  regdump_wr_fd = 0;
+    int read_out_size = 0, regdump_size = 0;
+    size_t sysfs_page_size = sysconf(_SC_PAGESIZE);
+
+    reg_dump = (char *)malloc(REGDUMP_OUT_SIZE);
+    if (!reg_dump) {
+        PAL_ERR(LOG_TAG, "%s:: error allocating memory", __func__);
+        return -ENOMEM;
+    }
+
+    infile_fd = open(in_file_path, O_RDONLY);
+    if (infile_fd < 0) {
+       PAL_ERR(LOG_TAG, "%s: %s  not found.\n", __func__, in_file_path);
+       read_out_size = -1;
+       goto free_buf;
+    }
+
+    PAL_INFO(LOG_TAG, "Reading %s regdump interface \n", in_file_path);
+    read_out_size = read(infile_fd, reg_dump, REGDUMP_OUT_SIZE);
+    if (read_out_size < 0) {
+       PAL_ERR(LOG_TAG, "%s: %s  Unable to Read.\n", __func__, in_file_path);
+       read_out_size  = -1;
+       goto close_infile;
+    }
+    PAL_INFO(LOG_TAG, "Regdump ReadOut Buffer Size = %d", read_out_size);
+
+    regdump_wr_fd = open(regdump_out_file, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    if (regdump_wr_fd < 0) {
+       PAL_ERR(LOG_TAG, "%s: %s  Unable to Open for writing.\n", __func__, regdump_out_file);
+       read_out_size = -1;
+       goto close_infile;
+    }
+    regdump_size =  write(regdump_wr_fd, reg_dump, read_out_size);
+    if (regdump_size < 0) {
+       PAL_ERR(LOG_TAG, "%s: %s  Unable to write.\n", __func__, regdump_out_file);
+       read_out_size = -1;
+       goto close_regdump_file;
+    }
+    PAL_INFO(LOG_TAG, "Bolero Regmap Dump Size %ld and file %s", regdump_size, regdump_out_file);
+
+close_regdump_file:
+    close(regdump_wr_fd);
+close_infile:
+    close(infile_fd);
+free_buf:
+    free(reg_dump);
+    return read_out_size;
+}
+
+int dump_silence_event_status(char *out_file, uint32_t channel_group, uint32_t status_ch_mask)
+{
+    char event_data_buf[255];
+    int pos = 0,  write_out_bytes = 0, fd = 0;
+
+    pos = snprintf(event_data_buf, 255, "channel_group :: %u \n",
+                        channel_group);
+    pos += snprintf(event_data_buf+pos, 255-pos, "Channel_Status :: %u \n",
+                        status_ch_mask);
+
+    fd = open(out_file, O_CREAT|O_RDWR, S_IRWXU|S_IRWXG|S_IRWXO);
+    if (fd < 0) {
+        PAL_ERR(LOG_TAG,
+                "%s::Error Opening silence data status file\n", __func__);
+        return -EINVAL;
+    }
+
+    write_out_bytes = write(fd, event_data_buf, pos);
+    if (write_out_bytes < 1)
+       PAL_ERR(LOG_TAG, "%s::failed writing silence event status",__func__);
+
+    return write_out_bytes;
+}
+
+/*
+ *Callback from DSP for SILENCE Detection
+ */
+void handleSilenceDetectionCb(uint64_t hdl __unused, uint32_t event_id, void *event_data, uint32_t event_size)
+{
+    char out_file_name[MAX_DUMP_FILENAME_SIZE];
+    uint32_t channel_group = 0 , status_ch_mask = 0;
+    event_cfg_silence_detection_t *silence_event = nullptr;
+    struct tm *timenow;
+    time_t now = time(NULL);
+    timenow = gmtime(&now);
+    if (!timenow) {
+        PAL_ERR(LOG_TAG, "failed to initialize timenow struct\n");
+        return;
+    }
+    PAL_INFO(LOG_TAG, "Silence Detection event raised\n");
+
+    switch (event_id) {
+
+    case EVENT_ID_SILENCE_DETECTION:
+        PAL_INFO(LOG_TAG, "EVENT_ID_SILENCE_DETECTION received from DSP\n");
+
+        strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
+                        SILENCE_EVENT_INFO, timenow);
+
+        silence_event = (event_cfg_silence_detection_t *)event_data;
+        channel_group = silence_event->num_32_channel_group;
+        status_ch_mask = silence_event->detections[0].status_ch_mask;
+        dump_silence_event_status(out_file_name, channel_group, status_ch_mask);
+
+
+        /*
+         * Read BOLERO/CDC Registers
+         **/
+        strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
+                        BOLERO_REGDUMP_OUT_PATH, timenow);
+        dump_registers(BOLERO_PROC_INTF, out_file_name);
+
+        /*
+         * Read SWR VA Macro Registers
+         **/
+        strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
+                        VA_SWR_REGDUM_OUT_PATH, timenow);
+        dump_registers(VA_SWR_PROC_INTF, out_file_name);
+
+        /*
+         * Read WCD939X  Registers
+         **/
+        strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
+                        WCD939X_REGDUMP_OUT_PATH, timenow);
+        dump_registers(WCD939X_PROC_INTF, out_file_name);
+
+        /*
+         * kernel msg (/dev/kmsg) read
+         **/
+        strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
+                        KMSG_OUT_FILE, timenow);
+        dump_kernel_log(out_file_name);
+
+        break;
+
+    default:
+
+        break;
+
+    }
+
+    return;
 }
 

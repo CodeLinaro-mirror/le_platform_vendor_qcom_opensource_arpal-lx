@@ -25,6 +25,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center are provided under the following
+ * license:
+ *
+ * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
@@ -76,6 +82,11 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <agm/agm_api.h>
 #include "audio_route/audio_route.h"
 #include <cutils/properties.h>
+#ifdef FEATURE_IPQ_OPENWRT
+#include "audio_route.h"
+#else
+#include "audio_route/audio_route.h"
+#endif
 
 #define PAL_PADDING_8BYTE_ALIGN(x)  ((((x) + 7) & 7) ^ 7)
 #define MAX_VOL_INDEX 5
@@ -103,6 +114,7 @@ SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
    if (max_vol_index == -1){
       max_vol_index = MAX_VOL_INDEX;
    }
+   mState = SESSION_IDLE;
 }
 
 SessionAlsaVoice::~SessionAlsaVoice()
@@ -174,6 +186,12 @@ int32_t SessionAlsaVoice::getFrontEndId(uint32_t ldir)
         break;
     }
     return device;
+}
+
+bool SessionAlsaVoice::isActive()
+{
+    PAL_VERBOSE(LOG_TAG, "state = %d", mState);
+    return mState == SESSION_STARTED;
 }
 
 uint32_t SessionAlsaVoice::getMIID(const char *backendName, uint32_t tagId, uint32_t *miid)
@@ -306,6 +324,18 @@ int SessionAlsaVoice::open(Stream * s)
 
     rm->getBackEndNames(associatedDevices, rxAifBackEnds, txAifBackEnds);
 
+    if (txAifBackEnds.empty()) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "no TX backend specified for this stream\n");
+        goto exit;
+    }
+
+    if (rxAifBackEnds.empty()) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "no RX backend specified for this stream\n");
+        goto exit;
+    }
+
     status = rm->getVirtualAudioMixer(&mixer);
     if (status) {
         PAL_ERR(LOG_TAG,"mixer error");
@@ -362,6 +392,12 @@ int SessionAlsaVoice::setSessionParameters(Stream *s, int dir)
         status = setTaggedSlotMask(s);
         if (0 != status) {
             PAL_ERR(LOG_TAG,"setTaggedSlotMask failed:%d", status);
+            goto exit;
+        }
+
+        status = populateRatPayload(s);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"populateRatPayload failed:%d", status);
             goto exit;
         }
     } else {
@@ -605,6 +641,56 @@ int SessionAlsaVoice::populateVSIDLoopbackPayload(Stream* s){
             return status;
         }
     }
+exit:
+    return status;
+}
+
+int SessionAlsaVoice::populateRatPayload(Stream *s)
+{
+    int status = 0;
+    int devId = 0;
+    int idx = 0;
+    uint32_t miid = 0;
+    uint8_t* ratPayload = NULL;
+    size_t ratPayloadSize = 0;
+    struct pal_device dAttr;
+    struct pal_media_config config;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+
+    if(!s){
+        PAL_ERR(LOG_TAG, "invalid stream pointer")
+        status = -EINVAL;
+        goto exit;
+    }
+
+    status = s->getAssociatedDevices(associatedDevices);
+    if ((0 != status) || (associatedDevices.size() == 0)) {
+        PAL_ERR(LOG_TAG, "getAssociatedDevices fails or empty associated devices");
+        goto exit;
+    }
+    for (idx = 0; idx < associatedDevices.size(); idx++) {
+        devId = associatedDevices[idx]->getSndDeviceId();
+        if (rm->isOutputDevId(devId)) {
+            break;
+        }
+    }
+    if (associatedDevices[idx]->isScoNbWbActive()) {
+        status = getMIID(rxAifBackEnds[0].second.c_str(), RAT_RENDER, &miid);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG,"getModuleInstanceId failed for RAT_RENDER: %X status: %d",
+                RAT_RENDER, status);
+            goto exit;
+        }
+        associatedDevices[idx]->getDeviceAttributes(&dAttr);
+        builder->payloadRATConfig(&ratPayload, &ratPayloadSize, miid, &dAttr.config);
+        if (ratPayload && ratPayloadSize) {
+            status = updateCustomPayload(ratPayload, ratPayloadSize);
+            freeCustomPayload(&ratPayload, &ratPayloadSize);
+            if (status != 0)
+                PAL_ERR(LOG_TAG,"updateCustomPayload for RAT_RENDER %XFailed\n", RAT_RENDER);
+        }
+    }
+
 exit:
     return status;
 }
@@ -856,68 +942,70 @@ int SessionAlsaVoice::start(Stream * s)
         goto exit;
     }
 
-    s->getBufInfo(&in_buf_size,&in_buf_count,&out_buf_size,&out_buf_count);
-    memset(&config, 0, sizeof(config));
+    if (mState == SESSION_IDLE) {
+        s->getBufInfo(&in_buf_size,&in_buf_count,&out_buf_size,&out_buf_count);
+        memset(&config, 0, sizeof(config));
 
-    config.rate = sAttr.out_media_config.sample_rate;
-    if (sAttr.out_media_config.bit_width == 32)
-        config.format = PCM_FORMAT_S32_LE;
-    else if (sAttr.out_media_config.bit_width == 24)
-        config.format = PCM_FORMAT_S24_3LE;
-    else if (sAttr.out_media_config.bit_width == 16)
-        config.format = PCM_FORMAT_S16_LE;
-    config.channels = sAttr.out_media_config.ch_info.channels;
-    config.period_size = out_buf_size;
-    config.period_count = out_buf_count;
-    config.start_threshold = 0;
-    config.stop_threshold = 0;
-    config.silence_threshold = 0;
+        config.rate = sAttr.out_media_config.sample_rate;
+        if (sAttr.out_media_config.bit_width == 32)
+            config.format = PCM_FORMAT_S32_LE;
+        else if (sAttr.out_media_config.bit_width == 24)
+            config.format = PCM_FORMAT_S24_3LE;
+        else if (sAttr.out_media_config.bit_width == 16)
+            config.format = PCM_FORMAT_S16_LE;
+        config.channels = sAttr.out_media_config.ch_info.channels;
+        config.period_size = out_buf_size;
+        config.period_count = out_buf_count;
+        config.start_threshold = 0;
+        config.stop_threshold = 0;
+        config.silence_threshold = 0;
 
-    /*setup external ec if needed*/
-    status = getRXDevice(s, rxDevice);
-    if (status) {
-        PAL_ERR(LOG_TAG, "failed, could not find associated RX device");
-        goto exit;
+        /*setup external ec if needed*/
+        status = getRXDevice(s, rxDevice);
+        if (status) {
+            PAL_ERR(LOG_TAG, "failed, could not find associated RX device");
+            goto exit;
+        }
+        setExtECRef(s, rxDevice, true);
+
+        pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
+        if (!pcmRx) {
+            PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
+            status = -EINVAL;
+            goto err_pcm_open;
+        }
+
+        if (!pcm_is_ready(pcmRx)) {
+            PAL_ERR(LOG_TAG, "Exit pcm-rx open not ready");
+            status = -EINVAL;
+            goto err_pcm_open;
+        }
+
+        config.rate = sAttr.in_media_config.sample_rate;
+        if (sAttr.in_media_config.bit_width == 32)
+            config.format = PCM_FORMAT_S32_LE;
+        else if (sAttr.in_media_config.bit_width == 24)
+            config.format = PCM_FORMAT_S24_3LE;
+        else if (sAttr.in_media_config.bit_width == 16)
+            config.format = PCM_FORMAT_S16_LE;
+        config.channels = sAttr.in_media_config.ch_info.channels;
+        config.period_size = in_buf_size;
+        config.period_count = in_buf_count;
+
+        pcmTx = pcm_open(rm->getVirtualSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
+        if (!pcmTx) {
+            PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
+            status = -EINVAL;
+            goto err_pcm_open;
+        }
+
+        if (!pcm_is_ready(pcmTx)) {
+            PAL_ERR(LOG_TAG, "Exit pcm-tx open not ready");
+            status = -EINVAL;
+            goto err_pcm_open;
+        }
     }
-    setExtECRef(s, rxDevice, true);
-
-    pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
-    if (!pcmRx) {
-        PAL_ERR(LOG_TAG, "Exit pcm-rx open failed");
-        status = -EINVAL;
-        goto err_pcm_open;
-    }
-
-    if (!pcm_is_ready(pcmRx)) {
-        PAL_ERR(LOG_TAG, "Exit pcm-rx open not ready");
-        status = -EINVAL;
-        goto err_pcm_open;
-    }
-
-    config.rate = sAttr.in_media_config.sample_rate;
-    if (sAttr.in_media_config.bit_width == 32)
-        config.format = PCM_FORMAT_S32_LE;
-    else if (sAttr.in_media_config.bit_width == 24)
-        config.format = PCM_FORMAT_S24_3LE;
-    else if (sAttr.in_media_config.bit_width == 16)
-        config.format = PCM_FORMAT_S16_LE;
-    config.channels = sAttr.in_media_config.ch_info.channels;
-    config.period_size = in_buf_size;
-    config.period_count = in_buf_count;
-
-    pcmTx = pcm_open(rm->getVirtualSndCard(), pcmDevTxIds.at(0), PCM_IN, &config);
-    if (!pcmTx) {
-        PAL_ERR(LOG_TAG, "Exit pcm-tx open failed");
-        status = -EINVAL;
-        goto err_pcm_open;
-    }
-
-    if (!pcm_is_ready(pcmTx)) {
-        PAL_ERR(LOG_TAG, "Exit pcm-tx open not ready");
-        status = -EINVAL;
-        goto err_pcm_open;
-    }
-
+    mState = SESSION_OPENED;
     status = SessionAlsaVoice::setConfig(s, MODULE, VSID, RX_HOSTLESS);
     if (status) {
         PAL_ERR(LOG_TAG, "setConfig failed %d", status);
@@ -959,6 +1047,13 @@ int SessionAlsaVoice::start(Stream * s)
             *(palPayload->payload) = ttyMode;
             setParameters(s, TTY_MODE, PAL_PARAM_ID_TTY_MODE, palPayload);
         }
+    }
+
+    /* configuring RAT_RENDER, updating custom payload if it is a NB/WB SCO usecase*/
+    status = populateRatPayload(s);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"Exit Configuring RAT_RENDER failed with status %d", status);
+        goto err_pcm_open;
     }
 
     /* configuring Rx MFC's, updating custom payload and send mixer controls at once*/
@@ -1069,6 +1164,8 @@ err_pcm_open:
         retries = 0;
      }
 
+    mState = SESSION_STARTED;
+
 exit:
     freeCustomPayload();
     if (payload)
@@ -1107,14 +1204,14 @@ int SessionAlsaVoice::stop(Stream * s)
     setPopSuppressorMute(s);
     usleep(POP_SUPPRESSOR_RAMP_DELAY);
 
-    if (pcmRx) {
+    if (pcmRx && isActive()) {
         status = pcm_stop(pcmRx);
         if (status) {
             PAL_ERR(LOG_TAG, "pcm_stop - rx failed %d", status);
         }
     }
 
-    if (pcmTx) {
+    if (pcmTx && isActive()) {
         status = pcm_stop(pcmTx);
         if (status) {
             PAL_ERR(LOG_TAG, "pcm_stop - tx failed %d", status);
@@ -1131,6 +1228,8 @@ int SessionAlsaVoice::stop(Stream * s)
 
     rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
+    mState = SESSION_STOPPED;
+
     return status;
 }
 
@@ -1198,6 +1297,7 @@ exit:
         pcmTx = NULL;
     }
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
+    mState = SESSION_IDLE;
     return status;
 }
 int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __unused, void *payload)
@@ -1996,7 +2096,7 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
 
     if (rxAifBackEnds.size() > 0) {
         setTaggedSlotMask(streamHandle);
-        status =  SessionAlsaUtils::connectSessionDevice(this, streamHandle,
+        status = SessionAlsaUtils::connectSessionDevice(this, streamHandle,
                                                          streamType, rm,
                                                          dAttr, pcmDevRxIds,
                                                          rxAifBackEnds);

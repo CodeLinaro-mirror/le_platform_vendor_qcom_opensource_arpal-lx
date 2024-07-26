@@ -28,36 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamSoundTrigger"
@@ -67,6 +38,7 @@
 #include <chrono>
 #include <unistd.h>
 #include <dlfcn.h>
+#include <cstring>
 
 #include "Session.h"
 #include "SessionAlsaPcm.h"
@@ -505,7 +477,9 @@ int32_t StreamSoundTrigger::getParameters(uint32_t param_id, void **payload) {
         }
 
         if (mDevices.size() > 0 && !device_opened_) {
+            rm->voteSleepMonitor(this, true);
             status = mDevices[0]->open();
+            rm->voteSleepMonitor(this, false);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Device open failed, status %d", status);
                 return status;
@@ -1732,9 +1706,16 @@ bool StreamSoundTrigger::compareRecognitionConfig(
         (current_config->num_phrases != new_config->num_phrases) ||
         (current_config->data_size != new_config->data_size) ||
         (current_config->data_offset != new_config->data_offset) ||
+#if defined(LINUX_ENABLED)
+        memcmp((char *) current_config + current_config->data_offset,
+               (char *) new_config + new_config->data_offset,
+               current_config->data_size)
+#else
         std::memcmp((char *) current_config + current_config->data_offset,
                (char *) new_config + new_config->data_offset,
-               current_config->data_size)) {
+               current_config->data_size)
+#endif
+       ) {
         return false;
     } else {
         for (i = 0; i < current_config->num_phrases; i++) {
@@ -1771,8 +1752,6 @@ int32_t StreamSoundTrigger::notifyClient(uint32_t detection) {
     bool lock_status = false;
     vui_intf_param_t param {};
 
-    PostDelayedStop();
-
     if (detection == PAL_RECOGNITION_STATUS_ABORT) {
         phrase_rec_event = (struct pal_st_phrase_recognition_event*)calloc(1,
             sizeof(struct pal_st_phrase_recognition_event));
@@ -1786,12 +1765,22 @@ int32_t StreamSoundTrigger::notifyClient(uint32_t detection) {
             currentState = STREAM_STOPPED;
             PAL_INFO(LOG_TAG, "Notify abort event to client");
             mStreamMutex.unlock();
+            /*
+             * When handling concurrency, active stream mutex is locked,
+             * and when we notify abort event we may observe deadlock if
+             * client is also trying to operate other VA sessions. Hence
+             * unlock active stream mutex until event is notified.
+             */
+            rm->unlockActiveStream();
             callback_((pal_stream_handle_t *)this, 0, (uint32_t *)&phrase_rec_event->common,
                        event_size, cookie_);
+            rm->lockActiveStream();
             mStreamMutex.lock();
         }
         free(phrase_rec_event);
         goto exit;
+    } else {
+        PostDelayedStop();
     }
 
     if (sm_cfg_->IsDetPropSupported(ST_PARAM_KEY_KEYWORD_BUFFER)) {
@@ -2358,7 +2347,14 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
                 }
 
                 if (!st_stream_.device_opened_) {
+                    /*
+                     * clock voting is happening during mixer control
+                     * enablement, need to have sleep monitor voted in
+                     * this duration to avoid ADSP sleep issue.
+                     */
+                    st_stream_.rm->voteSleepMonitor(&st_stream_, true);
                     status = dev->open();
+                    st_stream_.rm->voteSleepMonitor(&st_stream_, false);
                     if (0 != status) {
                         PAL_ERR(LOG_TAG, "Device open failed, status %d", status);
                         break;
@@ -2487,7 +2483,9 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
             }
 
             if (!st_stream_.device_opened_) {
+                st_stream_.rm->voteSleepMonitor(&st_stream_, true);
                 status = dev->open();
+                st_stream_.rm->voteSleepMonitor(&st_stream_, false);
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "device %d open failed with status %d",
                         dev->getSndDeviceId(), status);
@@ -2906,7 +2904,9 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
             }
 
             if (!st_stream_.device_opened_) {
+                st_stream_.rm->voteSleepMonitor(&st_stream_, true);
                 status = dev->open();
+                st_stream_.rm->voteSleepMonitor(&st_stream_, false);
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "device %d open failed with status %d",
                         dev->getSndDeviceId(), status);
@@ -3750,6 +3750,13 @@ bool StreamSoundTrigger::ConfigSupportLPI() {
     return lpi;
 }
 
+uint32_t StreamSoundTrigger::getCallbackEventId() {
+    if (model_type_ == ST_MODULE_TYPE_MMA)
+        return EVENT_ID_MMA_DETECTION_EVENT;
+    else
+        return EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+}
+
 int32_t StreamSoundTrigger::ssrDownHandler() {
     int32_t status = 0;
 
@@ -3875,7 +3882,9 @@ int32_t StreamSoundTrigger::ConnectEvent(
     }
 
     if (!device_opened_) {
+        rm->voteSleepMonitor(this, true);
         status = dev->open();
+        rm->voteSleepMonitor(this, false);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "device %d open failed with status %d",
                     dev->getSndDeviceId(), status);

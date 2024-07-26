@@ -361,6 +361,22 @@ struct mixer_ctl *SessionAlsaUtils::getBeMixerControl(struct mixer *am, std::str
     return mixer_get_ctl_by_name(am, cntrlName.str().data());
 }
 
+int SessionAlsaUtils::getScoDevCount(void)
+{
+    std::shared_ptr<Device> dev = nullptr;
+    struct pal_device scoDAttr = {};
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+
+    scoDAttr.id = PAL_DEVICE_OUT_BLUETOOTH_SCO;
+    dev = Device::getInstance(&scoDAttr, rm);
+    if (dev == 0) {
+        PAL_ERR(LOG_TAG, "device_id[%d] Instance query failed", scoDAttr.id );
+        return 0;
+    }
+
+    return dev->getDeviceCount();
+}
+
 int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManager> rmHandle,
     const std::vector<int> &DevIds, const std::vector<std::pair<int32_t, std::string>> &BackEnds)
 {
@@ -1107,12 +1123,28 @@ int SessionAlsaUtils::getTimestamp(struct mixer *mixer, const std::vector<int> &
          PAL_ERR(LOG_TAG, "Set failed status = %d", status);
          goto exit;
     }
-    memset(payload->data(), 0, payloadSize);
-    status = mixer_ctl_get_array(ctl, payload->data(), payloadSize);
-    if (0 != status) {
-         PAL_ERR(LOG_TAG, "Get failed status = %d", status);
-         goto exit;
+
+    if (payload && payloadSize <= MAX_UTIL_PAYLOAD_SIZE) {
+        memset(payload->data(), 0, payloadSize);
+        status = mixer_ctl_get_array(ctl, payload->data(), payloadSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Get failed status = %d", status);
+            payload.reset();
+            goto exit;
+        }
+    } else {
+        if (!payload) {
+            PAL_ERR(LOG_TAG, "Failed to allocate payload memory\n");
+            status = -ENOMEM;
+            goto exit;
+        } else {
+            PAL_ERR(LOG_TAG, "Payloadsize exceeds max permissible value");
+            payload.reset();
+            status = -EINVAL;
+            goto exit;
+        }
     }
+
     spr_session_time = (struct param_id_spr_session_time_t *)
                      (payload->data() + sizeof(struct apm_module_param_data_t));
     stime->session_time.value_lsw = spr_session_time->session_time.value_lsw;
@@ -2181,20 +2213,8 @@ int SessionAlsaUtils::disconnectSessionDevice(Stream* streamHandle, pal_stream_t
     devCount = dev->getDeviceCount();
 
     // Do not clear device metadata for A2DP device if SCO device is active
-    if ((devCount == 1) && rm->isBtDevice(dAttr.id) && !rm->isBtScoDevice(dAttr.id)) {
-        dev = nullptr;
-        struct pal_device scoDAttr = {};
-        scoDAttr.id = PAL_DEVICE_OUT_BLUETOOTH_SCO;
-
-        dev = Device::getInstance(&scoDAttr, rm);
-        if (dev == 0) {
-            PAL_ERR(LOG_TAG, "device_id[%d] Instance query failed", dAttr.id );
-            status = -EINVAL;
-            goto freeMetaData;
-        }
-
-        devCount += dev->getDeviceCount();
-    }
+    if ((devCount == 1) && rm->isBtA2dpDevice(dAttr.id))
+        devCount += getScoDevCount();
 
     if (devCount > 1) {
         PAL_INFO(LOG_TAG, "No need to free device metadata since active streams present on device");
@@ -2385,7 +2405,8 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
             }
         }
         if (sAttr.direction == PAL_AUDIO_INPUT) {
-            if (strstr(dAttr.custom_config.custom_key , "unprocessed-hdr-mic")) {
+            if (strstr(dAttr.custom_config.custom_key , "unprocessed-hdr-mic") &&
+                (dAttr.id == PAL_DEVICE_IN_HANDSET_MIC || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC)) {
                 status = sess->setConfig(streamHandle, MODULE,  ORIENTATION_TAG);
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "setting HDR record orientation config failed with status %d", status);

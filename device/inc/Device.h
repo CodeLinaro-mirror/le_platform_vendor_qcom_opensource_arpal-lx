@@ -136,6 +136,7 @@ public:
     virtual int32_t getDeviceParameter(uint32_t param_id, void **param);
     virtual int32_t getParameter(uint32_t param_id, void **param);
     virtual bool isDeviceReady() { return true;}
+    virtual bool isScoNbWbActive() { return false;}
     void setSndName (std::string snd_name) { UpdatedSndName = snd_name;}
     void clearSndName () { UpdatedSndName.clear();}
     virtual ~Device();
@@ -152,6 +153,7 @@ public:
                                 Stream* streamHandle);
     void removeStreamDeviceAttr(Stream* streamHandle);
     int getTopPriorityDeviceAttr(struct pal_device *deviceAttr, uint32_t *streamPrio);
+    static int32_t initHdrRoutine(const char *hdr_custom_key);
 };
 
 

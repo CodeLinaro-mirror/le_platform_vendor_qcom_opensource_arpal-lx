@@ -310,14 +310,15 @@ int32_t  StreamPCM::close()
         if (0 != status)
             PAL_ERR(LOG_TAG, "stream stop failed. status %d",  status);
         mStreamMutex.lock();
-    } else if (currentState == STREAM_INIT) {
-        /* Special handling for aaudio usecase on A2DP/BLE.
+    } else if (currentState == STREAM_INIT || currentState == STREAM_STOPPED) {
+        /* Special handling for aaudio usecase on A2DP/BLE/Speaker.
          * A2DP/BLE device starts even when stream is still in STREAM_INIT state,
-         * hence stop A2DP/BLE device to match device start&stop count.
+         * hence stop A2DP/BLE/Speaker device to match device start&stop count.
          */
         for (int32_t i=0; i < mDevices.size(); i++) {
             if (((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE)) && isMMap) {
+                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) && isMMap) {
                 status = mDevices[i]->stop();
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "BT A2DP/BLE device stop failed with status %d", status);
@@ -429,9 +430,10 @@ int32_t StreamPCM::start()
             }
 
             for (int32_t i=0; i < mDevices.size(); i++) {
-                if (((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-                     (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE)) && isMMap) {
-                    PAL_DBG(LOG_TAG, "skip BT A2DP/BLE device start as it's done already");
+                if ((rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId())
+                   || (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) 
+                    && isMMap) {
+                    PAL_DBG(LOG_TAG, "skip BT device start as it's done already");
                     status = 0;
                     continue;
                 }
@@ -701,6 +703,12 @@ int32_t StreamPCM::stop()
             PAL_VERBOSE(LOG_TAG, "session stop successful");
 
             for (int32_t i=0; i < mDevices.size(); i++) {
+                if ((rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId())||
+                     (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) && isMMap) {
+                    PAL_DBG(LOG_TAG, "skip BT A2DP/BLE/Speaker device stop, to be done in close/disconnect");
+                    status = 0;
+                    continue;
+                }
                 status = mDevices[i]->stop();
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "Rx device stop failed with status %d", status);
@@ -708,7 +716,6 @@ int32_t StreamPCM::stop()
                     goto exit;
                 }
             }
-            isMMap = false;
             rm->unlockGraph();
             PAL_VERBOSE(LOG_TAG, "devices stop successful");
             break;
@@ -1106,8 +1113,56 @@ int32_t  StreamPCM::getCallBack(pal_stream_callback * /*cb*/)
     return 0;
 }
 
-int32_t StreamPCM::getParameters(uint32_t /*param_id*/, void ** /*payload*/)
+int32_t StreamPCM::setDeviceMute(pal_stream_direction_t dir, bool state)
 {
+    int32_t status = 0;
+    PAL_DBG(LOG_TAG, "Enter. ");
+
+    if (dir == PAL_AUDIO_OUTPUT)
+        deviceMuteStateRx = state;
+    else
+        deviceMuteStateTx = state;
+
+    return status;
+}
+
+int32_t StreamPCM::getDeviceMute(pal_stream_direction_t dir, bool *state)
+{
+    int32_t status = 0;
+    PAL_DBG(LOG_TAG, "Enter. ");
+
+    if(!state)
+    {
+        PAL_ERR(LOG_TAG, "NULL volume pointer sent");
+        status = -EINVAL;
+        return status;
+    }
+    if (dir == PAL_AUDIO_OUTPUT)
+        *state = deviceMuteStateRx;
+    else
+        *state = deviceMuteStateTx;
+
+    return status;
+}
+
+int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
+{
+    pal_param_payload *param_payload = nullptr;
+    PAL_DBG(LOG_TAG, "Enter.");
+
+    switch(param_id) {
+        case PAL_PARAM_ID_DEVICE_MUTE:
+        {
+            param_payload = (pal_param_payload *)(*payload);
+            pal_device_mute_t *deviceMutePayload = (pal_device_mute_t *) (param_payload + sizeof(pal_param_payload));
+            getDeviceMute(deviceMutePayload->dir, &(deviceMutePayload->mute));
+            break;
+        }
+        default:
+            PAL_INFO(LOG_TAG, "Not supported for param id %u", param_id);
+            break;
+    }
+
     return 0;
 }
 
@@ -1117,6 +1172,7 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
     int32_t setConfigStatus = 0;
     pal_param_payload *param_payload = NULL;
     effect_pal_payload_t *effectPalPayload = nullptr;
+    pal_device_mute_t *deviceMutePayload = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter, set parameter %u, session handle - %p", param_id, session);
 
@@ -1156,7 +1212,12 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
             if (NULL != session) {
                 /* To avoid pop while switching channels, it is required to mute
                    the playback first and then swap the channel and unmute */
-                setConfigStatus = session->setConfig(this, MODULE, DEVICEPP_MUTE);
+                if (mStreamAttr->type == PAL_STREAM_LOW_LATENCY ||
+                    mStreamAttr->type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+                    setConfigStatus = session->setConfig(this, MODULE, MUTE_TAG);
+                } else {
+                    setConfigStatus = session->setConfig(this, MODULE, DEVICEPP_MUTE);
+                }
                 if (setConfigStatus) {
                     PAL_INFO(LOG_TAG, "DevicePP Mute failed");
                 }
@@ -1169,7 +1230,12 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
                 mStreamMutex.unlock();
                 usleep(MUTE_RAMP_PERIOD); // Wait for channel swap to take affect
                 mStreamMutex.lock();
-                setConfigStatus = session->setConfig(this, MODULE, DEVICEPP_UNMUTE);
+                if (mStreamAttr->type == PAL_STREAM_LOW_LATENCY ||
+                    mStreamAttr->type == PAL_STREAM_ULTRA_LOW_LATENCY) {
+                    setConfigStatus = session->setConfig(this, MODULE, UNMUTE_TAG);
+                } else {
+                    setConfigStatus = session->setConfig(this, MODULE, DEVICEPP_UNMUTE);
+                }
                 if (setConfigStatus) {
                     PAL_INFO(LOG_TAG, "DevicePP Unmute failed");
                 }
@@ -1204,11 +1270,16 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
         }
         case PAL_PARAM_ID_DEVICE_MUTE:
         {
+            param_payload = (pal_param_payload *)payload;
+            deviceMutePayload = (pal_device_mute_t *)(param_payload->payload);
             status = session->setParameters(this, DEVICE_MUTE,
                                             param_id, payload);
-            if (status)
-               PAL_ERR(LOG_TAG, "setParam for slow talk failed with %d",
+            if (status) {
+               PAL_ERR(LOG_TAG, "setParam for device mute failed with %d",
                        status);
+            } else {
+               setDeviceMute(deviceMutePayload->dir, deviceMutePayload->mute);
+            }
             break;
         }
         default:
@@ -1759,7 +1830,8 @@ int32_t StreamPCM::createMmapBuffer(int32_t min_size_frames,
     if (currentState == STREAM_INIT) {
         rm->lockGraph();
         for (int32_t i=0; i < mDevices.size(); i++) {
-            if (rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId())) {
+            if (rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId()) ||
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) {
                 PAL_DBG(LOG_TAG, "start BT devices as to populate the full GKVs");
                 status = mDevices[i]->start();
                 btDevStarted = !status;

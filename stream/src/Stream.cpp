@@ -27,7 +27,6 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -40,6 +39,7 @@
 #include "StreamCompress.h"
 #include "StreamSoundTrigger.h"
 #include "StreamACD.h"
+#include "StreamASR.h"
 #include "StreamContextProxy.h"
 #include "StreamUltraSound.h"
 #include "StreamSensorPCMData.h"
@@ -110,7 +110,8 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
         goto stream_create;
     }
 
-    if (sAttr->type == PAL_STREAM_VOICE_CALL_MUSIC)
+    if ((sAttr->type == PAL_STREAM_VOICE_CALL_MUSIC) ||
+        (sAttr->type == PAL_STREAM_VOICE_CALL_RECORD))
         goto stream_create;
 
     if (sAttr->type == PAL_STREAM_SENSOR_PCM_DATA) {
@@ -240,6 +241,14 @@ stream_create:
                     break;
                 case PAL_STREAM_ACD:
                     stream = new StreamACD(sAttr,
+                                           palDevsAttr,
+                                           noOfDevices,
+                                           modifiers,
+                                           noOfModifiers,
+                                           rm);
+                    break;
+                case PAL_STREAM_ASR:
+                    stream = new StreamASR(sAttr,
                                            palDevsAttr,
                                            noOfDevices,
                                            modifiers,
@@ -824,6 +833,79 @@ int32_t Stream::getBufInfo(size_t *in_buf_size, size_t *in_buf_count,
     return status;
 }
 
+int32_t Stream::getBufSize(size_t *in_buf_size, size_t *out_buf_size)
+{
+    int32_t status = 0;
+    struct pal_stream_attributes *sattr = NULL;
+    sattr = (struct pal_stream_attributes *)calloc(1, sizeof(struct pal_stream_attributes));
+    if (!sattr) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "stream attribute malloc failed %s, status %d", strerror(errno), status);
+        goto exit;
+    }
+
+    if (!in_buf_size)
+        PAL_DBG(LOG_TAG, "Invalid In Buffer size");
+
+    if (!out_buf_size)
+        PAL_DBG(LOG_TAG, "Invalid Out Buffer size");
+
+    status = getStreamAttributes(sattr);
+    if (sattr->direction == PAL_AUDIO_OUTPUT) {
+        if(!out_buf_size) {
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "Invalid output buffer size status %d", status);
+            goto exit;
+        }
+        switch (sattr->type) {
+            case PAL_STREAM_DEEP_BUFFER:
+            case PAL_STREAM_PCM_OFFLOAD:
+                *out_buf_size = ((sattr->out_media_config.bit_width) / 8) *
+                                (sattr->out_media_config.sample_rate) *
+                                (sattr->out_media_config.ch_info.channels);
+
+                *out_buf_size = *out_buf_size / 1000;
+                *out_buf_size = *out_buf_size * DEEP_BUFFER_OUTPUT_PERIOD_DURATION;
+                break;
+            case PAL_STREAM_COMPRESSED:
+                *out_buf_size = COMPRESS_OFFLOAD_FRAGMENT_SIZE;
+                break;
+            default:
+                PAL_ERR(LOG_TAG, "unsupported stream type 0x%x", sattr->type);
+                break;
+        }
+        PAL_DBG(LOG_TAG, "out_buf_size %zu", *out_buf_size);
+    } else if (sattr->direction == PAL_AUDIO_INPUT) {
+        if(!in_buf_size) {
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "Invalid input buffer size status %d", status);
+            goto exit;
+        }
+
+        switch (sattr->type) {
+            case PAL_STREAM_DEEP_BUFFER:
+            case PAL_STREAM_PCM_OFFLOAD:
+                *in_buf_size = ((sattr->out_media_config.bit_width) / 8) *
+                                (sattr->out_media_config.sample_rate) *
+                                (sattr->out_media_config.ch_info.channels);
+
+                *in_buf_size = *in_buf_size / 1000;
+                *in_buf_size = *in_buf_size * AUDIO_CAPTURE_PERIOD_DURATION_MSEC;
+                break;
+            case PAL_STREAM_COMPRESSED:
+                *in_buf_size = COMPRESS_OFFLOAD_FRAGMENT_SIZE;
+                break;
+            default:
+                PAL_ERR(LOG_TAG, "unsupported stream type 0x%x", sattr->type);
+                break;
+        }
+        PAL_DBG(LOG_TAG, "in_buf_size %zu", *in_buf_size);
+    }
+
+exit:
+    return status;
+}
+
 bool Stream::isStreamAudioOutFmtSupported(pal_audio_fmt_t format)
 {
     switch (format) {
@@ -1268,6 +1350,19 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
                 goto exit;
             }
 
+            /* Special handling for aaudio usecase on Speaker
+             * Speaker device start needs to be called before graph_open
+             * to start VI feedback graph and send SP payload to AGM.
+             */
+            if (dev->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER && isMMap) {
+                status = dev->start();
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "Speaker device start failed with status %d", status);
+                    dev->close();
+                    mDevices.pop_back();
+                    goto exit;
+                }
+            }
             status = session->connectSessionDevice(this, mStreamAttr->type, dev);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "connectSessionDevice failed:%d", status);
@@ -1298,11 +1393,11 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
 {
     int32_t status = 0;
 
-    if (currentState == STREAM_IDLE) {
+    if (currentState == STREAM_IDLE || PAL_CARD_STATUS_DOWN(rm->cardState)) {
         for (int i = 0; i < mDevices.size(); i++) {
             if (dev_id == mDevices[i]->getSndDeviceId()) {
                 mDevices.erase(mDevices.begin() + i);
-                PAL_DBG(LOG_TAG, "stream is in IDLE state, erase device: %d", dev_id);
+                PAL_DBG(LOG_TAG, "stream is in IDLE state or SSR coming, erase device: %d", dev_id);
                 break;
             }
         }
@@ -1333,9 +1428,10 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
              */
 
             if ((currentState != STREAM_INIT && currentState != STREAM_STOPPED) ||
-                (currentState == STREAM_INIT &&
+                ((currentState == STREAM_INIT || currentState == STREAM_STOPPED) &&
                 ((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE)) &&
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) &&
                  isMMap)) {
                 status = mDevices[i]->stop();
                 if (0 != status) {
@@ -1393,8 +1489,8 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
 
     dev->setDeviceAttributes(*dattr);
 
-    if (currentState == STREAM_IDLE) {
-        PAL_DBG(LOG_TAG, "stream is in IDLE state, insert %d to mDevices", dev->getSndDeviceId());
+    if (currentState == STREAM_IDLE || PAL_CARD_STATUS_DOWN(rm->cardState)) {
+        PAL_DBG(LOG_TAG, "stream is in IDLE state or SSR coming, insert %d to mDevices", dev->getSndDeviceId());
         mDevices.push_back(dev);
         status = 0;
         goto exit;
@@ -1449,9 +1545,9 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
         goto dev_close;
     }
 
-    /* Special handling for aaudio usecase on A2DP/BLE.
-     * For mmap usecase, if device switch happens to A2DP/BLE device
-     * before stream_start then start A2DP/BLE dev. since it won't be
+    /* Special handling for aaudio usecase on A2DP/BLE/Speaker.
+     * For mmap usecase, if device switch happens to A2DP/BLE/Speaker device
+     * before stream_start then start A2DP/BLE/speaker dev. since it won't be
      * started again as a part of pal_stream_start().
      *
      * Currently device switch to BT is not supported for stopped mmap stream.
@@ -1459,9 +1555,10 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
     // TODO: add support for device switch to BT for stopped streams
     rm->lockGraph();
     if ((currentState != STREAM_INIT && currentState != STREAM_STOPPED) ||
-        (currentState == STREAM_INIT &&
+        ((currentState == STREAM_INIT || currentState == STREAM_STOPPED) &&
         ((dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-        (dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE)) &&
+        (dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+        (dev->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) &&
         isMMap)) {
         status = dev->start();
         if (0 != status) {
@@ -1627,13 +1724,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         return -EINVAL;
     }
 
-    if (PAL_CARD_STATUS_DOWN(rm->cardState)) {
-        PAL_ERR(LOG_TAG, "Sound card offline/standby");
-        mStreamMutex.unlock();
-        rm->unlockActiveStream();
-        return 0;
-    }
-
     streamHandle->getStreamAttributes(&strAttr);
 
     for (int i = 0; i < mDevices.size(); i++) {
@@ -1719,6 +1809,9 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         std::shared_ptr<Device> dev = nullptr;
         bool devReadyStatus = false;
         pal_param_bta2dp_t* param_bt_a2dp = nullptr;
+        std::vector<Stream*> bleRecordStream;
+        struct pal_device inBleDattr = {};
+
         /*
          * When A2DP, Out Proxy and DP device is disconnected the
          * music playback is paused and the policy manager sends routing=0
@@ -1738,7 +1831,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         if ((newDevices[i].id == PAL_DEVICE_NONE) &&
             ((isCurrentDeviceProxyOut) || (isCurrentDeviceDpOut) ||
              ((isCurDeviceA2dp || isCurDeviceSco) && (!rm->isDeviceReady(curBtDevId))))) {
-            newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
+            newDevices[i].id = PAL_DEVICE_OUT_DUMMY;
 
             if (rm->getDeviceConfig(&newDevices[i], mStreamAttr)) {
                 continue;
@@ -1750,10 +1843,19 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             rm->unlockActiveStream();
             return 0;
         }
+
+        if (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) {
+            inBleDattr.id = PAL_DEVICE_IN_BLUETOOTH_BLE;
+            dev = Device::getInstance(&inBleDattr, rm);
+            if (dev) {
+                rm->getActiveStream_l(bleRecordStream, dev);
+                if (bleRecordStream.size() > 0)
+                    newDevices[i].id = PAL_DEVICE_OUT_DUMMY;
+                dev = nullptr;
+            }
+        }
         devReadyStatus = rm->isDeviceReady(newDevices[i].id);
-        if ((newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-            (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
-            (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
+        if (rm->isBtA2dpDevice(newDevices[i].id)) {
             isNewDeviceA2dp = true;
             newBtDevId = newDevices[i].id;
             isBtReady = devReadyStatus;
@@ -2139,6 +2241,7 @@ std::shared_ptr<Device> Stream::GetPalDevice(Stream *streamHandle, pal_device_id
     std::shared_ptr<Device> device = nullptr;
     StreamSoundTrigger *st_st = nullptr;
     StreamACD *st_acd = nullptr;
+    StreamASR *st_asr = nullptr;
     StreamSensorPCMData *st_sns_pcm_data = nullptr;
     struct pal_device dev;
 
@@ -2160,6 +2263,9 @@ std::shared_ptr<Device> Stream::GetPalDevice(Stream *streamHandle, pal_device_id
     } else if (mStreamAttr->type == PAL_STREAM_ACD) {
         st_acd = dynamic_cast<StreamACD*>(streamHandle);
         cap_prof = st_acd->GetCurrentCaptureProfile();
+    } else if (mStreamAttr->type == PAL_STREAM_ASR) {
+        st_asr = dynamic_cast<StreamASR*>(streamHandle);
+        cap_prof = st_asr->GetCurrentCaptureProfile();
     } else {
         st_sns_pcm_data = dynamic_cast<StreamSensorPCMData*>(streamHandle);
         cap_prof = st_sns_pcm_data->GetCurrentCaptureProfile();
