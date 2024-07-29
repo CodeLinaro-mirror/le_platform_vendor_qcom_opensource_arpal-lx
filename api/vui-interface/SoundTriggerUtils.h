@@ -37,9 +37,11 @@
 #define SOUND_TRIGGER_UTILS_H
 
 #include "PalDefs.h"
+#ifdef __cplusplus
 #include "ListenSoundModelLib.h"
 #include <memory>
 #include <cstring>
+#endif
 
 #define MAX_KW_USERS_NAME_LEN (2 * MAX_STRING_LEN)
 #define MAX_CONF_LEVEL_VALUE 100
@@ -393,6 +395,7 @@ do {\
     }\
 } while (0)
 
+#ifdef __cplusplus
 /* Listen Sound Model Library APIs */
 typedef listen_status_enum (*smlib_getSoundModelHeader_t)
 (
@@ -527,4 +530,5 @@ private:
     uint8_t *det_cf_levels_;
     uint32_t cf_levels_size_;
 };
+#endif
 #endif // SOUND_TRIGGER_UTILS_H
