@@ -1690,6 +1690,25 @@ int32_t ResourceManager::getSidetoneMode(pal_device_id_t deviceId,
     return status;
 }
 
+int32_t ResourceManager::getAweSupport(pal_device_id_t deviceId, pal_stream_type_t type, uint32_t *awe_support)
+{
+    int32_t status = 0;
+
+    *awe_support = 0;
+    for (int32_t size1 = 0; size1 < deviceInfo.size(); size1++) {
+        if (deviceId == deviceInfo[size1].deviceId) {
+            for (int32_t size2 = 0; size2 < deviceInfo[size1].usecase.size(); size2++) {
+                if (type == deviceInfo[size1].usecase[size2].type) {
+                    *awe_support = deviceInfo[size1].usecase[size2].awe_support;
+                    PAL_DBG(LOG_TAG, "found AWE flag %d for dev %d", *awe_support, deviceId);
+                    break;
+                }
+            }
+        }
+    }
+    return status;
+}
+
 int32_t ResourceManager::getVolumeSetParamInfo(struct volume_set_param_info *volinfo)
 {
     if (!volinfo)
@@ -4525,6 +4544,7 @@ std::shared_ptr<Device> ResourceManager::getActiveEchoReferenceRxDevices_l(
         PAL_ERR(LOG_TAG, "stream get attributes failed");
         goto exit;
     }
+
     if (tx_attr.direction != PAL_AUDIO_INPUT) {
         PAL_ERR(LOG_TAG, "invalid stream direction %d", tx_attr.direction);
         status = -EINVAL;
@@ -5043,7 +5063,7 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
             }
         }
         mActiveStreamMutex.unlock();
-    } else if (deviceattr->id == PAL_DEVICE_OUT_HAPTICS_DEVICE) {
+    } else if ((deviceattr->id == PAL_DEVICE_OUT_HAPTICS_DEVICE) && (!curDevAttr)) {
         // if haptics is coming, update headset sample rate if needed
         getSharedBEActiveStreamDevs(sharedBEStreamDev, PAL_DEVICE_OUT_WIRED_HEADSET);
         if (sharedBEStreamDev.size() > 0) {
@@ -5062,7 +5082,7 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
                     continue;
                 }
                 curDev->getDeviceAttributes(curDevAttr);
-                if ((curDevAttr->config.sample_rate % SAMPLINGRATE_44K == 0) &&
+                if (sAttr && (curDevAttr->config.sample_rate % SAMPLINGRATE_44K == 0) &&
                     (sAttr->out_media_config.sample_rate % SAMPLINGRATE_44K != 0)) {
                     curDevAttr->config.sample_rate = sAttr->out_media_config.sample_rate;
                     curDevAttr->config.bit_width = sAttr->out_media_config.bit_width;
@@ -7592,6 +7612,37 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             **(bool **)param_payload = isHifiFilterEnabled;
         }
         break;
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            PAL_ERR(LOG_TAG, "AWE enter param get config");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+
+            for (int i = 0; i < active_devices.size(); i++) {
+                int deviceId = active_devices[i].first->getSndDeviceId();
+
+                for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                    uint32_t awe_support = 0;
+                    if (*sIter == NULL) {
+                        PAL_ERR(LOG_TAG, "streamIter value is null");
+                        continue;
+                    }
+                    (*sIter)->getStreamAttributes(&st_attr);
+                    getAweSupport((pal_device_id_t)deviceId,st_attr.type,&awe_support);
+                    if (awe_support) {
+                        PAL_ERR(LOG_TAG, "%s :AWE get Config",__func__);
+                        status = (*sIter)->getParameters(param_id, param_payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "Failed to get config for AWE");
+                            continue;
+                        } else {
+                            goto exit;
+                        }
+                    }
+                }
+            }
+        }
+        break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
@@ -8447,6 +8498,36 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            PAL_ERR(LOG_TAG, "AWE enter param set config");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+
+            for (int i = 0; i < active_devices.size(); i++) {
+                int deviceId = active_devices[i].first->getSndDeviceId();
+
+                for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                    uint32_t awe_support = 0;
+                    if (*sIter == NULL) {
+                        PAL_ERR(LOG_TAG, "streamIter value is null");
+                        continue;
+                    }
+                    (*sIter)->getStreamAttributes(&st_attr);
+                    getAweSupport((pal_device_id_t)deviceId,st_attr.type, &awe_support);
+                    if (awe_support) {
+                        status = (*sIter)->setParameters(param_id, param_payload);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "Failed to set AWE");
+                            continue;
+                        } else {
+                            goto exit;
+                        }
+                    }
+                }
+            }
+        }
+        break;
         case PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG:
         {
             std::list<StreamPCM*>::iterator sIter;
@@ -8992,6 +9073,11 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
         return status;
     }
 
+    if (StrAttr.type == PAL_STREAM_INVALID) {
+        PAL_ERR(LOG_TAG,"invalid streamtype \n");
+        return -EINVAL;
+    }
+
     mResourceManagerMutex.lock();
 
     switch (StrAttr.type) {
@@ -9058,6 +9144,11 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
     if (status != 0) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
         return status;
+    }
+
+    if (StrAttr.type == PAL_STREAM_INVALID) {
+        PAL_ERR(LOG_TAG,"invalid streamtype \n");
+        return -EINVAL;
     }
 
     mResourceManagerMutex.lock();
@@ -9932,6 +10023,10 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
                         deviceInfo[size].usecase[sizeusecase].bit_width);
                 deviceInfo[size].usecase[sizeusecase].bit_width = BITWIDTH_16;
             }
+        }  else if (!strcmp(tag_name, "awe_support")) {
+            size = deviceInfo.size() - 1;
+            sizeusecase = deviceInfo[size].usecase.size() - 1;
+            deviceInfo[size].usecase[sizeusecase].awe_support = atoi(data->data_buf);
         }
     } else if (data->tag == TAG_ECREF) {
         if (!strcmp(tag_name, "id")) {

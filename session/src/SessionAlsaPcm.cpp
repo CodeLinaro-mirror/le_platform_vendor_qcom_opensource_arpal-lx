@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -50,6 +50,8 @@
 #include "audio_dam_buffer_api.h"
 #include "apm_api.h"
 #include "us_detect_api.h"
+#include "spr_api.h"
+#include "rd_sh_mem_ep_api.h"
 #include <asm-generic/ioctl.h>
 #include <sound/asound.h>
 
@@ -162,7 +164,26 @@ int SessionAlsaPcm::open(Stream * s)
                 PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                 rm->freeFrontEndIds(pcmDevIds, sAttr, ldir);
                 frontEndIdAllocated = false;
+                break;
             }
+#ifdef LVDPK_ENABLED
+            if ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY)) {
+                // Register for overrun callback for
+                // only record related streams
+                status = rm->registerMixerEventCallback(pcmDevIds,
+                                                        sessionCb, cbCookie, true);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to register callback for type %d to rm", sAttr.type);
+                    // If registration fails for this then pop noise
+                    // issue will come. It isn't fatal so not throwing error.
+                    isOverrunRegistrationDone = false;
+                }
+                else {
+                    isOverrunRegistrationDone = true;
+                }
+            }
+#endif
             break;
         case PAL_AUDIO_OUTPUT:
             status = SessionAlsaUtils::open(s, rm, pcmDevIds, rxAifBackEnds);
@@ -170,23 +191,27 @@ int SessionAlsaPcm::open(Stream * s)
                 PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
                 rm->freeFrontEndIds(pcmDevIds, sAttr, 0);
                 frontEndIdAllocated = false;
+                break;
             }
-            else if ((sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
-                     (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
-                     (sAttr.type == PAL_STREAM_LOW_LATENCY)) {
-                     // Register for SoftPause callback for
-                     // only playback related streams
-                     status = rm->registerMixerEventCallback(pcmDevIds,
-                         sessionCb, cbCookie, true);
-                     if (status != 0) {
-                         PAL_ERR(LOG_TAG, "Failed to register callback to rm");
-                         // If registration fails for this then pop noise
-                         // issue will come. It isn't fatal so not throwing error.
-                         status = 0;
-                         isPauseRegistrationDone = false;
-                     }
-                     else
-                         isPauseRegistrationDone = true;
+            if ((sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+                (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                (sAttr.type == PAL_STREAM_LOW_LATENCY)) {
+                // Register for SoftPause/underrun callback for
+                // only playback related streams
+                status = rm->registerMixerEventCallback(pcmDevIds,
+                                                        sessionCb, cbCookie, true);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Failed to register callback to rm");
+                    // If registration fails for this then pop noise
+                    // issue will come. It isn't fatal so not throwing error.
+                    status = 0;
+                    isPauseRegistrationDone = false;
+                    isUnderrunRegistrationDone = false;
+                }
+                else {
+                    isPauseRegistrationDone = true;
+                    isUnderrunRegistrationDone = true;
+                }
             }
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
@@ -1027,6 +1052,27 @@ set_mixer:
                     PAL_ERR(LOG_TAG, "pcm_start failed %d", status);
                 }
             }
+
+#ifdef LVDPK_ENABLED
+            if (!status && isOverrunRegistrationDone) {
+                PAL_DBG(LOG_TAG, "register for overrun event");
+                payload_size = sizeof(struct agm_event_reg_cfg);
+                memset(&event_cfg, 0, sizeof(event_cfg));
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 1;
+                event_cfg.event_id = EVENT_ID_RD_SH_MEM_EP_TIMESTAMP_DISC_DETECTION;
+                status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                                  txAifBackEnds[0].second.data(), SHMEM_ENDPOINT, (void *)&event_cfg,
+                                  payload_size);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Register for Overrun event failed %d", status);
+                    // If registration fails for this then pop issue will come.
+                    // It isn't fatal so not throwing error.
+                    status = 0;
+                    isOverrunRegistrationDone = false;
+                }
+            }
+#endif
             break;
         case PAL_AUDIO_OUTPUT:
             if (sAttr.type == PAL_STREAM_VOICE_CALL_MUSIC) {
@@ -1134,6 +1180,26 @@ pcm_start:
                     isPauseRegistrationDone = false;
                 }
             }
+#ifdef LVDPK_ENABLED
+            if (!status && isUnderrunRegistrationDone && sAttr.type == PAL_STREAM_LOW_LATENCY) {
+                PAL_DBG(LOG_TAG, "register for underrun event");
+                payload_size = sizeof(struct agm_event_reg_cfg);
+                memset(&event_cfg, 0, sizeof(event_cfg));
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 1;
+                event_cfg.event_id = EVENT_ID_SPR_UNDERRUN;
+                status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                                  rxAifBackEnds[0].second.data(), STREAM_SPR, (void *)&event_cfg,
+                                  payload_size);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Register for Underrun event failed %d", status);
+                    // If registration fails for this then pop issue will come.
+                    // It isn't fatal so not throwing error.
+                    status = 0;
+                    isUnderrunRegistrationDone = false;
+                }
+            }
+#endif
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
             status = s->getAssociatedDevices(associatedDevices);
@@ -1246,6 +1312,27 @@ int SessionAlsaPcm::stop(Stream * s)
                     PAL_ERR(LOG_TAG, "pcm_stop failed %d", status);
                 }
             }
+
+#ifdef LVDPK_ENABLED
+            if (!status && isOverrunRegistrationDone) {
+                PAL_DBG(LOG_TAG, "Deregister for overrun event");
+                payload_size = sizeof(struct agm_event_reg_cfg);
+                memset(&event_cfg, 0, sizeof(event_cfg));
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 0;
+                event_cfg.event_id = EVENT_ID_RD_SH_MEM_EP_TIMESTAMP_DISC_DETECTION;
+                status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                                  txAifBackEnds[0].second.data(), SHMEM_ENDPOINT, (void *)&event_cfg,
+                                  payload_size);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Register for Overrun event failed %d", status);
+                    // If deregistration fails for this then pop issue will come.
+                    // It isn't fatal so not throwing error.
+                    status = 0;
+                    isOverrunRegistrationDone = false;
+                }
+            }
+#endif
         break;
         case PAL_AUDIO_OUTPUT:
             if (pcm && isActive()) {
@@ -1270,6 +1357,27 @@ int SessionAlsaPcm::stop(Stream * s)
                         payload_size);
                 isPauseRegistrationDone = false;
             }
+
+#ifdef LVDPK_ENABLED
+            if (!status && isUnderrunRegistrationDone && sAttr.type == PAL_STREAM_LOW_LATENCY) {
+                PAL_DBG(LOG_TAG, "Deregister for underrun event");
+                payload_size = sizeof(struct agm_event_reg_cfg);
+                memset(&event_cfg, 0, sizeof(event_cfg));
+                event_cfg.event_config_payload_size = 0;
+                event_cfg.is_register = 0;
+                event_cfg.event_id = EVENT_ID_SPR_UNDERRUN;
+                status = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                                  rxAifBackEnds[0].second.data(), STREAM_SPR, (void *)&event_cfg,
+                                  payload_size);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "Register for Underrun event failed %d", status);
+                    // If deregistration fails for this then pop issue will come.
+                    // It isn't fatal so not throwing error.
+                    status = 0;
+                    isUnderrunRegistrationDone = false;
+                }
+            }
+#endif
             break;
         case PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT:
             if (pcmRx && isActive()) {
@@ -1395,6 +1503,18 @@ int SessionAlsaPcm::close(Stream * s)
                 status = errno;
                 PAL_ERR(LOG_TAG, "pcm_close failed %d", status);
             }
+#ifdef LVDPK_ENABLED
+            // Deregister callback for Overrun
+            if (!status && isOverrunRegistrationDone) {
+                status = rm->registerMixerEventCallback(pcmDevIds,
+                    sessionCb, cbCookie, false);
+                if (status != 0) {
+                    PAL_DBG(LOG_TAG, "Failed to deregister callback to rm");
+                    status = 0;
+                }
+                isOverrunRegistrationDone = false;
+            }
+#endif
             if (sAttr.type == PAL_STREAM_ACD ||
                 sAttr.type == PAL_STREAM_SENSOR_PCM_DATA)
                 ldir = TX_HOSTLESS;
@@ -1447,8 +1567,8 @@ int SessionAlsaPcm::close(Stream * s)
                 status = errno;
                 PAL_ERR(LOG_TAG, "pcm_close failed %d", status);
             }
-            // Deregister callback for Soft Pause
-            if (!status && isPauseRegistrationDone) {
+            // Deregister callback for Soft Pause/Underrun
+            if (!status && (isPauseRegistrationDone || isUnderrunRegistrationDone)) {
                 status = rm->registerMixerEventCallback(pcmDevIds,
                     sessionCb, cbCookie, false);
                 if (status != 0) {
@@ -1456,6 +1576,7 @@ int SessionAlsaPcm::close(Stream * s)
                     status = 0;
                 }
                 isPauseRegistrationDone = false;
+                isUnderrunRegistrationDone = false;
             }
             rm->freeFrontEndIds(pcmDevIds, sAttr, 0);
             pcm = NULL;
@@ -1897,7 +2018,7 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
     size_t paramSize = 0;
     uint32_t miid = 0;
     effect_pal_payload_t *effectPalPayload = nullptr;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
 
     PAL_DBG(LOG_TAG, "Enter. param id: %d", param_id);
     if (pcmDevIds.size() > 0)
@@ -2053,6 +2174,59 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
         case PAL_PARAM_ID_MODULE_CONFIG:
         {
             pal_param_payload *param_payload = (pal_param_payload *)payload;
+            if (param_payload->payload_size) {
+                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
+                                                              param_payload->payload,
+                                                              param_payload->payload_size);
+                 PAL_INFO(LOG_TAG, "mixer set module config status=%d\n", status);
+            }
+            return 0;
+        }
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            status = streamHandle->getStreamAttributes(&sAttr);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get attributes status= %d", status);
+                return status;
+            }
+            status = getPCMDeviceID(streamHandle,&device);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get Deivce id status = %d", status);
+                return status;
+            }
+
+            if (PAL_AUDIO_INPUT == sAttr.direction)
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                               txAifBackEnds[0].second.data(),
+                                                               tagId, &miid);
+            else if (PAL_AUDIO_OUTPUT == sAttr.direction)
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                               rxAifBackEnds[0].second.data(),
+                                                               tagId, &miid);
+            else {
+                if (pcmDevRxIds.size() > 0) {
+                    device = pcmDevRxIds.at(0);
+                    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                                    rxAifBackEnds[0].second.data(),
+                                                                    tagId, &miid);
+                    if (status) {
+                        if (pcmDevTxIds.size() > 0)
+                            device = pcmDevTxIds.at(0);
+                        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                                        txAifBackEnds[0].second.data(),
+                                                                        tagId, &miid);
+                    }
+                }
+            }
+            if (miid == 0) {
+                PAL_ERR(LOG_TAG, "failed to look for module with tagID 0x%x", tagId);
+                status = -EINVAL;
+                goto exit;
+            }
+            pal_param_payload *param_payload = (pal_param_payload *)payload;
+            struct apm_module_param_data_t* header =
+                (struct apm_module_param_data_t *)param_payload->payload;
+            header->module_instance_id = miid;
             if (param_payload->payload_size) {
                  status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                               param_payload->payload,
@@ -2312,34 +2486,43 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
     uint8_t *payloadData = NULL;
     size_t payloadSize = 0;
     size_t configSize = 0;
-    int device = pcmDevIds.at(0);
+    int device = 0;
     uint32_t miid = 0;
     const char *control = "getParam";
     const char *stream = "PCM";
     struct mixer_ctl *ctl;
     std::ostringstream CntrlName;
+    struct pal_stream_attributes sAttr;
+
     PAL_DBG(LOG_TAG, "Enter.");
 
-    CntrlName << stream << pcmDevIds.at(0) << " " << control;
-    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
-    if (!ctl) {
-        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
-        status = -ENOENT;
-        goto exit;
+    if (pcmDevIds.size() > 0) {
+        device = pcmDevIds.at(0);
     }
+    status = streamHandle->getStreamAttributes(&sAttr);
 
-    if (!rxAifBackEnds.empty()) { /** search in RX GKV */
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, device, rxAifBackEnds[0].second.data(),
-                tagId, &miid);
-        if (status) /** if not found, reset miid to 0 again */
-            miid = 0;
-    }
-
-    if (!txAifBackEnds.empty()) { /** search in TX GKV */
-        status = SessionAlsaUtils::getModuleInstanceId(mixer, device, txAifBackEnds[0].second.data(),
-                tagId, &miid);
-        if (status)
-            miid = 0;
+    if (PAL_AUDIO_INPUT == sAttr.direction)
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                        txAifBackEnds[0].second.data(),
+                                                        tagId, &miid);
+    else if (PAL_AUDIO_OUTPUT == sAttr.direction)
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                        rxAifBackEnds[0].second.data(),
+                                                        tagId, &miid);
+    else {
+        if (pcmDevRxIds.size() > 0) {
+            device = pcmDevRxIds.at(0);
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                            rxAifBackEnds[0].second.data(),
+                                                            tagId, &miid);
+            if (status) {
+                if (pcmDevTxIds.size() > 0)
+                    device = pcmDevTxIds.at(0);
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                                            txAifBackEnds[0].second.data(),
+                                                            tagId, &miid);
+            }
+        }
     }
 
     if (miid == 0) {
@@ -2348,8 +2531,27 @@ int SessionAlsaPcm::getParameters(Stream *s __unused, int tagId, uint32_t param_
         goto exit;
     }
 
+    CntrlName << stream <<device  << " " << control;
+
+    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
+        status = -ENOENT;
+        goto exit;
+    }
 
     switch (param_id) {
+        case PAL_PARAM_ID_CUSTOM_MODULE_CONFIG:
+        {
+            payloadData = (uint8_t *)*payload;
+            struct apm_module_param_data_t *header =
+                (struct apm_module_param_data_t *)payloadData;
+            configSize = header->param_size;
+            header->module_instance_id = miid;
+            payloadSize = PAL_ALIGN_8BYTE(
+                configSize + sizeof(struct apm_module_param_data_t));
+            break;
+        }
         case PAL_PARAM_ID_DIRECTION_OF_ARRIVAL:
         {
             configSize = sizeof(struct ffv_doa_tracking_monitor_t);
@@ -2682,7 +2884,6 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
             }
             info->flags |= PAL_MMMAP_BUFF_FLAGS_APP_SHAREABLE;
         }
-        memset(info->buffer, 0, pcm_frames_to_bytes(pcm,info->buffer_size_frames));
 
         status = pcm_mmap_commit(pcm, 0, SESSION_ALSA_MMAP_PERIOD_SIZE);
         if (status < 0) {

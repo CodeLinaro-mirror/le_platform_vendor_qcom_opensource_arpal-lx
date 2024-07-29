@@ -37,7 +37,6 @@
 #include <tinyalsa/asoundlib.h>
 #include "ResourceManager.h"
 #include "SessionAlsaUtils.h"
-#include "Device.h"
 #include "Speaker.h"
 #include "A2BSpeaker.h"
 #include "A2B2Speaker.h"

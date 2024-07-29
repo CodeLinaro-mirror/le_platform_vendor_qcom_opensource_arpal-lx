@@ -685,6 +685,8 @@ typedef enum {
     PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY, /* partial drain completed */
     PAL_STREAM_CBK_EVENT_READ_DONE, /* stream hit some error, let AF take action */
     PAL_STREAM_CBK_EVENT_ERROR, /* stream hit some error, let AF take action */
+    PAL_STREAM_EVENT_UNDERRUN, /* stream detect underrun happened */
+    PAL_STREAM_EVENT_OVERRUN, /* stream detect overrun happened */
 } pal_stream_callback_event_t;
 
 /* type of global callback events. */
@@ -968,6 +970,7 @@ typedef enum {
     PAL_PARAM_ID_PLUGIN_CLOSE = 61,
     PAL_PARAM_ID_STREAM_BUS_DUCK_CONFIG = 62,
     PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 63,
+    PAL_PARAM_ID_CUSTOM_MODULE_CONFIG = 64, /*Clients directly configure custom modules*/
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
@@ -1455,6 +1458,19 @@ struct pal_event_read_write_done_payload {
     uint32_t status; /**< data buffer status as defined in ar_osal_error.h */
     uint32_t md_status; /**< meta-data status as defined in ar_osal_error.h */
     struct pal_buffer buff; /**< buffer that was passed to pal_stream_read/pal_stream_write */
+};
+
+/**
+ * Event payload passed to client with PAL_STREAM_EVENT_OVERRUN events
+  */
+struct pal_event_overrun_payload {
+    uint32_t flags; /**< Frame flags.
+                         - 1 -- Timestamp is valid
+                         - 0 -- Timestamp is not valid */
+    uint32_t timestamp_disc_duration_us_msw; /**< MSW of difference in timestamp detected that
+                                              *led to the discontinuity in microseconds.  */
+    uint32_t timestamp_disc_duration_us_lsw; /**< LSW of difference in timestamp detected that
+                                              *led to the discontinuity in microseconds.  */
 };
 
 /** @brief Callback function prototype to be given for
