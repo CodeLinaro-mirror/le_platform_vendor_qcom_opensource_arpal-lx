@@ -471,6 +471,13 @@
                 <graph_kv key="0xBA000000" value="0xBA000001"/>
             </keys_and_values>
         </device>
+         <!-- In HDMI input Device -->
+         <device id="PAL_DEVICE_IN_HDMI, PAL_DEVICE_IN_AUX_DIGITAL">
+             <keys_and_values StreamType="PAL_STREAM_RAW" >
+                 <!-- DEVICETX – HDMI_TX -->
+                 <graph_kv key="0xA3000000" value="0xA3000010"/>
+             </keys_and_values>
+         </device>
         <!-- In wired Headset Device -->
         <device id="PAL_DEVICE_IN_WIRED_HEADSET">
             <keys_and_values>
