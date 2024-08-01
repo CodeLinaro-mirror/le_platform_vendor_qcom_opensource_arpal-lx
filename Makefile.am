@@ -20,6 +20,8 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/device/inc/HeadsetMic.h \
             ${top_srcdir}/device/inc/Handset.h \
             ${top_srcdir}/device/inc/HandsetMic.h \
+            ${top_srcdir}/device/inc/A2BMic.h \
+            ${top_srcdir}/device/inc/A2B2Mic.h \
             ${top_srcdir}/device/inc/HandsetVaMic.h \
             ${top_srcdir}/device/inc/DisplayPort.h \
             ${top_srcdir}/device/inc/UltrasoundDevice.h \
@@ -66,7 +68,7 @@ AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/spf
 AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/
 AM_CPPFLAGS += -I ${WORKSPACE}/audio/mm-audio-headers/audio-listen/
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result
-AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
+AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DLVDPK_ENABLED
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DCONFIG_GSL
 
@@ -87,6 +89,8 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/device/src/HeadsetMic.cpp \
               ${top_srcdir}/device/src/Handset.cpp \
               ${top_srcdir}/device/src/HandsetMic.cpp \
+              ${top_srcdir}/device/src/A2BMic.cpp \
+              ${top_srcdir}/device/src/A2B2Mic.cpp \
               ${top_srcdir}/device/src/HandsetVaMic.cpp \
               ${top_srcdir}/device/src/HfpUplink.cpp \
               ${top_srcdir}/device/src/HfpDownlink.cpp \
