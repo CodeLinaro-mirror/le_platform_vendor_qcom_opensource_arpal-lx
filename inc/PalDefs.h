@@ -246,6 +246,19 @@ typedef struct effect_pal_payload_s {
     uint32_t  payload[]; /* TKV uses pal_key_vector_t, while nonTKV uses pal_effect_custom_payload_t */
 } effect_pal_payload_t;
 
+/* Type of Modes for Haptics Device Protection */
+typedef enum {
+    PAL_HAP_MODE_DYNAMIC_CAL = 1,
+    PAL_HAP_MODE_FACTORY_TEST,
+} pal_haptics_mode;
+
+/* Payload For ID: PAL_PARAM_ID_HAPTICS_MODE
+ * Description   : Values for haptics modes
+ */
+typedef struct pal_haptics_payload {
+    pal_haptics_mode operationMode;/* Type of mode for which request is raised */
+} pal_haptics_payload;
+
 /* Type of Modes for Speaker Protection */
 typedef enum {
     PAL_SP_MODE_DYNAMIC_CAL = 1,
@@ -484,6 +497,12 @@ typedef enum {
 typedef enum {
     PAL_STREAM_PROXY_RX_WFD = 1,
 } pal_stream_proxy_rx_type_t;
+
+typedef enum {
+    PAL_STREAM_HAPTICS_RINGTONE,
+    PAL_STREAM_HAPTICS_TOUCH = 1,
+    PAL_STREAM_HAPTICS_PCM = 2,
+} pal_stream_haptics_type_t;
 
 #ifdef __cplusplus
 static const std::map<std::string, pal_device_id_t> deviceIdLUT {
@@ -995,6 +1014,7 @@ typedef enum {
     PAL_PARAM_ID_PROXY_RECORD_SESSION = 74,
     PAL_PARAM_ID_ST_CAPTURE_INFO = 75,
     PAL_PARAM_ID_RESOURCES_AVAILABLE = 76,
+    PAL_PARAM_ID_HAPTICS_MODE = 77,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1155,6 +1175,22 @@ typedef struct pal_param_uhqa_state {
     bool uhqa_state;
 } pal_param_uhqa_t;
 
+/* Payload For ID: PAL_PARAM_ID_HAPTICS_CNFG
+ * Description   : Store the haptics param and use while extracting info from
+                   xml
+*/
+typedef struct  pal_param_haptics_cnfg_t {
+    pal_stream_haptics_type_t mode;
+    int16_t  effect_id;
+    float    amplitude;
+    int16_t  strength;
+    int32_t time;
+    int16_t ch_mask;
+    bool isCompose;
+    int32_t buffer_size;
+    uint8_t *buffer_ptr;
+} pal_param_haptics_cnfg_t;
+
 /* Payload For ID: PAL_PARAM_ID_BT_SCO*
  * Description   : BT SCO related device parameters
 */
@@ -1265,11 +1301,6 @@ typedef struct pal_bt_lc3_payload_s {
 typedef struct pal_param_haptics_intensity {
     int intensity;
 } pal_param_haptics_intensity_t;
-
-typedef enum {
-    PAL_STREAM_HAPTICS_RINGTONE,
-    PAL_STREAM_HAPTICS_TOUCH = 1,
-} pal_stream_haptics_type_t;
 
 /**< PAL device */
 #define DEVICE_NAME_MAX_SIZE 128
