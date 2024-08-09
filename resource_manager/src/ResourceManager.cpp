@@ -5060,7 +5060,7 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
             }
         }
         mActiveStreamMutex.unlock();
-    } else if ((deviceattr->id == PAL_DEVICE_OUT_HAPTICS_DEVICE) && (!curDevAttr)) {
+    } else if ((deviceattr->id == PAL_DEVICE_OUT_HAPTICS_DEVICE) && (curDevAttr)) {
         // if haptics is coming, update headset sample rate if needed
         getSharedBEActiveStreamDevs(sharedBEStreamDev, PAL_DEVICE_OUT_WIRED_HEADSET);
         if (sharedBEStreamDev.size() > 0) {
