@@ -553,6 +553,25 @@ int32_t StreamPCM::start()
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "Tx device start is failed with status %d", status);
                     rm->unlockGraph();
+
+                    /* In case of a voice call, if OUT dev started successfully
+                     * but IN dev failed to start then stop OUT dev before closing it
+                     */
+                    for (int32_t i = 0; i < mDevices.size(); i++) {
+                      int32_t dev_id = mDevices[i]->getSndDeviceId();
+
+                      if (dev_id <= PAL_DEVICE_OUT_MIN || dev_id >= PAL_DEVICE_OUT_MAX)
+                          continue;
+
+                      status = mDevices[i]->stop();
+                      if (0 != status) {
+                          PAL_ERR(LOG_TAG, "Rx device stop is failed with status %d",
+                                                              status);
+                          goto exit;
+                      }
+
+                    }
+                    PAL_VERBOSE(LOG_TAG, "RX devices stop successful");
                     goto exit;
                 }
             }
@@ -940,6 +959,9 @@ int32_t StreamPCM::write(struct pal_buffer* buf)
 {
     int32_t status = 0;
     int32_t size = 0;
+    bool isA2dp = false;
+    bool isSpkr = false;
+    bool isA2dpSuspended = false;
     uint32_t frameSize = 0;
     uint32_t byteWidth = 0;
     uint32_t sampleRate = 0;

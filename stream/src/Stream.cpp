@@ -873,25 +873,30 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
         }
     }
 
-    /* A2DP device is not ready */
-    if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {
-        dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+    /* A2DP/BLE device is not ready */
+    if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
+        rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_BLE)) {
+        if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {
+            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+        } else {
+            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
+        }
         dev = Device::getInstance(&dattr, rm);
         if (!dev) {
             status = -ENODEV;
-            PAL_ERR(LOG_TAG, "failed to get a2dp device object");
+            PAL_ERR(LOG_TAG, "failed to get a2dp/ble device object");
             goto exit;
         }
         dev->getDeviceParameter(PAL_PARAM_ID_BT_A2DP_SUSPENDED,
                         (void **)&param_bt_a2dp);
         if (param_bt_a2dp->a2dp_suspended == false) {
-            PAL_DBG(LOG_TAG, "BT A2DP output device is good to go");
+            PAL_DBG(LOG_TAG, "BT A2DP/BLE output device is good to go");
             goto exit;
         }
 
         if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_SPEAKER)) {
             // If it's a2dp + speaker combo device, route to speaker.
-            PAL_INFO(LOG_TAG, "BT A2DP output device is not ready, route to speaker");
+            PAL_INFO(LOG_TAG, "BT A2DP/BLE output device is not ready, route to speaker");
             for (auto iter = mDevices.begin(); iter != mDevices.end();) {
                 if ((*iter)->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER) {
                     iter++;
@@ -917,12 +922,12 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
             }
         } else {
             // For non-combo device, mute the stream and route to speaker or handset
-            PAL_INFO(LOG_TAG, "BT A2DP output device is not ready");
+            PAL_INFO(LOG_TAG, "BT A2DP/BLE output device is not ready");
 
             // Mark the suspendedDevIds state early - As a2dpResume may happen during this time.
             a2dpSuspend = true;
             suspendedDevIds.clear();
-            suspendedDevIds.push_back(PAL_DEVICE_OUT_BLUETOOTH_A2DP);
+            suspendedDevIds.push_back(dattr.id);
 
             for (int i = 0; i < mDevices.size(); i++) {
                 rm->lockGraph();
@@ -1291,6 +1296,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     struct pal_volume_data *volume = NULL;
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
+    pal_device_id_t curBtDevId;
 
     rm->lockActiveStream();
     mStreamMutex.lock();
@@ -1315,8 +1321,12 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
         uint32_t tmp = numDev;
 
-        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP || curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE)
+        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
             isCurDeviceA2dp = true;
+            curBtDevId = curDevId;
+        }
 
         if (curDevId == PAL_DEVICE_OUT_PROXY)
             isCurrentDeviceProxyOut = true;
@@ -1378,8 +1388,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
          */
         // This assumes that PAL_DEVICE_NONE comes as single device
         if ((newDevices[i].id == PAL_DEVICE_NONE) &&
-            (((isCurDeviceA2dp == true) && ((!rm->isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_A2DP)) ||
-             (!rm->isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_BLE)))) ||
+            (((isCurDeviceA2dp == true) && (!rm->isDeviceReady(curBtDevId))) ||
              (isCurrentDeviceProxyOut) || (isCurrentDeviceDpOut))) {
             newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
 
@@ -1462,7 +1471,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             mStreamMutex.unlock();
             return -EINVAL;
         }
-        dev->insertStreamDeviceAttr(&newDevices[i], streamHandle);
+	//TODO
+        //dev->insertStreamDeviceAttr(&newDevices[i], streamHandle);
         mPalDevices.push_back(dev);
     }
 
