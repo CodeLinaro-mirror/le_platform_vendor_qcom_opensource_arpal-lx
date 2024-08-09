@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -12146,6 +12146,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
         dev = Device::getInstance(&newDevAttr, rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "Getting headset device instance failed");
+            mActiveStreamMutex.unlock();
             goto exit;
         }
         dev->getDeviceAttributes(&newDevAttr);
