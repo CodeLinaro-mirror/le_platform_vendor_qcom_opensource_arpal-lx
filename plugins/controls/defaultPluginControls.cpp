@@ -35,7 +35,7 @@
  */
 
 #define LOG_TAG "PAL: lib_default_plugin_controls"
-
+#define PADDING_8BYTE_ALIGN(x)  ((((x) + 7) & 7) ^ 7)
 #include <log/log.h>
 #include <errno.h>
 #include <stdlib.h>
@@ -83,7 +83,9 @@
 #define BUS_ALERTS           "BUS05_ALERTS"
 #define BUS_FRONT_PASSENGER  "BUS08_FRONT_PASSENGER"
 #define BUS_REAR_SEAT        "BUS16_REAR_SEAT"
-
+#define BUS_NAVIGATION2      "BUS0F_NAV_GUIDANCE2"
+#define BUS_VWARN            "BUS01_VWARN"
+#define BUS_VROADADAS        "BUS02_VROADADAS"
 /**
 * Following are the default defined period sizes
 * Customers can add/modify the period sizes as per their requirements
@@ -104,6 +106,7 @@
 #define DEEP_BUFFER_OUTPUT_PERIOD_DURATION 40
 #define MIN_PCM_FRAGMENT_SIZE 512
 #define MAX_PCM_FRAGMENT_SIZE (240 * 1024)
+#define MAX_BUS_ADDRESS 256
 
 /**
 * Following are the default defined period counts
@@ -120,7 +123,25 @@
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1)/(y))
 #define ALIGN(x, y) ((y) * DIV_ROUND_UP((x), (y)))
 
+typedef struct pal_awx_volume_data
+{
+    uint16_t volume_func;
+    uint16_t reserved;
+    int32_t value[16];
+}pal_awx_volume_data_t;
+
+
 extern "C" {
+
+const char bus_address[BUS_RESERVED][MAX_BUS_ADDRESS]={
+        BUS_MEDIA,
+        BUS_SYS_NOTIFICATION,
+        BUS_NAV_GUIDANCE,
+        BUS_PHONE,
+        BUS_NAVIGATION2,
+        BUS_VWARN,
+        BUS_VROADADAS
+};
 int payloadCalKeys(Session* s, uint8_t **payload, size_t *size, float volume)
 {
     int status = 0;
@@ -320,6 +341,151 @@ exit:
     return status;
 }
 
+
+bool checkIfAWXBus(char* address,enum Key_AWX_BUS_MAPPING* bus_index)
+{
+    bool bus_match = false ;
+
+    if (NULL != bus_index)
+    {
+        // Assing the BUS To MAX address
+
+        *bus_index = BUS_RESERVED;
+        // Check if the bus address is a valid AWX BUS_ADDRESS
+        for (int i=0; i<BUS_RESERVED ; i++)
+        {
+            PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,i);
+            if (strncmp((char *)bus_address[i], (char *)address,strlen(address)) == 0)
+            {
+                bus_match = true;
+                // Assing the index value and send it
+                *bus_index =  (enum Key_AWX_BUS_MAPPING)(i);
+                PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,*bus_index);
+                break;
+            }
+        }
+
+    }
+
+    return bus_match;
+}
+int setAWXVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm,enum Key_AWX_BUS_MAPPING busIndex)
+{
+    mixer_ctl *ctl = NULL;
+    struct mixer *mixer = nullptr;
+    Session *sess = nullptr;
+    int device = 0 ;
+    int status = 0;
+    uint32_t miid = 0;
+    uint16_t* pcmChannel = NULL;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0, size;
+    int32_t param_id = AWX_VOLUME;
+    uint32_t effect_tag = TAG_MODULE_CUSTOM_AWX;
+    struct apm_module_param_data_t* header = NULL;
+    pal_awx_volume_data_t* vol_Data =NULL;
+    char const *control = "setParam";
+    std::ostringstream calCntrlName_awx;
+    const char *stream = "PCM";
+    std::string backend_name;
+
+    PAL_INFO(LOG_TAG,"set_volume_awx %f BUS Index %x",voldB,busIndex);
+
+    // Get Backend Name
+    status = rm->getBackendName(PAL_DEVICE_OUT_SPEAKER,backend_name);
+
+    if (status) {
+        PAL_ERR(LOG_TAG,"Error in get Backend name %d",status);
+        goto exit;
+    }
+
+
+    PAL_INFO(LOG_TAG,"backend Name %s BUS Index %x",backend_name.c_str(),busIndex);
+    // Get the Mixer
+    status = rm->getVirtualAudioMixer(&mixer);
+    if (status) {
+        PAL_ERR(LOG_TAG,"mixer error");
+        goto exit;
+    }
+
+    // Get the Associated Session
+    status = s->getAssociatedSession(&sess);
+    if (status || !sess) {
+        PAL_ERR(LOG_TAG,"failed to get session");
+        goto exit;
+    }
+
+    // Get the Associated Device
+    status = sess->getPCMDeviceID(s, &device);
+    if (status) {
+        PAL_ERR(LOG_TAG,"failed to get device id");
+        goto exit;
+    }
+
+    // Get the tag
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,backend_name.c_str(),effect_tag, &miid);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s Get MIID from tag data failed\n", __func__);
+            goto exit;
+    }
+
+    PAL_INFO(LOG_TAG,"%s Get MIID from tag data  Module ID %d\n", __func__,miid);
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                sizeof(pal_awx_volume_data_t);
+
+    padBytes = PADDING_8BYTE_ALIGN(payloadSize);
+
+    payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+    if (!payloadInfo) {
+        status=-ENOMEM;
+        goto exit;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    vol_Data = (pal_awx_volume_data_t*)(payloadInfo +
+                sizeof(struct apm_module_param_data_t));
+
+    header->module_instance_id = miid;
+    header->param_id = param_id;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+    // Fill the data as per the AWX payload.
+    vol_Data->volume_func = ((uint16_t)1 << busIndex);
+
+    // Pass the volume Gain in the respective value field.
+    vol_Data->value[0] = voldB;
+
+    size = payloadSize + padBytes;
+
+    PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume Func %d Volume value %d\n", __func__,header->module_instance_id,header->param_id,header->param_size,vol_Data->volume_func,vol_Data->value[0]);
+
+    calCntrlName_awx<<stream<<device<<" "<<control;
+
+    ctl = mixer_get_ctl_by_name(mixer, calCntrlName_awx.str().data());
+
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName_awx.str().data());
+        status = -ENOENT;
+        goto exit;
+    }
+
+    status = mixer_ctl_set_array(ctl, payloadInfo, size);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s mixer_ctl_set_array data failed\n", __func__);
+            goto exit;
+    }
+
+exit:
+    ctl = NULL;
+    if (payloadInfo)
+        free(payloadInfo);
+
+    return status;
+}
 int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
 {
     uint32_t status = 0;
@@ -335,6 +501,7 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
     struct mixer *mixer;
     int ckv_size = 0;
     int deviceId;
+    enum Key_AWX_BUS_MAPPING bus_index;
 
     if (!s) {
         PAL_ERR(LOG_TAG,"invalid streeam handle");
@@ -347,84 +514,107 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         status = -EINVAL;
         goto exit;
     }
-#if 0
-    if ((sAttr.info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
-        (sAttr.info.opt_stream_info.loopback_type ==
-         PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
-         PAL_DBG(LOG_TAG, "RX/TX only Loopback don't support volume");
-         status = -EINVAL;
-         goto exit;
-    }
-#endif
 
-    status = rm->getVirtualAudioMixer(&mixer);
-    if (status) {
-        PAL_ERR(LOG_TAG,"mixer error");
-        goto exit;
-    }
-
-    status = s->getAssociatedSession(&sess);
-    if (status || !sess) {
-        PAL_ERR(LOG_TAG,"failed to get session");
-        goto exit;
-    }
-
-    status = sess->getPCMDeviceID(s, &deviceId);
-    if (status) {
-        PAL_ERR(LOG_TAG,"failed to get device id");
-        goto exit;
-    }
-
-    if (voldB > 1.0) {
-        // need to rebase voldB level
-        // doing a map for volume in audio hal is recommended if volume range is
-        // not 0.0 ~ 1.0
-        voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
-    }
-    PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f", streamNameLUT.at(sAttr.type).c_str(), voldB);
-
-    for (int i = LEVEL_15; i >= LEVEL_0; i--) {
-        if (voldB <= (float)pow(10.0, i * HFP_VOLUME_DB_LINEAR_STEP / 20)) {
-            ckv.push_back(std::make_pair(VOLUME, i));
-            PAL_INFO(LOG_TAG, "select VOLUME_LEVEL_%d", i);
-            break;
+    // if AWX BUS Handle the volume appropriately
+    if (true == checkIfAWXBus(sAttr.bus_addr ,&bus_index))
+    {
+        PAL_ERR(LOG_TAG,"AWX Bus index %d",bus_index);
+        // if its a valid AWX bus Additional Check should not happen ideally
+        if (BUS_RESERVED != bus_index)
+        {
+            status = setAWXVolume(s,voldB, rm,bus_index);
         }
+        else
+        {
+            goto exit;
+        }
+
     }
+    else
+    {
+        #if 0
+            if ((sAttr.info.opt_stream_info.loopback_type ==
+                PAL_STREAM_LOOPBACK_PLAYBACK_ONLY) ||
+                (sAttr.info.opt_stream_info.loopback_type ==
+                PAL_STREAM_LOOPBACK_CAPTURE_ONLY)) {
+                PAL_DBG(LOG_TAG, "RX/TX only Loopback don't support volume");
+                status = -EINVAL;
+                goto exit;
+            }
+        #endif
 
-    if (ckv.size() == 0) {
-        PAL_ERR(LOG_TAG, "no ckv got with voldB: %f", voldB);
-        status = -EINVAL;
-        goto exit;
-    }
+            status = rm->getVirtualAudioMixer(&mixer);
+            if (status) {
+                PAL_ERR(LOG_TAG,"mixer error");
+                goto exit;
+            }
 
-    calConfig = (struct agm_cal_config*)malloc(sizeof(struct agm_cal_config) +
-                                               (ckv.size() * sizeof(agm_key_value)));
+            status = s->getAssociatedSession(&sess);
+            if (status || !sess) {
+                PAL_ERR(LOG_TAG,"failed to get session");
+                goto exit;
+            }
 
-    if (!calConfig) {
-        status = -EINVAL;
-        goto exit;
-    }
+            status = sess->getPCMDeviceID(s, &deviceId);
+            if (status) {
+                PAL_ERR(LOG_TAG,"failed to get device id");
+                goto exit;
+            }
 
-    status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
-    if (sAttr.type == PAL_STREAM_COMPRESSED) {
-        calCntrlName<<stream_compress<<deviceId<<" "<<setCalibrationControl;
-    } else {
-        calCntrlName<<stream<<deviceId<<" "<<setCalibrationControl;
-    }
 
-    ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
-    if (!ctl) {
-        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
-        status = -ENOENT;
-        goto exit;
-    }
+            if (voldB > 1.0) {
+                // need to rebase voldB level
+                // doing a map for volume in audio hal is recommended if volume range is
+                // not 0.0 ~ 1.0
+                voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
+            }
 
-    ckv_size = ckv.size()*sizeof(struct agm_key_value);
-    status = mixer_ctl_set_array(ctl, calConfig, sizeof(struct agm_cal_config) + ckv_size);
-    if (status != 0) {
-        PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
-        goto exit;
+            PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f", streamNameLUT.at(sAttr.type).c_str(), voldB);
+
+            for (int i = LEVEL_15; i >= LEVEL_0; i--) {
+                if (voldB <= (float)pow(10.0, i * HFP_VOLUME_DB_LINEAR_STEP / 20)) {
+                    ckv.push_back(std::make_pair(VOLUME, i));
+                    PAL_INFO(LOG_TAG, "select VOLUME_LEVEL_%d", i);
+                    break;
+                }
+            }
+
+            if (ckv.size() == 0) {
+                PAL_ERR(LOG_TAG, "no ckv got with voldB: %f", voldB);
+                status = -EINVAL;
+                goto exit;
+            }
+
+            calConfig = (struct agm_cal_config*)malloc(sizeof(struct agm_cal_config) +
+                                                    (ckv.size() * sizeof(agm_key_value)));
+
+            if (!calConfig) {
+                status = -EINVAL;
+                goto exit;
+            }
+
+            status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
+            if (sAttr.type == PAL_STREAM_COMPRESSED) {
+                calCntrlName<<stream_compress<<deviceId<<" "<<setCalibrationControl;
+            } else {
+                calCntrlName<<stream<<deviceId<<" "<<setCalibrationControl;
+            }
+
+            ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
+            if (!ctl) {
+                PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
+                status = -ENOENT;
+                goto exit;
+            }
+
+
+            ckv_size = ckv.size()*sizeof(struct agm_key_value);
+
+            status = mixer_ctl_set_array(ctl, calConfig, sizeof(struct agm_cal_config) + ckv_size);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+                goto exit;
+            }
     }
 
  exit:
