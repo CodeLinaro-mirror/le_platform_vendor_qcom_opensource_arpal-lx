@@ -369,10 +369,9 @@ bool checkIfAWXBus(char* address,pal_awx_bus_type_t* bus_index)
 {
     bool bus_match = false ;
 
-    if (NULL != bus_index)
+    if ((NULL != address) && (NULL != bus_index))
     {
         // Assing the BUS To MAX address
-
         *bus_index = BUS_RESERVED;
         // Check if the bus address is a valid AWX BUS_ADDRESS
         for (int i=0; i<BUS_RESERVED ; i++)
@@ -387,7 +386,6 @@ bool checkIfAWXBus(char* address,pal_awx_bus_type_t* bus_index)
                 break;
             }
         }
-
     }
 
     return bus_match;
