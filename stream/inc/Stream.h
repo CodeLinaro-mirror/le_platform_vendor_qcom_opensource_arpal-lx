@@ -143,7 +143,8 @@ class Stream
 {
 protected:
     uint32_t mNoOfDevices;
-    std::vector <std::shared_ptr<Device>> mDevices;
+    std::vector <std::shared_ptr<Device>> mDevices;  //current running devices
+    std::vector <std::shared_ptr<Device>> mPalDevices; // pal devices set from client, which may differ from mDevices 
     std::vector <struct pal_device> mPalDevice;
     Session* session;
     struct pal_stream_attributes* mStreamAttr;
@@ -178,6 +179,7 @@ public:
     bool a2dpMuted = false;
     bool a2dpPaused = false;
     bool force_nlpi_vote = false;
+    bool isMMap = false;
     std::vector<pal_device_id_t> suspendedDevIds;
     virtual int32_t open() = 0;
     virtual int32_t close() = 0;
