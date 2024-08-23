@@ -610,6 +610,9 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
             compressObj->msg_queue_.pop();
             lock.unlock();
 
+            if (msg && msg->cmd)
+                compressObj->command = msg->cmd;
+
             if (msg && msg->cmd == OFFLOAD_CMD_EXIT)
                 break; // exit the thread
 
@@ -619,6 +622,7 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                     ret = compress_wait(compressObj->compress, -1);
                     PAL_VERBOSE(LOG_TAG, "out of compress_wait, ret %d", ret);
                     event_id = PAL_STREAM_CBK_EVENT_WRITE_READY;
+                    compressObj->command = OFFLOAD_CMD_EXIT;
                 }
             } else if (msg && msg->cmd == OFFLOAD_CMD_DRAIN) {
                 if (!is_drain_called) {
@@ -637,7 +641,8 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                 is_drain_called = false;
                 event_id = PAL_STREAM_CBK_EVENT_DRAIN_READY;
             } else if (msg && msg->cmd == OFFLOAD_CMD_PARTIAL_DRAIN) {
-                if (compressObj->rm->cardState == CARD_STATUS_ONLINE) {
+                if (compressObj->rm->cardState == CARD_STATUS_ONLINE &&
+                        compressObj->compress != NULL) {
                     if (compressObj->isGaplessFmt) {
                         PAL_DBG(LOG_TAG, "calling partial compress_drain");
                         ret = compress_next_track(compressObj->compress);
@@ -1282,6 +1287,15 @@ int SessionAlsaCompress::start(Stream * s)
             if (!compress) {
                 PAL_ERR(LOG_TAG, "compress open failed");
                 status = -EINVAL;
+                {
+                    // send the exit command to the waiting thread
+                    auto msg = std::make_shared<offload_msg>(OFFLOAD_CMD_EXIT);
+                    std::lock_guard<std::mutex> lock(cv_mutex_);
+                    msg_queue_.push(msg);
+                    cv_.notify_all();
+                }
+                worker_thread->join();
+                worker_thread.reset(NULL);
                 goto exit;
             }
             if (!is_compress_ready(compress)) {
@@ -1736,11 +1750,15 @@ int SessionAlsaCompress::write(Stream *s __unused, int tag __unused, struct pal_
 
     if (bytes_written >= 0 && bytes_written < (ssize_t)buf->size && non_blocking) {
         PAL_DBG(LOG_TAG, "No space available in compress driver, post msg to cb thread");
-        std::shared_ptr<offload_msg> msg = std::make_shared<offload_msg>(OFFLOAD_CMD_WAIT_FOR_BUFFER);
-        std::lock_guard<std::mutex> lock(cv_mutex_);
-        msg_queue_.push(msg);
 
-        cv_.notify_all();
+        if (command != OFFLOAD_CMD_WAIT_FOR_BUFFER)
+        {
+            std::shared_ptr<offload_msg> msg = std::make_shared<offload_msg>(OFFLOAD_CMD_WAIT_FOR_BUFFER);
+            std::lock_guard<std::mutex> lock(cv_mutex_);
+            msg_queue_.push(msg);
+
+            cv_.notify_all();
+        }
     }
 
     if (!playback_started && bytes_written > 0) {
