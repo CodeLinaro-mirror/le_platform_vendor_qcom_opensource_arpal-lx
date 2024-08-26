@@ -61,6 +61,8 @@ AM_CPPFLAGS += -I ./
 AM_CPPFLAGS += $(SPF_CFLAGS)/
 AM_CPPFLAGS += $(ACDBDATA_CFLAGS)
 AM_CPPFLAGS += -I $(TOPDIR)/src/audio/mm-audio-headers/capiv2_api/
+AM_CPPFLAGS += -I $(TOPDIR)/system/media/audio_route/include/
+
 
 pal_sources = ./stream/src/Stream.cpp \
               ./stream/src/StreamCompress.cpp \
