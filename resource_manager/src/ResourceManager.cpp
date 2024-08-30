@@ -34,7 +34,7 @@
 
 #define LOG_TAG "PAL: ResourceManager"
 #include <agm/agm_api.h>
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
 #include <cutils/properties.h>
 #endif
 #include <unistd.h>
@@ -79,7 +79,7 @@
 #include "VUIInterfaceProxy.h"
 #include "kvh2xml.h"
 
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
 #include <cutils/str_parms.h>
 #endif
 
@@ -563,7 +563,7 @@ deregisterPeripheralCBFnPtr ResourceManager::mDeregisterPeripheralCb = nullptr;
 #define PRPHRL_REGSTR_RETRY_COUNT 10
 #endif
 //TODO:Needs to define below APIs so that functionality won't break
-#ifdef PAL_CUTILS_UNSUPPORTED
+#ifndef PAL_CUTILS_SUPPORTED
 int str_parms_get_str(struct str_parms *str_parms, const char *key,
                       char *out_val, int len){return 0;}
 char *str_parms_to_str(struct str_parms *str_parms){return NULL;}
@@ -1555,6 +1555,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "qcm6490") ||
                     strstr(snd_card_name, "bengal") ||
+                    strstr(snd_card_name, "qcs9100") ||
                     strstr(snd_card_name, "monaco")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
@@ -2044,7 +2045,7 @@ bool ResourceManager::isLpiLoggingEnabled()
     char value[256] = {0};
     bool lpi_logging_prop = false;
 
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
     property_get("vendor.audio.lpi_logging", value, "");
     if (!strncmp("true", value, sizeof("true"))) {
         lpi_logging_prop = true;
@@ -8562,7 +8563,7 @@ int ResourceManager::getNativeAudioSupport()
         ret = na_props.na_mode;
     }
 
-#ifdef PAL_CUTILS_UNSUPPORTED
+#ifndef PAL_CUTILS_SUPPORTED
     na_props.rm_na_prop_enabled = na_props.ui_na_prop_enabled = true;
     na_props.na_mode = 4; // NATIVE_AUDIO_MODE_MULTIPLE_MIX_IN_DSP = 4
 #endif
@@ -13653,7 +13654,7 @@ done:
 /* Function to get audio vendor configs path */
 void ResourceManager::getVendorConfigPath (char* config_file_path, int path_size)
 {
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
    char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
    if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
 #endif
@@ -13664,7 +13665,7 @@ void ResourceManager::getVendorConfigPath (char* config_file_path, int path_size
        /* Audio configs are stored in /vendor/etc */
        snprintf(config_file_path, path_size, "%s", "/vendor/etc");
 #endif
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
     } else {
        /* Audio configs are stored in /vendor/etc/audio/sku_${vendor_sku} */
        snprintf(config_file_path, path_size,

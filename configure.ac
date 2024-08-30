@@ -1,5 +1,5 @@
 #                                               -*- Autoconf -*-
-# configure.ac -- Autoconf script for qap
+# configure.ac -- Autoconf script for pal
 #
 
 # Process this file with autoconf to produce a configure script
@@ -63,6 +63,12 @@ if (test "x${with_glib}" = "xyes"); then
 fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
+
+AC_ARG_WITH([cutils],
+    AS_HELP_STRING([Use cutils (default is no)]),
+     [with_cutils=$withval],
+     [with_cutils=no])
+AM_CONDITIONAL([CUTILS_SUPPORTED], [test "x${with_cutils}" = "xyes"])
 
 # Checks for libraries
 PKG_CHECK_MODULES([AGM], [agm])

@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -39,7 +39,7 @@
 #endif
 #include "PalCommon.h"
 #include "CustomVAInterface.h"
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
 #include <cutils/properties.h>
 #endif
 #define ST_MAX_FSTAGE_CONF_LEVEL  (100)
@@ -112,7 +112,7 @@ CustomVAInterface::CustomVAInterface(
      */
     char value[256] = {0};
 
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
     property_get("vendor.audio.use_qc_wakeup_config", value, "");
     if (!strcmp("true", value))
         use_qc_wakeup_config_ = true;

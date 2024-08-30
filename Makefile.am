@@ -77,7 +77,7 @@ AM_CPPFLAGS += @CAPIV2_CFLAGS@
 AM_CPPFLAGS += @PALHEADERS_CFLAGS@
 AM_CPPFLAGS += @AUDIOLISTEN_CFLAGS@
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result -Wl,-z,defs
-AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_CUTILS_UNSUPPORTED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
+AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DCONFIG_GSL
 AM_CPPFLAGS += -DPAL_SP_TEMP_PATH=\"/etc/acdbdata/audio.cal\"
@@ -163,7 +163,11 @@ libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_rb3_vision.xml \
                       ./configs/qcm6490/mixer_paths_qcm6490_rb3_vc.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_rb3_vc.xml \
-                      ./configs/qcm6490/usecaseKvManager.xml
+                      ./configs/qcm6490/usecaseKvManager.xml \
+                      ./configs/qcm6490/mixer_paths_qcm6490_rb3_ia.xml \
+                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_ia.xml \
+                      ./configs/qcs9100/mixer_paths_qcs9100_ridesx.xml \
+                      ./configs/qcs9100/resourcemanager_qcs9100_ridesx.xml
 
 lib_LTLIBRARIES     += lib_bt_bundle.la
 lib_bt_bundle_la_SOURCES   = $(btbundle_plugin_sources)
@@ -180,10 +184,19 @@ libpal_la_CPPFLAGS += -DPAL_USE_SYSLOG
 lib_bt_bundle_la_CFLAGS += -DPAL_USE_SYSLOG
 endif
 
+if CUTILS_SUPPORTED
+libpal_la_CPPFLAGS += -DPAL_CUTILS_SUPPORTED
+libpal_la_LIBADD += -lcutils -llog
+lib_bt_bundle_la_CFLAGS += -DPAL_CUTILS_SUPPORTED
+lib_bt_bundle_la_LIBADD += -lcutils -llog
+endif
+
 # install essential xml files under /etc
 root_etcdir      = "/etc"
 root_etc_SCRIPTS = $(libpal_la_list)
 install-data-hook:
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs9100_ridesx.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs9100_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3.xml
@@ -193,6 +206,8 @@ install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_vc.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_vc.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_ia.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_ia.xml
 
 adsprpc_sources = adsprpcd/adsprpcd.c
 

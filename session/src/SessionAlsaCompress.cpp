@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1799,6 +1799,7 @@ int SessionAlsaCompress::stop(Stream * s __unused)
         case PAL_AUDIO_OUTPUT:
             if (compress && playback_started) {
                 status = compress_stop(compress);
+                playback_started = false;
             }
             // Deregister for callback for Soft Pause
             if (isPauseRegistrationDone) {

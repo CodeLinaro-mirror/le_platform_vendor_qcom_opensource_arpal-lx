@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 #ifndef ATRACE_UNSUPPORTED
@@ -37,7 +37,7 @@
 #define LOG_TAG "PAL: SoundTriggerEngineGsl"
 
 #include "SoundTriggerEngineGsl.h"
-#ifndef PAL_CUTILS_UNSUPPORTED
+#ifdef PAL_CUTILS_SUPPORTED
 #include <cutils/trace.h>
 #endif
 #include "Session.h"
