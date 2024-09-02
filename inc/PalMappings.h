@@ -238,6 +238,8 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_CONTEXT_PROXY" },            PAL_STREAM_CONTEXT_PROXY},
     {std::string{ "PAL_STREAM_COMMON_PROXY" },             PAL_STREAM_COMMON_PROXY},
     {std::string{ "PAL_STREAM_SENSOR_PCM_RENDERER" },      PAL_STREAM_SENSOR_PCM_RENDERER},
+    {std::string{ "PAL_STREAM_PLAYBACK_BUS" },             PAL_STREAM_PLAYBACK_BUS},
+    {std::string{ "PAL_STREAM_CAPTURE_BUS" },              PAL_STREAM_CAPTURE_BUS},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -272,6 +274,8 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_SPATIAL_AUDIO,      std::string{ "PAL_STREAM_SPATIAL_AUDIO" } },
     {PAL_STREAM_COMMON_PROXY,       std::string{ "PAL_STREAM_COMMON_PROXY" } },
     {PAL_STREAM_SENSOR_PCM_RENDERER,std::string{ "PAL_STREAM_SENSOR_PCM_RENDERER" } },
+    {PAL_STREAM_PLAYBACK_BUS,       std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
+    {PAL_STREAM_CAPTURE_BUS,        std::string{ "PAL_STREAM_CAPTURE_BUS" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {

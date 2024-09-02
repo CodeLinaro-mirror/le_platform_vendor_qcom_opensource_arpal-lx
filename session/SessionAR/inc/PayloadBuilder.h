@@ -114,6 +114,7 @@ typedef enum {
     CUSTOM_CONFIG_SEL,
     HOSTLESS_SEL,
     SIDETONE_MODE_SEL,
+    BUS_ADDRESS_SEL,
 } selector_type_t;
 
 const std::map<std::string, selector_type_t> selectorstypeLUT {
@@ -133,6 +134,7 @@ const std::map<std::string, selector_type_t> selectorstypeLUT {
     {std::string{ "CustomConfig" },          CUSTOM_CONFIG_SEL},
     {std::string{ "Hostless" },              HOSTLESS_SEL},
     {std::string{ "SidetoneMode" },          SIDETONE_MODE_SEL},
+    {std::string{ "BUS_address" },           BUS_ADDRESS_SEL},
 };
 
 struct kvPairs {

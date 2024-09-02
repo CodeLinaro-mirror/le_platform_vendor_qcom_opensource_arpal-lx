@@ -65,6 +65,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     //Modify cached values only at time of SSR down.
     cachedState = STREAM_IDLE;
     bool isDeviceConfigUpdated = false;
+    uint32_t input_instance_id = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -109,6 +110,13 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     if (mStreamAttr->out_media_config.ch_info.channels > PAL_MAX_CHANNELS_SUPPORTED) {
         PAL_ERR(LOG_TAG,"out_channels is invalid %d", out_channels);
         mStreamAttr->out_media_config.ch_info.channels = PAL_MAX_CHANNELS_SUPPORTED;
+    }
+
+    //check if its capture, and if it is, look at the address and then pick instance ids.
+    //move this to use bus device plugin for input
+    if (mStreamAttr->direction == PAL_AUDIO_INPUT && mStreamAttr->bus_addr) {
+        input_instance_id = 0;
+        PAL_DBG(LOG_TAG, "%s did not find bus_addr %s so set instance_id %u", __func__, mStreamAttr->bus_addr, input_instance_id);
     }
 
     PAL_VERBOSE(LOG_TAG, "Create new Session");
@@ -1261,9 +1269,10 @@ int32_t StreamPCM::flush()
          goto exit;
     }
 
-    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD) {
-         PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD stream, ignore");
-         goto exit;
+    if (mStreamAttr->type != PAL_STREAM_PCM_OFFLOAD && mStreamAttr->type != PAL_STREAM_PLAYBACK_BUS
+        && mStreamAttr->type != PAL_STREAM_DEEP_BUFFER) {
+        PAL_VERBOSE(LOG_TAG, "flush called for non PCM OFFLOAD/PLAYBACK BUS/DEEP BUFFER stream, ignore");
+        goto exit;
     }
 
     if (currentState == STREAM_STOPPED || currentState == STREAM_IDLE) {

@@ -592,6 +592,7 @@ protected:
     std::list <Stream*> active_streams_sa;
     std::list <Stream*> active_streams_po;
     std::list <Stream*> active_streams_proxy;
+    std::list <Stream*> active_streams_bus;
     std::list <Stream*> active_streams_haptics;
     std::list <Stream*> active_streams_raw;
     std::list <Stream*> active_streams_voice_rec;
@@ -815,7 +816,7 @@ public:
                      size_t payload_size);
     int setParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
-                     pal_stream_type_t pal_stream_type);
+                     pal_stream_type_t pal_stream_type, char *address);
     int setSessionParamConfig(uint32_t param_id, Stream *stream, bool enable);
     int handleChargerEvent(Stream *stream, bool enable);
     int rwParameterACDB(uint32_t param_id, void *param_payload,
@@ -826,7 +827,7 @@ public:
                      size_t *payload_size, void *query = nullptr);
     int getParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size, pal_device_id_t pal_device_id,
-                     pal_stream_type_t pal_stream_type);
+                     pal_stream_type_t pal_stream_type, char *address);
     int getVirtualSndCard();
     int getHwSndCard();
     int getPcmDeviceId(int deviceId);

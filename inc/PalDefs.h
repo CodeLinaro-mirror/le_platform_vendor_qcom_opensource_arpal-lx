@@ -303,6 +303,7 @@ typedef enum {
 
 /** Audio stream types */
 typedef enum {
+    PAL_STREAM_INVALID = -1,              /**< :invalid streamtype*/
     PAL_STREAM_LOW_LATENCY = 1,           /**< :low latency, higher power*/
     PAL_STREAM_DEEP_BUFFER = 2,           /**< :low power, higher latency*/
     PAL_STREAM_COMPRESSED = 3,            /**< :compresssed audio*/
@@ -333,6 +334,8 @@ typedef enum {
     PAL_STREAM_COMMON_PROXY = 28,         /**< AFS's WakeUp Algo library detection */
     PAL_STREAM_SENSOR_PCM_RENDERER = 29,  /**< Sensor Pcm Rendering Stream */
     PAL_STREAM_ASR = 30,                  /**< ASR Stream */
+    PAL_STREAM_PLAYBACK_BUS = 31,         /**< PLAYBACK BUS type pal streams */
+    PAL_STREAM_CAPTURE_BUS = 32,          /**< CAPTURE BUS type pal streams */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 

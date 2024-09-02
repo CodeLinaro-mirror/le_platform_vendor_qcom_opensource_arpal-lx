@@ -2149,6 +2149,48 @@ int Stream::waitStreamSmph()
     return sem_wait(&mInUse);
 }
 
+bool Stream::checkBusStreamMatch(pal_device_id_t pal_device_id,
+    pal_stream_type_t pal_stream_type, char *bus_addr)
+{
+    int status = 0;
+    struct pal_device dAttr;
+    bool match = false;
+
+    if (!mStreamAttr) {
+        PAL_ERR(LOG_TAG, "stream attribute is null");
+        return false;
+    }
+
+    if (pal_stream_type == mStreamAttr->type ||
+        pal_stream_type == PAL_STREAM_GENERIC)
+        match = true;
+    else
+        return false;
+
+    if (strncmp(bus_addr, mStreamAttr->bus_addr, strlen(bus_addr)) == 0)
+        match = true;
+    else
+        return false;
+
+    //device
+    for (int i = 0; i < mDevices.size(); i++) {
+        status = mDevices[i]->getDeviceAttributes(&dAttr);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "getDeviceAttributes Failed \n");
+            return false;
+        }
+        if (pal_device_id == dAttr.id || pal_device_id == PAL_DEVICE_NONE) {
+            match = true;
+            // as long as one device matches, it is enough.
+            break;
+        }
+        else
+            match = false;
+    }
+
+    return match;
+}
+
 void Stream::handleStreamException(struct pal_stream_attributes *attributes,
                                    pal_stream_callback cb, uint64_t cookie)
 {

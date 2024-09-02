@@ -894,6 +894,51 @@ int32_t pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
     return status;
 }
 
+int32_t pal_stream_get_rendering_latency(pal_stream_handle_t *stream_handle,
+    long long *latency)
+{
+    int status = -EINVAL;
+    Stream *s = NULL;
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    rm->lockActiveStream();
+    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+
+    s = reinterpret_cast<Stream*>(stream_handle);
+    status = rm->increaseStreamUserCounter(s);
+    if (0 != status) {
+        rm->unlockActiveStream();
+        PAL_ERR(LOG_TAG, "failed to increase stream user count");
+        return status;
+    }
+    rm->unlockActiveStream();
+
+    //   status = rm->controlPluginGet(s, PLUGIN_CONTROL_AUDIO_LATENCY, (void**)&latency,
+    //                                    /*&vol_size*/NULL);
+
+    rm->lockActiveStream();
+    rm->decreaseStreamUserCounter(s);
+    rm->unlockActiveStream();
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "controlPluginGet Failed \n");
+    }
+
+    return status;
+}
+
 int32_t pal_get_timestamp(pal_stream_handle_t *stream_handle,
                           struct pal_session_time *stime)
 {

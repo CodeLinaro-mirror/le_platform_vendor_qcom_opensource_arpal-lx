@@ -2846,10 +2846,8 @@ int SessionAlsaUtils::configureMFC(const std::shared_ptr<ResourceManager>& rm, s
             goto exit;
         }
     } else {
-        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
-        if ((sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT))||
-            (sAttr.type == PAL_STREAM_SENSOR_PCM_RENDERER))
-            status = 0;
+        PAL_INFO(LOG_TAG, "PSPD MFC doesn't exist for stream %d \n", sAttr.type);
+        status = 0;
     }
 
 exit:
