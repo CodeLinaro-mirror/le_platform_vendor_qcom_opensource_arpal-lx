@@ -9046,7 +9046,7 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
         return status;
     }
 
-    if (StrAttr.type == PAL_STREAM_INVALID) {
+    if (StrAttr.type < PAL_STREAM_LOW_LATENCY || StrAttr.type >= PAL_STREAM_MAX) {
         PAL_ERR(LOG_TAG,"invalid streamtype \n");
         return -EINVAL;
     }
@@ -9119,7 +9119,7 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
         return status;
     }
 
-    if (StrAttr.type == PAL_STREAM_INVALID) {
+    if (StrAttr.type < PAL_STREAM_LOW_LATENCY || StrAttr.type >= PAL_STREAM_MAX) {
         PAL_ERR(LOG_TAG,"invalid streamtype \n");
         return -EINVAL;
     }

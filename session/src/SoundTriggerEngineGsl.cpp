@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -28,6 +27,11 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 #define ATRACE_TAG (ATRACE_TAG_AUDIO | ATRACE_TAG_HAL)
 #define LOG_TAG "PAL: SoundTriggerEngineGsl"
 
@@ -2764,6 +2768,10 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(st_param_id_type_t param) {
                 size_t wakeup_payload_size = fixed_wakeup_payload_size +
                     wakeup_config_.num_active_models * 2;
                 uint8_t *wakeup_payload = new uint8_t[wakeup_payload_size];
+                if (!wakeup_payload){
+                    PAL_ERR(LOG_TAG, "payload malloc failed %s", strerror(errno));
+                    return -EINVAL;
+                }
                 ar_mem_cpy(wakeup_payload, fixed_wakeup_payload_size,
                     &wakeup_config_, fixed_wakeup_payload_size);
                 uint8_t *confidence_level = wakeup_payload +
@@ -2804,6 +2812,7 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(st_param_id_type_t param) {
                 }
                 status = builder_->payloadSVAConfig(&payload, &payload_size,
                           (uint8_t *)wakeup_payload, payloadSize, detection_miid, param_id);
+                delete[] wakeup_payload;
             }
             break;
         }
