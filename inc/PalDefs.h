@@ -365,8 +365,12 @@ typedef enum {
     PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST = 23,
     PAL_DEVICE_OUT_DUMMY = 24,
     PAL_DEVICE_OUT_RECORD_PROXY = 25,
+    PAL_DEVICE_OUT_A2B_SPKR = 26,
+    PAL_DEVICE_OUT_A2B2_SPKR = 27,
+    PAL_DEVICE_OUT_HFP_UPLINK = 28,
+    PAL_DEVICE_OUT_BLUETOOTH_SCO2 = 29,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 26,
+    PAL_DEVICE_OUT_MAX = 30,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN +1,
@@ -396,8 +400,12 @@ typedef enum {
     PAL_DEVICE_IN_DUMMY = PAL_DEVICE_IN_MIN + 25,
     PAL_DEVICE_IN_CPS2_FEEDBACK = PAL_DEVICE_IN_MIN + 26,
     PAL_DEVICE_IN_RECORD_PROXY = PAL_DEVICE_IN_MIN + 27,
+    PAL_DEVICE_IN_HFP_DOWNLINK = PAL_DEVICE_IN_MIN + 28,
+    PAL_DEVICE_IN_A2B_MIC = PAL_DEVICE_IN_MIN + 29,
+    PAL_DEVICE_IN_A2B2_MIC = PAL_DEVICE_IN_MIN + 30,
+    PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 31,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 28,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 32,
 } pal_device_id_t;
 
 enum A2DP_STATE {
@@ -423,6 +431,7 @@ typedef enum {
     PAL_STREAM_LOOPBACK_KARAOKE,
     PAL_STREAM_LOOPBACK_PLAYBACK_ONLY,
     PAL_STREAM_LOOPBACK_CAPTURE_ONLY,
+    PAL_STREAM_LOOPBACK_ICC,
 } pal_stream_loopback_type_t;
 
 typedef enum {
@@ -547,6 +556,10 @@ struct pal_stream_attributes {
     pal_stream_direction_t direction;            /**<  direction of the streams */
     struct pal_media_config in_media_config;     /**<  media config of the input audio samples */
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
+    char* bus_addr;                              /**<  BUS device address */
+    uint32_t hal_flags;                          /**<  Stream flags received in HAL*/
+    uint32_t ch_mask;                            /**<  Channel mask received in audio_config */
+    uint32_t format;                             /**<  Audio format value received in audio_config */
 };
 
 /**< Key value pair to identify the topology of a usecase from default  */
@@ -662,6 +675,12 @@ struct pal_gain_data {
 struct pal_time_us {
     uint32_t value_lsw;   /** Lower 32 bits of 64 bit time value in microseconds */
     uint32_t value_msw;   /** Upper 32 bits of 64 bit time value in microseconds */
+};
+
+/** Buffer config data strucutre defintion used as argument for buff_config command */
+struct pal_buffer_data {
+    uint32_t buffer_size;                       /**< Buffer Size*/
+    uint32_t buffer_count;                      /**< Buffer Count*/
 };
 
 /** Timestamp strucutre defintion used as argument for

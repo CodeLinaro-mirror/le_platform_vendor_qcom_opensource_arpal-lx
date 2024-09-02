@@ -105,6 +105,10 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND" },           PAL_DEVICE_OUT_ULTRASOUND},
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND_DEDICATED" }, PAL_DEVICE_OUT_ULTRASOUND_DEDICATED},
     {std::string{ "PAL_DEVICE_OUT_DUMMY" },                PAL_DEVICE_OUT_DUMMY},
+    {std::string{ "PAL_DEVICE_OUT_A2B_SPKR" },             PAL_DEVICE_OUT_A2B_SPKR},
+    {std::string{ "PAL_DEVICE_OUT_A2B2_SPKR" },            PAL_DEVICE_OUT_A2B2_SPKR},
+    {std::string{ "PAL_DEVICE_OUT_HFP_UPLINK" },           PAL_DEVICE_OUT_HFP_UPLINK},
+    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_SCO2" },       PAL_DEVICE_OUT_BLUETOOTH_SCO2},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
@@ -132,6 +136,10 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK" },   PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK},
     {std::string{ "PAL_DEVICE_IN_CPS_FEEDBACK" },          PAL_DEVICE_IN_CPS_FEEDBACK},
     {std::string{ "PAL_DEVICE_IN_DUMMY" },                 PAL_DEVICE_IN_DUMMY},
+    {std::string{ "PAL_DEVICE_IN_HFP_DOWNLINK" },          PAL_DEVICE_IN_HFP_DOWNLINK},
+    {std::string{ "PAL_DEVICE_IN_A2B_MIC" },               PAL_DEVICE_IN_A2B_MIC},
+    {std::string{ "PAL_DEVICE_IN_A2B2_MIC" },              PAL_DEVICE_IN_A2B2_MIC},
+    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET" },PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET},
 };
 
 //reverse mapping
@@ -162,6 +170,10 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           std::string{"PAL_DEVICE_OUT_ULTRASOUND"}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, std::string{"PAL_DEVICE_OUT_ULTRASOUND_DEDICATED"}},
     {PAL_DEVICE_OUT_DUMMY,                std::string{"PAL_DEVICE_OUT_DUMMY"}},
+    {PAL_DEVICE_OUT_A2B_SPKR,             std::string{"PAL_DEVICE_OUT_A2B_SPKR"}},
+    {PAL_DEVICE_OUT_A2B2_SPKR,            std::string{"PAL_DEVICE_OUT_A2B2_SPKR"}},
+    {PAL_DEVICE_OUT_HFP_UPLINK,           std::string{"PAL_DEVICE_OUT_HFP_UPLINK"}},
+    {PAL_DEVICE_OUT_BLUETOOTH_SCO2,       std::string{"PAL_DEVICE_OUT_BLUETOOTH_SCO2"}},
     {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
     {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
@@ -189,6 +201,10 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK,   std::string{"PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK"}},
     {PAL_DEVICE_IN_CPS_FEEDBACK,          std::string{"PAL_DEVICE_IN_CPS_FEEDBACK"}},
     {PAL_DEVICE_IN_DUMMY,                 std::string{"PAL_DEVICE_IN_DUMMY"}},
+    {PAL_DEVICE_IN_HFP_DOWNLINK,          std::string{"PAL_DEVICE_IN_HFP_DOWNLINK"}},
+    {PAL_DEVICE_IN_A2B_MIC,               std::string{"PAL_DEVICE_IN_A2B_MIC"}},
+    {PAL_DEVICE_IN_A2B2_MIC,              std::string{"PAL_DEVICE_IN_A2B2_MIC"}},
+    {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET,std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET"}},
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -274,6 +290,7 @@ const std::map<uint32_t, std::string> loopbackLUT {
     {PAL_STREAM_LOOPBACK_KARAOKE,       std::string{ "PAL_STREAM_LOOPBACK_KARAOKE" }},
     {PAL_STREAM_LOOPBACK_PLAYBACK_ONLY, std::string{ "PAL_STREAM_LOOPBACK_PLAYBACK_ONLY" } },
     {PAL_STREAM_LOOPBACK_CAPTURE_ONLY,  std::string{ "PAL_STREAM_LOOPBACK_CAPTURE_ONLY" } },
+    {PAL_STREAM_LOOPBACK_ICC,           std::string{ "PAL_STREAM_LOOPBACK_ICC" } },
 };
 
 const std::map<uint32_t, std::string> hapticsLUT {

@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -150,6 +150,17 @@ void VUIFirstStageConfig::HandleStartTag(const char *tag, const char **attribs)
             }
             ++i;
         }
+    } else if (!strcmp(tag, "kvpair")) {
+        uint32_t key = 0, value = 0;
+        if (strcmp(attribs[0], "key") || strcmp(attribs[2], "value")) {
+            PAL_ERR(LOG_TAG, "stream key/value not found");
+            return;
+        }
+        key = strtoul(attribs[1], NULL, 0);
+        value = strtoul(attribs[3], NULL, 0);
+        stream_config_ = std::make_pair(key, value);
+        PAL_DBG(LOG_TAG, "stream_config_, key = %x, value = %x, %x",
+            value, stream_config_.first, stream_config_.second);
     } else {
         PAL_ERR(LOG_TAG, "Invalid tag %s", tag);
     }

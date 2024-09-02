@@ -183,6 +183,21 @@ void CaptureProfile::HandleStartTag(const char* tag, const char** attribs)
             }
             ++i; /* move to next attribute */
         }
+    } else if (!strcmp(tag, "kvpair")) {
+        uint32_t i = 0;
+        uint32_t key = 0, value = 0;
+        while (attribs[i]) {
+            if (!strcmp(attribs[i], "key")) {
+                std::string tagkey(attribs[++i]);
+                key = ResourceManager::convertCharToHex(tagkey);
+            } else if (!strcmp(attribs[i], "value")) {
+                std::string tagvalue(attribs[++i]);
+                value = ResourceManager::convertCharToHex(tagvalue);
+                PAL_DBG(LOG_TAG, "key = 0x%x, val 0x%x", key, value);
+                device_pp_kv_ = std::make_pair(key, value);
+            }
+            ++i; /* move to next attribute */
+        }
     } else {
         PAL_ERR(LOG_TAG, "Invalid tag %s", (char *)tag);
     }
@@ -240,6 +255,8 @@ bool SoundTriggerPlatformInfo::concurrent_capture_ = false;
 bool SoundTriggerPlatformInfo::concurrent_voice_call_ = false;
 bool SoundTriggerPlatformInfo::concurrent_voip_call_ = false;
 bool SoundTriggerPlatformInfo::low_latency_bargein_enable_ = false;
+bool SoundTriggerPlatformInfo::dedicated_sva_path_ = true;
+bool SoundTriggerPlatformInfo::dedicated_headset_path_ = false;
 
 SoundTriggerPlatformInfo::SoundTriggerPlatformInfo() : curr_child_(nullptr)
 {
@@ -348,6 +365,12 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag, const char** attr
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "low_latency_bargein_enable")) {
                 low_latency_bargein_enable_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "dedicated_sva_path")) {
+                dedicated_sva_path_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "dedicated_headset_path")) {
+                dedicated_headset_path_ =
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else {
                 PAL_ERR(LOG_TAG, "Invalid attribute %s", attribs[i++]);
