@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -74,6 +74,7 @@
 #include "SpeakerMic.h"
 #include "Stream.h"
 #include "HeadsetMic.h"
+#include "HdmiIn.h"
 #include "HandsetMic.h"
 #include "HandsetVaMic.h"
 #include "HeadsetVaMic.h"
@@ -156,6 +157,10 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     case PAL_DEVICE_OUT_HDMI:
         PAL_VERBOSE(LOG_TAG, "Display Port device");
         return DisplayPort::getInstance(device, Rm);
+    case PAL_DEVICE_IN_AUX_DIGITAL:
+    case PAL_DEVICE_IN_HDMI:
+        PAL_VERBOSE(LOG_TAG, "Hdmi Input Port device");
+        return HdmiIn::getInstance(device, Rm);
     case PAL_DEVICE_IN_HEADSET_VA_MIC:
         PAL_VERBOSE(LOG_TAG, "HeadsetVaMic device");
         return HeadsetVaMic::getInstance(device, Rm);
@@ -225,6 +230,10 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
     case PAL_DEVICE_OUT_HDMI:
         PAL_VERBOSE(LOG_TAG, "Display Port device");
         return DisplayPort::getObject(dev_id);
+    case PAL_DEVICE_IN_AUX_DIGITAL:
+    case PAL_DEVICE_IN_HDMI:
+        PAL_VERBOSE(LOG_TAG, "Hdmi input Port device");
+        return HdmiIn::getObject(dev_id);
     case PAL_DEVICE_IN_HANDSET_MIC:
         PAL_VERBOSE(LOG_TAG, "handset mic device");
         return HandsetMic::getObject();

@@ -56,6 +56,7 @@
 #include "USBAudio.h"
 #include "HeadsetMic.h"
 #include "HandsetMic.h"
+#include "HdmiIn.h"
 #include "DisplayPort.h"
 #include "Handset.h"
 #include "SndCardMonitor.h"
@@ -2693,6 +2694,17 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             PAL_INFO(LOG_TAG, "PAL_DEVICE_OUT_PROXY sample rate %d bitwidth %d ch:%d",
                     deviceattr->config.sample_rate, deviceattr->config.bit_width,
                     deviceattr->config.ch_info.channels);
+            }
+            break;
+        case PAL_DEVICE_IN_HDMI:
+        case PAL_DEVICE_IN_AUX_DIGITAL:
+            {
+                status = (HdmiIn::checkAndUpdateBitWidth(&deviceattr->config.bit_width) |
+                          HdmiIn::checkAndUpdateSampleRate(&deviceattr->config.sample_rate));
+                if (status) {
+                    PAL_ERR(LOG_TAG, "failed to update samplerate/bitwidth for HDMI-IN/Display IN device");
+                    status = -EINVAL;
+                }
             }
             break;
         case PAL_DEVICE_OUT_AUX_DIGITAL:
@@ -10619,6 +10631,21 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
                 status = -EIO;
                 goto err;
             }
+        } else if (device_id == PAL_DEVICE_IN_AUX_DIGITAL ||
+            device_id == PAL_DEVICE_IN_HDMI) {
+            dAttr.id = device_id;
+            status = getDeviceConfig(&dAttr, NULL);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Device config not overwritten %d", status);
+                goto err;
+            }
+            dev = Device::getInstance(&dAttr, rm);
+            if (!dev) {
+                PAL_ERR(LOG_TAG, "Device creation failed");
+                throw std::runtime_error("failed to create device object");
+                status = -EIO;
+                goto err;
+            }
         }
         if (!dev) {
             dAttr.id = device_id;
@@ -11150,7 +11177,8 @@ bool ResourceManager::isPluginDevice(pal_device_id_t id) {
 
 bool ResourceManager::isDpDevice(pal_device_id_t id) {
     if (id == PAL_DEVICE_OUT_AUX_DIGITAL || id == PAL_DEVICE_OUT_AUX_DIGITAL_1 ||
-        id == PAL_DEVICE_OUT_HDMI)
+        id == PAL_DEVICE_OUT_HDMI || id == PAL_DEVICE_IN_HDMI ||
+        id == PAL_DEVICE_IN_AUX_DIGITAL)
         return true;
     else
         return false;
