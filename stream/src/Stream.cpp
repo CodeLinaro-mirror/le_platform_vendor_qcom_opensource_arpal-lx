@@ -62,7 +62,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -831,8 +831,8 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                rm->unlockGraph();
                 iter = mDevices.erase(iter);
+                rm->unlockGraph();
             }
         } else {
             PAL_ERR(LOG_TAG, "BT SCO output device is not ready");
@@ -880,8 +880,8 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                rm->unlockGraph();
                 iter = mDevices.erase(iter);
+                rm->unlockGraph();
             }
         } else {
             // For non-combo device, mute the stream and route to speaker or handset
@@ -892,8 +892,8 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
             suspendedDevIds.clear();
             suspendedDevIds.push_back(PAL_DEVICE_OUT_BLUETOOTH_A2DP);
 
+            rm->lockGraph();
             for (int i = 0; i < mDevices.size(); i++) {
-                rm->lockGraph();
                 status = session->disconnectSessionDevice(this, mStreamAttr->type, mDevices[i]);
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "disconnectSessionDevice failed:%d", status);
@@ -906,9 +906,9 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                rm->unlockGraph();
             }
             mDevices.clear();
+            rm->unlockGraph();
 
             /* Check whether there's active stream associated with handset or speaker
              * - Device selected to switch by default is speaker.
@@ -1024,14 +1024,15 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
                     goto exit;
                 }
             }
-            rm->unlockGraph();
 
             status = mDevices[i]->close();
             if (0 != status) {
+                rm->unlockGraph();
                 PAL_ERR(LOG_TAG, "device close failed with status %d", status);
                 goto exit;
             }
             mDevices.erase(mDevices.begin() + i);
+            rm->unlockGraph();
             break;
         }
     }

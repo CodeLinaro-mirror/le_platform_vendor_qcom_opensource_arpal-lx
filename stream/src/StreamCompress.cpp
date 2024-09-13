@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -165,7 +165,9 @@ int32_t StreamCompress::open()
     }
 
     if (currentState == STREAM_IDLE) {
+        rm->lockGraph();
         status = session->open(this);
+        rm->unlockGraph();
         if (0 != status) {
            PAL_ERR(LOG_TAG,"session open failed with status %d", status);
            goto exit;
@@ -221,7 +223,6 @@ int32_t StreamCompress::close()
     }
     rm->lockGraph();
     status = session->close(this);
-    rm->unlockGraph();
     if (0 != status) {
         PAL_ERR(LOG_TAG,"session close failed with status %d", status);
     }
@@ -237,6 +238,7 @@ int32_t StreamCompress::close()
     }
     PAL_VERBOSE(LOG_TAG,"closed the devices successfully");
     currentState = STREAM_IDLE;
+    rm->unlockGraph();
     mStreamMutex.unlock();
 
     PAL_DBG(LOG_TAG,"Exit status: %d",status);
