@@ -30,6 +30,37 @@
  *
  * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted (subject to the limitations in the
+ * disclaimer below) provided that the following conditions are met:
+ *
+ *   * Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ *
+ *   * Redistributions in binary form must reproduce the above
+ *     copyright notice, this list of conditions and the following
+ *     disclaimer in the documentation and/or other materials provided
+ *     with the distribution.
+ *
+ *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
+ *     contributors may be used to endorse or promote products derived
+ *     from this software without specific prior written permission.
+ *
+ * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
+ * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
+ * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
+ * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+ * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+ * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
+ * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
+ * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
+ * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+ * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "PAL: SpeakerProtection"
@@ -58,6 +89,11 @@
 
 #define SPKR_RIGHT_WSA_TEMP "SpkrRight WSA Temp"
 #define SPKR_LEFT_WSA_TEMP "SpkrLeft WSA Temp"
+
+#define SPKR_RIGHT_WSA_DC_DET "SpkrRight WSA PA Disable"
+#define SPKR_LEFT_WSA_DC_DET "SpkrLeft WSA PA Disable"
+#define SPKR2_RIGHT_WSA_DC_DET "Spkr2Right WSA PA Disable"
+#define SPKR2_LEFT_WSA_DC_DET "Spkr2Left WSA PA Disable"
 
 #define SPKR_RIGHT_WSA_DEV_NUM "SpkrRight WSA Get DevNum"
 #define SPKR_LEFT_WSA_DEV_NUM "SpkrLeft WSA Get DevNum"
@@ -97,6 +133,8 @@ struct timespec SpeakerProtection::spkrLastTimeUsed;
 struct mixer *SpeakerProtection::virtMixer;
 struct mixer *SpeakerProtection::hwMixer;
 speaker_prot_cal_state SpeakerProtection::spkrCalState;
+speaker_prot_cal_state SpeakerProtection::spkrICalState;
+speaker_prot_cal_state SpeakerProtection::spkrIICalState;
 struct pcm * SpeakerProtection::rxPcm = NULL;
 struct pcm * SpeakerProtection::txPcm = NULL;
 struct param_id_sp_th_vi_calib_res_cfg_t * SpeakerProtection::callback_data;
@@ -111,6 +149,7 @@ uint32_t SpeakerProtection::source_miid;
 uint32_t SpeakerProtection::vi_miid_II;
 uint32_t SpeakerProtection::vi_miid_I;
 int SpeakerProtection::MaxCH;
+static bool is_unlocked_due_to_processing = false;
 
 std::string getDefaultSpkrTempCtrl(uint8_t spkr_pos)
 {
@@ -125,6 +164,41 @@ std::string getDefaultSpkrTempCtrl(uint8_t spkr_pos)
             return std::string(SPKR_RIGHT_WSA_TEMP);
     }
 }
+
+void SpeakerProtection::checkAndStopCalibration()
+{
+    std::unique_lock<std::mutex> lock(calibrationMutex);
+    PAL_INFO(LOG_TAG, "Enter. spkrCalState is %d", spkrCalState);
+
+    if (spkrCalState == SPKR_CALIB_IN_PROGRESS) {
+        is_unlocked_due_to_processing = true;
+        // Close the Graphs
+        cv.notify_all();
+        // Wait for cleanup
+        cv.wait(lock);
+        spkrCalState = SPKR_NOT_CALIBRATED;
+        txPcm = NULL;
+        rxPcm = NULL;
+        PAL_INFO(LOG_TAG, "Stopped calibration mode");
+    }
+}
+
+std::string SpeakerProtection::getDCDetSpkrCtrl(uint8_t spkr_pos, uint32_t miid)
+{
+    if (miid == vi_miid_I) {
+        if (spkr_pos == CHANNELS_2)
+           return std::string(SPKR_LEFT_WSA_DC_DET);
+        else
+           return std::string(SPKR_RIGHT_WSA_DC_DET);
+    } else if (miid == vi_miid_II) {
+        if (spkr_pos == CHANNELS_2)
+           return std::string(SPKR2_LEFT_WSA_DC_DET);
+        else
+           return std::string(SPKR2_RIGHT_WSA_DC_DET);
+    }
+    return std::string(SPKR_RIGHT_WSA_DC_DET);
+}
+
 
 cps_reg_wr_values_t sp_cps_thrsh_values = {
     .value_normal_threshold = {0x8E003049, 0x1000304A, 0x0F003472},
@@ -190,9 +264,12 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
 {
     param_id_sp_th_vi_calib_res_cfg_t *param_data = nullptr;
     std::unique_lock<std::mutex> EveLock(calibrationMutex);
+
     PAL_DBG(LOG_TAG, "Got event from DSP %x for miid %d", event_id, miid);
+    bool calSuccess = true, calFailure = false;
 
     if (event_id == EVENT_ID_VI_CALIBRATION) {
+
         // Received callback for Calibration state
         param_data = (param_id_sp_th_vi_calib_res_cfg_t *) event_data;
         PAL_DBG(LOG_TAG, "Calibration state %d", param_data->state);
@@ -214,12 +291,14 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
             calibrationCallbackStatus = CALIBRATION_STATUS_SUCCESS;
             cv.notify_all();
             cv.wait(EveLock);
-        }
-        else if (param_data->state == CALIBRATION_STATUS_FAILURE) {
+
+        } else if (param_data->state == CALIBRATION_STATUS_FAILURE) {
             PAL_DBG(LOG_TAG, "Calibration is unsuccessfull");
             // Restart the calibration and abort current run.
             mDspCallbackRcvd = true;
+            source_miid = miid;
             calibrationCallbackStatus = CALIBRATION_STATUS_FAILURE;
+            cv.wait(EveLock);
             cv.notify_all();
         }
     }
@@ -412,7 +491,7 @@ int SpeakerProtection::spkrStartCalibration()
             ch_info.channels = CHANNELS_2;
         break;
         default:
-            PAL_DBG(LOG_TAG, "Unsupported channel. Set default as 2");
+            PAL_DBG(LOG_TAG, "Unsupported channel: %d. Set default as 2", vi_device.channels);
             ch_info.channels = CHANNELS_2;
         break;
     }
@@ -903,6 +982,8 @@ int SpeakerProtection::spkrStartCalibration()
     isRxStarted = true;
 
     spkrCalState = SPKR_CALIB_IN_PROGRESS;
+    spkrICalState = SPKR_CALIB_IN_PROGRESS;
+    spkrIICalState = SPKR_CALIB_IN_PROGRESS;
 
     PAL_DBG(LOG_TAG, "Waiting for the event from DSP or PAL");
     for (int ch = numberOfChannels; ch != 0; ch = ch >> CHANNELS_1) {
@@ -919,11 +1000,13 @@ int SpeakerProtection::spkrStartCalibration()
             if (calibrationCallbackStatus == CALIBRATION_STATUS_SUCCESS) {
                 if (vi_miid_II == source_miid) {
                     PAL_DBG(LOG_TAG, " opening this path %s",PAL_SP_II_TEMP_PATH);
-                   fp = fopen(PAL_SP_II_TEMP_PATH, "w+");
+                    fp = fopen(PAL_SP_II_TEMP_PATH, "w+");
+                    spkrIICalState = SPKR_CALIBRATED;
                 }
                 else if (vi_miid_I == source_miid) {
                     PAL_DBG(LOG_TAG, " opening this path %s",PAL_SP_I_TEMP_PATH);
-                   fp = fopen(PAL_SP_I_TEMP_PATH, "w+");
+                    fp = fopen(PAL_SP_I_TEMP_PATH, "w+");
+                    spkrICalState = SPKR_CALIBRATED;
                 }
                 if (!fp) {
                     PAL_ERR(LOG_TAG, "Unable to open file for write %s",strerror(errno));
@@ -931,6 +1014,7 @@ int SpeakerProtection::spkrStartCalibration()
                 } else {
                     PAL_DBG(LOG_TAG, "Write the R0T0 value to file");
                     for (i = 0; i < eventCh; i++) {
+
                         fwrite(&callback_data->r0_cali_q24[i],
                                     sizeof(callback_data->r0_cali_q24[i]), 1, fp);
                         if (vi_miid_II == source_miid) {
@@ -939,20 +1023,38 @@ int SpeakerProtection::spkrStartCalibration()
                         else if (vi_miid_I == source_miid) {
                             fwrite(&spkerTempList[i], sizeof(int16_t), 1, fp);
                         }
+
                     }
-                    spkrCalState = SPKR_CALIBRATED;
+                    if ((spkrICalState == SPKR_CALIBRATED) && (spkrIICalState == SPKR_CALIBRATED)) {
+                        PAL_DBG(LOG_TAG, "Both speakers are calibrated");
+                        spkrCalState = SPKR_CALIBRATED;
+                    }
                     free(callback_data);
                     fclose(fp);
                 }
             }
             else if (calibrationCallbackStatus == CALIBRATION_STATUS_FAILURE) {
-                PAL_DBG(LOG_TAG, "Calibration is not done");
-                spkrCalState = SPKR_NOT_CALIBRATED;
+                if (vi_miid_II == source_miid) {
+                    spkrIICalState = SPKR_NOT_CALIBRATED;
+                }
+                else if (vi_miid_I == source_miid) {
+                    spkrICalState = SPKR_NOT_CALIBRATED;
+                }
+                if ((spkrIICalState == SPKR_NOT_CALIBRATED) && (spkrICalState == SPKR_NOT_CALIBRATED)) {
+                    PAL_DBG(LOG_TAG, "Calibration failed for both speakers");
+                    spkrCalState = SPKR_NOT_CALIBRATED;
+                }
                 // reset the timer for retry
                 clock_gettime(CLOCK_BOOTTIME, &spkrLastTimeUsed);
             }
         }
-        cv.notify_all();
+        if (is_unlocked_due_to_processing) {
+            PAL_INFO(LOG_TAG, "Exit loop due to processing");
+            break;
+        }
+        else {
+            cv.notify_all();
+        }
     }
 
 err_pcm_open :
@@ -1405,16 +1507,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
 
     if (flag) {
-        if (spkrCalState == SPKR_CALIB_IN_PROGRESS) {
-            // Close the Graphs
-            cv.notify_all();
-            // Wait for cleanup
-            cv.wait(lock);
-            spkrCalState = SPKR_NOT_CALIBRATED;
-            txPcm = NULL;
-            rxPcm = NULL;
-            PAL_DBG(LOG_TAG, "Stopped calibration mode");
-        }
+
         numberOfRequest++;
         if (numberOfRequest > 1) {
             // R0T0 already set, we don't need to process the request.
@@ -2122,6 +2215,15 @@ int SpeakerProtection::speakerProtectionDynamicCal()
     return ret;
 }
 
+int SpeakerProtection::open()
+{
+    PAL_INFO(LOG_TAG, "Enter");
+
+    checkAndStopCalibration();
+    Device::open();
+    return 0;
+}
+
 int SpeakerProtection::start()
 {
     PAL_DBG(LOG_TAG, "Enter");
@@ -2148,6 +2250,7 @@ int SpeakerProtection::stop()
         ResourceManager::isVIRecordStarted = false;
         return 0;
     }
+    is_unlocked_due_to_processing = false;
     spkrProtProcessingMode(false);
     return 0;
 }
