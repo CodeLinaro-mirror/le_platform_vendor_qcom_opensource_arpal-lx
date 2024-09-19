@@ -8716,7 +8716,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             struct pal_device dattr;
             pal_param_bta2dp_t *current_param_bt_a2dp = nullptr;
             pal_param_bta2dp_t param_bt_a2dp;
-            int retrycnt = 20;
+            int retrycnt = 3;
             const int retryPeriodMs = 100;
 
             //Need to check for BLE
