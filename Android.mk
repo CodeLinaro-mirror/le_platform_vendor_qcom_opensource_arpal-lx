@@ -65,7 +65,6 @@ LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc \
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
-    PalAR.cpp \
     stream/src/Stream.cpp \
     device/src/Device.cpp \
     session/src/Session.cpp \
@@ -116,7 +115,7 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
 
     LOCAL_STATIC_LIBRARIES += \
         libstream_acd \
-        libstream_acdb \
+        libstream_dummy \
         libstream_common \
         libstream_commonproxy \
         libstream_compress \
