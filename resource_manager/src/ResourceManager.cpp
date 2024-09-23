@@ -6976,7 +6976,7 @@ void ResourceManager::updateLinkName(int32_t deviceId, std::string linkName)
 
 void ResourceManager::updateSndName(int32_t deviceId, std::string sndName)
 {
-    if (isValidDevId(deviceId)) {
+    if (isValidDevId(deviceId) && deviceId < (PAL_DEVICE_IN_MAX - 1)) {
         sndDeviceNameLUT[deviceId].second = sndName;
         PAL_DBG(LOG_TAG, "Updated snd device to %s for device %s",
                 sndName.c_str(), deviceNameLUT.at(deviceId).c_str());
