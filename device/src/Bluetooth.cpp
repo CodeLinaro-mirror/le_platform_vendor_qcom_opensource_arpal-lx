@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +25,12 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+
+/*
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Bluetooth"
@@ -1988,12 +1993,14 @@ void BtSco::convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo,
     if (lc3CodecInfo.enc_cfg.streamMapOut != NULL)
         delete [] lc3CodecInfo.enc_cfg.streamMapOut;
     lc3CodecInfo.enc_cfg.streamMapOut = new lc3_stream_map_t[steamMapOut.size()];
-    for (auto &it : steamMapOut) {
-        lc3CodecInfo.enc_cfg.streamMapOut[idx].audio_location = it.audio_location;
-        lc3CodecInfo.enc_cfg.streamMapOut[idx].stream_id = it.stream_id;
-        lc3CodecInfo.enc_cfg.streamMapOut[idx++].direction = it.direction;
-        PAL_DBG(LOG_TAG, "streamMapOut: audio_location %d, stream_id %d, direction %d",
-                it.audio_location, it.stream_id, it.direction);
+    if (lc3CodecInfo.enc_cfg.streamMapOut != NULL) {
+        for (auto &it : steamMapOut) {
+            lc3CodecInfo.enc_cfg.streamMapOut[idx].audio_location = it.audio_location;
+            lc3CodecInfo.enc_cfg.streamMapOut[idx].stream_id = it.stream_id;
+            lc3CodecInfo.enc_cfg.streamMapOut[idx++].direction = it.direction;
+            PAL_DBG(LOG_TAG, "streamMapOut: audio_location %d, stream_id %d, direction %d",
+                    it.audio_location, it.stream_id, it.direction);
+        }
     }
 
     idx = 0;
@@ -2001,18 +2008,20 @@ void BtSco::convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo,
     if (lc3CodecInfo.dec_cfg.streamMapIn != NULL)
         delete [] lc3CodecInfo.dec_cfg.streamMapIn;
     lc3CodecInfo.dec_cfg.streamMapIn = new lc3_stream_map_t[steamMapIn.size()];
-    for (auto &it : steamMapIn) {
-        lc3CodecInfo.dec_cfg.streamMapIn[idx].audio_location = it.audio_location;
-        lc3CodecInfo.dec_cfg.streamMapIn[idx].stream_id = it.stream_id;
-        lc3CodecInfo.dec_cfg.streamMapIn[idx++].direction = it.direction;
-        PAL_DBG(LOG_TAG, "steamMapIn: audio_location %d, stream_id %d, direction %d",
-                it.audio_location, it.stream_id, it.direction);
-    }
+    if (lc3CodecInfo.dec_cfg.streamMapIn != NULL) {
+        for (auto &it : steamMapIn) {
+            lc3CodecInfo.dec_cfg.streamMapIn[idx].audio_location = it.audio_location;
+            lc3CodecInfo.dec_cfg.streamMapIn[idx].stream_id = it.stream_id;
+            lc3CodecInfo.dec_cfg.streamMapIn[idx++].direction = it.direction;
+            PAL_DBG(LOG_TAG, "steamMapIn: audio_location %d, stream_id %d, direction %d",
+                    it.audio_location, it.stream_id, it.direction);
+        }
 
-    if (lc3CodecInfo.dec_cfg.streamMapIn[0].audio_location == 0)
-        lc3CodecInfo.dec_cfg.decoder_output_channel = CH_MONO;
-    else
-        lc3CodecInfo.dec_cfg.decoder_output_channel = CH_STEREO;
+        if (lc3CodecInfo.dec_cfg.streamMapIn[0].audio_location == 0)
+            lc3CodecInfo.dec_cfg.decoder_output_channel = CH_MONO;
+        else
+            lc3CodecInfo.dec_cfg.decoder_output_channel = CH_STEREO;
+    }
 }
 
 int BtSco::startSwb()
