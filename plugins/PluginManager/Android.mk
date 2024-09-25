@@ -8,6 +8,13 @@ LOCAL_VENDOR_MODULE := true
 
 LOCAL_CPPFLAGS += -fexceptions
 
+# add for gcov dump
+ifeq ($(AUDIO_FEATURE_ENABLED_GCOV), true)
+LOCAL_CFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_CPPFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_LDFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+endif
+
 ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
     LOCAL_CFLAGS += -DUSE_STATIC_LINKING_MODULES
     LOCAL_SRC_FILES := \

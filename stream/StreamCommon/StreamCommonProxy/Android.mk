@@ -13,6 +13,13 @@ LOCAL_SRC_FILES := \
 	src/StreamCommonProxy.cpp \
 	# ../src/StreamCommon.cpp
 
+# add for gcov dump
+ifeq ($(AUDIO_FEATURE_ENABLED_GCOV), true)
+LOCAL_CFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_CPPFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_LDFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+endif
+
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/inc
 
