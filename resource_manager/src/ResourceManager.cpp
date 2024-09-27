@@ -5170,6 +5170,8 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
                                                 bool is_register) {
     int status = 0;
     std::map<int, std::pair<session_callback, uint64_t>>::iterator it;
+    std::shared_ptr<ResourceManager> rm = nullptr;
+    rm = ResourceManager::getInstance();
 
     if (!callback || DevIds.size() <= 0) {
         PAL_ERR(LOG_TAG, "Invalid callback or pcm ids");
@@ -5185,25 +5187,25 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
 
     if (is_register) {
         for (int i = 0; i < DevIds.size(); i++) {
-            it = mixerEventCallbackMap.find(DevIds[i]);
-            if (it != mixerEventCallbackMap.end()) {
+            it = rm->mixerEventCallbackMap.find(DevIds[i]);
+            if (it != rm->mixerEventCallbackMap.end()) {
                 PAL_DBG(LOG_TAG, "callback exists for pcm id %d, overwrite",
                     DevIds[i]);
-                mixerEventCallbackMap.erase(it);
+                rm->mixerEventCallbackMap.erase(it);
             }
-            mixerEventCallbackMap.insert(std::make_pair(DevIds[i],
+           rm->mixerEventCallbackMap.insert(std::make_pair(DevIds[i],
                 std::make_pair(callback, cookie)));
 
         }
         mixerEventRegisterCount++;
     } else {
         for (int i = 0; i < DevIds.size(); i++) {
-            it = mixerEventCallbackMap.find(DevIds[i]);
-            if (it != mixerEventCallbackMap.end()) {
+            it = rm->mixerEventCallbackMap.find(DevIds[i]);
+            if (it != rm->mixerEventCallbackMap.end()) {
                 PAL_DBG(LOG_TAG, "callback found for pcm id %d, remove",
                     DevIds[i]);
                 if (callback == it->second.first) {
-                    mixerEventCallbackMap.erase(it);
+                    rm->mixerEventCallbackMap.erase(it);
                 } else {
                     PAL_ERR(LOG_TAG, "No matching callback found for pcm id %d",
                         DevIds[i]);
