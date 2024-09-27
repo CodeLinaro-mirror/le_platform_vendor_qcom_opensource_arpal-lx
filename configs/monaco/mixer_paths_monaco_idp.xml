@@ -26,7 +26,7 @@
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                          -->
 
 <!---Changes from Qualcomm Innovation Center, Inc. are provided under the following license: -->
-<!---Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.     -->
+<!---Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.     -->
 <!---SPDX-License-Identifier: BSD-3-Clause-Clear                                       -->
 
 <mixer>
@@ -260,6 +260,10 @@
         <ctl name="RX INT2_1 MIX1 INP0" value="RX0" />
         <ctl name="SWR DAC_Port Switch" value="1" />
         <ctl name="VISENSE Switch" value="1" />
+    </path>
+
+    <path name="speaker-prot">
+        <path name="speaker" />
     </path>
 
     <path name="v-sense">
