@@ -21,7 +21,7 @@ LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
 LOCAL_CFLAGS        += -DSOC_PERIPHERAL_PROT
 endif
-LOCAL_CPPFLAGS      += -fexceptions -frtti
+LOCAL_CPPFLAGS      += -fexceptions -frtti -Wno-ignored-attributes
 
 ifneq ($(TARGET_BOARD_PLATFORM), anorak)
 LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
