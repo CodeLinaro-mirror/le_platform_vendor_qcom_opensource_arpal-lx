@@ -8362,6 +8362,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 (pal_param_device_connection_t *)param_payload;
             std::shared_ptr<Device> dev = nullptr;
             struct pal_device dattr;
+            pal_device_id_t st_device;
 
             PAL_INFO(LOG_TAG, "Device %d connected = %d",
                         device_connection->id,
@@ -8378,9 +8379,17 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     if (dev)
                         status = dev->setDeviceParameter(param_id, param_payload);
                 } else {
+                    /* Handle device switch for Sound Trigger streams */
+                    if (device_connection->id == PAL_DEVICE_IN_WIRED_HEADSET) {
+                        st_device = PAL_DEVICE_IN_HEADSET_VA_MIC;
+                    } else {
+                        PAL_INFO(LOG_TAG, "Unsupported device %d for Sound Trigger streams",
+                                 device_connection->id);
+                        goto exit;
+                    }
                     status = SwitchSoundTriggerDevices(
                         device_connection->connection_state,
-                        device_connection->id);
+                        st_device);
                     if (status) {
                         PAL_ERR(LOG_TAG, "Failed to switch device for SVA");
                     }
