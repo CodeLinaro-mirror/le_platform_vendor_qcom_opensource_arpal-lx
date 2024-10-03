@@ -140,8 +140,19 @@
                 <name>PAL_STREAM_DEEP_BUFFER</name>
                 <ec_enable>1</ec_enable>
             </usecase>
+            <usecase>
+                <name>PAL_STREAM_COMPRESSED</name>
+                <ec_enable>1</ec_enable>
+            </usecase>
+            <usecase>
+                <name>PAL_STREAM_VOIP_TX</name>
+                <ec_enable>1</ec_enable>
+            </usecase>
+            <ec_rx_device>
+                <id>PAL_DEVICE_OUT_SPEAKER</id>
+            </ec_rx_device>
         </in-device>
-		<out-device>
+        <out-device>
             <id>PAL_DEVICE_OUT_SPEAKER</id>
             <back_end_name>MI2S-LPAIF-RX-SECONDARY</back_end_name>
             <max_channels>4</max_channels>
@@ -172,6 +183,6 @@
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
             </usecase>
-		</out-device>
-	</device_profile>
+        </out-device>
+    </device_profile>
 </resource_manager_info>
