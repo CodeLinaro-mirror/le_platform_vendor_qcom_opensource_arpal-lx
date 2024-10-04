@@ -148,7 +148,8 @@ public:
     bool a2dpPaused = false;
     bool force_nlpi_vote = false;
     bool isMMap = false;
-    std::vector<pal_device_id_t> suspendedDevIds;
+    std::vector<pal_device_id_t> suspendedOutDevIds;
+    std::vector<pal_device_id_t> suspendedInDevIds;
     virtual int32_t open() = 0;
     virtual int32_t close() = 0;
     virtual int32_t start() = 0;
@@ -199,6 +200,8 @@ public:
     uint32_t getRenderLatency();
     uint32_t getLatency();
     int32_t getAssociatedDevices(std::vector <std::shared_ptr<Device>> &adevices);
+    int32_t getAssociatedOutDevices(std::vector <std::shared_ptr<Device>> &adevices);
+    int32_t getAssociatedInDevices(std::vector <std::shared_ptr<Device>> &adevices);
     int32_t getPalDevices(std::vector <std::shared_ptr<Device>> &PalDevices);
     void removePalDevice(Stream *streamHandle, int palDevId);
     void clearOutPalDevices(Stream *streamHandle);

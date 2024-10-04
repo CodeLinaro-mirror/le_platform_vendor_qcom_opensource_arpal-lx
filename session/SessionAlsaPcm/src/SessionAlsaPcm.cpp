@@ -1639,7 +1639,8 @@ set_mixer:
                         PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
                         goto exit;
                     }
-                    if (dAttr.config.ch_info.channels > 1) {
+                    if (dAttr.id == PAL_DEVICE_IN_ULTRASOUND_MIC &&
+                        dAttr.config.ch_info.channels > 1) {
                         builder->payloadDAMPortConfig(&payload, &payloadSize, miid,
                                                       dAttr.config.ch_info.channels);
                         if (payloadSize && payload) {
@@ -1726,14 +1727,14 @@ set_mixer:
                                  sizeof(struct agm_event_reg_cfg));
                 if (status) {
                    PAL_ERR(LOG_TAG, "Failed Registering for SILENCE DETECTION EVENT\n");
-                   goto exit;
+                   goto silence_ev_setup_done;
                 }
                 PAL_INFO(LOG_TAG, "Registered for Silence Detection Event\n");
 
                 status = rm->registerMixerEventCallback(pcmDevIds, handleSilenceDetectionCb, (uint64_t)this, true);
                 if (status != 0) {
                   PAL_ERR(LOG_TAG, "Failed to register DSP cb for silence detection Event");
-                  goto exit;
+                  goto err_silence_ev_cb_reg;
                 }
                 PAL_INFO(LOG_TAG, "Registered CB for Silence Detection\n");
 
@@ -1741,7 +1742,7 @@ set_mixer:
                                  pcmDevIds.at(0), txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, &miid);
                  if (status != 0) {
                    PAL_ERR(LOG_TAG, "Error retriving MIID for HW_ENDPOINT_TX\n");
-                   goto exit;
+                   goto err_silence_ev_setup;
                  }
 
                 payloadSize = sizeof(struct apm_module_param_data_t)+sizeof(param_id_silence_detection_t);
@@ -1750,7 +1751,7 @@ set_mixer:
                 payload = (uint8_t *)calloc(1, payloadSize+pad_bytes);
                 if (!payload){
                     PAL_ERR(LOG_TAG, "payload info calloc failed \n");
-                    goto exit;
+                    goto err_silence_ev_setup;
                 }
 
                 header = (struct apm_module_param_data_t  *)payload;
@@ -1769,7 +1770,7 @@ set_mixer:
                 builder->freeCustomPayload(&payload, &payloadSize);
                 if (status !=0) {
                     PAL_ERR(LOG_TAG, "updateCustomPayload failed for SILENCE DETECTION \n");
-                    goto exit;
+                    goto err_silence_ev_setup;
                 }
                 builder->getCustomPayload(&payload, &payloadSize);
                 status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
@@ -1777,11 +1778,26 @@ set_mixer:
                 builder->freeCustomPayload();
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "setMixerParameter failed for Silence Detection Parameter");
-                    goto exit;
+                    goto err_silence_ev_setup;
                 }
+
+                PAL_INFO(LOG_TAG, "Silence Detection Event Setup Complete\n");
+
                 /* disable temporarily Silence Detection to prevent multiple registration */
                 silenceEventRegistered = true;
 
+                goto silence_ev_setup_done;
+
+err_silence_ev_setup:
+                rm->registerMixerEventCallback(pcmDevIds, handleSilenceDetectionCb,
+                 (uint64_t)this, false);
+err_silence_ev_cb_reg:
+                event_cfg.is_register = 0;
+                status  = SessionAlsaUtils::registerMixerEvent(mixer, pcmDevIds.at(0),
+                                txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX,
+                                (void *)&event_cfg, sizeof(struct agm_event_reg_cfg));
+silence_ev_setup_done:
+                status = 0;
             }
 
             if (ResourceManager::isLpiLoggingEnabled()) {
@@ -3900,22 +3916,16 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
         goto exit;
     }
 
-    if (payloadData && payloadSize <= MAX_PCM_PAYLOAD_SIZE) {
+    if (payloadData) {
         status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
             goto exit;
         }
     } else {
-        if (!payloadData) {
-            PAL_ERR(LOG_TAG, "Failed to allocate payloadData memory\n");
-            status = -ENOMEM;
-            goto exit;
-        } else {
-            PAL_ERR(LOG_TAG, "Payloadsize exceeds max permissible value");
-            status = -EINVAL;
-            goto exit;
-        }
+        PAL_ERR(LOG_TAG, "Failed to allocate payloadData memory\n");
+        status = -ENOMEM;
+        goto exit;
     }
 
     ptr = (uint8_t *)payloadData + sizeof(struct apm_module_param_data_t);

@@ -918,8 +918,14 @@ public:
         Stream *s, std::shared_ptr<CaptureProfile> cap_prof_priority, std::string backend);
     std::shared_ptr<CaptureProfile> GetCaptureProfileByPriority(Stream *s, std::string backend);
     bool UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active);
-    std::shared_ptr<CaptureProfile> GetSoundTriggerCaptureProfile() const { return SoundTriggerCaptureProfile; }
-    std::shared_ptr<CaptureProfile> GetTXMacroCaptureProfile() const { return TXMacroCaptureProfile; }
+    std::shared_ptr<CaptureProfile> GetSoundTriggerCaptureProfile() const {
+        std::lock_guard<std::mutex> lck(mResourceManagerMutex);
+        return SoundTriggerCaptureProfile;
+    }
+    std::shared_ptr<CaptureProfile> GetTXMacroCaptureProfile() const {
+        std::lock_guard<std::mutex> lck(mResourceManagerMutex);
+        return TXMacroCaptureProfile;
+    }
     void SwitchSoundTriggerDevices(bool connect_state, pal_device_id_t st_device);
     static void mixerEventWaitThreadLoop(std::shared_ptr<ResourceManager> rm);
     bool isCallbackRegistered() { return (mixerEventRegisterCount > 0); }
@@ -1092,7 +1098,6 @@ public:
     bool isValidDeviceSwitchForStream(Stream *s, pal_device_id_t newDeviceId);
     void RegisterSTCaptureHandle(pal_param_st_capture_info_t stCaptureInfo, bool start);
     static void setProxyRecordActive(bool isActive);
-    void WbSpeechConfig(pal_device_id_t devId, uint32_t param_id, void *param_payload);
     void setVIRecordState(bool isStarted);
     void setCRSCallEnabled(bool isEnabled);
     void setCurrentGroupDevConfig(std::shared_ptr<group_dev_config_t> activeDevConfig,
@@ -1131,7 +1136,7 @@ public:
     adm_deregister_stream_t getAdmDeregisterStreamFn();
     std::shared_ptr<group_dev_config_t> getActiveGroupDevConfig();
     group_dev_config_t getCurrentGroupDevConfig();
-
+    void reconfigureScoStreams();
 };
 
 #endif
