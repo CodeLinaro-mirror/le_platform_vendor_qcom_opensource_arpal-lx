@@ -688,6 +688,7 @@ public:
     static bool isCRSCallEnabled;
     static bool isDummyDevEnabled;
     static bool isProxyRecordActive;
+    static bool isSoundDoseEnabled;
     static std::mutex mChargerBoostMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
@@ -1086,6 +1087,7 @@ public:
     int resetStreamInstanceID(Stream *str);
     int resetStreamInstanceID(Stream *str, uint32_t sInstanceID);
     static void setGaplessMode(const XML_Char **attr);
+    static void setSoundDose(const XML_Char **attr);
     static int initWakeLocks(void);
     static void deInitWakeLocks(void);
     void acquireWakeLock();
