@@ -277,7 +277,7 @@
             <bit_width>16</bit_width>
             <snd_device_name>speaker</snd_device_name>
             <speaker_protection_version>4</speaker_protection_version>
-            <speaker_protection_enabled>0</speaker_protection_enabled>
+            <speaker_protection_enabled>1</speaker_protection_enabled>
             <cps_enabled>0</cps_enabled>
             <!--specify the supported bit format on speaker end point -->
             <!--this should be in the form of pal_audio_fmt_id-->
