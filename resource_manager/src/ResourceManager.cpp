@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -8454,15 +8454,6 @@ bool ResourceManager::isDeviceAvailable(
     }
 
     return isAvailable;
-}
-
-bool ResourceManager::isDisconnectedDeviceStillActive(
-    std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices,
-    pal_device_id_t id)
-{
-    return (!isDeviceAvailable(id)) &&
-        (curPalDevices.find(id) != curPalDevices.end()) &&
-        (activeDevices.find(id) != activeDevices.end());
 }
 
 bool ResourceManager::isDeviceReady(pal_device_id_t id)

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -912,7 +912,6 @@ public:
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceAvailable(std::vector<std::shared_ptr<Device>> devices, pal_device_id_t id);
     bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
-    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices, pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);
     bool isBtScoDevice(pal_device_id_t id);
     bool isBtDevice(pal_device_id_t id);
