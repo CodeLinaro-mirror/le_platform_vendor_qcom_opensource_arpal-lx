@@ -91,6 +91,10 @@ else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
 endif
 
+ifeq ($(filter $(TARGET_BOARD_DERIVATIVE_SUFFIX), _sdv _cdcsdv),$(TARGET_BOARD_DERIVATIVE_SUFFIX))
+LOCAL_CFLAGS  += -DRBVM
+endif
+
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/session/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/stream/inc

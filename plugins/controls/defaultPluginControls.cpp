@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -77,6 +77,9 @@
   BUS devices are added.
 **/
 #define BUS_MEDIA            "BUS00_MEDIA"
+#ifdef RBVM
+#define BUS_MEDIA            "BUS00_WS"
+#endif
 #define BUS_SYS_NOTIFICATION "BUS01_SYS_NOTIFICATION"
 #define BUS_NAV_GUIDANCE     "BUS02_NAV_GUIDANCE"
 #define BUS_PHONE            "BUS03_PHONE"
@@ -84,8 +87,9 @@
 #define BUS_FRONT_PASSENGER  "BUS08_FRONT_PASSENGER"
 #define BUS_REAR_SEAT        "BUS16_REAR_SEAT"
 #define BUS_NAVIGATION2      "BUS0F_NAV_GUIDANCE2"
-#define BUS_VWARN            "BUS01_VWARN"
-#define BUS_VROADADAS        "BUS02_VROADADAS"
+#define BUS_VWARN            "BUS01_no_ASIL"
+#define BUS_ROAD_ADAS        "BUS02_Road_ADAS"
+#define BUS_SWARN            "BUS03_ASIL"
 /**
 * Following are the default defined period sizes
 * Customers can add/modify the period sizes as per their requirements
@@ -123,6 +127,9 @@
 #define DIV_ROUND_UP(x, y) (((x) + (y) - 1)/(y))
 #define ALIGN(x, y) ((y) * DIV_ROUND_UP((x), (y)))
 
+#define MIN_VOLUME -9000
+#define MAX_VOLUME 0
+
 typedef struct pal_awx_volume_data
 {
     uint16_t volume_func;
@@ -140,7 +147,7 @@ const char bus_address[BUS_RESERVED][MAX_BUS_ADDRESS]={
         BUS_PHONE,
         BUS_NAVIGATION2,
         BUS_VWARN,
-        BUS_VROADADAS
+        BUS_ROAD_ADAS
 };
 int payloadCalKeys(Session* s, uint8_t **payload, size_t *size, float volume)
 {
@@ -458,6 +465,12 @@ int setAWXVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm,enu
     // Pass the volume Gain in the respective value field.
     vol_Data->value[0] = voldB;
 
+    // Check volume range
+    if(vol_Data->value[0] > MAX_VOLUME)
+            vol_Data->value[0] = MAX_VOLUME;
+    else if (vol_Data->value[0] < MIN_VOLUME)
+            vol_Data->value[0] = MIN_VOLUME;
+
     size = payloadSize + padBytes;
 
     PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume Func %d Volume value %d\n", __func__,header->module_instance_id,header->param_id,header->param_size,vol_Data->volume_func,vol_Data->value[0]);
@@ -730,7 +743,11 @@ uint32_t get_buffer_size(pal_stream_attributes streamAttributes_) {
             || (strcmp(streamAttributes_.bus_addr, BUS_FRONT_PASSENGER) == 0)
             || (strcmp(streamAttributes_.bus_addr, BUS_REAR_SEAT) == 0)) {
             return pcm_buffer_size(streamAttributes_);
-        } else if(strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0) {
+        } else if((strcmp(streamAttributes_.bus_addr, BUS_PHONE) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_VWARN) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_ROAD_ADAS) == 0)
+            || (strcmp(streamAttributes_.bus_addr, BUS_SWARN) == 0)) {
+            PAL_DBG(LOG_TAG, " setting low latency period size %d", streamAttributes_.type);
             return LOW_LATENCY_PLAYBACK_PERIOD_SIZE *
             audio_bytes_per_frame(
                     audio_channel_count_from_out_mask(streamAttributes_.ch_mask),
@@ -767,12 +784,15 @@ void get_buffer_configration(Stream* s, void** payload, size_t* payload_size)
     } else
         buff_config->buffer_size = get_buffer_size(streamAttributes_);
 
-    if (usecase == AUDIO_USECASE_PLAYBACK_LOW_LATENCY)
-        buff_config->buffer_count = LOW_LATENCY_PLAYBACK_PERIOD_COUNT;
+    if ((usecase == AUDIO_USECASE_PLAYBACK_LOW_LATENCY)
+        || (strcmp(streamAttributes_.bus_addr, BUS_VWARN) == 0)
+        || (strcmp(streamAttributes_.bus_addr, BUS_ROAD_ADAS) == 0)
+        || (strcmp(streamAttributes_.bus_addr, BUS_SWARN) == 0))
+            buff_config->buffer_count = LOW_LATENCY_PLAYBACK_PERIOD_COUNT;
     else if (usecase == AUDIO_USECASE_PLAYBACK_OFFLOAD2)
-         buff_config->buffer_count = PCM_OFFLOAD_PLAYBACK_PERIOD_COUNT;
+            buff_config->buffer_count = PCM_OFFLOAD_PLAYBACK_PERIOD_COUNT;
     else if (usecase == AUDIO_USECASE_PLAYBACK_DEEP_BUFFER)
-         buff_config->buffer_count = DEEP_BUFFER_PLAYBACK_PERIOD_COUNT;
+            buff_config->buffer_count = DEEP_BUFFER_PLAYBACK_PERIOD_COUNT;
 
     *payload_size = sizeof(struct pal_buffer_data);
 }
