@@ -12570,29 +12570,6 @@ bool ResourceManager::isDeviceAvailable(
     return isAvailable;
 }
 
-bool ResourceManager::isDisconnectedDeviceStillActive(
-    std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices,
-    const std::set<pal_device_id_t> &extDeviceList)
-{
-    for (pal_device_id_t id : extDeviceList) {
-        if ((curPalDevices.find(id) != curPalDevices.end() &&
-            activeDevices.find(id) != activeDevices.end()) &&
-            ((isBtDevice(id) && !isDeviceReady(id)) || !isDeviceAvailable(id))) {
-             return true;
-        }
-    }
-    return false;
-}
-
-bool ResourceManager::isDeviceGroupInList(std::set<pal_device_id_t> &devicelist,
-                                          const std::set<pal_device_id_t> &devicegroup) {
-    for (pal_device_id_t id : devicelist) {
-        if (devicegroup.find(id) != devicegroup.end())
-            return true;
-    }
-    return false;
-}
-
 bool ResourceManager::isDeviceReady(pal_device_id_t id)
 {
     struct pal_device dAttr;

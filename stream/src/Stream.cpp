@@ -1621,7 +1621,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     int32_t status = 0;
     int32_t connectCount = 0, disconnectCount = 0;
     bool isNewDeviceA2dp = false;
-    bool isCurDeviceA2dp = false;
+    bool checkNoneDevice = false;
     bool matchFound = false;
     bool voice_call_switch = false;
     bool force_switch_dev_id[PAL_DEVICE_IN_MAX] = {};
@@ -1658,11 +1658,19 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
     for (int i = 0; i < mDevices.size(); i++) {
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
-        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
-            isCurDeviceA2dp = true;
+        /*
+         * Check the current output device if need to check and handle later
+         * in case the new routing request is PAL_DEVICE_NONE.
+         */
+        if (curDevId < PAL_DEVICE_OUT_MAX &&
+            (((rm->isBtA2dpDevice(curDevId) || rm->isBtScoDevice(curDevId))
+            && (!rm->isDeviceReady(curDevId))) ||
+            curDevId == PAL_DEVICE_OUT_PROXY ||
+            rm->isPluginDevice(curDevId) ||
+            rm->isDpDevice(curDevId))) {
+            checkNoneDevice = true;
         }
+
         /*
          * If stream is currently running on same device, then check if
          * it needs device switch. If not needed, then do not add it to
@@ -1732,10 +1740,28 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         std::shared_ptr<Device> dev = nullptr;
         bool devReadyStatus = false;
         pal_param_bta2dp_t* param_bt_a2dp = nullptr;
-
+        /*
+         * When A2DP, Out Proxy, USB device and DP device is disconnected the
+         * music playback is paused and the policy manager sends routing=0
+         * But the audioflinger continues to write data until standby time
+         * (3sec). As BT is turned off, the write gets blocked.
+         * Avoid this by routing audio to speaker until standby.
+         *
+         * If a stream is active on SCO and playback has ended, APM will send
+         * routing=0. Stream will be closed in PAL after standby time. If SCO
+         * device gets disconnected, this stream will not receive new routing
+         * and stream will remain with SCO for the time being. If SCO device
+         * gets connected again with different config in the meantime and
+         * capture stream tries to start ABR path, it will lead to error due to
+         * config mismatch. Added OUT_SCO device handling to resolve this.
+         */
         // This assumes that PAL_DEVICE_NONE comes as single device
-
-
+        if (checkNoneDevice && newDevices[i].id == PAL_DEVICE_NONE) {
+            if (ResourceManager::isDummyDevEnabled)
+                newDevices[i].id = PAL_DEVICE_OUT_DUMMY;
+            else
+                newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
+        }
         if (newDevices[i].id == PAL_DEVICE_NONE) {
             mStreamMutex.unlock();
             rm->unlockActiveStream();

@@ -217,7 +217,6 @@ public:
     uint64_t cookie;
     bool isPaused = false;
     bool a2dpMuted = false;
-    bool speakerTempMuted = false;
     bool unMutePending = false;
     bool a2dpPaused = false;
     bool force_nlpi_vote = false;
