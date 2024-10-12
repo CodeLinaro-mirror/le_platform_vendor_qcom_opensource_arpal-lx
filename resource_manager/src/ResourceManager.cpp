@@ -8647,14 +8647,15 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             const int retryPeriodMs = 100;
 
             //Need to check for BLE
-            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
-            if (isDeviceAvailable(dattr.id)) {
-                dev = Device::getInstance(&dattr, rm);
-                if (!dev) {
-                    PAL_ERR(LOG_TAG, "Device getInstance failed");
-                    status = -ENODEV;
-                    goto exit;
-                }
+             param_bt_a2dp.dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+             if (isDeviceAvailable(param_bt_a2dp.dev_id)) {
+                 dattr.id = param_bt_a2dp.dev_id;
+                 dev = Device::getInstance(&dattr, rm);
+                 if (!dev) {
+                     PAL_ERR(LOG_TAG, "Device getInstance failed");
+                     status = -ENODEV;
+                     goto exit;
+                 }
 
                 getActiveStream_l(activeA2dpStreams, dev);
                 if (activeA2dpStreams.size() == 0) {
