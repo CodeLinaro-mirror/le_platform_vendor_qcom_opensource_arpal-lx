@@ -11875,7 +11875,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     (SoundTriggerOnResourceAvailableCallback)resources_avail->callback;
                 onResourceAvailCookie = resources_avail->cookie;
                 PAL_VERBOSE(LOG_TAG, "setParameter onResourceAvailCb %pk"
-                    " onResourceAvailCookie %pk", onResourceAvailCb, onResourceAvailCookie);
+                    " onResourceAvailCookie %llu", onResourceAvailCb, onResourceAvailCookie);
             } else {
                 PAL_ERR(LOG_TAG, "Invalid ST resource payload");
                 status = -EINVAL;

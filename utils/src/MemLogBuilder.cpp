@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -46,7 +46,7 @@ int palStateQueueBuilder(pal_state_queue &que, Stream *s, pal_state_queue_state 
     que.state = state;
     que.error = error;
 
-    PAL_DBG(LOG_TAG, "Stream handle = " "%" PRId64 "\n", s);
+    PAL_DBG(LOG_TAG, "Stream handle = %llu \n",(uint64_t)s);
 
     memset(que.device_attr, 0, sizeof(que.device_attr));
 
