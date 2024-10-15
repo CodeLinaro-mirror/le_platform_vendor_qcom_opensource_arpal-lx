@@ -1960,7 +1960,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
                 // wsa883x specific cps payload
                 updateCpsCustomPayload(miid);
-
+                [[fallthrough]];
            default:
                 enableDevice(audioRoute, mSndDeviceName_vi);
                 PAL_DBG(LOG_TAG, "pcm start for TX");
