@@ -140,7 +140,7 @@
 
 /*this can be over written by the config file settings*/
 uint32_t pal_log_lvl = (PAL_LOG_ERR|PAL_LOG_INFO);
-
+bool hfp_setBoot = false;
 static struct str_parms *configParamKVPairs;
 
 char rmngr_xml_file[XML_PATH_MAX_LENGTH] = {0};
@@ -6776,7 +6776,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
 
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
-
+    ret = setHfpVolGroupBoot(parms, value, len);
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
 
@@ -6786,6 +6786,22 @@ exit:
         free(value);
     if(kv_pairs != NULL)
         free(kv_pairs);
+    return ret;
+}
+
+int ResourceManager::setHfpVolGroupBoot(struct str_parms *parms, char *value,
+                                         int len)
+{
+    int ret = -EINVAL;
+    if (!value || !parms)
+        return ret;
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_SET_BOOT, value, len);
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            hfp_setBoot =  true;
+        PAL_INFO(LOG_TAG, "hfp_setBoot  %d", hfp_setBoot);
+        ret = 0;
+    }
     return ret;
 }
 

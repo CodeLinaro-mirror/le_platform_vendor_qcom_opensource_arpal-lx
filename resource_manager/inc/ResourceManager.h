@@ -80,6 +80,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
+#define AUDIO_PARAMETER_KEY_HFP_SET_BOOT "hfp_volgrp_set_boot"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -807,6 +808,7 @@ public:
     static int setLpiLoggingParams(struct str_parms *parms, char *value, int len);
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
+    static int setHfpVolGroupBoot(struct str_parms *parms,char *value, int len);
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);
