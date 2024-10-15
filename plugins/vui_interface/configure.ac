@@ -55,11 +55,14 @@ AC_SUBST([SPFHEADER_CFLAGS])
 PKG_CHECK_MODULES([KVH2XML],[kvh2xml])
 AC_SUBST([KVH2XML_CFLAGS])
 
+PKG_CHECK_MODULES([VUIINTERFACEHEADERS],[vui-intf-header])
+AC_SUBST([VUIINTERFACEHEADERS_CFLAGS])
+
 AC_CONFIG_FILES([
         Makefile
         sva_intf/Makefile
         sva_intf/sva_interface.pc
-        uitls/Makefile
+        utils/Makefile
         utils/vui_interface_utils.pc
         ])
 
