@@ -1,0 +1,1 @@
+SUBDIRS = SessionAR SessionAlsaPcm SessionAlsaVoice  SessionAgm SessionAlsaCompress

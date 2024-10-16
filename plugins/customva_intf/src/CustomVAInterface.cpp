@@ -36,7 +36,11 @@
 
 #include <log/log.h>
 #include "CustomVAInterface.h"
-
+#ifdef FEATURE_IPQ_OPENWRT
+#include <stdexcept>
+#include <cstring>
+#include <memory>
+#endif
 #include <cutils/properties.h>
 
 #define ST_MAX_FSTAGE_CONF_LEVEL  (100)
@@ -1145,8 +1149,13 @@ int32_t CustomVAInterface::ParseOpaqueConfLevels(
                     ALOGI("%s: %d: second stage user confidence level = %d",
                         __func__, __LINE__, confidence_level);
                 }
+#ifdef FEATURE_IPQ_OPENWRT
+                info->sec_threshold.push_back(
+                    std::make_pair(static_cast<listen_model_indicator_enum>(sm_levels->sm_id), confidence_level));
+#else
                 info->sec_threshold.push_back(
                     std::make_pair(sm_levels->sm_id, confidence_level));
+#endif
             }
         }
     } else {
@@ -1185,8 +1194,13 @@ int32_t CustomVAInterface::ParseOpaqueConfLevels(
                     ALOGI("%s: %d: second stage user confidence level = %d",
                         __func__, __LINE__, confidence_level_v2);
                 }
+#ifdef FEATURE_IPQ_OPENWRT
+                info->sec_threshold.push_back(
+                    std::make_pair(static_cast<listen_model_indicator_enum>(sm_levels_v2->sm_id), confidence_level_v2));
+#else
                 info->sec_threshold.push_back(
                     std::make_pair(sm_levels_v2->sm_id, confidence_level_v2));
+#endif
             }
         }
     }
@@ -2307,7 +2321,9 @@ void CustomVAInterface::DeregisterModel(void *s) {
             free(sm_info_map_[s]->wakeup_config);
 
         sm_info_map_[s]->sec_threshold.clear();
+        sm_info_map_[s]->sec_threshold.shrink_to_fit();
         sm_info_map_[s]->sec_det_level.clear();
+        sm_info_map_[s]->sec_det_level.shrink_to_fit();
 
         for (int i = 0; i < sm_info_map_[s]->model_list.size(); i++) {
             sm_data = sm_info_map_[s]->model_list[i];
@@ -2318,6 +2334,7 @@ void CustomVAInterface::DeregisterModel(void *s) {
             }
         }
         sm_info_map_[s]->model_list.clear();
+        sm_info_map_[s]->model_list.shrink_to_fit();
         free(sm_info_map_[s]);
         sm_info_map_.erase(iter);
     } else {

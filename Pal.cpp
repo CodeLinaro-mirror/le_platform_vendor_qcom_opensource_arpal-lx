@@ -50,6 +50,8 @@
 #include "PalCommon.h"
 #include "mem_logger.h"
 #include "PerfLock.h"
+#include "PluginManager.h"
+#include "MemLogBuilder.h"
 class Stream;
 
 /**
@@ -203,7 +205,7 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
     PAL_INFO(LOG_TAG, "Enter, stream type:%d", attributes->type);
     kpiEnqueue(__func__, true);
 #ifdef SOC_PERIPHERAL_PROT
-    if (ResourceManager::isTZSecureZone) {
+    if (rm->IsTZSecureZone()) {
         PAL_DBG(LOG_TAG, "In secure zone, so stop the usecase");
         status = -ENODEV;
         goto exit;
@@ -230,7 +232,7 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
         if (s->close() != 0) {
             PAL_ERR(LOG_TAG, "stream closed failed.");
         }
-        delete s;
+        Stream::destroy(s);
         goto exit;
     }
 
@@ -297,10 +299,9 @@ exit:
     s->getStreamAttributes(&sAttr);
     notify_concurrent_stream(sAttr.type, sAttr.direction, false);
     if (sAttr.type == PAL_STREAM_VOICE_CALL)
-        rm->isCRSCallEnabled = false;
+        rm->setCRSCallEnabled(false);
     rm->eraseStreamUserCounter(s);
-    delete s;
-    PAL_INFO(LOG_TAG, "Exit. status %d", status);
+    status = Stream::destroy(s);
     kpiEnqueue(__func__, false);
     return status;
 }
@@ -321,7 +322,7 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
     PAL_INFO(LOG_TAG, "Enter. Stream handle %pK", stream_handle);
 
 #ifdef SOC_PERIPHERAL_PROT
-    if (ResourceManager::isTZSecureZone) {
+    if (rm->IsTZSecureZone()) {
         PAL_DBG(LOG_TAG, "In secure zone, so stop the usecase");
         status = -ENODEV;
         goto exit;
@@ -1162,37 +1163,6 @@ exit:
     return status;
 }
 
-int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
-                           size_t *size, uint8_t *payload)
-{
-    int status = 0;
-    Stream *s = NULL;
-    std::shared_ptr<ResourceManager> rm = NULL;
-
-    if (!stream_handle) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
-        return status;
-    }
-
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
-
-    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
-    kpiEnqueue(__func__, true);
-
-    s =  reinterpret_cast<Stream *>(stream_handle);
-    status = s->getTagsWithModuleInfo(size, payload);
-
-    PAL_DBG(LOG_TAG, "Exit. Stream handle: %pK, status %d", stream_handle, status);
-    kpiEnqueue(__func__, false);
-    return status;
-}
-
 int32_t pal_set_param(uint32_t param_id, void *param_payload,
                       size_t payload_size)
 {
@@ -1324,76 +1294,6 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
     }
     PAL_DBG(LOG_TAG, "Exit");
     kpiEnqueue(__func__, false);
-    return status;
-}
-
-int32_t pal_gef_rw_param(uint32_t param_id, void *param_payload,
-                      size_t payload_size, pal_device_id_t pal_device_id,
-                      pal_stream_type_t pal_stream_type, unsigned int dir)
-{
-    int status = 0;
-    std::shared_ptr<ResourceManager> rm = NULL;
-
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
-
-    PAL_DBG(LOG_TAG, "Enter.");
-
-    if (rm) {
-        kpiEnqueue(__func__, true);
-        if (GEF_PARAM_WRITE == dir) {
-            status = rm->setParameter(param_id, param_payload, payload_size,
-                                        pal_device_id, pal_stream_type);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to set global parameter %u, status %d",
-                        param_id, status);
-            }
-        } else {
-            status = rm->getParameter(param_id, param_payload, payload_size,
-                                        pal_device_id, pal_stream_type);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to set global parameter %u, status %d",
-                        param_id, status);
-            }
-        }
-        kpiEnqueue(__func__, false);
-    } else {
-        PAL_ERR(LOG_TAG, "Pal has not been initialized yet");
-        status = -EINVAL;
-    }
-    PAL_DBG(LOG_TAG, "Exit:");
-    return status;
-}
-
-int32_t pal_gef_rw_param_acdb(uint32_t param_id __unused, void *param_payload,
-                      size_t payload_size __unused, pal_device_id_t pal_device_id,
-                      pal_stream_type_t pal_stream_type, uint32_t sample_rate,
-                      uint32_t instance_id, uint32_t dir, bool is_play )
-{
-    int status = 0;
-    std::shared_ptr<ResourceManager> rm = NULL;
-    rm = ResourceManager::getInstance();
-
-    PAL_DBG(LOG_TAG, "Enter.");
-    if (rm) {
-        kpiEnqueue(__func__, true);
-        status = rm->rwParameterACDB(param_id, param_payload, payload_size,
-                                        pal_device_id, pal_stream_type,
-                                        sample_rate, instance_id, dir, is_play);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG, "Failed to rw global parameter %u, status %d",
-                        param_id, status);
-        }
-        kpiEnqueue(__func__, false);
-    } else {
-        PAL_ERR(LOG_TAG, "Pal has not been initialized yet");
-        status = -EINVAL;
-    }
-    PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
 

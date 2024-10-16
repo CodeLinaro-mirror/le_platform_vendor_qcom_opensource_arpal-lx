@@ -45,14 +45,8 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include "PalARDefs.h"
 
-#ifdef __cplusplus
-
-#include <map>
-#include <string>
-
-extern "C" {
-#endif
 
 #define MIXER_PATH_MAX_LENGTH 100
 #define PAL_MAX_CHANNELS_SUPPORTED 64
@@ -107,38 +101,6 @@ typedef enum {
 #define PCM_16_BIT (0x1u)
 
 #define SAMPLE_RATE_192000 192000
-
-#ifdef __cplusplus
-static const std::map<std::string, pal_audio_fmt_t> PalAudioFormatMap
-{
-    { "PCM",  PAL_AUDIO_FMT_PCM_S16_LE},
-    { "PCM_S8",  PAL_AUDIO_FMT_PCM_S8},
-    { "PCM_S16_LE",  PAL_AUDIO_FMT_PCM_S16_LE},
-    { "PCM_S24_3LE",  PAL_AUDIO_FMT_PCM_S24_3LE},
-    { "PCM_S24_LE",  PAL_AUDIO_FMT_PCM_S24_LE},
-    { "PCM_S32_LE",  PAL_AUDIO_FMT_PCM_S32_LE},
-    { "MP3",  PAL_AUDIO_FMT_MP3},
-    { "AAC",  PAL_AUDIO_FMT_AAC},
-    { "AAC_ADTS",  PAL_AUDIO_FMT_AAC_ADTS},
-    { "AAC_ADIF",  PAL_AUDIO_FMT_AAC_ADIF},
-    { "AAC_LATM",  PAL_AUDIO_FMT_AAC_LATM},
-    { "WMA_STD",  PAL_AUDIO_FMT_WMA_STD},
-    { "ALAC", PAL_AUDIO_FMT_ALAC},
-    { "APE", PAL_AUDIO_FMT_APE},
-    { "WMA_PRO", PAL_AUDIO_FMT_WMA_PRO},
-    { "FLAC", PAL_AUDIO_FMT_FLAC},
-    { "FLAC_OGG", PAL_AUDIO_FMT_FLAC_OGG},
-    { "VORBIS", PAL_AUDIO_FMT_VORBIS},
-    { "AMR_NB", PAL_AUDIO_FMT_AMR_NB},
-    { "AMR_WB", PAL_AUDIO_FMT_AMR_WB},
-    { "AMR_WB_PLUS", PAL_AUDIO_FMT_AMR_WB_PLUS},
-    { "EVRC", PAL_AUDIO_FMT_EVRC},
-    { "G711", PAL_AUDIO_FMT_G711},
-    { "QCELP", PAL_AUDIO_FMT_QCELP},
-    { "OPUS", PAL_AUDIO_FMT_OPUS}
-
-};
-#endif
 
 struct aac_enc_cfg {
     uint16_t aac_enc_mode; /**< AAC encoder mode */
@@ -221,32 +183,20 @@ struct pal_snd_dec_opus {
     uint8_t channel_map[8];
 };
 
-typedef struct pal_key_value_pair_s {
-    uint32_t key; /**< key */
-    uint32_t value; /**< value */
-} pal_key_value_pair_t;
 
-typedef struct pal_key_vector_s {
-    size_t num_tkvs;  /**< number of key value pairs */
-    pal_key_value_pair_t kvp[];  /**< vector of key value pairs */
-} pal_key_vector_t;
 
+/* Type of Modes for Haptics Device Protection */
 typedef enum {
-    PARAM_NONTKV,
-    PARAM_TKV,
-} pal_param_type_t;
+    PAL_HAP_MODE_DYNAMIC_CAL = 1,
+    PAL_HAP_MODE_FACTORY_TEST,
+} pal_haptics_mode;
 
-typedef struct pal_effect_custom_payload_s {
-    uint32_t paramId;
-    uint32_t data[];
-} pal_effect_custom_payload_t;
-
-typedef struct effect_pal_payload_s {
-    pal_param_type_t isTKV;      /* payload type: 0->non-tkv 1->tkv*/
-    uint32_t tag;
-    uint32_t  payloadSize;
-    uint32_t  payload[]; /* TKV uses pal_key_vector_t, while nonTKV uses pal_effect_custom_payload_t */
-} effect_pal_payload_t;
+/* Payload For ID: PAL_PARAM_ID_HAPTICS_MODE
+ * Description   : Values for haptics modes
+ */
+typedef struct pal_haptics_payload {
+    pal_haptics_mode operationMode;/* Type of mode for which request is raised */
+} pal_haptics_payload;
 
 /* Type of Modes for Speaker Protection */
 typedef enum {
@@ -268,10 +218,10 @@ typedef struct pal_spkr_prot_payload {
     pal_spkr_prot_mode operationMode;/* Type of mode for which request is raised */
 } pal_spkr_prot_payload;
 
-typedef enum {
-    GEF_PARAM_READ = 0,
-    GEF_PARAM_WRITE,
-} gef_param_rw_t;
+enum {
+    SPKR_RIGHT,    /* Right Speaker */
+    SPKR_LEFT,     /* Left Speaker */
+};
 
 /** Audio parameter data*/
 typedef union {
@@ -294,12 +244,6 @@ typedef struct pal_param_payload_s {
     uint32_t payload_size;
     uint8_t payload[];
 } pal_param_payload;
-
-typedef struct gef_payload_s {
-    pal_key_vector_t *graph;
-    bool persist;
-    effect_pal_payload_t data;
-} gef_payload_t;
 
 typedef enum {
     LPI_VOTE,
@@ -402,6 +346,7 @@ typedef enum {
     PAL_STREAM_COMMON_PROXY = 28,         /**< AFS's WakeUp Algo library detection */
     PAL_STREAM_SENSOR_PCM_RENDERER = 29,  /**< Sensor Pcm Rendering Stream */
     PAL_STREAM_ASR = 30,                  /**< ASR Stream */
+    PAL_STREAM_HPCM = 31,                 /**< hpcm usecase */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -469,6 +414,13 @@ typedef enum {
     PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 28,
 } pal_device_id_t;
 
+enum A2DP_STATE {
+    A2DP_STATE_CONNECTED,
+    A2DP_STATE_STARTED,
+    A2DP_STATE_STOPPED,
+    A2DP_STATE_DISCONNECTED,
+};
+
 typedef enum {
     VOICEMMODE1 = 0x11C05000,
     VOICEMMODE2 = 0x11DC5000,
@@ -500,214 +452,8 @@ typedef enum {
 typedef enum {
     PAL_STREAM_HAPTICS_RINGTONE,
     PAL_STREAM_HAPTICS_TOUCH = 1,
+    PAL_STREAM_HAPTICS_PCM = 2,
 } pal_stream_haptics_type_t;
-
-#ifdef __cplusplus
-static const std::map<std::string, pal_device_id_t> deviceIdLUT {
-    {std::string{ "PAL_DEVICE_OUT_MIN" },                  PAL_DEVICE_OUT_MIN},
-    {std::string{ "PAL_DEVICE_NONE" },                     PAL_DEVICE_NONE},
-    {std::string{ "PAL_DEVICE_OUT_HANDSET" },              PAL_DEVICE_OUT_HANDSET},
-    {std::string{ "PAL_DEVICE_OUT_SPEAKER" },              PAL_DEVICE_OUT_SPEAKER},
-    {std::string{ "PAL_DEVICE_OUT_WIRED_HEADSET" },        PAL_DEVICE_OUT_WIRED_HEADSET},
-    {std::string{ "PAL_DEVICE_OUT_WIRED_HEADPHONE" },      PAL_DEVICE_OUT_WIRED_HEADPHONE},
-    {std::string{ "PAL_DEVICE_OUT_LINE" },                 PAL_DEVICE_OUT_LINE},
-    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_SCO" },        PAL_DEVICE_OUT_BLUETOOTH_SCO},
-    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_A2DP" },       PAL_DEVICE_OUT_BLUETOOTH_A2DP},
-    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_BLE" },        PAL_DEVICE_OUT_BLUETOOTH_BLE},
-    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST" }, PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST},
-    {std::string{ "PAL_DEVICE_OUT_AUX_DIGITAL" },          PAL_DEVICE_OUT_AUX_DIGITAL},
-    {std::string{ "PAL_DEVICE_OUT_HDMI" },                 PAL_DEVICE_OUT_HDMI},
-    {std::string{ "PAL_DEVICE_OUT_USB_DEVICE" },           PAL_DEVICE_OUT_USB_DEVICE},
-    {std::string{ "PAL_DEVICE_OUT_USB_HEADSET" },          PAL_DEVICE_OUT_USB_HEADSET},
-    {std::string{ "PAL_DEVICE_OUT_SPDIF" },                PAL_DEVICE_OUT_SPDIF},
-    {std::string{ "PAL_DEVICE_OUT_FM" },                   PAL_DEVICE_OUT_FM},
-    {std::string{ "PAL_DEVICE_OUT_AUX_LINE" },             PAL_DEVICE_OUT_AUX_LINE},
-    {std::string{ "PAL_DEVICE_OUT_PROXY" },                PAL_DEVICE_OUT_PROXY},
-    {std::string{ "PAL_DEVICE_OUT_RECORD_PROXY" },         PAL_DEVICE_OUT_RECORD_PROXY},
-    {std::string{ "PAL_DEVICE_OUT_AUX_DIGITAL_1" },        PAL_DEVICE_OUT_AUX_DIGITAL_1},
-    {std::string{ "PAL_DEVICE_OUT_HEARING_AID" },          PAL_DEVICE_OUT_HEARING_AID},
-    {std::string{ "PAL_DEVICE_OUT_HAPTICS_DEVICE" },       PAL_DEVICE_OUT_HAPTICS_DEVICE},
-    {std::string{ "PAL_DEVICE_OUT_ULTRASOUND" },           PAL_DEVICE_OUT_ULTRASOUND},
-    {std::string{ "PAL_DEVICE_OUT_ULTRASOUND_DEDICATED" }, PAL_DEVICE_OUT_ULTRASOUND_DEDICATED},
-    {std::string{ "PAL_DEVICE_OUT_DUMMY" },                PAL_DEVICE_OUT_DUMMY},
-    {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
-    {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
-    {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
-    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET" }, PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET},
-    {std::string{ "PAL_DEVICE_IN_WIRED_HEADSET" },         PAL_DEVICE_IN_WIRED_HEADSET},
-    {std::string{ "PAL_DEVICE_IN_AUX_DIGITAL" },           PAL_DEVICE_IN_AUX_DIGITAL},
-    {std::string{ "PAL_DEVICE_IN_HDMI" },                  PAL_DEVICE_IN_HDMI},
-    {std::string{ "PAL_DEVICE_IN_USB_ACCESSORY" },         PAL_DEVICE_IN_USB_ACCESSORY},
-    {std::string{ "PAL_DEVICE_IN_USB_DEVICE" },            PAL_DEVICE_IN_USB_DEVICE},
-    {std::string{ "PAL_DEVICE_IN_USB_HEADSET" },           PAL_DEVICE_IN_USB_HEADSET},
-    {std::string{ "PAL_DEVICE_IN_FM_TUNER" },              PAL_DEVICE_IN_FM_TUNER},
-    {std::string{ "PAL_DEVICE_IN_LINE" },                  PAL_DEVICE_IN_LINE},
-    {std::string{ "PAL_DEVICE_IN_SPDIF" },                 PAL_DEVICE_IN_SPDIF},
-    {std::string{ "PAL_DEVICE_IN_PROXY" },                 PAL_DEVICE_IN_PROXY},
-    {std::string{ "PAL_DEVICE_IN_RECORD_PROXY" },          PAL_DEVICE_IN_RECORD_PROXY},
-    {std::string{ "PAL_DEVICE_IN_HANDSET_VA_MIC" },        PAL_DEVICE_IN_HANDSET_VA_MIC},
-    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_A2DP" },        PAL_DEVICE_IN_BLUETOOTH_A2DP},
-    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_BLE" },         PAL_DEVICE_IN_BLUETOOTH_BLE},
-    {std::string{ "PAL_DEVICE_IN_HEADSET_VA_MIC" },        PAL_DEVICE_IN_HEADSET_VA_MIC},
-    {std::string{ "PAL_DEVICE_IN_VI_FEEDBACK" },           PAL_DEVICE_IN_VI_FEEDBACK},
-    {std::string{ "PAL_DEVICE_IN_TELEPHONY_RX" },          PAL_DEVICE_IN_TELEPHONY_RX},
-    {std::string{ "PAL_DEVICE_IN_ULTRASOUND_MIC" },        PAL_DEVICE_IN_ULTRASOUND_MIC},
-    {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
-    {std::string{ "PAL_DEVICE_IN_ECHO_REF" },              PAL_DEVICE_IN_ECHO_REF},
-    {std::string{ "PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK" },   PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK},
-    {std::string{ "PAL_DEVICE_IN_CPS_FEEDBACK" },          PAL_DEVICE_IN_CPS_FEEDBACK},
-    {std::string{ "PAL_DEVICE_IN_DUMMY" },                 PAL_DEVICE_IN_DUMMY},
-};
-
-//reverse mapping
-static const std::map<uint32_t, std::string> deviceNameLUT {
-    {PAL_DEVICE_OUT_MIN,                  std::string{"PAL_DEVICE_OUT_MIN"}},
-    {PAL_DEVICE_NONE,                     std::string{"PAL_DEVICE_NONE"}},
-    {PAL_DEVICE_OUT_HANDSET,              std::string{"PAL_DEVICE_OUT_HANDSET"}},
-    {PAL_DEVICE_OUT_SPEAKER,              std::string{"PAL_DEVICE_OUT_SPEAKER"}},
-    {PAL_DEVICE_OUT_WIRED_HEADSET,        std::string{"PAL_DEVICE_OUT_WIRED_HEADSET"}},
-    {PAL_DEVICE_OUT_WIRED_HEADPHONE,      std::string{"PAL_DEVICE_OUT_WIRED_HEADPHONE"}},
-    {PAL_DEVICE_OUT_LINE,                 std::string{"PAL_DEVICE_OUT_LINE"}},
-    {PAL_DEVICE_OUT_BLUETOOTH_SCO,        std::string{"PAL_DEVICE_OUT_BLUETOOTH_SCO"}},
-    {PAL_DEVICE_OUT_BLUETOOTH_A2DP,       std::string{"PAL_DEVICE_OUT_BLUETOOTH_A2DP"}},
-    {PAL_DEVICE_OUT_BLUETOOTH_BLE,        std::string{"PAL_DEVICE_OUT_BLUETOOTH_BLE"}},
-    {PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST, std::string{"PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST"}},
-    {PAL_DEVICE_OUT_AUX_DIGITAL,          std::string{"PAL_DEVICE_OUT_AUX_DIGITAL"}},
-    {PAL_DEVICE_OUT_HDMI,                 std::string{"PAL_DEVICE_OUT_HDMI"}},
-    {PAL_DEVICE_OUT_USB_DEVICE,           std::string{"PAL_DEVICE_OUT_USB_DEVICE"}},
-    {PAL_DEVICE_OUT_USB_HEADSET,          std::string{"PAL_DEVICE_OUT_USB_HEADSET"}},
-    {PAL_DEVICE_OUT_SPDIF,                std::string{"PAL_DEVICE_OUT_SPDIF"}},
-    {PAL_DEVICE_OUT_FM,                   std::string{"PAL_DEVICE_OUT_FM"}},
-    {PAL_DEVICE_OUT_AUX_LINE,             std::string{"PAL_DEVICE_OUT_AUX_LINE"}},
-    {PAL_DEVICE_OUT_PROXY,                std::string{"PAL_DEVICE_OUT_PROXY"}},
-    {PAL_DEVICE_OUT_RECORD_PROXY,         std::string{"PAL_DEVICE_OUT_RECORD_PROXY"}},
-    {PAL_DEVICE_OUT_AUX_DIGITAL_1,        std::string{"PAL_DEVICE_OUT_AUX_DIGITAL_1"}},
-    {PAL_DEVICE_OUT_HEARING_AID,          std::string{"PAL_DEVICE_OUT_HEARING_AID"}},
-    {PAL_DEVICE_OUT_HAPTICS_DEVICE,       std::string{"PAL_DEVICE_OUT_HAPTICS_DEVICE"}},
-    {PAL_DEVICE_OUT_ULTRASOUND,           std::string{"PAL_DEVICE_OUT_ULTRASOUND"}},
-    {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, std::string{"PAL_DEVICE_OUT_ULTRASOUND_DEDICATED"}},
-    {PAL_DEVICE_OUT_DUMMY,                std::string{"PAL_DEVICE_OUT_DUMMY"}},
-    {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
-    {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
-    {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
-    {PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET, std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET"}},
-    {PAL_DEVICE_IN_WIRED_HEADSET,         std::string{"PAL_DEVICE_IN_WIRED_HEADSET"}},
-    {PAL_DEVICE_IN_AUX_DIGITAL,           std::string{"PAL_DEVICE_IN_AUX_DIGITAL"}},
-    {PAL_DEVICE_IN_HDMI,                  std::string{"PAL_DEVICE_IN_HDMI"}},
-    {PAL_DEVICE_IN_USB_ACCESSORY,         std::string{"PAL_DEVICE_IN_USB_ACCESSORY"}},
-    {PAL_DEVICE_IN_USB_DEVICE,            std::string{"PAL_DEVICE_IN_USB_DEVICE"}},
-    {PAL_DEVICE_IN_USB_HEADSET,           std::string{"PAL_DEVICE_IN_USB_HEADSET"}},
-    {PAL_DEVICE_IN_FM_TUNER,              std::string{"PAL_DEVICE_IN_FM_TUNER"}},
-    {PAL_DEVICE_IN_LINE,                  std::string{"PAL_DEVICE_IN_LINE"}},
-    {PAL_DEVICE_IN_SPDIF,                 std::string{"PAL_DEVICE_IN_SPDIF"}},
-    {PAL_DEVICE_IN_PROXY,                 std::string{"PAL_DEVICE_IN_PROXY"}},
-    {PAL_DEVICE_IN_RECORD_PROXY,          std::string{"PAL_DEVICE_IN_RECORD_PROXY"}},
-    {PAL_DEVICE_IN_HANDSET_VA_MIC,        std::string{"PAL_DEVICE_IN_HANDSET_VA_MIC"}},
-    {PAL_DEVICE_IN_BLUETOOTH_A2DP,        std::string{"PAL_DEVICE_IN_BLUETOOTH_A2DP"}},
-    {PAL_DEVICE_IN_BLUETOOTH_BLE,         std::string{"PAL_DEVICE_IN_BLUETOOTH_BLE"}},
-    {PAL_DEVICE_IN_HEADSET_VA_MIC,        std::string{"PAL_DEVICE_IN_HEADSET_VA_MIC"}},
-    {PAL_DEVICE_IN_VI_FEEDBACK,           std::string{"PAL_DEVICE_IN_VI_FEEDBACK"}},
-    {PAL_DEVICE_IN_TELEPHONY_RX,          std::string{"PAL_DEVICE_IN_TELEPHONY_RX"}},
-    {PAL_DEVICE_IN_ULTRASOUND_MIC,        std::string{"PAL_DEVICE_IN_ULTRASOUND_MIC"}},
-    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
-    {PAL_DEVICE_IN_ECHO_REF,              std::string{"PAL_DEVICE_IN_ECHO_REF"}},
-    {PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK,   std::string{"PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK"}},
-    {PAL_DEVICE_IN_CPS_FEEDBACK,          std::string{"PAL_DEVICE_IN_CPS_FEEDBACK"}},
-    {PAL_DEVICE_IN_DUMMY,                 std::string{"PAL_DEVICE_IN_DUMMY"}},
-};
-
-const std::map<std::string, uint32_t> usecaseIdLUT {
-    {std::string{ "PAL_STREAM_LOW_LATENCY" },              PAL_STREAM_LOW_LATENCY},
-    {std::string{ "PAL_STREAM_DEEP_BUFFER" },              PAL_STREAM_DEEP_BUFFER},
-    {std::string{ "PAL_STREAM_COMPRESSED" },               PAL_STREAM_COMPRESSED},
-    {std::string{ "PAL_STREAM_VOIP" },                     PAL_STREAM_VOIP},
-    {std::string{ "PAL_STREAM_VOIP_RX" },                  PAL_STREAM_VOIP_RX},
-    {std::string{ "PAL_STREAM_VOIP_TX" },                  PAL_STREAM_VOIP_TX},
-    {std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" },         PAL_STREAM_VOICE_CALL_MUSIC},
-    {std::string{ "PAL_STREAM_GENERIC" },                  PAL_STREAM_GENERIC},
-    {std::string{ "PAL_STREAM_RAW" },                      PAL_STREAM_RAW},
-    {std::string{ "PAL_STREAM_VOICE_RECOGNITION" },        PAL_STREAM_VOICE_RECOGNITION},
-    {std::string{ "PAL_STREAM_VOICE_CALL_RECORD" },        PAL_STREAM_VOICE_CALL_RECORD},
-    {std::string{ "PAL_STREAM_VOICE_CALL_TX" },            PAL_STREAM_VOICE_CALL_TX},
-    {std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" },         PAL_STREAM_VOICE_CALL_RX_TX},
-    {std::string{ "PAL_STREAM_VOICE_CALL" },               PAL_STREAM_VOICE_CALL},
-    {std::string{ "PAL_STREAM_LOOPBACK" },                 PAL_STREAM_LOOPBACK},
-    {std::string{ "PAL_STREAM_TRANSCODE" },                PAL_STREAM_TRANSCODE},
-    {std::string{ "PAL_STREAM_VOICE_UI" },                 PAL_STREAM_VOICE_UI},
-    {std::string{ "PAL_STREAM_PCM_OFFLOAD" },              PAL_STREAM_PCM_OFFLOAD},
-    {std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" },        PAL_STREAM_ULTRA_LOW_LATENCY},
-    {std::string{ "PAL_STREAM_PROXY" },                    PAL_STREAM_PROXY},
-    {std::string{ "PAL_STREAM_NON_TUNNEL" },               PAL_STREAM_NON_TUNNEL},
-    {std::string{ "PAL_STREAM_HAPTICS" },                  PAL_STREAM_HAPTICS},
-    {std::string{ "PAL_STREAM_ACD" },                      PAL_STREAM_ACD},
-    {std::string{ "PAL_STREAM_ASR" },                      PAL_STREAM_ASR},
-    {std::string{ "PAL_STREAM_ULTRASOUND" },               PAL_STREAM_ULTRASOUND},
-    {std::string{ "PAL_STREAM_SENSOR_PCM_DATA" },          PAL_STREAM_SENSOR_PCM_DATA},
-    {std::string{ "PAL_STREAM_SPATIAL_AUDIO" },            PAL_STREAM_SPATIAL_AUDIO},
-    {std::string{ "PAL_STREAM_CONTEXT_PROXY" },            PAL_STREAM_CONTEXT_PROXY},
-    {std::string{ "PAL_STREAM_COMMON_PROXY" },             PAL_STREAM_COMMON_PROXY},
-    {std::string{ "PAL_STREAM_SENSOR_PCM_RENDERER" },      PAL_STREAM_SENSOR_PCM_RENDERER},
-};
-
-/* Update the reverse mapping as well when new stream is added */
-const std::map<uint32_t, std::string> streamNameLUT {
-    {PAL_STREAM_LOW_LATENCY,        std::string{ "PAL_STREAM_LOW_LATENCY" } },
-    {PAL_STREAM_DEEP_BUFFER,        std::string{ "PAL_STREAM_DEEP_BUFFER" } },
-    {PAL_STREAM_COMPRESSED,         std::string{ "PAL_STREAM_COMPRESSED" } },
-    {PAL_STREAM_VOIP,               std::string{ "PAL_STREAM_VOIP" } },
-    {PAL_STREAM_VOIP_RX,            std::string{ "PAL_STREAM_VOIP_RX" } },
-    {PAL_STREAM_VOIP_TX,            std::string{ "PAL_STREAM_VOIP_TX" } },
-    {PAL_STREAM_VOICE_CALL_MUSIC,   std::string{ "PAL_STREAM_VOICE_CALL_MUSIC" } },
-    {PAL_STREAM_GENERIC,            std::string{ "PAL_STREAM_GENERIC" } },
-    {PAL_STREAM_RAW,                std::string{ "PAL_STREAM_RAW" } },
-    {PAL_STREAM_VOICE_RECOGNITION,  std::string{ "PAL_STREAM_VOICE_RECOGNITION" } },
-    {PAL_STREAM_VOICE_CALL_RECORD,  std::string{ "PAL_STREAM_VOICE_CALL_RECORD" } },
-    {PAL_STREAM_VOICE_CALL_TX,      std::string{ "PAL_STREAM_VOICE_CALL_TX" } },
-    {PAL_STREAM_VOICE_CALL_RX_TX,   std::string{ "PAL_STREAM_VOICE_CALL_RX_TX" } },
-    {PAL_STREAM_VOICE_CALL,         std::string{ "PAL_STREAM_VOICE_CALL" } },
-    {PAL_STREAM_LOOPBACK,           std::string{ "PAL_STREAM_LOOPBACK" } },
-    {PAL_STREAM_TRANSCODE,          std::string{ "PAL_STREAM_TRANSCODE" } },
-    {PAL_STREAM_VOICE_UI,           std::string{ "PAL_STREAM_VOICE_UI" } },
-    {PAL_STREAM_PCM_OFFLOAD,        std::string{ "PAL_STREAM_PCM_OFFLOAD" } },
-    {PAL_STREAM_ULTRA_LOW_LATENCY,  std::string{ "PAL_STREAM_ULTRA_LOW_LATENCY" } },
-    {PAL_STREAM_PROXY,              std::string{ "PAL_STREAM_PROXY" } },
-    {PAL_STREAM_NON_TUNNEL,         std::string{ "PAL_STREAM_NON_TUNNEL" } },
-    {PAL_STREAM_HAPTICS,            std::string{ "PAL_STREAM_HAPTICS" } },
-    {PAL_STREAM_CONTEXT_PROXY,      std::string{ "PAL_STREAM_CONTEXT_PROXY" } },
-    {PAL_STREAM_ACD,                std::string{ "PAL_STREAM_ACD" } },
-    {PAL_STREAM_ASR,                std::string{ "PAL_STREAM_ASR" } },
-    {PAL_STREAM_ULTRASOUND,         std::string{ "PAL_STREAM_ULTRASOUND" } },
-    {PAL_STREAM_SENSOR_PCM_DATA,    std::string{ "PAL_STREAM_SENSOR_PCM_DATA" } },
-    {PAL_STREAM_SPATIAL_AUDIO,      std::string{ "PAL_STREAM_SPATIAL_AUDIO" } },
-    {PAL_STREAM_COMMON_PROXY,       std::string{ "PAL_STREAM_COMMON_PROXY" } },
-    {PAL_STREAM_SENSOR_PCM_RENDERER,std::string{ "PAL_STREAM_SENSOR_PCM_RENDERER" } },
-};
-
-const std::map<uint32_t, std::string> vsidLUT {
-    {VOICEMMODE1,    std::string{ "VOICEMMODE1" } },
-    {VOICEMMODE2,    std::string{ "VOICEMMODE2" } },
-    {VOICELBMMODE1,  std::string{ "VOICELBMMODE1" } },
-    {VOICELBMMODE2,  std::string{ "VOICELBMMODE2" } },
-};
-
-const std::map<uint32_t, std::string> loopbackLUT {
-    {PAL_STREAM_LOOPBACK_PCM,           std::string{ "PAL_STREAM_LOOPBACK_PCM" } },
-    {PAL_STREAM_LOOPBACK_HFP_RX,        std::string{ "PAL_STREAM_LOOPBACK_HFP_RX" } },
-    {PAL_STREAM_LOOPBACK_HFP_TX,        std::string{ "PAL_STREAM_LOOPBACK_HFP_TX" } },
-    {PAL_STREAM_LOOPBACK_COMPRESS,      std::string{ "PAL_STREAM_LOOPBACK_COMPRESS" } },
-    {PAL_STREAM_LOOPBACK_FM,            std::string{ "PAL_STREAM_LOOPBACK_FM" } },
-    {PAL_STREAM_LOOPBACK_KARAOKE,       std::string{ "PAL_STREAM_LOOPBACK_KARAOKE" }},
-    {PAL_STREAM_LOOPBACK_PLAYBACK_ONLY, std::string{ "PAL_STREAM_LOOPBACK_PLAYBACK_ONLY" } },
-    {PAL_STREAM_LOOPBACK_CAPTURE_ONLY,  std::string{ "PAL_STREAM_LOOPBACK_CAPTURE_ONLY" } },
-};
-
-const std::map<uint32_t, std::string> hapticsLUT {
-    {PAL_STREAM_HAPTICS_TOUCH,        std::string{ "PAL_STREAM_HAPTICS_TOUCH" } },
-    {PAL_STREAM_HAPTICS_RINGTONE,     std::string{ "PAL_STREAM_HAPTICS_RINGTONE" } },
-};
-
-#endif
-
 
 /* type of asynchronous write callback events. Mutually exclusive */
 typedef enum {
@@ -716,6 +462,7 @@ typedef enum {
     PAL_STREAM_CBK_EVENT_PARTIAL_DRAIN_READY, /* partial drain completed */
     PAL_STREAM_CBK_EVENT_READ_DONE, /* stream hit some error, let AF take action */
     PAL_STREAM_CBK_EVENT_ERROR, /* stream hit some error, let AF take action */
+    PAL_STREAM_CBK_EVENT_DTMF_DETECTION, /* DTMF got detected in the stream */
 } pal_stream_callback_event_t;
 
 /* type of global callback events. */
@@ -765,11 +512,23 @@ struct pal_incall_music_info {
     bool local_playback;
 };
 
+typedef enum {
+    PAL_HPCM_RX_PLAYBACK = 0,
+    PAL_HPCM_RX_CAPTURE = 1,
+    PAL_HPCM_TX_PLAYBACK = 2,
+    PAL_HPCM_TX_CAPTURE = 3,
+} pal_hpcm_stream_type_t;
+
+struct pal_hpcm_stream_info {
+    pal_hpcm_stream_type_t hpcm_stream_type;
+};
+
 typedef union {
     struct pal_stream_info opt_stream_info; /* optional */
     struct pal_voice_record_info voice_rec_info; /* mandatory */
     struct pal_voice_call_info voice_call_info; /* manatory for voice call*/
     struct pal_incall_music_info incall_music_info;
+    struct pal_hpcm_stream_info hpcm_stream_info;
 } pal_stream_info_t;
 
 /** Media configuraiton */
@@ -1042,6 +801,12 @@ typedef enum {
     PAL_PARAM_ID_ASR_FORCE_OUTPUT = 80,
     PAL_PARAM_ID_ASR_OUTPUT = 81,
     PAL_PARAM_ID_ASR_SET_PARAM = 82,
+    PAL_PARAM_ID_ORIENTATION = 83, /**For PAL Refactor*/
+    PAL_PARAM_ID_VENDOR_UUID = 84,
+    PAL_PARAM_ID_IS_DEVICE_CONNECTED = 85,
+    PAL_PARAM_ID_DTMF_DETECTION_CFG = 86,
+    PAL_PARAM_ID_DTMF_GEN_TONE_CFG = 87,
+    PAL_PARAM_ID_HAPTICS_MODE = 88,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1212,6 +977,9 @@ typedef struct  pal_param_haptics_cnfg_t {
     int16_t  strength;
     int32_t time;
     int16_t ch_mask;
+    bool isCompose;
+    int32_t buffer_size;
+    uint8_t *buffer_ptr;
 } pal_param_haptics_cnfg_t;
 
 /* Payload For ID: PAL_PARAM_ID_BT_SCO*
@@ -1308,6 +1076,25 @@ typedef struct pal_bt_tws_payload_s {
     uint32_t codecFormat;
 } pal_bt_tws_payload;
 
+/* Payload For ID: PAL_PARAM_ID_DTMF_DETECTION_CFG
+ * Description   : DTMF Detection module parameters
+ */
+typedef struct pal_param_dtmf_detection_cfg {
+    uint16_t enable;
+    pal_stream_direction_t dir;
+} pal_param_dtmf_detection_cfg_t;
+
+/* Payload For ID: PAL_PARAM_ID_DTMF_GEN_TONE_CFG
+ * Description   : DTMF Generator module parameters
+ */
+typedef struct pal_param_dtmf_gen_tone_cfg {
+    pal_stream_direction_t dir;
+    uint16_t high_freq;
+    uint16_t low_freq;
+    uint16_t gain;
+    int32_t  duration_ms;
+} pal_param_dtmf_gen_tone_cfg_t;
+
 /* Payload For Custom Config
  * Description : Used by PAL client to customize
  *               the device related information.
@@ -1335,31 +1122,19 @@ struct pal_device {
     pal_device_custom_config_t custom_config;        /**<  Optional */
 };
 
-/**
- * Maps the modules instance id to module id for a single module
- */
-struct module_info {
-    uint32_t module_id; /**< module id */
-    uint32_t module_iid; /**< globally unique module instance id */
+enum BeCtrlsIndex {
+    BE_METADATA,
+    BE_MEDIAFMT,
+    BE_SETPARAM,
+    BE_GROUP_ATTR,
+    BE_MAX_NUM_MIXER_CONTROLS,
 };
 
-/**
- * Structure mapping the tag_id to module info (mid and miid)
- */
-struct pal_tag_module_mapping {
-    uint32_t tag_id; /**< tag id of the module */
-    uint32_t num_modules; /**< number of modules matching the tag_id */
-    struct module_info mod_list[]; /**< module list */
-};
-
-/**
- * Used to return tags and module info data to client given a graph key vector
- */
-struct pal_tag_module_info {
-    /**< number of tags */
-    uint32_t num_tags;
-    /**< variable payload of type struct pal_tag_module_mapping*/
-    uint8_t pal_tag_module_list[];
+static const char *beCtrlNames[] = {
+    " metadata",
+    " rate ch fmt",
+    " setParam",
+    " grp config",
 };
 
 #define PAL_SOUND_TRIGGER_MAX_STRING_LEN 64 /* max length of strings in properties or descriptor structs */
@@ -1648,6 +1423,15 @@ struct pal_event_read_write_done_payload {
     struct pal_buffer buff; /**< buffer that was passed to pal_stream_read/pal_stream_write */
 };
 
+/**
+ * Event payload passed to client with PAL_STREAM_CBK_EVENT_DTMF_DETECTION events
+  */
+struct pal_event_dtmf_detect_data {
+    pal_stream_direction_t dir;
+    uint32_t dtmf_high_freq;
+    uint32_t dtmf_low_freq;
+};
+
 /** @brief Callback function prototype to be given for
  *         pal_open_stream.
  *
@@ -1718,9 +1502,5 @@ typedef struct pal_buffer_config {
 #define PAL_SPATIAL_AUDIO_PLAYBACK_PERIOD_COUNT 2
 #define PAL_VOIP_PLAYBACK_PERIOD_COUNT 2
 #define PAL_ULL_PLAYBACK_PERIOD_COUNT 2
-
-#ifdef __cplusplus
-}  /* extern "C" */
-#endif
 
 #endif /*PAL_DEFS_H*/

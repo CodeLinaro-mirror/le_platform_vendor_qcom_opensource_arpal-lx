@@ -5,6 +5,23 @@ PAL_BASE_PATH := $(call my-dir)
 
 include $(CLEAR_VARS)
 
+LOCAL_MODULE := libarpal_internalheaders
+LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/stream/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/session/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/resource_manager/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/device/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/utils/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/context_manager/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/codecs
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/PluginManager/inc
+
+LOCAL_VENDOR_MODULE := true
+
+include $(BUILD_HEADER_LIBRARY)
+
+include $(CLEAR_VARS)
+
 LOCAL_MODULE        := libar-pal
 LOCAL_MODULE_OWNER  := qti
 LOCAL_MODULE_TAGS   := optional
@@ -16,8 +33,6 @@ LOCAL_CFLAGS        += -Wall -Werror -Wno-unused-variable -Wno-unused-parameter
 LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
 LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR
-LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
-LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
 LOCAL_CFLAGS        += -DSOC_PERIPHERAL_PROT
 endif
@@ -28,13 +43,6 @@ LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
 endif
 
 LOCAL_C_INCLUDES := \
-    $(LOCAL_PATH)/stream/inc \
-    $(LOCAL_PATH)/device/inc \
-    $(LOCAL_PATH)/session/inc \
-    $(LOCAL_PATH)/resource_manager/inc \
-    $(LOCAL_PATH)/context_manager/inc \
-    $(LOCAL_PATH)/utils/inc \
-    $(LOCAL_PATH)/plugins/codecs \
     $(TOP)/system/media/audio_route/include \
     $(TOP)/system/media/audio/include
 
@@ -54,75 +62,30 @@ endif
 
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/include
+
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
-LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc \
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
+    PalAR.cpp \
     stream/src/Stream.cpp \
-    stream/src/StreamCompress.cpp \
-    stream/src/StreamPCM.cpp \
-    stream/src/StreamACDB.cpp \
-    stream/src/StreamInCall.cpp \
-    stream/src/StreamNonTunnel.cpp \
-    stream/src/StreamSoundTrigger.cpp \
-    stream/src/StreamACD.cpp \
-    stream/src/StreamCommon.cpp \
-    stream/src/StreamContextProxy.cpp \
-    stream/src/StreamCommonProxy.cpp \
-    stream/src/StreamUltraSound.cpp \
-    stream/src/StreamSensorPCMData.cpp\
-    stream/src/StreamHaptics.cpp \
-    stream/src/StreamSensorRenderer.cpp \
-    stream/src/StreamASR.cpp \
-    device/src/Headphone.cpp \
-    device/src/USBAudio.cpp \
     device/src/Device.cpp \
-    device/src/Speaker.cpp \
-    device/src/Bluetooth.cpp \
-    device/src/SpeakerMic.cpp \
-    device/src/HeadsetMic.cpp \
-    device/src/HandsetMic.cpp \
-    device/src/Handset.cpp \
-    device/src/HandsetVaMic.cpp \
-    device/src/DisplayPort.cpp \
-    device/src/HeadsetVaMic.cpp \
-    device/src/RTProxy.cpp \
-    device/src/SpeakerProtection.cpp \
-    device/src/FMDevice.cpp \
-    device/src/ExtEC.cpp \
-    device/src/HapticsDev.cpp \
-    device/src/UltrasoundDevice.cpp \
-    device/src/ECRefDevice.cpp \
-    device/src/DummyDev.cpp \
-    device/src/HapticsDevProtection.cpp \
     session/src/Session.cpp \
-    session/src/PayloadBuilder.cpp \
-    session/src/SessionAlsaPcm.cpp \
-    session/src/SessionAgm.cpp \
-    session/src/SessionAlsaUtils.cpp \
-    session/src/SessionAlsaCompress.cpp \
-    session/src/SessionAlsaVoice.cpp \
-    session/src/SoundTriggerEngine.cpp \
-    session/src/SoundTriggerEngineCapi.cpp \
-    session/src/SoundTriggerEngineGsl.cpp \
-    session/src/ContextDetectionEngine.cpp \
-    session/src/ASREngine.cpp \
     context_manager/src/ContextManager.cpp \
-    session/src/ACDEngine.cpp \
     resource_manager/src/ResourceManager.cpp \
     resource_manager/src/SndCardMonitor.cpp \
     utils/src/SoundTriggerPlatformInfo.cpp \
     utils/src/ACDPlatformInfo.cpp \
-    utils/src/VoiceUIPlatformInfo.cpp \
     utils/src/ASRPlatformInfo.cpp \
-    utils/src/PalRingBuffer.cpp \
+    utils/src/VoiceUIPlatformInfo.cpp \
     utils/src/SignalHandler.cpp \
     utils/src/AudioHapticsInterface.cpp \
     utils/src/MetadataParser.cpp \
     utils/src/MemLogBuilder.cpp \
-    utils/src/PerfLock.cpp
+    utils/src/PerfLock.cpp \
+    utils/src/STUtils.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
@@ -135,7 +98,8 @@ LOCAL_HEADER_LIBRARIES := \
     libvui_dmgr_headers \
     libaudiofeaturestats_headers \
     libarvui_intf_headers \
-    libarmemlog_headers
+    libarmemlog_headers \
+    libarpal_internalheaders
 
 LOCAL_SHARED_LIBRARIES := \
     libar-gsl\
@@ -149,6 +113,52 @@ LOCAL_SHARED_LIBRARIES := \
     libvui_intf \
     libarmemlog \
     libhidlbase
+
+LOCAL_STATIC_LIBRARIES := libplugin_manager
+
+#used for static compilation
+ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
+
+    LOCAL_STATIC_LIBRARIES += \
+        libstream_acd \
+        libstream_acdb \
+        libstream_common \
+        libstream_commonproxy \
+        libstream_compress \
+        libstream_contextproxy \
+        libstream_haptics \
+        libstream_incall \
+        libstream_nontunnel \
+        libstream_pcm \
+        libstream_sensorpcmdata \
+        libstream_sensorrenderer \
+        libstream_soundtrigger \
+        libstream_ultrasound \
+        libstream_asr \
+        libsession_ar \
+        libsession_compress \
+        libsession_agm \
+        libsession_pcm \
+        libsession_voice \
+        libdev_handset \
+        libdev_handset_mic \
+        libdev_handset_va \
+        libdev_speaker \
+        libdev_speaker_mic \
+        libdev_headphone \
+        libdev_headset_mic \
+        libdev_headset_va \
+        libdev_bt \
+        libdev_fm \
+        libdev_usb \
+        libdev_ultrasound \
+        libdev_proxy \
+        libdev_display \
+        libdev_dummy \
+        libdev_haptics \
+        libdev_ext_ec \
+        libdev_ec_ref
+endif #end of static compilation
 
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
 LOCAL_SHARED_LIBRARIES += libPeripheralStateUtils
@@ -214,5 +224,8 @@ include $(CLEAR_VARS)
 
 include $(PAL_BASE_PATH)/plugins/Android.mk
 include $(PAL_BASE_PATH)/ipc/aidl/Android.mk
+include $(PAL_BASE_PATH)/stream/Android.mk
+include $(PAL_BASE_PATH)/session/Android.mk
+include $(PAL_BASE_PATH)/device/Android.mk
 
 endif #AUDIO_USE_STUB_HAL
