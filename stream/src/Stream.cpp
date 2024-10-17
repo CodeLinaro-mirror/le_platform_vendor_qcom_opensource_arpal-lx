@@ -875,9 +875,12 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
 
     /* A2DP/BLE device is not ready */
     if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-        rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_BLE)) {
+        rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+        rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
         if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {
             dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+        } else if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)){
+            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST;
         } else {
             dattr.id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
         }
@@ -1478,7 +1481,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         if (!devReadyStatus) {
             PAL_ERR(LOG_TAG, "Device %d is not ready", newDevices[i].id);
             if (((newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
-                (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE)) &&
+                (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+                (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) &&
                 !(rm->isDeviceAvailable(newDevices, numDev, PAL_DEVICE_OUT_SPEAKER))) {
                 /* update suspended device to a2dp and don't route as BT returned error
                  * However it is still possible a2dp routing called as part of a2dp restore
@@ -1492,7 +1496,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             connectCount++;
 
             if (newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-                newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE)
+                newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+                newDevices[i].id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)
                 isNewDeviceA2dp = true;
         }
         /* insert current stream-device attr to Device */
