@@ -3044,15 +3044,26 @@ int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
         goto exit;
     }
 
-    if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT) {
-        *devId = pcmDevIds.at(0);
-    } else {
-        *devId = pcmDevRxIds.at(0);
+    switch (sAttr.direction) {
+
+        case PAL_AUDIO_OUTPUT:
+        case PAL_AUDIO_INPUT:
+            devId[0] = pcmDevIds.at(0);
+            break;
+
+        case PAL_AUDIO_INPUT_OUTPUT:
+            devId[0] = pcmDevTxIds.at(0);
+            devId[1] = pcmDevRxIds.at(0);
+            break;
+
+        default:
+            PAL_ERR(LOG_TAG, "invalid direction");
+            status = -EINVAL;
     }
+
 exit:
     return status;
 }
-
 
 int32_t SessionAlsaPcm::getAvailableFrameCount(uint32_t *frame_count, int dir)
 {
