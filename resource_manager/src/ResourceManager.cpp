@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -8819,6 +8819,8 @@ exit:
     PAL_DBG(LOG_TAG,"Exit, status %d", ret);
     if(value != NULL)
         free(value);
+    if (kv_pairs != NULL)
+        free(kv_pairs);
     return ret;
 }
 
@@ -10563,7 +10565,7 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
         {
             PAL_VERBOSE(LOG_TAG, "get parameter for sndcard state");
             *param_payload = (uint8_t*)&rm->cardState;
-            *payload_size = sizeof(rm->cardState);
+            *payload_size = sizeof(card_status_t);
             break;
         }
         case PAL_PARAM_ID_HIFI_PCM_FILTER:
@@ -12260,6 +12262,11 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
         return status;
     }
 
+    if (StrAttr.type == PAL_STREAM_INVALID) {
+        PAL_ERR(LOG_TAG, "invalid streamtype \n");
+        return -EINVAL;
+    }
+
     mResourceManagerMutex.lock();
 
     switch (StrAttr.type) {
@@ -12337,6 +12344,11 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
     if (status != 0) {
         PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
         return status;
+    }
+
+    if (StrAttr.type == PAL_STREAM_INVALID) {
+        PAL_ERR(LOG_TAG, "invalid streamtype \n");
+        return -EINVAL;
     }
 
     mResourceManagerMutex.lock();
@@ -14069,7 +14081,7 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
     /* special case when we are switching with shared BE
      * always switch all to incoming device
      */
-    if (inDevAttr->id != curDevAttr->id) {
+    if (inDevAttr->id != curDevAttr->id && curDevAttr->id != PAL_DEVICE_IN_HANDSET_VA_MIC) {
         PAL_DBG(LOG_TAG, "found diff in device id cur dev %d incomming dev %d, device switch needed",
                 curDevAttr->id, inDevAttr->id);
         ret = true;

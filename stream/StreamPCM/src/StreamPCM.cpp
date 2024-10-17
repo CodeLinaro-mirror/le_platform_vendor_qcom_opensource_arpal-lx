@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1257,6 +1257,15 @@ int32_t StreamPCM::resume()
     mStreamMutex.unlock();
 
     return status;
+}
+
+int32_t StreamPCM::drain(pal_drain_type_t type)
+{
+    if (PAL_CARD_STATUS_DOWN(rm->getSoundCardState())) {
+        PAL_ERR(LOG_TAG, "Sound card offline/standby or session is null");
+        return -EINVAL;
+    }
+    return session->drain(type);
 }
 
 int32_t StreamPCM::flush()
