@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2635,6 +2635,7 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 } else if (sattr->in_media_config.sample_rate == SAMPLINGRATE_8K) {
                     keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
                 }
+                keyVector.push_back(std::make_pair(VOLUME, LEVEL_15));
                 break;
             default:
                 PAL_VERBOSE(LOG_TAG,"stream type %d doesn't support DevicePP CKV ", sattr->type);

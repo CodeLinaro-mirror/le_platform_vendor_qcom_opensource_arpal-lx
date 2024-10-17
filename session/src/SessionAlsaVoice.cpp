@@ -27,6 +27,12 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+/*
+ * Changes from Qualcomm Innovation Center are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #define LOG_TAG "PAL: SessionAlsaVoice"
 
@@ -1737,17 +1743,24 @@ int SessionAlsaVoice::getPCMDeviceID(Stream *s, int *devId)
         goto exit;
     }
 
-    if ((sAttr.direction == PAL_AUDIO_OUTPUT) || (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT)) {
-        *devId = pcmDevRxIds.at(0);
-    }
-    else if (sAttr.direction == PAL_AUDIO_INPUT) {
-        *devId = pcmDevTxIds.at(0);
-    } else {
-        PAL_ERR(LOG_TAG, "invalid direction");
-        status = -EINVAL;
-    }
+    switch (sAttr.direction) {
+        case PAL_AUDIO_OUTPUT:
+            devId[0] = pcmDevRxIds.at(0);
+            break;
 
+        case PAL_AUDIO_INPUT:
+            devId[0] = pcmDevTxIds.at(0);
+            break;
+
+        case PAL_AUDIO_INPUT_OUTPUT:
+            devId[0] = pcmDevTxIds.at(0);
+            devId[1] = pcmDevRxIds.at(0);
+            break;
+
+        default:
+            PAL_ERR(LOG_TAG, "invalid direction");
+            status = -EINVAL;
+    }
 exit:
     return status;
 }
-
