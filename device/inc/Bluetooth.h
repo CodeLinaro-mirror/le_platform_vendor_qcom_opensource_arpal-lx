@@ -102,7 +102,7 @@ typedef enum {
     CTRL_SKT_DISCONNECTED,
     CTRL_ACK_UNKNOWN,
     CTRL_ACK_RECONFIGURATION,
-};
+}tCTRL_ACK;
 
 typedef void (*bt_audio_pre_init_t)(void);
 typedef int (*audio_source_open_api_t)(tSESSION_TYPE session_type);
