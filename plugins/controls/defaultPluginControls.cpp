@@ -130,12 +130,28 @@
 #define MIN_VOLUME -9000
 #define MAX_VOLUME 0
 
+#define AWX_VOLUME 0x11112501
+#define TAG_MODULE_CUSTOM_AWX 0XC0000057
 typedef struct pal_awx_volume_data
 {
     uint16_t volume_func;
     uint16_t reserved;
     int32_t value[16];
 }pal_awx_volume_data_t;
+
+
+
+typedef enum pal_awx_bus_type
+{
+    BUS_MEDIA_WS_AWX,
+    BUS_SYS_NOTIFICATION_AWX,
+    BUS_NAVIGATION_AWX,
+    BUS_PHONE_AWX,
+    BUS_NAVIGATION2_AWX,
+    BUS_VWARN_AWX,
+    BUS_VROADADAS_AWX,
+    BUS_RESERVED =0xF
+}pal_awx_bus_type_t;
 
 
 extern "C" {
@@ -349,7 +365,7 @@ exit:
 }
 
 
-bool checkIfAWXBus(char* address,enum Key_AWX_BUS_MAPPING* bus_index)
+bool checkIfAWXBus(char* address,pal_awx_bus_type_t* bus_index)
 {
     bool bus_match = false ;
 
@@ -366,7 +382,7 @@ bool checkIfAWXBus(char* address,enum Key_AWX_BUS_MAPPING* bus_index)
             {
                 bus_match = true;
                 // Assing the index value and send it
-                *bus_index =  (enum Key_AWX_BUS_MAPPING)(i);
+                *bus_index =  (pal_awx_bus_type_t)(i);
                 PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,*bus_index);
                 break;
             }
@@ -376,7 +392,7 @@ bool checkIfAWXBus(char* address,enum Key_AWX_BUS_MAPPING* bus_index)
 
     return bus_match;
 }
-int setAWXVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm,enum Key_AWX_BUS_MAPPING busIndex)
+int setAWXVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm,pal_awx_bus_type_t busIndex)
 {
     mixer_ctl *ctl = NULL;
     struct mixer *mixer = nullptr;
@@ -514,7 +530,7 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
     struct mixer *mixer;
     int ckv_size = 0;
     int deviceId;
-    enum Key_AWX_BUS_MAPPING bus_index;
+    pal_awx_bus_type_t bus_index;
 
     if (!s) {
         PAL_ERR(LOG_TAG,"invalid streeam handle");
