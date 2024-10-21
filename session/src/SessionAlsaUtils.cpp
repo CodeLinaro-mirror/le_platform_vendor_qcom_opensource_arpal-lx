@@ -1406,15 +1406,6 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             goto freeRxMetaData;
         }
     }
-    if (streamDeviceRxKV.size() > 0) {
-        SessionAlsaUtils::getAgmMetaData(streamDeviceRxKV, emptyKV,
-                (struct prop_data *)streamDevicePropId, streamDeviceRxMetaData);
-        if (!streamDeviceRxMetaData.size) {
-            PAL_ERR(LOG_TAG, "stream/device RX metadata is zero");
-            status = -ENOMEM;
-            goto freeRxMetaData;
-        }
-    }
     if (streamDeviceRxKV.size() > 0 || devicePPCKV.size() > 0) {
         getAgmMetaData(streamDeviceRxKV, devicePPCKV, (struct prop_data *)streamDevicePropId,
                 streamDeviceRxMetaData);
@@ -1444,15 +1435,6 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
     }
 
-    if (streamDeviceTxKV.size() > 0) {
-        SessionAlsaUtils::getAgmMetaData(streamDeviceTxKV, emptyKV,
-                (struct prop_data *)streamDevicePropId, streamDeviceTxMetaData);
-        if (!streamDeviceTxMetaData.size) {
-            PAL_ERR(LOG_TAG, "stream/device TX metadata is zero");
-            status = -ENOMEM;
-            goto freeTxMetaData;
-        }
-    }
     if (streamDeviceTxKV.size() > 0 || devicePPCKV.size() > 0) {
         getAgmMetaData(streamDeviceTxKV, devicePPCKV, (struct prop_data *)streamDevicePropId,
                 streamDeviceTxMetaData);

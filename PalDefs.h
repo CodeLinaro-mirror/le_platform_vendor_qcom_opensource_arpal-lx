@@ -305,6 +305,7 @@ typedef enum {
 /** Audio stream types */
 typedef enum {
     PAL_STREAM_INVALID = -1,              /**< :invalid streamtype*/
+    PAL_STREAM_MIN = 0,
     PAL_STREAM_LOW_LATENCY = 1,           /**< :low latency, higher power*/
     PAL_STREAM_DEEP_BUFFER = 2,           /**< :low power, higher latency*/
     PAL_STREAM_COMPRESSED = 3,            /**< :compresssed audio*/
