@@ -1951,29 +1951,9 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
                 PAL_ERR(LOG_TAG," updateCustomPayload Failed\n");
             }
         }
-
-        switch(ResourceManager::cpsMode)
-        {
-            case 1:
-                goto cps_dev_setup;
-            case 2:
-
-                // wsa883x specific cps payload
-                updateCpsCustomPayload(miid);
-                [[fallthrough]];
-           default:
-                enableDevice(audioRoute, mSndDeviceName_vi);
-                PAL_DBG(LOG_TAG, "pcm start for TX");
-                if (pcm_start(txPcm) < 0) {
-                    PAL_ERR(LOG_TAG, "pcm start failed for TX path");
-                    goto err_pcm_open;
-                }
-
-                // Free up the local variables
-                goto exit;
-        }
-
-cps_dev_setup:
+        /**
+         * Enable audio route for VI Tx path.
+         */
         enableDevice(audioRoute, mSndDeviceName_vi);
         PAL_DBG(LOG_TAG, "pcm start for TX");
         if (pcm_start(txPcm) < 0) {
@@ -1981,6 +1961,20 @@ cps_dev_setup:
             goto err_pcm_open;
         }
 
+        switch(ResourceManager::cpsMode)
+        {
+            case 1:
+                goto cps_dev_setup;
+            case 2:
+                // wsa883x specific cps payload
+                updateCpsCustomPayload(miid);
+                goto exit;
+           default:
+                // Free up the local variables
+                goto exit;
+        }
+
+cps_dev_setup:
         keyVector.clear();
         calVector.clear();
 
