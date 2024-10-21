@@ -154,7 +154,6 @@ private:
     int populateVSIDLoopbackPayload(Stream* s);
     int getDeviceChannelInfo(Stream *s, uint16_t *channels);
     int build_rx_mfc_payload(Stream *s);
-    int populateRatPayload(Stream *s);
     int setTaggedSlotMask(Stream * s);
     int setPopSuppressorMute(Stream *s);
     int setExtECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable);
