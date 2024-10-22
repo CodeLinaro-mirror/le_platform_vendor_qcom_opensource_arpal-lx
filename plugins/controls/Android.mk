@@ -12,6 +12,10 @@ LOCAL_SRC_FILES := \
 
 LOCAL_CFLAGS += -O2 -fvisibility=hidden
 
+ifeq ($(filter $(TARGET_BOARD_DERIVATIVE_SUFFIX), _sdv _cdcsdv),$(TARGET_BOARD_DERIVATIVE_SUFFIX))
+LOCAL_CFLAGS  += -DRBVM
+endif
+
 LOCAL_SHARED_LIBRARIES := \
     libcutils \
     liblog \
@@ -89,10 +93,6 @@ ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
-endif
-
-ifeq ($(filter $(TARGET_BOARD_DERIVATIVE_SUFFIX), _sdv _cdcsdv),$(TARGET_BOARD_DERIVATIVE_SUFFIX))
-LOCAL_CFLAGS  += -DRBVM
 endif
 
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal
