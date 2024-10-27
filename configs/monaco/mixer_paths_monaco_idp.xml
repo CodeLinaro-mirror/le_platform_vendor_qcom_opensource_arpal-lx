@@ -367,6 +367,9 @@
     <path name="true-native-mode">
     </path>
 
+    <path name="dummy-dev">
+    </path>
+
     <path name="voice-handset">
         <path name="handset" />
     </path>
