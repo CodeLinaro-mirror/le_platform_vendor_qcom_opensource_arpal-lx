@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -42,6 +42,19 @@
 #include "PalRingBuffer.h"
 #include "SoundTriggerEngine.h"
 #include "VoiceUIPlatformInfo.h"
+#include "VoiceUIInterface.h"
+
+typedef int32_t (*get_vui_intf_f)(struct vui_intf_t *intf_handle,
+    vui_intf_param_t *model);
+
+typedef int32_t (*release_vui_intf_f)(struct vui_intf_t *intf_handle);
+
+typedef struct vui_intf_plugin {
+    void *handle;
+    release_vui_intf_f release_intf;
+    struct vui_intf_t *intf;
+} vui_intf_plugin_t;
+
 
 enum {
     ENGINE_IDLE  = 0x0,
@@ -543,6 +556,8 @@ private:
     SoundModelInfo* sm_info_;
     std::vector<std::shared_ptr<EngineCfg>> engines_;
     std::shared_ptr<SoundTriggerEngine> gsl_engine_;
+    int32_t GetVUIInterface(struct vui_intf_t *intf, vui_intf_param_t *model);
+    int32_t ReleaseVUIInterface(struct vui_intf_t *intf);
     std::shared_ptr<VoiceUIInterface> vui_intf_;
     struct vui_intf_t vui_intf_handle_;
 

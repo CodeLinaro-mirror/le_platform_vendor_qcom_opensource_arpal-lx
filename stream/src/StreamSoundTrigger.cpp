@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -74,7 +74,6 @@
 #include "Device.h"
 #include "kvh2xml.h"
 #include "VoiceUIInterface.h"
-#include "VUIInterfaceProxy.h"
 
 // TODO: find another way to print debug logs by default
 #define ST_DBG_LOGS
@@ -88,6 +87,7 @@
 #define ST_MAX_FSTAGE_CONF_LEVEL      (100)
 
 ST_DBG_DECLARE(static int lab_cnt = 0);
+std::map<st_module_type_t, vui_intf_plugin_t *> vui_intf_plugin_map;
 
 StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
                                        struct pal_device *dattr,
@@ -1213,7 +1213,6 @@ int32_t StreamSoundTrigger::UnloadSoundModel() {
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
-
     for (auto& eng: engines_) {
         PAL_DBG(LOG_TAG, "Unload engine %d", eng->GetEngineId());
         status = eng->GetEngine()->UnloadSoundModel(this);
@@ -3710,5 +3709,93 @@ int32_t StreamSoundTrigger::ConnectEvent(
                 mDevices[0]->close();
                 device_opened_ = false;
             }
+    return status;
+}
+
+int32_t StreamSoundTrigger::GetVUIInterface(struct vui_intf_t *intf, vui_intf_param_t *model) {
+
+    int32_t status = 0;
+    get_vui_intf_f get_intf = nullptr;
+    sound_model_config_t *config = nullptr;
+    vui_intf_plugin_t *plugin = nullptr;
+
+    if (!intf || !model || !model->data)
+        return -EINVAL;
+
+    config = (sound_model_config_t *)model->data;
+    switch (config->module_type) {
+        case ST_MODULE_TYPE_GMM:
+        case ST_MODULE_TYPE_PDK:
+        case ST_MODULE_TYPE_HW:
+        case ST_MODULE_TYPE_CUSTOM_1:
+        case ST_MODULE_TYPE_CUSTOM_2:
+            plugin = (vui_intf_plugin_t *)calloc(1, sizeof(vui_intf_plugin_t));
+            if (!plugin) {
+                status = -ENOMEM;
+                break;
+            }
+
+            plugin->handle = dlopen(config->intf_plugin_lib.c_str(), RTLD_NOW);
+            if (!plugin->handle) {
+                status = -ENOMEM;
+                free(plugin);
+                break;
+            }
+
+            get_intf = (get_vui_intf_f)dlsym(plugin->handle, "get_vui_interface");
+            if (!get_intf) {
+                status = -ENOMEM;
+                dlclose(plugin->handle);
+                free(plugin);
+                break;
+            }
+
+            plugin->release_intf = (release_vui_intf_f)dlsym(plugin->handle, "release_vui_interface");
+            if (!plugin->release_intf) {
+                status = -ENOMEM;
+                dlclose(plugin->handle);
+                free(plugin);
+                break;
+            }
+            status = get_intf(intf, model);
+            if (status != 0) {
+                dlclose(plugin->handle);
+                free(plugin);
+                break;
+            }
+            plugin->intf = intf;
+            vui_intf_plugin_map[config->module_type] = plugin;
+            break;
+        default:
+            status = -EINVAL;
+            break;
+    }
+
+    return status;
+}
+
+int32_t StreamSoundTrigger::ReleaseVUIInterface(struct vui_intf_t *intf) {
+    int32_t status = 0;
+    st_module_type_t type;
+    vui_intf_param_t param {};
+    vui_intf_plugin_t *plugin = nullptr;
+
+    if (!intf || !intf->interface)
+        return -EINVAL;
+
+    for (auto iter = vui_intf_plugin_map.begin();
+         iter != vui_intf_plugin_map.end(); ) {
+        plugin = iter->second;
+        if (plugin->intf == intf) {
+            status = plugin->release_intf(intf);
+            dlclose(plugin->handle);
+            free(plugin);
+            vui_intf_plugin_map.erase(iter);
+            break;
+        } else {
+            iter++;
+        }
+    }
+
     return status;
 }
