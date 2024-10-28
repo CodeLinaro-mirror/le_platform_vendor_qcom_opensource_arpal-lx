@@ -10953,7 +10953,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     break;
                     default:
                     {
-                        PAL_ERR(LOG_TAG, "unsupported hap op mode",
+                        PAL_ERR(LOG_TAG, "unsupported hap op mode: %d",
                                 hapModeVal->operationMode);
                         status = -EINVAL;
                         goto exit;

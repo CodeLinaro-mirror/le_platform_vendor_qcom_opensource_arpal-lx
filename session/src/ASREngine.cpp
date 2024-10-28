@@ -68,7 +68,7 @@ ASREngine::ASREngine(Stream *s, std::shared_ptr<ASRStreamConfig> smCfg)
     numOutput = 0;
     rxEcDev = nullptr;
     asrInfo = nullptr;
-    smCfg = smCfg;
+    this->smCfg = smCfg;
     speechCfg = nullptr;
     outputCfg = nullptr;
     engState = ASR_ENG_IDLE;
