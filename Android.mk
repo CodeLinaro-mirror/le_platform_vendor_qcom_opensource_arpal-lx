@@ -104,7 +104,6 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libutilscallstack \
     libagmclient \
-    libvui_intf \
     libarmemlog \
     libhidlbase
 

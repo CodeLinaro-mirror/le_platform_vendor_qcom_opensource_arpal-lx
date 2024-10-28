@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -43,6 +43,7 @@
 #include "VoiceUIPlatformInfo.h"
 #include "detection_cmn_api.h"
 #include "mma_api.h"
+#include "VoiceUIInterface.h"
 
 using InstanceListNode_t = std::vector<std::pair<int32_t, bool>>;
 
@@ -577,6 +578,9 @@ private:
     SoundModelInfo* sm_info_;
     std::vector<std::shared_ptr<EngineCfg>> engines_;
     std::shared_ptr<SoundTriggerEngine> gsl_engine_;
+
+    int32_t GetVUIInterface(struct vui_intf_t *intf, vui_intf_param_t *model);
+    int32_t ReleaseVUIInterface(struct vui_intf_t *intf);
     std::shared_ptr<VoiceUIInterface> vui_intf_;
     struct vui_intf_t vui_intf_handle_;
 
