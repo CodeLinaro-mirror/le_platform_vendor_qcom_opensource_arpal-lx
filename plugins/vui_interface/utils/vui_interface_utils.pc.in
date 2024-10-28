@@ -6,6 +6,5 @@ includedir=@includedir@
 Name: vui_interface
 Description: vui_interface library
 Version: @VERSION@
-Libs: -L${libdir}
-Cflags: -I${includedir}/vui_interface
-
+Libs: -L${libdir} -lvuiinterface_utils
+Cflags: -I${includedir}/vui_interface_utils

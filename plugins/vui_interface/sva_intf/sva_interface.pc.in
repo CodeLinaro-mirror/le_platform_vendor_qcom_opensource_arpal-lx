@@ -3,8 +3,8 @@ exec_prefix=@exec_prefix@
 libdir=@libdir@
 includedir=@includedir@
 
-Name: vui-interface-header
-Description: vui-interface_api headers
+Name: vui_interface
+Description: vui_interface library
 Version: @VERSION@
 Libs: -L${libdir}
-Cflags: -I${includedir}/vuiInterfaceHeader
+Cflags: -I${includedir}/sva_interface
