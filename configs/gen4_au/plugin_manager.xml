@@ -91,6 +91,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <device name="PAL_DEVICE_OUT_BLUETOOTH_BLE" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <device name="PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <device name="PAL_DEVICE_IN_BLUETOOTH_BLE" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
+        <!--HFP-->
+        <device name="PAL_DEVICE_OUT_HFP_UPLINK" lib="libdev_hfpuplink.so" entryFunction="CreateHfpUplinkDevice"/>
+        <device name="PAL_DEVICE_IN_HFP_DOWNLINK" lib="libdev_hfpdownlink.so" entryFunction="CreateHfpDownlinkDevice"/>
         <!--FM-->
         <device name="PAL_DEVICE_OUT_FM" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
         <device name="PAL_DEVICE_IN_FM_TUNER" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
