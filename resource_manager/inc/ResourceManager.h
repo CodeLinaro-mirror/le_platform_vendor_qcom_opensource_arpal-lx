@@ -499,6 +499,7 @@ private:
     int handleScreenStatusChange(pal_param_screen_state_t screen_state);
     int handleDeviceRotationChange(pal_param_device_rotation_t rotation_type);
     int handleDeviceConnectionChange(pal_param_device_connection_t connection_state);
+    int handleNSLevelControl(pal_param_ns_level_control_t param_ns_level_control);
     int SetOrientationCal(pal_param_device_rotation_t rotation_type);
     int32_t streamDevDisconnect(std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnectList);
     int32_t streamDevConnect(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList);
@@ -651,6 +652,7 @@ protected:
     int getPcmIdByDevInfoName(char *mixer_str);
 public:
     ~ResourceManager();
+    static std::map<pal_stream_type_t,int16_t> stream_ns_level_map;
     static bool mixerClosed;
     enum card_status_t cardState;
     bool ssrStarted = false;

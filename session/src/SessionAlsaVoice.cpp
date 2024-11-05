@@ -258,6 +258,7 @@ int SessionAlsaVoice::open(Stream * s)
     int status = -EINVAL;
     struct pal_stream_attributes sAttr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
+    int16_t ns_level;
 
     PAL_DBG(LOG_TAG,"Enter");
     status = s->getStreamAttributes(&sAttr);
@@ -349,6 +350,14 @@ int SessionAlsaVoice::open(Stream * s)
              // If registration fails for this then mic occlusion
              // can't be notified to client.
              status = 0;
+        }
+    }
+    if (ResourceManager::stream_ns_level_map.find(sAttr.type) != ResourceManager::stream_ns_level_map.end()) {
+        ns_level = ResourceManager::stream_ns_level_map[sAttr.type];
+        status = handleNSLevelParam(streamHandle, ns_level, pcmDevTxIds.at(0), mixer,
+                                            builder, txAifBackEnds);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "Failed to set NS level to the stream %d", sAttr.type);
         }
     }
 exit:
@@ -1302,6 +1311,7 @@ int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __un
     int device = 0;
     uint8_t* paramData = NULL;
     size_t paramSize = 0;
+    int16_t* ns_level;
 
     uint32_t tty_mode;
     int mute_dir = RX_HOSTLESS;
@@ -1398,6 +1408,15 @@ int SessionAlsaVoice::setParameters(Stream *s, int tagId, uint32_t param_id __un
             status = payloadTaged(s, MODULE, mute_tag, device, mute_dir);
             if (status) {
                 PAL_ERR(LOG_TAG, "Failed to set device mute params status = %d",
+                        status);
+            }
+            break;
+      case NS_LEVEL_CONTROL:
+            ns_level = (int16_t*)payload;
+            status = handleNSLevelParam(streamHandle, *ns_level, pcmDevTxIds.at(0),
+                                                mixer, builder, txAifBackEnds);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set ns level params status = %d",
                         status);
             }
             break;

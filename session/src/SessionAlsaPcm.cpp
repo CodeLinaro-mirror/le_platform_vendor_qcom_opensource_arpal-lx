@@ -144,6 +144,7 @@ int SessionAlsaPcm::open(Stream * s)
     std::vector<std::shared_ptr<Device>> associatedDevices;
     int ldir = 0;
     std::vector<int> pcmId;
+    int16_t ns_level;
 
     PAL_DBG(LOG_TAG, "Enter");
     status = s->getStreamAttributes(&sAttr);
@@ -348,6 +349,14 @@ int SessionAlsaPcm::open(Stream * s)
                              sessionCb, cbCookie, true);
         if (status != 0) {
             PAL_ERR(LOG_TAG, "Failed to register callback to rm");
+        }
+    }
+    if (ResourceManager::stream_ns_level_map.find(sAttr.type) != ResourceManager::stream_ns_level_map.end()) {
+        ns_level = ResourceManager::stream_ns_level_map[sAttr.type];
+        status = handleNSLevelParam(streamHandle, ns_level, pcmDevIds.at(0),
+                     mixer, builder, txAifBackEnds);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "Failed to set NS level to the stream %d", sAttr.type);
         }
     }
 exit:
@@ -3351,7 +3360,15 @@ skip_ultrasound_gain:
                 PAL_ERR(LOG_TAG, "Failed to set Ultrasound Gain %d", status);
             return 0;
         }
-
+        case PAL_PARAM_ID_NSLEVEL_CONTROL:
+        {
+            int16_t* ns_level = (int16_t*)payload;
+            status = handleNSLevelParam(streamHandle, *ns_level,pcmDevIds.at(0), mixer,
+                                        builder, txAifBackEnds);
+            if (status != 0)
+                PAL_ERR(LOG_TAG, "Failed to set NS level to the stream %d", sAttr.type);
+            return status;
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);

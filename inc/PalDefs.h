@@ -720,6 +720,12 @@ const std::set<pal_device_id_t> BTPlaybackDeviceList {
     PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
     PAL_DEVICE_OUT_BLUETOOTH_SCO
 };
+
+const std::map<std::string, pal_stream_type_t> nsLevelStreamPalMap{
+    {std::string{"voip"}, PAL_STREAM_VOIP_TX},
+    {std::string{"voice"}, PAL_STREAM_VOICE_CALL},
+    {std::string{"record"}, PAL_STREAM_DEEP_BUFFER},
+};
 #endif
 
 /* type of asynchronous write callback events. Mutually exclusive */
@@ -1049,6 +1055,7 @@ typedef enum {
     PAL_PARAM_ID_PROXY_RECORD_SESSION = 74,
     PAL_PARAM_ID_ULTRASOUND_SET_GAIN = 75,
     PAL_PARAM_ID_MIC_OCCLUSION_INFO = 76,
+    PAL_PARAM_ID_NSLEVEL_CONTROL = 77,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1308,6 +1315,14 @@ typedef struct pal_param_mic_occlusion_info {
     uint32_t          num_of_occlusion;   /**< number of occlusions */
     uint32_t          num_of_recovery;    /**< number of recoveries after occlusion. */
 } pal_param_mic_occlusion_info_t;
+
+/* Payload For ID: PAL_PARAM_ID_NSLEVEL_CONTROL
+ * Description   : ns level related information.
+*/
+typedef struct pal_param_ns_level_control {
+    int16_t ns_level;
+    pal_stream_type_t stream_type;
+} pal_param_ns_level_control_t;
 
 /* Payload For Custom Config
  * Description : Used by PAL client to customize

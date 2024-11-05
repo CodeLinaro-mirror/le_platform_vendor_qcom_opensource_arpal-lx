@@ -268,6 +268,7 @@ public:
         uint32_t encoderMIID, uint32_t newBitrate, size_t &outputPayloadSize);
     void payloadPlaybackRateParametersConfig(uint8_t** payload, size_t* size,
                           uint32_t miid, pal_param_playback_rate *playbackRate);
+    void payloadNSLevelConfig(uint8_t** payload, size_t* size,uint32_t miid,int16_t ns_remix);
 
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVector);
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVectorRx,
