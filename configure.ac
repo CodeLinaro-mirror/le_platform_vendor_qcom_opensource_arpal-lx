@@ -22,6 +22,13 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
+m4_define([LT_MAJOR], [1])
+m4_define([LT_MINOR], [0])
+m4_define([LT_PATCH], [0])
+
+AC_SUBST([LT_VERSION], LT_MAJOR.LT_MINOR.LT_PATCH)
+AC_SUBST([LT_VERSION_NUMBER], LT_MAJOR:LT_MINOR:LT_PATCH)
+
 #basemachine
 AC_MSG_CHECKING([which base machine to use])
 AC_ARG_WITH([basemachine],
