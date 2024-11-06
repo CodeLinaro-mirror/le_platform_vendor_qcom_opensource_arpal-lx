@@ -1713,7 +1713,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
         flags = PCM_IN;
 
         // Setting the mode of VI module
-        modeConfg.num_speakers = vi_device.channels;
+        modeConfg.num_speakers = numberOfChannels;
         switch (rm->mSpkrProtModeValue.operationMode) {
             case PAL_SP_MODE_FACTORY_TEST:
                 modeConfg.th_operation_mode = FACTORY_TEST_MODE;
@@ -1865,7 +1865,8 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
             PAL_ERR(LOG_TAG," unable to create speaker config payload\n");
             goto free_fe;
         }
-        spR0T0confg->num_ch = vi_device.channels;
+        spR0T0confg->num_ch = numberOfChannels;
+
 
         for (int i = 0; i < spR0T0confg->num_ch; i++) {
             spR0T0confg->r0t0_cfg[i].r0_cali_q24 = r0t0Array[i].r0_cali_q24;
@@ -2443,6 +2444,27 @@ int SpeakerProtection::stop()
     }
     spkrProtProcessingMode(false);
     return 0;
+}
+
+int SpeakerProtection::close()
+{
+    int status = 0;
+
+    status = Device::close();
+    if (status == 0 && deviceCount == 0) {
+        std::shared_ptr<ResourceManager> Rm = nullptr;
+        Rm = ResourceManager::getInstance();
+        if (Rm && Rm->isChargeConcurrencyEnabled && Rm->getChargerOnlineState() &&
+            Rm->getConcurrentBoostState()) {
+            status = Rm->chargerListenerSetBoostState(false, CONCURRENCY_PB_STOPS);
+            if (0 != status)
+                PAL_ERR(LOG_TAG, "Failed to notify PMIC: %d", status);
+        } else {
+            PAL_DBG(LOG_TAG, "Concurrent State unchanged, ignore notifying");
+        }
+    }
+
+    return status;
 }
 
 
