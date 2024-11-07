@@ -4692,21 +4692,21 @@ void handleSilenceDetectionCb(uint64_t hdl __unused, uint32_t event_id, void *ev
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         BOLERO_REGDUMP_OUT_PATH, timenow);
-        dump_registers(BOLERO_PROC_INTF, out_file_name);
+        dump_registers((char *)BOLERO_PROC_INTF, out_file_name);
 
         /*
          * Read SWR VA Macro Registers
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         VA_SWR_REGDUM_OUT_PATH, timenow);
-        dump_registers(VA_SWR_PROC_INTF, out_file_name);
+        dump_registers((char *)VA_SWR_PROC_INTF, out_file_name);
 
         /*
          * Read WCD939X  Registers
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         WCD939X_REGDUMP_OUT_PATH, timenow);
-        dump_registers(WCD939X_PROC_INTF, out_file_name);
+        dump_registers((char *)WCD939X_PROC_INTF, out_file_name);
 
         /*
          * kernel msg (/dev/kmsg) read
