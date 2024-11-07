@@ -130,7 +130,7 @@
     <device_profile>
         <in-device>
             <id>PAL_DEVICE_IN_SPEAKER_MIC</id>
-            <back_end_name>MI2S-LPAIF-TX-SECONDARY</back_end_name>
+            <back_end_name>TDM-LPAIF_SDR-TX-PRIMARY</back_end_name>
             <max_channels>4</max_channels>
             <channels>1</channels>
             <samplerate>48000</samplerate>
@@ -154,8 +154,8 @@
         </in-device>
         <out-device>
             <id>PAL_DEVICE_OUT_SPEAKER</id>
-            <back_end_name>MI2S-LPAIF-RX-SECONDARY</back_end_name>
-            <max_channels>4</max_channels>
+            <back_end_name>TDM-LPAIF_SDR-RX-PRIMARY</back_end_name>
+            <max_channels>6</max_channels>
             <channels>2</channels>
             <samplerate>48000</samplerate>
             <snd_device_name>speaker</snd_device_name>
