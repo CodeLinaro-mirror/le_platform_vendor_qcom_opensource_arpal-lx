@@ -51,6 +51,7 @@
 #include "ResourceManager.h"
 #include "AudioHapticsInterface.h"
 #include "us_tone_renderer_api.h"
+#include "sound_dose_api.h"
 
 #define PAL_ALIGN_8BYTE(x) (((x) + 7) & (~7))
 #define PAL_PADDING_8BYTE_ALIGN(x)  ((((x) + 7) & 7) ^ 7)
@@ -270,6 +271,8 @@ public:
                           uint32_t miid, pal_param_playback_rate *playbackRate);
     void payloadDAMPortConfig(uint8_t** payload, size_t* size,
                           uint32_t miid, uint8_t numChannel);
+
+    int payloadSoundDoseInfo(uint8_t **payload, size_t *size, uint32_t moduleId);
 
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVector);
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVectorRx,
