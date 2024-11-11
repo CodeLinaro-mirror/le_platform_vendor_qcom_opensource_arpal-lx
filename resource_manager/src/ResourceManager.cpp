@@ -7219,11 +7219,13 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
     int status = 0;
     bool found_id = true;
 
+#ifndef FEATURE_IPQ_OPENWRT
     PAL_DBG(LOG_TAG, "param_id=%d", param_id);
     if (param_id == PAL_PARAM_ID_VUI_GET_META_DATA ||
         param_id == PAL_PARAM_ID_VUI_CAPTURE_META_DATA) {
         return VUIGetParameters(param_id, param_payload, payload_size);
     }
+#endif
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -7386,9 +7388,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
 
+#ifndef FEATURE_IPQ_OPENWRT
     if (param_id == PAL_PARAM_ID_VUI_SET_META_DATA) {
         return VUISetParameters(param_id, param_payload, payload_size);
     }
+#endif
 
     mResourceManagerMutex.lock();
     switch (param_id) {

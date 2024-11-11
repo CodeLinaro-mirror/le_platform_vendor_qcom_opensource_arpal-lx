@@ -112,12 +112,13 @@ int32_t pal_init(void)
         ret = -EINVAL;
         goto exit;
     }
+#ifndef FEATURE_IPQ_OPENWRT
     ret = ri->initSndMonitor();
     if (ret != 0) {
         PAL_ERR(LOG_TAG, "snd monitor init failed");
         goto exit;
     }
-
+#endif
     ri->init();
 
     ret = ri->initContextManager();
