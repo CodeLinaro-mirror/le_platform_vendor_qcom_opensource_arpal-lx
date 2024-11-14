@@ -4621,7 +4621,7 @@ int dump_registers(char *in_file_path, char *regdump_out_file)
        read_out_size = -1;
        goto close_regdump_file;
     }
-    PAL_INFO(LOG_TAG, "Bolero Regmap Dump Size %ld and file %s", regdump_size, regdump_out_file);
+    PAL_INFO(LOG_TAG, "Bolero Regmap Dump Size %d and file %s", regdump_size, regdump_out_file);
 
 close_regdump_file:
     close(regdump_wr_fd);
@@ -4692,21 +4692,21 @@ void handleSilenceDetectionCb(uint64_t hdl __unused, uint32_t event_id, void *ev
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         BOLERO_REGDUMP_OUT_PATH, timenow);
-        dump_registers(BOLERO_PROC_INTF, out_file_name);
+        dump_registers((char *)BOLERO_PROC_INTF, out_file_name);
 
         /*
          * Read SWR VA Macro Registers
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         VA_SWR_REGDUM_OUT_PATH, timenow);
-        dump_registers(VA_SWR_PROC_INTF, out_file_name);
+        dump_registers((char *)VA_SWR_PROC_INTF, out_file_name);
 
         /*
          * Read WCD939X  Registers
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         WCD939X_REGDUMP_OUT_PATH, timenow);
-        dump_registers(WCD939X_PROC_INTF, out_file_name);
+        dump_registers((char *)WCD939X_PROC_INTF, out_file_name);
 
         /*
          * kernel msg (/dev/kmsg) read

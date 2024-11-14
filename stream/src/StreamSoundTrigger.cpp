@@ -99,6 +99,7 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     sm_cfg_ = nullptr;
     ec_rx_dev_ = nullptr;
     mDevices.clear();
+    dattr_specified_ = nullptr;
 
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)

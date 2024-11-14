@@ -61,6 +61,7 @@ extern "C" {
 #define PAL_MAX_LATENCY_MODES 8
 
 #define PAL_VERSION "1.0"
+#define PAL_MAX_SOUND_DOSE_VALUES 10
 
 /** Audio stream handle */
 typedef uint64_t pal_stream_handle_t;
@@ -454,8 +455,9 @@ typedef enum {
     PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST = 23,
     PAL_DEVICE_OUT_DUMMY = 24,
     PAL_DEVICE_OUT_RECORD_PROXY = 25,
+    PAL_DEVICE_OUT_SOUND_DOSE = 26,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 26,
+    PAL_DEVICE_OUT_MAX = 27,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN +1,
@@ -551,6 +553,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND" },           PAL_DEVICE_OUT_ULTRASOUND},
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND_DEDICATED" }, PAL_DEVICE_OUT_ULTRASOUND_DEDICATED},
     {std::string{ "PAL_DEVICE_OUT_DUMMY" },                PAL_DEVICE_OUT_DUMMY},
+    {std::string{ "PAL_DEVICE_OUT_SOUND_DOSE" },           PAL_DEVICE_OUT_SOUND_DOSE},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
@@ -608,6 +611,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           std::string{"PAL_DEVICE_OUT_ULTRASOUND"}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, std::string{"PAL_DEVICE_OUT_ULTRASOUND_DEDICATED"}},
     {PAL_DEVICE_OUT_DUMMY,                std::string{"PAL_DEVICE_OUT_DUMMY"}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           std::string{"PAL_DEVICE_OUT_SOUND_DOSE"}},
     {PAL_DEVICE_OUT_MAX,                  std::string{"PAL_DEVICE_OUT_MAX"}},
     {PAL_DEVICE_IN_HANDSET_MIC,           std::string{"PAL_DEVICE_IN_HANDSET_MIC"}},
     {PAL_DEVICE_IN_SPEAKER_MIC,           std::string{"PAL_DEVICE_IN_SPEAKER_MIC"}},
@@ -742,6 +746,7 @@ typedef enum {
 /* type of global callback events. */
 typedef enum {
     PAL_SND_CARD_STATE,
+    PAL_SOUND_DOSE_INFO, /*To report sound dose related info*/
 } pal_global_callback_event_t;
 
 struct pal_stream_info {
@@ -1365,6 +1370,15 @@ struct pal_device {
     char sndDevName[DEVICE_NAME_MAX_SIZE];
     pal_device_custom_config_t custom_config;        /**<  Optional */
 };
+
+/** payload for Sound Dose Info */
+typedef struct pal_sound_dose_info {
+    pal_device_id_t id;                     /**<  device id */
+    uint32_t is_momentary_exposure_warning;
+    uint32_t num_mel_values;
+    float mel_values[PAL_MAX_SOUND_DOSE_VALUES];
+    uint64_t timestamp[PAL_MAX_SOUND_DOSE_VALUES];
+} pal_sound_dose_info_t;
 
 /**
  * Maps the modules instance id to module id for a single module

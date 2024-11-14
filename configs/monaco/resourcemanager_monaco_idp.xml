@@ -62,6 +62,7 @@
         <param key="logging_level" value ="3" />
         <param key="context_manager_enable" value ="false" />
     </config_params>
+    <config_sound_dose key="sound_dose_enable" value ="false" />
     <config_gapless key="gapless_supported" value="1"/>
     <bt_codecs>
         <codec codec_format="CODEC_TYPE_AAC" codec_type="enc|dec" codec_library="lib_bt_bundle.so" />
@@ -259,6 +260,15 @@
             <!--channel 2 -> Vsen Right -->
             <!--channel 3 -> Isen Right -->
         </in-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_SOUND_DOSE</id>
+            <back_end_name>PCM_DUMMY-RX-0</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>1</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
+        </out-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
             <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-0</back_end_name>
@@ -611,6 +621,7 @@
             <stream_config>
                 <name>HOTWORD_VOICE_UI</name>
                     <param vendor_uuid="7038ddc8-30f2-11e6-b0ac-40a8f03d3f15"/>
+                    <param interface_plugin_lib="libhotword_intf.so" />
                     <param get_module_version="false" />
                     <param kw_start_tolerance="100" />
                     <param kw_end_tolerance="100" />

@@ -234,6 +234,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -293,6 +294,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_ULTRASOUND,           1},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, 1},
     {PAL_DEVICE_OUT_DUMMY,                0},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -353,6 +355,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -545,6 +548,7 @@ int ResourceManager::isVIDataInterleaved = 1;
 bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isHapticsProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
+bool ResourceManager::isSoundDoseEnabled = false;
 int ResourceManager::cpsMode = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
@@ -660,6 +664,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -10953,7 +10958,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     break;
                     default:
                     {
-                        PAL_ERR(LOG_TAG, "unsupported hap op mode",
+                        PAL_ERR(LOG_TAG, "unsupported hap op mode: %d",
                                 hapModeVal->operationMode);
                         status = -EINVAL;
                         goto exit;
@@ -13748,6 +13753,23 @@ void ResourceManager::setGaplessMode(const XML_Char **attr)
     }
 }
 
+void ResourceManager::setSoundDose(const XML_Char **attr)
+{
+    if (strcmp(attr[0], "key") != 0) {
+        PAL_ERR(LOG_TAG, "key not found");
+        return;
+    }
+    if (strcmp(attr[2], "value") != 0) {
+        PAL_ERR(LOG_TAG, "value not found");
+        return;
+    }
+    if (strcmp(attr[3], "true") == 0) {
+       isSoundDoseEnabled = true;
+       PAL_DBG(LOG_TAG,"%s is sound dose enabled = %d",__func__,isSoundDoseEnabled);
+       return;
+    }
+}
+
 void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
                                const XML_Char **attr)
 {
@@ -13798,6 +13820,9 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         return;
     } else if (!strcmp(tag_name, "perf_lock")) {
         processPerfLockConfig(attr);
+        return;
+    } else if (strcmp(tag_name, "config_sound_dose") == 0) {
+        setSoundDose(attr);
         return;
     }
 
