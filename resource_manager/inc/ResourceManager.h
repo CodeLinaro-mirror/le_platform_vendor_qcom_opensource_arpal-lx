@@ -28,7 +28,7 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -442,6 +442,7 @@ private:
     static int openControlPlugin(plugin_t *plugin, plugin_control_name_t control);
     int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
     static int closeControlPlugin(plugin_t *plugin, plugin_control_name_t control);
+    static int getSndDeviceIndex(int32_t);
 
 protected:
     std::list <Stream*> mActiveStreams;
