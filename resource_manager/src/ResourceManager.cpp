@@ -28,7 +28,7 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -140,12 +140,14 @@
 
 /*this can be over written by the config file settings*/
 uint32_t pal_log_lvl = (PAL_LOG_ERR|PAL_LOG_INFO);
-
+bool hfp_setBoot = false;
 static struct str_parms *configParamKVPairs;
 
 char rmngr_xml_file[XML_PATH_MAX_LENGTH] = {0};
 
 char vendor_config_path[VENDOR_CONFIG_PATH_MAX_LENGTH] = {0};
+
+bool is_bus_media_boot_load = false;
 
 // default properties which will be updated based on platform configuration
 static struct pal_st_properties qst_properties = {
@@ -581,6 +583,16 @@ pal_stream_type_t ResourceManager::getStreamType(std::string stream_name)
 {
     pal_stream_type_t type = (pal_stream_type_t )usecaseIdLUT.at(stream_name);
     return type;
+}
+
+int ResourceManager::getSndDeviceIndex(int32_t sndDeviceId) {
+    for (int devLis = 0; devLis < deviceInfo.size(); ++devLis) {
+        if (deviceInfo[devLis].deviceId == sndDeviceId) {
+            //iterating through list of devices to find the calling device's index
+            return devLis;
+        }
+    }
+    return -1;
 }
 
 uint32_t ResourceManager::getNTPathForStreamAttr(
@@ -3029,6 +3041,10 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
     std::vector <Stream *> activeStreams;
     int rxdevcount = 0;
     struct pal_stream_attributes rx_attr;
+    bool isEcRefEnabled_d = false;
+    int deviceIndex = getSndDeviceIndex(d->getSndDeviceId());
+    if (deviceIndex >= 0)
+        isEcRefEnabled_d = deviceInfo[deviceIndex].isExternalECRefEnabled;
 
     PAL_DBG(LOG_TAG, "Enter. dev id: %d", d->getSndDeviceId());
     status = s->getStreamAttributes(&sAttr);
@@ -3130,7 +3146,8 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
             }
         }
     } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
-        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        (sAttr.type == PAL_STREAM_VOICE_CALL ||
+         sAttr.type == PAL_STREAM_LOOPBACK) && isEcRefEnabled_d) {
         if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
             PAL_DBG(LOG_TAG, "Enter enable EC Ref");
             status = s->setECRef_l(d, true);
@@ -3226,6 +3243,10 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::vector<std::shared_ptr<Device>> tx_devices;
     std::vector<Stream*> str_list;
+    bool isEcRefEnabled_d = false;
+    int deviceIndex = getSndDeviceIndex(d->getSndDeviceId());
+    if (deviceIndex >= 0)
+        isEcRefEnabled_d = deviceInfo[deviceIndex].isExternalECRefEnabled;
 
     PAL_DBG(LOG_TAG, "Enter. dev id: %d", d->getSndDeviceId());
     status = s->getStreamAttributes(&sAttr);
@@ -3245,7 +3266,8 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
             PAL_ERR(LOG_TAG, "Failed to disable EC Ref");
         }
     }  else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
-        sAttr.type == PAL_STREAM_VOICE_CALL) {
+        (sAttr.type == PAL_STREAM_VOICE_CALL ||
+         sAttr.type == PAL_STREAM_LOOPBACK) && isEcRefEnabled_d) {
         if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
             PAL_DBG(LOG_TAG, "Enter disable EC Ref");
             status = s->setECRef_l(d, false);
@@ -3898,12 +3920,14 @@ bool ResourceManager::UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active
     }
     // backend config update
     if (is_active) {
-        if (sAttr.type == PAL_STREAM_VOICE_UI)
+        if (sAttr.type == PAL_STREAM_VOICE_UI && st_st != NULL)
             cap_prof = st_st->GetCurrentCaptureProfile();
-        else if (sAttr.type == PAL_STREAM_ACD)
+        else if (sAttr.type == PAL_STREAM_ACD && st_acd != NULL)
             cap_prof = st_acd->GetCurrentCaptureProfile();
-        else
-            cap_prof = st_sns_pcm_data->GetCurrentCaptureProfile();
+        else {
+            if (st_sns_pcm_data != NULL)
+                cap_prof = st_sns_pcm_data->GetCurrentCaptureProfile();
+        }
 
         if (!cap_prof) {
             PAL_ERR(LOG_TAG, "Failed to get capture profile");
@@ -6756,6 +6780,8 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
 
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
+    ret = setHfpVolGroupBoot(parms, value, len);
+    ret = setBusMediaBootLoad(parms, value, len);
 
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
@@ -6766,6 +6792,40 @@ exit:
         free(value);
     if(kv_pairs != NULL)
         free(kv_pairs);
+    return ret;
+}
+
+int ResourceManager::setHfpVolGroupBoot(struct str_parms *parms, char *value,
+                                         int len)
+{
+    int ret = -EINVAL;
+    if (!value || !parms)
+        return ret;
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_SET_BOOT, value, len);
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            hfp_setBoot =  true;
+        PAL_INFO(LOG_TAG, "hfp_setBoot  %d", hfp_setBoot);
+        ret = 0;
+    }
+    return ret;
+}
+
+int ResourceManager::setBusMediaBootLoad(struct str_parms *parms, char *value,
+                                         int len)
+{
+    int ret = -EINVAL;
+    if (!value || !parms)
+        return ret;
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_BUS_MEDIA_BOOT_LOAD , value, len);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            is_bus_media_boot_load =  true;
+
+        PAL_INFO(LOG_TAG, "is_bus_media_boot_load is set to %d", is_bus_media_boot_load);
+        ret = 0;
+    }
     return ret;
 }
 
@@ -6976,7 +7036,7 @@ void ResourceManager::updateLinkName(int32_t deviceId, std::string linkName)
 
 void ResourceManager::updateSndName(int32_t deviceId, std::string sndName)
 {
-    if (isValidDevId(deviceId)) {
+    if (isValidDevId(deviceId) && deviceId < (PAL_DEVICE_IN_MAX - 1)) {
         sndDeviceNameLUT[deviceId].second = sndName;
         PAL_DBG(LOG_TAG, "Updated snd device to %s for device %s",
                 sndName.c_str(), deviceNameLUT.at(deviceId).c_str());

@@ -28,7 +28,7 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -2374,7 +2374,12 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         goto exit;
     }
 
-    if (sAttr.direction != PAL_AUDIO_INPUT) {
+    if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.info.opt_stream_info.loopback_type != PAL_STREAM_LOOPBACK_HFP_RX) {
+        PAL_ERR(LOG_TAG, "EC Ref cannot be set PAL_STREAM_LOOPBACK_HFP_TX");
+        status = 0;
+        goto exit;
+    } else if (sAttr.direction == PAL_AUDIO_OUTPUT) {
         PAL_ERR(LOG_TAG, "EC Ref cannot be set to output stream");
         status = -EINVAL;
         goto exit;
@@ -3039,15 +3044,26 @@ int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
         goto exit;
     }
 
-    if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT) {
-        *devId = pcmDevIds.at(0);
-    } else {
-        *devId = pcmDevRxIds.at(0);
+    switch (sAttr.direction) {
+
+        case PAL_AUDIO_OUTPUT:
+        case PAL_AUDIO_INPUT:
+            devId[0] = pcmDevIds.at(0);
+            break;
+
+        case PAL_AUDIO_INPUT_OUTPUT:
+            devId[0] = pcmDevTxIds.at(0);
+            devId[1] = pcmDevRxIds.at(0);
+            break;
+
+        default:
+            PAL_ERR(LOG_TAG, "invalid direction");
+            status = -EINVAL;
     }
+
 exit:
     return status;
 }
-
 
 int32_t SessionAlsaPcm::getAvailableFrameCount(uint32_t *frame_count, int dir)
 {

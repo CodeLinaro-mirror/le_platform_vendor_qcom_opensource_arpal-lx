@@ -28,7 +28,7 @@
  */
 
 /*
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -80,6 +80,8 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
+#define AUDIO_PARAMETER_KEY_HFP_SET_BOOT "hfp_volgrp_set_boot"
+#define AUDIO_PARAMETER_KEY_BUS_MEDIA_BOOT_LOAD "bus_media_boot_load"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -442,6 +444,7 @@ private:
     static int openControlPlugin(plugin_t *plugin, plugin_control_name_t control);
     int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
     static int closeControlPlugin(plugin_t *plugin, plugin_control_name_t control);
+    static int getSndDeviceIndex(int32_t);
 
 protected:
     std::list <Stream*> mActiveStreams;
@@ -806,6 +809,8 @@ public:
     static int setLpiLoggingParams(struct str_parms *parms, char *value, int len);
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
+    static int setHfpVolGroupBoot(struct str_parms *parms,char *value, int len);
+    static int setBusMediaBootLoad(struct str_parms *parms,char *value, int len);
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);
