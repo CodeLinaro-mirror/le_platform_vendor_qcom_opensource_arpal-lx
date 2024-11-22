@@ -56,6 +56,10 @@
 <!--  IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR          -->
 <!--  OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN      -->
 <!--  IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.	                       -->
+<!--                                                                                         -->
+<!-- Changes from Qualcomm Innovation Center, Inc. are provided under the following license: -->
+<!-- Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.                -->
+<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                             -->
 <graph_key_value_pair_info>
     <streams>
         <!-- Low-latency stream -->
@@ -935,6 +939,12 @@
                 <!-- DEVICEPP_TX - DEVICEPP_TX_VOIP_FLUENCE_NN_SM -->
                 <graph_kv key="0xAD000000" value="0xAD000010"/>
             </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_VOIP_TX" CustomConfig="multi-smecns">
+                <!-- DEVICETX - HANDSETMIC -->
+                <graph_kv key="0xA3000000" value="0xA3000004"/>
+                <!-- DEVICEPP_TX - DEVICEPP_TX_VOIP_MULTI_SMECNS -->
+                <graph_kv key="0xAD000000" value="0xAD000035"/>
+            </keys_and_values>
         </devicepp>
         <!-- IN Speaker MIC DevicePPs -->
         <devicepp id="PAL_DEVICE_IN_SPEAKER_MIC">
@@ -1003,6 +1013,12 @@
                 <graph_kv key="0xA3000000" value="0xA3000001"/>
                 <!-- DEVICEPP_TX - DEVICEPP_TX_VOIP_FLUENCE_NN_SM -->
                 <graph_kv key="0xAD000000" value="0xAD000010"/>
+            </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_VOIP_TX" CustomConfig="multi-smecns">
+                <!-- DEVICETX - SPEAKERMIC -->
+                <graph_kv key="0xA3000000" value="0xA3000001"/>
+                <!-- DEVICEPP_TX - DEVICEPP_TX_VOIP_MULTI_SMECNS -->
+                <graph_kv key="0xAD000000" value="0xAD000035"/>
             </keys_and_values>
             <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_HFP_TX">
                 <!-- DEVICETX - SPEAKER_MIC -->
