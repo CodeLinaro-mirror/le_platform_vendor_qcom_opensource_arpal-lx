@@ -11,6 +11,7 @@
 #include "VoiceUIInterface.h"
 #include "detection_cmn_api.h"
 #include "ar_osal_mem_op.h"
+#include "VoiceUIInterfaceUtils.h"
 
 class SVAInterface: public VoiceUIInterface {
   public:

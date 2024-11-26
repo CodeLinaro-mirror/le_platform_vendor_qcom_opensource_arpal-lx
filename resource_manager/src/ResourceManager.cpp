@@ -76,7 +76,6 @@
 #include "HapticsDev.h"
 #include "HapticsDevProtection.h"
 #include "AudioHapticsInterface.h"
-#include "VUIInterfaceProxy.h"
 #include "kvh2xml.h"
 
 #ifdef PAL_CUTILS_SUPPORTED
@@ -1555,7 +1554,9 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "qcm6490") ||
                     strstr(snd_card_name, "bengal") ||
+                    strstr(snd_card_name, "qcs8300") ||
                     strstr(snd_card_name, "qcs9100") ||
+                    strstr(snd_card_name, "qcs9075") ||
                     strstr(snd_card_name, "monaco")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
@@ -10335,10 +10336,6 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
     int status = 0;
 
     PAL_DBG(LOG_TAG, "param_id=%d", param_id);
-    if (param_id == PAL_PARAM_ID_VUI_GET_META_DATA ||
-        param_id == PAL_PARAM_ID_VUI_CAPTURE_META_DATA) {
-        return VUIGetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -10529,10 +10526,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
     int status = 0;
 
     PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
-
-    if (param_id == PAL_PARAM_ID_VUI_SET_META_DATA) {
-        return VUISetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -12665,7 +12658,7 @@ void ResourceManager::processDeviceIdProp(struct xml_userdata *data, const XML_C
         devInfo.push_back(dev);
     } else if (!strcmp(tag_name, "name")) {
         size = devInfo.size() - 1;
-        strlcpy(devInfo[size].name, data->data_buf, strlen(data->data_buf)+1);
+        strlcpy(devInfo[size].name, data->data_buf, MAX_PCM_NAME_SIZE-1);
         if(strstr(data->data_buf,"PCM")) {
             devInfo[size].type = PCM;
         } else if (strstr(data->data_buf,"COMP")) {
