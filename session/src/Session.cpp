@@ -740,6 +740,25 @@ int Session::handleDeviceRotation(Stream *s, pal_speaker_rotation_type rotation_
     return status;
 }
 
+int Session::handleNSLevelParam(Stream *s, int16_t ns_level, int device, struct mixer *mixer, PayloadBuilder* builder, std::vector<std::pair<int32_t, std::string>> txAifBackEnds) {
+    uint32_t miid;
+    int status;
+    uint8_t* paramData = NULL;
+    size_t paramSize = 0;
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device, txAifBackEnds[0].second.data(),
+                                             TAG_NS_LEVEL_CONTROL, &miid);
+    if (!status) {
+        builder->payloadNSLevelConfig(&paramData, &paramSize, miid, ns_level);
+        if (paramSize) {
+            status = SessionAlsaUtils::setMixerParameter(mixer, device, paramData, paramSize);
+            if (status)
+                PAL_ERR(LOG_TAG, "setMixerParam failed for NSLevel Control");
+            freeCustomPayload(&paramData, &paramSize);
+        }
+    }
+    return status;
+}
+
 int Session::HDRConfigKeyToDevOrientation(const char* hdr_custom_key)
 {
     if (!strcmp(hdr_custom_key, "unprocessed-hdr-mic-portrait"))

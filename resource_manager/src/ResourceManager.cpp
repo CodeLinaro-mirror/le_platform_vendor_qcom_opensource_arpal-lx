@@ -590,6 +590,7 @@ std::shared_ptr<group_dev_config_t> ResourceManager::activeGroupDevConfig = null
 std::shared_ptr<group_dev_config_t> ResourceManager::currentGroupDevConfig = nullptr;
 std::map<group_dev_config_idx_t, std::shared_ptr<group_dev_config_t>> ResourceManager::groupDevConfigMap;
 std::vector<int> ResourceManager::spViChannelMapCfg = {};
+std::map<pal_stream_type_t,int16_t> ResourceManager::stream_ns_level_map;
 
 #define MAKE_STRING_FROM_ENUM(string) { {#string}, string }
 std::map<std::string, uint32_t> ResourceManager::btFmtTable = {
@@ -11969,9 +11970,25 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_NSLEVEL_CONTROL:
+        {
+            pal_param_ns_level_control_t* param_ns_level =
+                (pal_param_ns_level_control_t *) param_payload;
+            if (payload_size == sizeof(pal_param_ns_level_control_t)) {
+                ResourceManager::stream_ns_level_map[param_ns_level->stream_type] =
+                                                                param_ns_level->ns_level;
+                handleNSLevelControl(*param_ns_level);
+            } else {
+                PAL_ERR(LOG_TAG, "Incorrect Size : Expected size %zu, Received size %zu",
+                    sizeof(pal_param_ns_level_control_t), sizeof(param_ns_level));
+                status = -EINVAL;
+                goto exit;
+            }
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
-            break;
+        break;
     }
 
 exit:
@@ -12184,6 +12201,29 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
     }
 error :
     PAL_INFO(LOG_TAG, "Exiting handleDeviceRotationChange, status %d", status);
+    return status;
+}
+
+int ResourceManager::handleNSLevelControl(pal_param_ns_level_control_t param_ns_level_control) {
+    std::list<Stream*>::iterator sIter;
+    int ret,status;
+    pal_stream_type_t type;
+
+    PAL_INFO(LOG_TAG, "handleNSLevelControl");
+
+    for (sIter =  rm->mActiveStreams.begin(); sIter !=  rm->mActiveStreams.end(); sIter++) {
+        ret = (*sIter)->getStreamType(&type);
+        if (stream_ns_level_map.find(type) != stream_ns_level_map.end()) {
+            status = (*sIter)->setParameters(PAL_PARAM_ID_NSLEVEL_CONTROL,
+                        (void*) &stream_ns_level_map.at(type));
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "setParameters Failed");
+            }
+        }
+    }
+
+error:
+    PAL_INFO(LOG_TAG, "Exiting handleNSLevelControl, status %d", status);
     return status;
 }
 

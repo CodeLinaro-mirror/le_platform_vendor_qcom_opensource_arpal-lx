@@ -4076,6 +4076,33 @@ free_vol:
     return status;
 }
 
+void PayloadBuilder::payloadNSLevelConfig(uint8_t** payload, size_t* size,uint32_t miid,int16_t ns_remix) {
+    struct apm_module_param_data_t* header = NULL;
+    struct fluence_nn_ui_ns_v1_param_t *nslevelPack = NULL;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+    payloadSize =
+        sizeof(struct apm_module_param_data_t) + sizeof(struct fluence_nn_ui_ns_v1_param_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = (uint8_t *)calloc(1, (size_t)payloadSize);
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo alloc failed %s", strerror(errno));
+        return;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    nslevelPack =
+        (struct fluence_nn_ui_ns_v1_param_t*)(payloadInfo + sizeof(struct apm_module_param_data_t));
+
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_FLUENCE_NN_UI_NS_V1;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+    nslevelPack->ns_remix = ns_remix;
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
+    PAL_INFO(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo, *size);
+}
+
 void PayloadBuilder::payloadSPConfig(uint8_t** payload, size_t* size, uint32_t miid,
                 int param_id, void *param)
 {
