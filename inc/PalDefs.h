@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -349,6 +349,7 @@ typedef enum {
     PAL_STREAM_ASR = 30,                  /**< ASR Stream */
     PAL_STREAM_HPCM = 31,                 /**< hpcm usecase */
     PAL_STREAM_DUMMY = 32,                /**< Dummy stream used to directly push configurations without a stream instance */
+    PAL_STREAM_CALL_TRANSLATION = 33,     /**< Translation usecase for Voice & Voip Calls */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 

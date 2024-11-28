@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 * -->
 
@@ -150,6 +150,7 @@
         <stream name="PAL_STREAM_COMMON_PROXY" max_size="8" />
         <stream name="PAL_STREAM_SENSOR_PCM_RENDERER" max_size="1" />
         <stream name="PAL_STREAM_ASR" max_size="1" />
+        <stream name="PAL_STREAM_CALL_TRANSLATION" max_size="1" />
     </config_max_sessions>
     <device_profile>
         <in-device>

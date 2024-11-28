@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -354,6 +354,7 @@ const std::map<uint32_t, uint32_t> streamPriorityLUT {
     {PAL_STREAM_ULTRASOUND,         4},
     {PAL_STREAM_SPATIAL_AUDIO,      3},
     {PAL_STREAM_SENSOR_PCM_RENDERER,4},
+    {PAL_STREAM_CALL_TRANSLATION,   2},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -420,6 +421,7 @@ std::vector <int> ResourceManager::listAllPcmVoice2RxFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmVoice2TxFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallMusicFrontEnds = {0};
+std::vector <int> ResourceManager::listAllPcmCallTranslationFrontEnds = {0};
 std::vector <int> ResourceManager::listAllNonTunnelSessionIds = {0};
 std::vector <int> ResourceManager::listAllPcmContextProxyFrontEnds = {0};
 std::vector <std::string> ResourceManager::usb_vendor_uuid_list = {""};
@@ -858,6 +860,7 @@ ResourceManager::ResourceManager()
     listAllPcmVoice2TxFrontEnds.clear();
     listAllPcmInCallRecordFrontEnds.clear();
     listAllPcmInCallMusicFrontEnds.clear();
+    listAllPcmCallTranslationFrontEnds.clear();
     listAllPcmContextProxyFrontEnds.clear();
     listAllPcmExtEcTxFrontEnds.clear();
     memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
@@ -880,6 +883,8 @@ ResourceManager::ResourceManager()
                 listAllPcmInCallMusicFrontEnds.push_back(devInfo[i].deviceId);
             } else if (devInfo[i].sess_mode == NO_CONFIG && devInfo[i].record == 1) {
                 listAllPcmContextProxyFrontEnds.push_back(devInfo[i].deviceId);
+            } else if (devInfo[i].sess_mode == NO_CONFIG && devInfo[i].record == 1) {
+                listAllPcmCallTranslationFrontEnds.push_back(devInfo[i].deviceId);
             }
         } else if (devInfo[i].type == COMPRESS) {
             if (devInfo[i].playback == 1) {
@@ -2637,7 +2642,7 @@ bool ResourceManager::isStreamSupported(Stream *s, struct pal_device *devices, i
     }
 
     if (((no_of_devices > 0) && !devices && (attributes.type != PAL_STREAM_VOICE_CALL_MUSIC)
-                         && (attributes.type != PAL_STREAM_VOICE_CALL_RECORD))) {
+                         && (attributes.type != PAL_STREAM_VOICE_CALL_RECORD) && (attributes.type != PAL_STREAM_CALL_TRANSLATION))) {
         PAL_ERR(LOG_TAG, "Invalid input parameter, noOfDevices %d devices %p",
                 no_of_devices, devices);
         goto exit;
@@ -5260,6 +5265,22 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
                 id -= 1;
             }
             break;
+        case PAL_STREAM_CALL_TRANSLATION:
+            if (howMany > listAllPcmCallTranslationFrontEnds.size()) {
+                    PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
+                                      howMany, listAllPcmCallTranslationFrontEnds.size());
+                    goto error;
+                }
+            id = (listAllPcmCallTranslationFrontEnds.size() - 1);
+            it = (listAllPcmCallTranslationFrontEnds.begin() + id);
+            for (int i = 0; i < howMany; i++) {
+                f.push_back(listAllPcmCallTranslationFrontEnds.at(id));
+                listAllPcmCallTranslationFrontEnds.erase(it);
+                PAL_ERR(LOG_TAG, "allocateFrontEndIds: front end %d", f[i]);
+                it -= 1;
+                id -= 1;
+            }
+            break;
        case PAL_STREAM_CONTEXT_PROXY:
        case PAL_STREAM_COMMON_PROXY:
             if (howMany > listAllPcmContextProxyFrontEnds.size()) {
@@ -5455,6 +5476,11 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
                 break;
             }
             break;
+        case PAL_STREAM_CALL_TRANSLATION:
+            for (int i = 0; i < frontend.size(); i++) {
+                listAllPcmCallTranslationFrontEnds.push_back(frontend.at(i));
+            }
+            removeDuplicates(listAllPcmCallTranslationFrontEnds);
        case PAL_STREAM_CONTEXT_PROXY:
        case PAL_STREAM_COMMON_PROXY:
             for (int i = 0; i < frontend.size(); i++) {

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -639,6 +639,7 @@ protected:
     static std::vector<int> listAllPcmExtEcTxFrontEnds;
     static std::vector<int> listAllPcmInCallRecordFrontEnds;
     static std::vector<int> listAllPcmInCallMusicFrontEnds;
+    static std::vector<int> listAllPcmCallTranslationFrontEnds;
     static std::vector<int> listAllPcmContextProxyFrontEnds;
     static std::vector<std::pair<int32_t, std::string>> listAllBackEndIds;
     static std::vector<std::pair<int32_t, std::string>> sndDeviceNameLUT;

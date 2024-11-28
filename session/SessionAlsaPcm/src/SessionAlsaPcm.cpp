@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -185,6 +185,7 @@ int SessionAlsaPcm::open(Stream * s)
 
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
         sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC  &&
+        sAttr.type != PAL_STREAM_CALL_TRANSLATION &&
         sAttr.type != PAL_STREAM_CONTEXT_PROXY &&
         sAttr.type != PAL_STREAM_COMMON_PROXY) {
         status = s->getAssociatedDevices(associatedDevices);
@@ -201,7 +202,8 @@ int SessionAlsaPcm::open(Stream * s)
 
         }
         if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
-            sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC) {
+            sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC &&
+            sAttr.type != PAL_STREAM_CALL_TRANSLATION) {
             if (sAttr.direction == PAL_AUDIO_INPUT) {
                 if (txAifBackEnds.empty() || !rxAifBackEnds.empty()) {
                     PAL_ERR(LOG_TAG, "backend specified incorrectly for this stream\n");
@@ -707,7 +709,8 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
 
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
         sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC  &&
-        sAttr.type != PAL_STREAM_CONTEXT_PROXY) {
+        sAttr.type != PAL_STREAM_CONTEXT_PROXY &&
+        sAttr.type != PAL_STREAM_CALL_TRANSLATION) {
         if ((sAttr.direction == PAL_AUDIO_OUTPUT && rxAifBackEnds.empty()) ||
             (sAttr.direction == PAL_AUDIO_INPUT && txAifBackEnds.empty())) {
             PAL_ERR(LOG_TAG, "No backend connected to this stream\n");
@@ -1459,7 +1462,8 @@ int SessionAlsaPcm::close(Stream * s)
     }
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD &&
         sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC  &&
-        sAttr.type != PAL_STREAM_CONTEXT_PROXY) {
+        sAttr.type != PAL_STREAM_CONTEXT_PROXY &&
+        sAttr.type != PAL_STREAM_CALL_TRANSLATION) {
         status = s->getAssociatedDevices(associatedDevices);
         if (status != 0) {
             PAL_ERR(LOG_TAG, "getAssociatedDevices Failed\n");
@@ -3430,7 +3434,8 @@ int SessionAlsaPcm::pause(Stream * s)
         return status;
     }
     if (palStreamType == PAL_STREAM_VOICE_CALL_RECORD ||
-        palStreamType == PAL_STREAM_VOICE_CALL_MUSIC) {
+        palStreamType == PAL_STREAM_VOICE_CALL_MUSIC ||
+        palStreamType == PAL_STREAM_CALL_TRANSLATION) {
         goto exit;
     }
 

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -1033,9 +1033,9 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
         goto exit;
     }
     if (sattr.type == PAL_STREAM_VOICE_CALL_RECORD ||
-        sattr.type == PAL_STREAM_VOICE_CALL_MUSIC) {
+        sattr.type == PAL_STREAM_VOICE_CALL_MUSIC || sattr.type == PAL_STREAM_CALL_TRANSLATION) {
         PAL_DBG(LOG_TAG,
-                "Device switch skipped for Incall record/music stream");
+                "Device switch skipped for Incall-record/music/call-translation stream");
         status = 0;
         goto exit;
     }
