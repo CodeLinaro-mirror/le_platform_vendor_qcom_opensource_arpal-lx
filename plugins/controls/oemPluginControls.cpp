@@ -89,6 +89,7 @@
 #define BUS_VWARN            "BUS01_no_ASIL"
 #define BUS_ROAD_ADAS        "BUS02_Road_ADAS"
 #define BUS_SWARN            "BUS03_ASIL"
+#define BUS_HFP_DL_RX        "BUSnn_HFP_DL_RX"
 /**
 * Following are the default defined period sizes
 * Customers can add/modify the period sizes as per their requirements
@@ -365,16 +366,25 @@ bool checkIfAWXBus(char* address,pal_awx_bus_type_t* bus_index)
         // Assing the BUS To MAX address
         *bus_index = BUS_RESERVED;
         // Check if the bus address is a valid AWX BUS_ADDRESS
-        for (int i=0; i<BUS_RESERVED ; i++)
+        if(strncmp(address,BUS_HFP_DL_RX, strlen(BUS_HFP_DL_RX) + 1) == 0)
         {
-            PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,i);
-            if (strncmp((char *)bus_address[i], (char *)address,strlen(address)) == 0)
+            bus_match = true;
+            // Routing HFP usecase volume to Bit 3 Phone Bus
+            *bus_index = BUS_PHONE_AWX;
+            PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,*bus_index);
+        }
+        else {
+            for (int i=0; i<BUS_RESERVED ; i++)
             {
-                bus_match = true;
-                // Assing the index value and send it
-                *bus_index =  (pal_awx_bus_type_t)(i);
-                PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,*bus_index);
-                break;
+                PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,i);
+                if (strncmp((char *)bus_address[i], (char *)address,strlen(address)) == 0)
+                {
+                    bus_match = true;
+                    // Assing the index value and send it
+                    *bus_index =  (pal_awx_bus_type_t)(i);
+                    PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,*bus_index);
+                    break;
+                }
             }
         }
     }
