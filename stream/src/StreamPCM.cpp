@@ -1280,6 +1280,15 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
                        status);
             break;
         }
+        case PAL_PARAM_ID_NSLEVEL_CONTROL:
+        {
+            int16_t* ns_level = (int16_t*)payload;
+            status = session->setParameters(this, NS_LEVEL_CONTROL,
+                                                PAL_PARAM_ID_NSLEVEL_CONTROL, ns_level);
+            if (status)
+                PAL_ERR(LOG_TAG,"setParameters for NSLevel failed with %d", status);
+            break;
+        }
         default:
             PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
             status = -EINVAL;

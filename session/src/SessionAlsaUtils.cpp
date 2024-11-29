@@ -2458,6 +2458,17 @@ int SessionAlsaUtils::connectSessionDevice(Session* sess, Stream* streamHandle, 
             rm->resumeInCallMusic();
         }
     }
+    if (!status) {
+        if (ResourceManager::stream_ns_level_map.find(sAttr.type) !=
+                            ResourceManager::stream_ns_level_map.end()) {
+            int16_t ns_level = ResourceManager::stream_ns_level_map[streamType];
+            int ret = sess->handleNSLevelParam(streamHandle, ns_level, pcmDevIds.at(0),
+                                mixerHandle, builder, aifBackEndsToConnect);
+            if (ret != 0) {
+                PAL_ERR(LOG_TAG, "Failed to set NS level to the stream %d", sAttr.type);
+            }
+        }
+    }
 exit:
     if (builder) {
        delete builder;
