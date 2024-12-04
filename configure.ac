@@ -33,6 +33,22 @@ AC_ARG_WITH([basemachine],
 AC_MSG_RESULT([$machine_selected])
 AC_SUBST([MACHINE_ENABLED],[$machine_selected])
 
+AC_MSG_CHECKING([if define SPKR cal path])
+AC_ARG_WITH([spkrcalpath],
+            [AS_HELP_STRING([--with-spkrcalpath=PATH],
+            [Specify SPKR cal path])],
+            [spkr_cal_path="$withval"],
+            [spkr_cal_path=none])
+
+AC_MSG_RESULT([$spkr_cal_path])
+AC_SUBST([SPKR_CAL_PATH],[$spkr_cal_path])
+
+if test "$spkr_cal_path" != "none"; then
+  AM_CONDITIONAL([DEF_SPKR_CAL_PATH], [true])
+else
+  AM_CONDITIONAL([DEF_SPKR_CAL_PATH], [false])
+fi
+
 AC_ARG_WITH([openwrt],
     AS_HELP_STRING([use openwrt (default is no)]),
     [with_openwrt=$withval],
