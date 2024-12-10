@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -33,7 +33,16 @@ static const std::map<std::string, pal_plugin_manager_t> PmNameToType
     { "session", PAL_PLUGIN_MANAGER_SESSION},
     { "device",  PAL_PLUGIN_MANAGER_DEVICE},
     { "config",  PAL_PLUGIN_MANAGER_CONFIG},
-    { "control",  PAL_PLUGIN_MANAGER_CONTROL},
+    { "control", PAL_PLUGIN_MANAGER_CONTROL},
+};
+
+static const std::map<pal_plugin_manager_t, std::string> TypeToPmName
+{
+    { PAL_PLUGIN_MANAGER_STREAM, "stream" },
+    { PAL_PLUGIN_MANAGER_SESSION, "session" },
+    { PAL_PLUGIN_MANAGER_DEVICE, "device" },
+    { PAL_PLUGIN_MANAGER_CONFIG, "config" },
+    { PAL_PLUGIN_MANAGER_CONTROL, "control" },
 };
 
 struct xml_userdata {
@@ -172,8 +181,8 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
         }
     }
     if (!plugin) {
-        PAL_ERR(LOG_TAG, "cannot find a registered plugin for key type %s",
-                keyName.c_str());
+        PAL_ERR(LOG_TAG, "cannot find a registered %s plugin for key type %s",
+                TypeToPmName.at(type).c_str(), keyName.c_str());
         status = -EINVAL;
     }
     exit:
