@@ -1748,6 +1748,7 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
                                                          txAifBackEnds);
         if(0 != status) {
             PAL_ERR(LOG_TAG,"connectSessionDevice on TX Failed");
+            return status;
         }
 
         if(sideTone_cnt == 0) {
