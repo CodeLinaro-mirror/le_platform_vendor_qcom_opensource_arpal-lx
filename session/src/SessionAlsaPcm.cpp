@@ -2189,11 +2189,6 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 PAL_ERR(LOG_TAG, "Failed to get attributes status= %d", status);
                 return status;
             }
-            status = getPCMDeviceID(streamHandle,&device);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to get Deivce id status = %d", status);
-                return status;
-            }
 
             if (PAL_AUDIO_INPUT == sAttr.direction)
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
