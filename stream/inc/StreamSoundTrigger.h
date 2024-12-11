@@ -146,7 +146,7 @@ class StreamSoundTrigger : public Stream {
     int32_t ParseDetectionPayload(uint32_t *event_data);
     void SetDetectedToEngines(bool detected);
     int32_t SetEngineDetectionState(int32_t state);
-    int32_t notifyClient(bool detection);
+    int32_t notifyClient(uint32_t detection);
 
     static int32_t isSampleRateSupported(uint32_t sampleRate);
     static int32_t isChannelSupported(uint32_t numChannels);
@@ -529,12 +529,11 @@ class StreamSoundTrigger : public Stream {
     void FillCallbackConfLevels(uint8_t *opaque_data, uint32_t det_keyword_id,
                              uint32_t best_conf_level);
     int32_t GenerateCallbackEvent(struct pal_st_recognition_event **event,
-                                  uint32_t *event_size, bool detection);
+                                  uint32_t *event_size, uint32_t detection);
     static int32_t HandleDetectionEvent(pal_stream_handle_t *stream_handle,
                                         uint32_t event_id,
                                         uint32_t *event_data,
                                         uint64_t cookie __unused);
-
     static void TimerThread(StreamSoundTrigger& st_stream);
     void PostDelayedStop();
     void CancelDelayedStop();
