@@ -8227,6 +8227,20 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             **(bool **)param_payload = isHifiFilterEnabled;
         }
         break;
+        case PAL_PARAM_ID_ST_CAPTURE_INFO:
+        {
+            pal_param_st_capture_info_t *stCaptureInfo =
+                                    (pal_param_st_capture_info_t *) param_payload;
+            int captureHandle = stCaptureInfo->capture_handle;
+            if (mStCaptureInfo.find(captureHandle) != mStCaptureInfo.end()) {
+                stCaptureInfo->pal_handle = mStCaptureInfo[captureHandle];
+                PAL_VERBOSE(LOG_TAG, "getParameter capture handle %d, pal handle %pK",
+                                                captureHandle, stCaptureInfo->pal_handle);
+            } else {
+                PAL_ERR(LOG_TAG, "capture handle not found %d", captureHandle);
+            }
+        }
+        break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
@@ -11437,4 +11451,15 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
 
 exit:
     return ret;
+}
+
+void ResourceManager::RegisterSTCaptureHandle(pal_param_st_capture_info_t stCaptureInfo,
+                                              bool start) {
+    PAL_DBG(LOG_TAG, "start %d, capture handle %d, pal handle %pK",
+                          start, stCaptureInfo.capture_handle, stCaptureInfo.pal_handle);
+    if (start) {
+        mStCaptureInfo[stCaptureInfo.capture_handle] = stCaptureInfo.pal_handle;
+    } else {
+        mStCaptureInfo.erase(stCaptureInfo.capture_handle);
+    }
 }
