@@ -244,10 +244,6 @@
     <path name="play-fm">
     </path>
 
-    <path name="speaker-mic">
-        <path name="qmp2"/>
-    </path>
-
     <path name="speaker-mic-sbc">
     </path>
 
@@ -684,6 +680,10 @@
     <path name="handset-mic-unprocessed">
         <path name="qmp1" />
         <ctl name="TX_DEC2 Volume" value="105" />
+    </path>
+
+    <path name="speaker-mic">
+        <path name="qmp2"/>
     </path>
 
     <path name="va-mic-mono">
