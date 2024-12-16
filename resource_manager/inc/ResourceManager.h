@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -584,7 +583,7 @@ public:
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
-    static bool isMainSpeakerRight;
+    static int monoSpeakerPosition;
     /* Variable to store Quick calibration time for Speaker protection */
     static int spQuickCalTime;
     /* Variable to store the mode request for Speaker protection */
@@ -864,10 +863,10 @@ public:
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
     static bool isBtDevice(pal_device_id_t id);
-    int32_t a2dpSuspend();
-    int32_t a2dpResume();
-    int32_t a2dpCaptureSuspend();
-    int32_t a2dpCaptureResume();
+    int32_t a2dpSuspend(pal_device_id_t dev_id);
+    int32_t a2dpResume(pal_device_id_t dev_id);
+    int32_t a2dpCaptureSuspend(pal_device_id_t dev_id);
+    int32_t a2dpCaptureResume(pal_device_id_t dev_id);
     bool isPluginDevice(pal_device_id_t id);
     bool isDpDevice(pal_device_id_t id);
     bool isPluginPlaybackDevice(pal_device_id_t id);

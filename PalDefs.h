@@ -248,6 +248,13 @@ typedef struct pal_spkr_prot_payload {
     pal_spkr_prot_mode operationMode;/* Type of mode for which request is raised */
 } pal_spkr_prot_payload;
 
+enum {
+    SPKR_RIGHT,    /* Right Speaker */
+    SPKR_LEFT,     /* Left Speaker */
+    SPKR_TOP,      /* Top Speaker */
+    SPKR_BOTTOM,   /* Bottom Speaker */
+};
+
 typedef enum {
     GEF_PARAM_READ = 0,
     GEF_PARAM_WRITE,
@@ -398,8 +405,9 @@ typedef enum {
     PAL_DEVICE_OUT_HEARING_AID = 18,
     PAL_DEVICE_OUT_HAPTICS_DEVICE = 19,
     PAL_DEVICE_OUT_ULTRASOUND = 20,
+    PAL_DEVICE_OUT_BLUETOOTH_BLE = 21,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 21,
+    PAL_DEVICE_OUT_MAX = 22,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN +1,
@@ -423,8 +431,9 @@ typedef enum {
     PAL_DEVICE_IN_ULTRASOUND_MIC = PAL_DEVICE_IN_MIN +19,
     PAL_DEVICE_IN_EXT_EC_REF = PAL_DEVICE_IN_MIN + 20,
     PAL_DEVICE_IN_ECHO_REF = PAL_DEVICE_IN_MIN + 21,
+    PAL_DEVICE_IN_BLUETOOTH_BLE = PAL_DEVICE_IN_MIN + 22,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 22,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 23,
 } pal_device_id_t;
 
 typedef enum {
@@ -460,6 +469,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_LINE" },                 PAL_DEVICE_OUT_LINE},
     {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_SCO" },        PAL_DEVICE_OUT_BLUETOOTH_SCO},
     {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_A2DP" },       PAL_DEVICE_OUT_BLUETOOTH_A2DP},
+    {std::string{ "PAL_DEVICE_OUT_BLUETOOTH_BLE" },        PAL_DEVICE_OUT_BLUETOOTH_BLE},
     {std::string{ "PAL_DEVICE_OUT_AUX_DIGITAL" },          PAL_DEVICE_OUT_AUX_DIGITAL},
     {std::string{ "PAL_DEVICE_OUT_HDMI" },                 PAL_DEVICE_OUT_HDMI},
     {std::string{ "PAL_DEVICE_OUT_USB_DEVICE" },           PAL_DEVICE_OUT_USB_DEVICE},
@@ -488,6 +498,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_PROXY" },                 PAL_DEVICE_IN_PROXY},
     {std::string{ "PAL_DEVICE_IN_HANDSET_VA_MIC" },        PAL_DEVICE_IN_HANDSET_VA_MIC},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_A2DP" },        PAL_DEVICE_IN_BLUETOOTH_A2DP},
+    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_BLE" },         PAL_DEVICE_IN_BLUETOOTH_BLE},
     {std::string{ "PAL_DEVICE_IN_HEADSET_VA_MIC" },        PAL_DEVICE_IN_HEADSET_VA_MIC},
     {std::string{ "PAL_DEVICE_IN_VI_FEEDBACK" },           PAL_DEVICE_IN_VI_FEEDBACK},
     {std::string{ "PAL_DEVICE_IN_TELEPHONY_RX" },          PAL_DEVICE_IN_TELEPHONY_RX},
@@ -509,6 +520,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_OUT_LINE,                 std::string{"PAL_DEVICE_OUT_LINE"}},
     {PAL_DEVICE_OUT_BLUETOOTH_SCO,        std::string{"PAL_DEVICE_OUT_BLUETOOTH_SCO"}},
     {PAL_DEVICE_OUT_BLUETOOTH_A2DP,       std::string{"PAL_DEVICE_OUT_BLUETOOTH_A2DP"}},
+    {PAL_DEVICE_OUT_BLUETOOTH_BLE,        std::string{"PAL_DEVICE_OUT_BLUETOOTH_BLE"}},
     {PAL_DEVICE_OUT_AUX_DIGITAL,          std::string{"PAL_DEVICE_OUT_AUX_DIGITAL"}},
     {PAL_DEVICE_OUT_HDMI,                 std::string{"PAL_DEVICE_OUT_HDMI"}},
     {PAL_DEVICE_OUT_USB_DEVICE,           std::string{"PAL_DEVICE_OUT_USB_DEVICE"}},
@@ -537,6 +549,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_PROXY,                 std::string{"PAL_DEVICE_IN_PROXY"}},
     {PAL_DEVICE_IN_HANDSET_VA_MIC,        std::string{"PAL_DEVICE_IN_HANDSET_VA_MIC"}},
     {PAL_DEVICE_IN_BLUETOOTH_A2DP,        std::string{"PAL_DEVICE_IN_BLUETOOTH_A2DP"}},
+    {PAL_DEVICE_IN_BLUETOOTH_BLE,         std::string{"PAL_DEVICE_IN_BLUETOOTH_BLE"}},
     {PAL_DEVICE_IN_HEADSET_VA_MIC,        std::string{"PAL_DEVICE_IN_HEADSET_VA_MIC"}},
     {PAL_DEVICE_IN_VI_FEEDBACK,           std::string{"PAL_DEVICE_IN_VI_FEEDBACK"}},
     {PAL_DEVICE_IN_TELEPHONY_RX,          std::string{"PAL_DEVICE_IN_TELEPHONY_RX"}},
@@ -1119,6 +1132,7 @@ typedef struct pal_param_bta2dp {
     bool     is_lc3_mono_mode_on;
     bool     is_force_switch;
     uint32_t latency;
+    pal_device_id_t   dev_id;
 } pal_param_bta2dp_t;
 
 typedef struct pal_param_upd_event_detection {

@@ -1,5 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -109,6 +110,8 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         return BtSco::getInstance(device, Rm);
     case PAL_DEVICE_IN_BLUETOOTH_A2DP:
     case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
+    case PAL_DEVICE_IN_BLUETOOTH_BLE:
+    case PAL_DEVICE_OUT_BLUETOOTH_BLE:
         PAL_VERBOSE(LOG_TAG, "BTA2DP device");
         return BtA2dp::getInstance(device, Rm);
     case PAL_DEVICE_OUT_AUX_DIGITAL:
@@ -194,6 +197,8 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         return HeadsetMic::getObject();
     case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
     case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+    case PAL_DEVICE_OUT_BLUETOOTH_BLE:
+    case PAL_DEVICE_IN_BLUETOOTH_BLE:
         PAL_VERBOSE(LOG_TAG, "BT A2DP device %d", dev_id);
         return BtA2dp::getObject(dev_id);
     case PAL_DEVICE_OUT_BLUETOOTH_SCO:
