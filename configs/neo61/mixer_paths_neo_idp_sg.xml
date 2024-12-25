@@ -2120,13 +2120,20 @@
     </path>
 
     <path name="handset">
+        <ctl name="WSA2 RX0 MUX" value="AIF1_PB" />
         <ctl name="WSA RX1 MUX" value="AIF1_PB" />
+        <ctl name="WSA2_RX0 INP0" value="RX0" />
         <ctl name="WSA_RX1 INP0" value="RX1" />
+        <ctl name="WSA2_COMP1 Switch" value="1" />
         <ctl name="WSA_COMP2 Switch" value="1" />
+        <ctl name="SpkrLeft COMP Switch" value="1" />
+        <ctl name="SpkrLeft VISENSE Switch" value="1" />
+        <ctl name="SpkrLeft SWR DAC_Port Switch" value="1" />
         <ctl name="SpkrRight COMP Switch" value="1" />
         <ctl name="SpkrRight VISENSE Switch" value="1" />
         <ctl name="SpkrRight SWR DAC_Port Switch" value="1" />
         <ctl name="WSA_RX1 Digital Volume" value="70" />
+        <ctl name="WSA2_RX0 Digital Volume" value="70" />
     </path>
 
     <path name="handset-mic">
