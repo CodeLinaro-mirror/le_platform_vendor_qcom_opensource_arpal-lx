@@ -28,7 +28,7 @@
 
 <!-- Changes from Qualcomm Innovation Center are provided under the following license:    -->
 <!--                                                                                      -->
-<!-- Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.       -->
+<!-- Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.       -->
 <!--                                                                                      -->
 <!-- Redistribution and use in source and binary forms, with or without                   -->
 <!-- modification, are permitted (subject to the limitations in the                       -->
@@ -448,6 +448,15 @@
                 <name>PAL_STREAM_RAW</name>
             </usecase>
         </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_DUMMY</id>
+            <back_end_name>PCM_DUMMY-TX-1</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
+        </in-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
@@ -750,6 +759,15 @@
             <channels>1</channels>
             <snd_device_name>ultrasound-handset</snd_device_name>
             <samplerate>96000</samplerate>
+            <bit_width>16</bit_width>
+        </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_DUMMY</id>
+            <back_end_name>PCM_DUMMY-RX-0</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
         </out-device>
     </device_profile>
