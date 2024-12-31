@@ -45,6 +45,7 @@
 #include <unistd.h>
 #include "rx_haptics_api.h"
 #include "MemLogBuilder.h"
+#include "wsa_haptics_vi_api.h"
 
 extern "C" Stream* CreateHapticsStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
@@ -108,6 +109,13 @@ int32_t  StreamHaptics::setParameters(uint32_t param_id, void *payload)
             status = session->setParameters(NULL, param_id, payload);
             if (status)
                 PAL_ERR(LOG_TAG, "Error:%d, Failed to setParam", status);
+            break;
+        }
+        case PARAM_ID_HAPTICS_EX_VI_PERSISTENT:
+        {
+            status =  mDevices[0]->setParameter(param_id, nullptr);
+            if (status)
+               PAL_ERR(LOG_TAG, "Error:%d, Failed to setParam", status);
             break;
         }
         default:
@@ -312,7 +320,7 @@ int32_t  StreamHaptics::registerCallBack(pal_stream_callback cb, uint64_t cookie
 void StreamHaptics::HandleEvent(uint32_t event_id, void *data, uint32_t event_size) {
     struct param_id_haptics_wave_designer_state *event_info = nullptr;
     event_info = (struct param_id_haptics_wave_designer_state *)data;
-    uint32_t event_type[2];
+
     event_type[0] = (uint16_t)event_info->state[0];
     event_type[1] = (uint16_t)event_info->state[1];
 
