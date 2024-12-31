@@ -340,6 +340,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     struct agmMetaData deviceMetaData(nullptr, 0);
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
     int ret = 0, status = 0, dir = 0, i = 0, flags = 0, payload_size = 0;
+    int id;
     uint32_t miid = 0;
     char mSndDeviceName_rx[128] = {0};
     char mSndDeviceName_vi[128] = {0};
@@ -488,12 +489,13 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     sAttr.type = PAL_STREAM_HAPTICS;
     sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
     dir = TX_HOSTLESS;
-    pcmDevIdsTx = rm->allocateFrontEndIds(sAttr, dir);
-    if (pcmDevIdsTx.size() == 0) {
+    id = rm->allocateFrontEndIds(PCM_RECORD_HOSTLESS);
+    if (id < 0) {
         PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
         ret = -ENOSYS;
         goto exit;
     }
+    pcmDevIdsTx.push_back(id);
 
     connectCtrlName << "PCM" << pcmDevIdsTx.at(0) << " connect";
     connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlName.str().data());
@@ -696,12 +698,13 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     sAttr.type = PAL_STREAM_HAPTICS;
     sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
     dir = RX_HOSTLESS;
-    pcmDevIdsRx = rm->allocateFrontEndIds(sAttr, dir);
-    if (pcmDevIdsRx.size() == 0) {
+    id = rm->allocateFrontEndIds(PCM_PLAYBACK_HOSTLESS);
+    if (id < 0) {
         PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
         ret = -ENOSYS;
         goto err_pcm_open;
     }
+    pcmDevIdsRx.push_back(id);
 
     connectCtrlNameRx << "PCM" << pcmDevIdsRx.at(0) << " connect";
     connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlNameRx.str().data());
@@ -865,14 +868,14 @@ free_fe:
         if (isRxFeandBeConnected) {
             disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
         }
-        rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
+        rm->freeFrontEndIds(PCM_PLAYBACK_HOSTLESS, pcmDevIdsRx);
     }
 
     if (pcmDevIdsTx.size() != 0) {
         if (isTxFeandBeConnected) {
             disconnectFeandBe(pcmDevIdsTx, backEndNameTx);
         }
-        rm->freeFrontEndIds(pcmDevIdsTx, sAttr, TX_HOSTLESS);
+        rm->freeFrontEndIds(PCM_RECORD_HOSTLESS, pcmDevIdsTx);
     }
     pcmDevIdsRx.clear();
     pcmDevIdsTx.clear();
@@ -1074,6 +1077,7 @@ HapticsDevProtection::~HapticsDevProtection()
 int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
 {
     int ret = 0, dir = TX_HOSTLESS, flags, viParamId = 0;
+    int id;
     char mSndDeviceName_vi[128] = {0};
     uint8_t* payload = nullptr;
     uint32_t devicePropId[] = {0x08000010, 1, 0x2};
@@ -1250,12 +1254,13 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         sAttr.type = PAL_STREAM_HAPTICS;
         sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
         dir = TX_HOSTLESS;
-        pcmDevIdTx = rm->allocateFrontEndIds(sAttr, dir);
-        if (pcmDevIdTx.size() == 0) {
+        id = rm->allocateFrontEndIds(PCM_RECORD_HOSTLESS);
+        if (id < 0) {
             PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
             ret = -ENOSYS;
             goto exit;
         }
+        pcmDevIdTx.push_back(id);
 
         connectCtrlName << "PCM" << pcmDevIdTx.at(0) << " connect";
         connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlName.str().data());
@@ -1449,7 +1454,7 @@ free_fe:
         if (isTxFeandBeConnected) {
             disconnectFeandBe(pcmDevIdTx, backEndName);
         }
-        rm->freeFrontEndIds(pcmDevIdTx, sAttr, dir);
+        rm->freeFrontEndIds(PCM_RECORD_HOSTLESS, pcmDevIdTx);
         pcmDevIdTx.clear();
     }
 exit:
