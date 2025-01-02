@@ -127,7 +127,6 @@ StreamNonTunnel::StreamNonTunnel(const struct pal_stream_attributes *sattr, stru
 
 StreamNonTunnel::~StreamNonTunnel()
 {
-    rm->resetStreamInstanceID(this);
     rm->deregisterStream(this);
 }
 
@@ -430,22 +429,6 @@ int32_t  StreamNonTunnel::registerCallBack(pal_stream_callback cb, uint64_t cook
     return 0;  return 0;
 }
 
-int32_t StreamNonTunnel::getTagsWithModuleInfo(size_t *size, uint8_t *payload)
-{
-    int32_t status = 0;
-
-    if (*size > 0 && !payload)
-    {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "wrong params");
-        goto exit;
-    }
-
-    status = (session)->getTagsWithModuleInfo(this, size, payload);
-exit:
-    return status;
-}
-
 int32_t  StreamNonTunnel::getCallBack(pal_stream_callback * /*cb*/)
 {
     return 0;
@@ -648,4 +631,15 @@ int32_t StreamNonTunnel::ssrDownHandler()
 int32_t StreamNonTunnel::ssrUpHandler()
 {
     return 0;
+}
+
+bool StreamNonTunnel::isStreamSupported()
+{
+    bool result = true;
+
+    if (mStreamAttr->direction != PAL_AUDIO_INPUT_OUTPUT) {
+        result = false;
+        PAL_ERR(LOG_TAG, "config dir %d not supported", mStreamAttr->direction);
+    }
+    return result;
 }

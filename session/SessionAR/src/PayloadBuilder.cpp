@@ -156,6 +156,51 @@ struct pause_downstream_delay_t
 };
 typedef struct pause_downstream_delay_t pause_downstream_delay_t;
 
+/** Parameter ID for DTMF generation */
+#define PARAM_ID_DTMF_GEN_TONE_CFG 0x08001121
+
+#define DTMF_GEN_TONE_VERSION_V2 2
+/** @h2xmlp_parameter   {"PARAM_ID_DTMF_GEN_TONE_CFG", PARAM_ID_DTMF_GEN_TONE_CFG}
+    @h2xmlp_description {Parameter for generating DTMF }
+    @h2xmlp_toolPolicy  {Calibration; RTC} */
+
+#include "spf_begin_pack.h"
+struct param_id_dtmf_gen_tone_cfg_t
+{
+   uint16_t high_freq;
+   /**< @h2xmle_description {DTMF Tone high frequency in Hz, 100-4000 Hz}
+        @h2xmle_default     {1209}
+        @h2xmle_range       {100...4000}
+        @h2xmle_policy      {Basic} */
+
+   uint16_t low_freq;
+   /**< @h2xmle_description {DTMF Tone low frequency in Hz, 100-4000 Hz, <= high_freq }
+        @h2xmle_default     {697}
+        @h2xmle_range       {100...4000}
+        @h2xmle_policy      {Basic} */
+
+	int32_t duration_ms;
+   /**< @h2xmle_description {Duration of the tone in milliseconds. The duration includes
+                             ramp-up and ramp-down periods of 1 ms and 2 ms, respectively.}
+        @h2xmle_default     {0}
+        @h2xmle_range       {-1...0x7FFFFFFF}
+        @h2xmle_policy      {Basic} */
+
+    uint16_t gain;
+   /**< @h2xmle_description {DTMF tone linear gain. Because the level of tone generation is fixed
+                             at 0 dBFS, this parameter must be set to a value in Q13 format.}
+        @h2xmle_default     {8192}
+        @h2xmle_dataFormat  {Q13}
+        @h2xmle_policy      {Basic} */
+
+    uint16_t version;
+}
+#include "spf_end_pack.h"
+;
+
+/* Type definition for the above structure */
+typedef struct param_id_dtmf_gen_tone_cfg_t param_id_dtmf_gen_tone_cfg_t;
+
 
 /* ID of the Output Media Format parameters used by MODULE_ID_MFC */
 #define PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x08001024
@@ -1552,201 +1597,6 @@ int PayloadBuilder::payloadACDBTunnelParam(uint8_t **alsaPayload,
     }
 
     PAL_ERR(LOG_TAG, "ALSA payload %pK size %zu", *alsaPayload, *size);
-
-    return 0;
-}
-
-int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
-            uint8_t *payload,
-            uint32_t moduleInstanceId, uint32_t sampleRate) {
-    struct apm_module_param_data_t* header;
-    //uint8_t* payloadInfo = NULL;
-    struct agm_acdb_param *payloadInfo = NULL;
-    size_t paddedSize = 0;
-    uint32_t payloadSize = 0;
-    uint32_t dataLength = 0;
-    struct agm_acdb_param *acdbParam = (struct agm_acdb_param *)payload;
-    uint32_t appendSampleRateInCKV = 1;
-    uint8_t *ptrSrc = nullptr;
-    uint8_t *ptrDst = nullptr;
-    uint32_t *ptr = nullptr;
-    pal_effect_custom_payload_t *effectCustomPayload = nullptr;
-    uint32_t totalPaddedSize = 0;
-    uint32_t parsedSize = 0;
-    struct agm_acdb_param *repackedData = nullptr;
-
-    if (!acdbParam)
-        return -EINVAL;
-
-    if (sampleRate != 0 && acdbParam->isTKV == PARAM_TKV) {
-        PAL_ERR(LOG_TAG, "Sample Rate %d CKV and TKV are not compatible.",
-                    sampleRate);
-        return -EINVAL;
-    }
-
-    if (sampleRate) {
-        //CKV
-        // step 1. check sample rate is in kv or not
-        PAL_INFO(LOG_TAG, "CKV param to ACDB");
-        pal_key_value_pair_t *rawCKVPair = nullptr;
-        rawCKVPair = (pal_key_value_pair_t *)acdbParam->blob;
-        for (int k = 0; k < acdbParam->num_kvs; k++) {
-            if (rawCKVPair[k].key == SAMPLINGRATE) {
-                PAL_INFO(LOG_TAG, "Sample rate is in CKV. No need to append.");
-                appendSampleRateInCKV = 0;
-                break;
-            }
-        }
-        PAL_DBG(LOG_TAG, "is sample rate appended in CKV? %x",
-                                appendSampleRateInCKV);
-    } else {
-        //TKV
-        appendSampleRateInCKV = 0;
-    }
-
-    // multipl param check by param id
-    dataLength = sizeof(struct agm_acdb_param) +
-                    acdbParam->num_kvs * sizeof(struct gsl_key_value_pair);
-    effectCustomPayload = (pal_effect_custom_payload_t *)
-                                ((uint8_t *)acdbParam + dataLength);
-    if (effectCustomPayload->paramId) {
-        // step 1: get param data size = blob size - kv size - param id size
-        payloadSize = acdbParam->blob_size -
-                        acdbParam->num_kvs * sizeof(struct gsl_key_value_pair)
-                        - sizeof(pal_effect_custom_payload_t);
-        paddedSize = PAL_ALIGN_8BYTE(payloadSize);
-        PAL_INFO(LOG_TAG, "payloadSize=%d paddedSize=%x", payloadSize, paddedSize);
-        payloadInfo = (struct agm_acdb_param *)calloc(1,
-            sizeof(struct agm_acdb_param) +
-            (acdbParam->num_kvs + appendSampleRateInCKV) *
-            sizeof(struct gsl_key_value_pair) +
-            sizeof(struct apm_module_param_data_t) + paddedSize);
-        if (!payloadInfo) {
-            PAL_ERR(LOG_TAG, "failed to allocate memory.");
-            return -ENOMEM;
-        }
-
-        // copy acdb meta + kv
-        dataLength = sizeof(struct agm_acdb_param) +
-                        acdbParam->num_kvs * sizeof(struct gsl_key_value_pair);
-        ar_mem_cpy((uint8_t *)payloadInfo, dataLength,
-                    (uint8_t *)acdbParam, dataLength);
-        //update blob size
-        payloadInfo->blob_size = payloadInfo->blob_size +
-                                sizeof(struct apm_module_param_data_t) -
-                                sizeof(pal_effect_custom_payload_t) +
-                                appendSampleRateInCKV * sizeof(struct gsl_key_value_pair)
-                                + paddedSize - payloadSize;
-        payloadInfo->num_kvs = payloadInfo->num_kvs + appendSampleRateInCKV;
-        if (appendSampleRateInCKV) {
-            ptr = (uint32_t *)((uint8_t *)payloadInfo + dataLength);
-            *ptr++ = SAMPLINGRATE;
-            *ptr = sampleRate;
-            header = (struct apm_module_param_data_t *)((uint8_t *)payloadInfo +
-                        dataLength + sizeof(struct gsl_key_value_pair));
-        } else {
-            header = (struct apm_module_param_data_t *)
-                        ((uint8_t *)payloadInfo + dataLength);
-        }
-
-        effectCustomPayload = (pal_effect_custom_payload_t *)
-                                    ((uint8_t *)acdbParam + dataLength);
-        header->module_instance_id = moduleInstanceId;
-        header->param_id = effectCustomPayload->paramId;
-        header->param_size = payloadSize;
-        header->error_code = 0x0;
-
-        /* padded size = payload size + appended sze */
-        if (paddedSize) {
-            ptrDst = (uint8_t *)header + sizeof(struct apm_module_param_data_t);
-            ptrSrc = (uint8_t *)effectCustomPayload->data;
-            // padded bytes are zereo by calloc. no need to copy.
-            ar_mem_cpy(ptrDst, payloadSize, ptrSrc, payloadSize);
-        }
-        *size = dataLength + paddedSize + sizeof(struct apm_module_param_data_t) +
-                    appendSampleRateInCKV * sizeof(struct gsl_key_value_pair);
-        *alsaPayload = (uint8_t *)payloadInfo;
-
-    } else {
-        // step 1: get param data size = blob size - kv size - param id size
-        payloadSize = acdbParam->blob_size -
-                        acdbParam->num_kvs * sizeof(struct gsl_key_value_pair)
-                        - sizeof(pal_effect_custom_payload_t);
-
-        repackedData =
-                (struct agm_acdb_param *)calloc(1,
-                    sizeof(struct agm_acdb_param) +
-                    (acdbParam->num_kvs + appendSampleRateInCKV) *
-                    sizeof(struct gsl_key_value_pair) +
-                    sizeof(struct apm_module_param_data_t) + payloadSize * 2);
-
-        if (!repackedData) {
-                PAL_ERR(LOG_TAG, "failed to allocate memory of 0x%x bytes",
-                                        payloadSize * 2);
-                return -ENOMEM;
-        }
-
-        legacyGefParamHeader *gefMultipleParamHeader = NULL;
-        // copy acdb meta + kv
-        dataLength = sizeof(struct agm_acdb_param) +
-                        acdbParam->num_kvs * sizeof(struct gsl_key_value_pair);
-
-        ar_mem_cpy((uint8_t *)repackedData, dataLength,
-                    (uint8_t *)acdbParam, dataLength);
-
-        repackedData->num_kvs = acdbParam->num_kvs + appendSampleRateInCKV;
-        if (appendSampleRateInCKV) {
-            ptr = (uint32_t *)((uint8_t *)repackedData + dataLength);
-            *ptr++ = SAMPLINGRATE;
-            *ptr = sampleRate;
-            header = (struct apm_module_param_data_t *)((uint8_t *)repackedData +
-                        dataLength + sizeof(struct gsl_key_value_pair));
-        } else {
-            header = (struct apm_module_param_data_t *)
-                        ((uint8_t *)repackedData + dataLength);
-        }
-
-        while (parsedSize < payloadSize) {
-            PAL_DBG(LOG_TAG, "parsed size = 0x%x", parsedSize);
-            gefMultipleParamHeader =
-                (legacyGefParamHeader *)
-                ((uint8_t *)(effectCustomPayload->data) + parsedSize);
-            paddedSize= PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
-                                                + gefMultipleParamHeader->length);
-            PAL_DBG(LOG_TAG, "total padded size = 0x%x paddedSize=0x%x",
-                        totalPaddedSize, paddedSize);
-            PAL_DBG(LOG_TAG, "current param value length = 0x%x",
-                        gefMultipleParamHeader->length);
-            header->module_instance_id = moduleInstanceId;
-            header->param_id = gefMultipleParamHeader->paramId;
-            header->error_code = 0x0;
-            header->param_size = gefMultipleParamHeader->length;
-            PAL_DBG(LOG_TAG, "miid=0x%x param id = 0x%x length=0x%x",
-                        header->module_instance_id, header->param_id, header->param_size);
-            if (gefMultipleParamHeader->length) {
-                ar_mem_cpy((uint8_t *)header + sizeof(struct apm_module_param_data_t),
-                                 gefMultipleParamHeader->length,
-                                 (uint8_t *)gefMultipleParamHeader + sizeof(legacyGefParamHeader),
-                                 gefMultipleParamHeader->length);
-            }
-            // offset to output data
-            totalPaddedSize += paddedSize;
-            // offset to input data
-            parsedSize += sizeof(legacyGefParamHeader) +
-                            gefMultipleParamHeader->length;
-            PAL_DBG(LOG_TAG, "parsed size=0x%x total padded size=0x%x",
-                                parsedSize, totalPaddedSize);
-            header = (struct apm_module_param_data_t*)((uint8_t *)header + paddedSize);
-        }
-
-        repackedData->blob_size = acdbParam->num_kvs * sizeof(struct gsl_key_value_pair)
-                                    + totalPaddedSize;
-        *size = dataLength + totalPaddedSize +
-                    appendSampleRateInCKV * sizeof(struct gsl_key_value_pair);
-        *alsaPayload = (uint8_t *)repackedData;
-    }
-
-    PAL_DBG(LOG_TAG, "ALSA payload %pK size %zu", *alsaPayload, *size);
 
     return 0;
 }
@@ -4435,7 +4285,6 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
             {
                 param_id_haptics_vi_op_mode_param_t  *HpConf;
                 param_id_haptics_vi_op_mode_param_t  *data;
-                uint32_t *channelMap;
 
                 data = (param_id_haptics_vi_op_mode_param_t *) param;
 
@@ -4451,7 +4300,7 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                 header = (struct apm_module_param_data_t*) payloadInfo;
 
                 HpConf = (param_id_haptics_vi_op_mode_param_t *) (payloadInfo +
-                                sizeof(struct param_id_haptics_vi_op_mode_param_t));
+                                sizeof(struct apm_module_param_data_t));
                 HpConf->th_operation_mode = data->th_operation_mode;
             }
         break;
@@ -4646,6 +4495,31 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                 memcpy(hpConf, data,  sizeof(param_id_haptics_ex_vi_persistent));
             }
          break;
+      case PARAM_ID_HAPTICS_EX_VI_DYNAMIC_PARAM:
+            {
+                wsa_haptics_ex_lra_param_t *data;
+                wsa_haptics_ex_lra_param_t *VIConf;
+                param_id_haptics_ex_vi_dynamic_param_t *hpConf;
+                data = (wsa_haptics_ex_lra_param_t *) param;
+                payloadSize = sizeof(struct apm_module_param_data_t) +
+                                    sizeof(param_id_haptics_ex_vi_dynamic_param_t) +
+                                    sizeof(wsa_haptics_ex_lra_param_t);
+                padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+                payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+                if (!payloadInfo) {
+                    PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+                    return;
+                }
+                header = (struct apm_module_param_data_t*) payloadInfo;
+                hpConf = (param_id_haptics_ex_vi_dynamic_param_t *) (payloadInfo +
+                                  sizeof(struct apm_module_param_data_t));
+                hpConf->num_channels = 1;
+                VIConf = (wsa_haptics_ex_lra_param_t *) (payloadInfo +
+                                  sizeof(struct apm_module_param_data_t) +
+                sizeof(param_id_haptics_ex_vi_dynamic_param_t));
+                memcpy(VIConf, data, sizeof(wsa_haptics_ex_lra_param_t));
+            }
+        break;
       case PARAM_ID_HAPTICS_WAVE_DESIGNER_CFG:
             {
                 pal_param_haptics_cnfg_t *data;
@@ -4811,6 +4685,28 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                     hpconf->channel_mask = 1;
                     hpwaveConf[0].wave_design_mode = hap_info->getRingtoneHapticsEffectConfiguration();
                     PAL_ERR(LOG_TAG, "ringtone haptics mode %d", hpwaveConf[0].wave_design_mode);
+                } else if(data->mode == PAL_STREAM_HAPTICS_PCM) {
+                    payloadSize = sizeof(struct apm_module_param_data_t) +
+                                   sizeof(param_id_haptics_wave_designer_config_t) +
+                                   (sizeof(rx_wave_designer_config_h));
+                    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+                    payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+                    if (!payloadInfo) {
+                        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+                        return;
+                    }
+                    header = (struct apm_module_param_data_t *) payloadInfo;
+                    hpconf = (param_id_haptics_wave_designer_config_t *) (payloadInfo +
+                                sizeof(struct apm_module_param_data_t));
+                    hpwaveConf = (rx_wave_designer_config_h *) (payloadInfo +
+                                sizeof(struct apm_module_param_data_t)
+                                + sizeof(param_id_haptics_wave_designer_config_t));
+                    hpconf->num_channels = 1;
+                    hpconf->channel_mask = 1;
+                    hpwaveConf[0].wave_design_mode = 5;
+                    hpwaveConf[0].repetition_count = 1;
+                    hpwaveConf[0].num_pwl=0;
+                    PAL_ERR(LOG_TAG, "PCM haptics mode %d", hpwaveConf[0].wave_design_mode);
                 }
             }
             break;
@@ -4875,6 +4771,34 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                               hpConf->channel_mask);
 
                  free(HConfig);
+            }
+            break;
+            case PARAM_ID_HAPTICS_RX_PCMV_PLAYBACK:
+            {
+                pal_param_haptics_cnfg_t *data;
+                param_id_haptics_rx_pcmv_playback *hpconf = nullptr;
+                uint8_t *buf_ptr = nullptr;
+
+                data = (pal_param_haptics_cnfg_t *)param;
+
+                payloadSize = sizeof(struct apm_module_param_data_t) +
+                                    sizeof(param_id_haptics_rx_pcmv_playback) +
+                                    data->buffer_size;
+                padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+                payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+                if (!payloadInfo) {
+                    PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+                    return;
+                }
+                header = (struct apm_module_param_data_t*) payloadInfo;
+                hpconf = (param_id_haptics_rx_pcmv_playback *) (payloadInfo +
+                                sizeof(struct apm_module_param_data_t));
+                buf_ptr = (uint8_t*) (payloadInfo +
+                            sizeof(struct apm_module_param_data_t) +
+                            sizeof(struct param_id_haptics_rx_pcmv_playback));
+                hpconf->channel_mask = 1;
+                hpconf->buffer_size = data->buffer_size;
+                memcpy(buf_ptr, data->buffer_ptr, hpconf->buffer_size);
             }
             break;
         default:
@@ -5074,6 +4998,53 @@ void PayloadBuilder::USToneRendererNotifyPayload(uint8_t **payload, size_t *size
                       fmt_payload->status, fmt_payload->sampling_rate, fmt_payload->bit_width,
                       fmt_payload->num_channels, header->module_instance_id);
     PAL_DBG(LOG_TAG, "payload %pK size %zu", *payload, *size);
+}
+
+void PayloadBuilder::payloadDTMFGenConfig(uint8_t **payload, size_t *size,
+    uint32_t moduleId, pal_param_dtmf_gen_tone_cfg_t *dtmf_payload)
+{
+    struct apm_module_param_data_t* header;
+    param_id_dtmf_gen_tone_cfg_t *dtmf_config;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(param_id_dtmf_gen_tone_cfg_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = new uint8_t[payloadSize + padBytes]();
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = moduleId;
+    header->param_id = PARAM_ID_DTMF_GEN_TONE_CFG;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+    PAL_DBG(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
+                       header->module_instance_id, header->param_id,
+                       header->error_code, header->param_size);
+    dtmf_config = (param_id_dtmf_gen_tone_cfg_t*)(payloadInfo +
+                   sizeof(struct apm_module_param_data_t));
+    dtmf_config->high_freq = dtmf_payload->high_freq;
+    dtmf_config->low_freq = dtmf_payload->low_freq;
+
+    if (dtmf_config->high_freq == 0) {
+        dtmf_config->high_freq = dtmf_payload->low_freq;
+    } else if (dtmf_config->low_freq == 0) {
+        dtmf_config->low_freq = dtmf_payload->high_freq;
+    }
+
+    dtmf_config->gain = dtmf_payload->gain;
+    dtmf_config->duration_ms = dtmf_payload->duration_ms;
+    dtmf_config->version = DTMF_GEN_TONE_VERSION_V2;
+    PAL_DBG(LOG_TAG, "high_freq:%d, low_freq:%d, gain:%d,duration_ms:%d",
+            dtmf_config->high_freq, dtmf_config->low_freq, dtmf_config->gain,
+            dtmf_config->duration_ms);
+
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
+    PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo, *size);
 }
 
 int PayloadBuilder::updateCustomPayload(void *payload, size_t size)

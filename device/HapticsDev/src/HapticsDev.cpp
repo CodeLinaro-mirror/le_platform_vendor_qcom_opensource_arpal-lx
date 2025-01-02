@@ -58,6 +58,10 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: HapticsDev"
@@ -79,15 +83,18 @@ extern "C" void CreateHapticsDevice(struct pal_device *device,
 }
 
 std::shared_ptr<Device> HapticsDev::obj = nullptr;
+std::mutex HapticsDev::InstMutex;
 
 std::shared_ptr<Device> HapticsDev::getObject()
 {
+    std::lock_guard<std::mutex> guard(InstMutex);
     return obj;
 }
 
 std::shared_ptr<Device> HapticsDev::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
 {
+    std::lock_guard<std::mutex> guard(InstMutex);
     if (!obj) {
         if (ResourceManager::IsHapticsProtectionEnabled() &&
             ResourceManager::IsHapticsThroughWSA()) {
@@ -156,4 +163,23 @@ int32_t HapticsDev::isBitWidthSupported(uint32_t bitWidth)
             break;
     }
     return rc;
+}
+
+int32_t HapticsDev::getDeviceConfig(struct pal_device *deviceattr,
+                                    struct pal_stream_attributes *sAttr) {
+    /* For PAL_DEVICE_OUT_HAPTICS_DEVICE, copy all config from stream attributes */
+    if (!sAttr) {
+        PAL_ERR(LOG_TAG, "Invalid parameter.");
+        return -EINVAL;
+    }
+    if (ResourceManager::IsHapticsThroughWSA())
+        return 0;
+
+    deviceattr->config.ch_info = sAttr->out_media_config.ch_info;
+    deviceattr->config.bit_width = sAttr->out_media_config.bit_width;
+    deviceattr->config.aud_fmt_id = sAttr->out_media_config.aud_fmt_id;
+    PAL_DBG(LOG_TAG, "device %d sample rate %d bitwidth %d",
+            deviceattr->id,deviceattr->config.sample_rate,
+            deviceattr->config.bit_width);
+    return 0;
 }
