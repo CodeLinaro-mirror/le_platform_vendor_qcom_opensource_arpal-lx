@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -680,7 +680,7 @@ public:
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
-    static bool isMainSpeakerRight;
+    static int monoSpeakerPosition;
     /* Variable to store Quick calibration time for Speaker protection */
     static int spQuickCalTime;
     /* Variable to store the mode request for Speaker protection */

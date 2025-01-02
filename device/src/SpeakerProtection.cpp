@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -465,7 +465,7 @@ int SpeakerProtection::spkrStartCalibration()
     struct agm_event_reg_cfg event_cfg;
     struct agmMetaData deviceMetaData(nullptr, 0);
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
-    int ret = 0, status = 0, dir = 0, i = 0, flags = 0, payload_size = 0;
+    int ret = 0, status = 0, dir = 0, i = 0, flags = 0, payload_size = 0, spkViMap, spkDevMap;
     int retryCount = 0;
     uint32_t miid = 0;
     char mSndDeviceName_rx[128] = {0};
@@ -572,8 +572,8 @@ int SpeakerProtection::spkrStartCalibration()
     // Enable VI module
     switch(numberOfChannels) {
         case 1 :
-            // TODO: check it from RM.xml for left or right configuration
-            calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, RIGHT_SPKR));
+            spkViMap = ResourceManager::monoSpeakerPosition == SPKR_LEFT ? LEFT_SPKR : RIGHT_SPKR;
+            calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, spkViMap));
         break;
         case 2 :
             calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, STEREO_SPKR));
@@ -838,8 +838,8 @@ int SpeakerProtection::spkrStartCalibration()
     // Enable the SP module
     switch (numberOfChannels) {
         case 1 :
-            // TODO: Fetch the configuration from RM.xml
-            calVector.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_MONO));
+            spkDevMap = ResourceManager::monoSpeakerPosition == SPKR_LEFT ? LEFT_MONO : RIGHT_MONO;
+            calVector.push_back(std::make_pair(SPK_PRO_DEV_MAP, spkDevMap));
         break;
         case 2 :
             calVector.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));
@@ -1311,6 +1311,7 @@ void SpeakerProtection::updateCpsCustomPayload(int miid)
     cps_reg_wr_values_t *cps_thrsh_values;
     param_id_cps_lpass_swr_thresholds_cfg_t *cps_thrsh_cfg;
     int dev_num;
+    std::string mixer_name;
     int val, ret = 0;
 
     memset(&pkedRegAddr, 0, sizeof(pkd_reg_addr_t) * num_ch);
@@ -1344,7 +1345,12 @@ void SpeakerProtection::updateCpsCustomPayload(int miid)
         switch (i)
         {
             case 0 :
-                dev_num = getCpsDevNumber(SPKR_RIGHT_WSA_DEV_NUM);
+                if (numberOfChannels == 1) {
+                    mixer_name = ResourceManager::monoSpeakerPosition == SPKR_LEFT
+                                  ? SPKR_LEFT_WSA_DEV_NUM : SPKR_RIGHT_WSA_DEV_NUM;
+                    dev_num = getCpsDevNumber(mixer_name);
+                } else
+                    dev_num = getCpsDevNumber(SPKR_RIGHT_WSA_DEV_NUM);
             break;
             case 1 :
                 dev_num = getCpsDevNumber(SPKR_LEFT_WSA_DEV_NUM);
@@ -1428,7 +1434,7 @@ exit:
 
 int SpeakerProtection::viTxSetupThreadLoop()
 {
-    int ret = 0, dir = TX_HOSTLESS, flags, viParamId =0;
+    int ret = 0, dir = TX_HOSTLESS, flags, viParamId =0, spkViMap;
     std::shared_ptr<ResourceManager> rm;
     char mSndDeviceName_vi[128] = {0};
     char mSndDeviceName_SP[128] = {0};
@@ -1563,8 +1569,11 @@ int SpeakerProtection::viTxSetupThreadLoop()
         case 1 :
              if (mDeviceAttr.id == PAL_DEVICE_OUT_HANDSET)
                   calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, LEFT_SPKR));
-             else
-                  calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, RIGHT_SPKR));
+             else {
+                  spkViMap = ResourceManager::monoSpeakerPosition == SPKR_LEFT
+                                                        ? LEFT_SPKR : RIGHT_SPKR;
+                  calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, spkViMap));
+             }
         break;
         case 2 :
             calVector.push_back(std::make_pair(SPK_PRO_VI_MAP, STEREO_SPKR));
@@ -1935,7 +1944,7 @@ exit:
  */
 int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 {
-    int ret = 0, dir = TX_HOSTLESS, flags;
+    int ret = 0, dir = TX_HOSTLESS, flags, spkCpsMap;
     char mSndDeviceName_vi[128] = {0};
     char mSndDeviceName_cps[128] = {0};
     char mSndDeviceName_SP[128] = {0};
@@ -2171,8 +2180,11 @@ cps_dev_setup:
             case 1 :
                 if (mDeviceAttr.id == PAL_DEVICE_OUT_HANDSET)
                     calVector.push_back(std::make_pair(SPK_PRO_CPS_MAP, L_SPKR));
-                else
-                    calVector.push_back(std::make_pair(SPK_PRO_CPS_MAP, R_SPKR));
+                else {
+                    spkCpsMap = ResourceManager::monoSpeakerPosition == SPKR_LEFT
+                                                        ? L_SPKR : R_SPKR;
+                    calVector.push_back(std::make_pair(SPK_PRO_CPS_MAP, spkCpsMap));
+                }
             break;
             case 2 :
                 calVector.push_back(std::make_pair(SPK_PRO_CPS_MAP, ST_SPKR));

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -266,6 +266,13 @@ typedef struct pal_spkr_prot_payload {
 
     pal_spkr_prot_mode operationMode;/* Type of mode for which request is raised */
 } pal_spkr_prot_payload;
+
+enum {
+    SPKR_RIGHT,    /* Right Speaker */
+    SPKR_LEFT,     /* Left Speaker */
+    SPKR_TOP,      /* Top Speaker */
+    SPKR_BOTTOM,   /* Bottom Speaker */
+};
 
 typedef enum {
     GEF_PARAM_READ = 0,
