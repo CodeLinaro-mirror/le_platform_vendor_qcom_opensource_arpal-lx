@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1338,8 +1338,9 @@ int setSTParameter(uint32_t param_id, void *param_payload,
                     onResourceAvailCb =
                         (SoundTriggerOnResourceAvailableCallback)resources_avail->callback;
                     onResourceAvailCookie = resources_avail->cookie;
-                    PAL_VERBOSE(LOG_TAG, "setParameter onResourceAvailCb %pk"
-                        " onResourceAvailCookie %pk", onResourceAvailCb, onResourceAvailCookie);
+                    PAL_VERBOSE(LOG_TAG,
+                        "setParameter onResourceAvailCb %pk onResourceAvailCookie %llu",
+                        onResourceAvailCb, onResourceAvailCookie);
                 } else {
                     PAL_ERR(LOG_TAG, "Invalid ST resource payload");
                     status = -EINVAL;

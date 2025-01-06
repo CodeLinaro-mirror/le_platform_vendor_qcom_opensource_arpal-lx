@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2738,7 +2738,7 @@ int ResourceManager::deregisterStream(Stream *s)
         if (iter != it->second.end())
             it->second.erase(iter);
         else {
-            PAL_ERR(LOG_TAG, "Could not find stream to deregister", type);
+            PAL_ERR(LOG_TAG, "Could not find stream type %d to deregister", type);
             ret = -ENOENT;
         }
     } else {
@@ -9977,7 +9977,7 @@ void ResourceManager::WbSpeechConfig(pal_device_id_t devId,
         dev->getDeviceAttributes(&curDevAttr);
         status = dev->setDeviceParameter(param_id, param_payload);
         if (status)
-            PAL_ERR(LOG_TAG, "set device param %d, status: ", param_id, status);
+            PAL_ERR(LOG_TAG, "set device param %d, status: %d", param_id, status);
         // check and force device switch if SCO is connected.
         if (!dev->isDeviceReady(devId))
             return;

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -642,7 +642,7 @@ void PayloadBuilder::payloadGainConfig(uint8_t** payload, size_t* size,
     uint8_t* payloadInfo = NULL;
     size_t payloadSize = 0, padBytes = 0;
 
-    PAL_VERBOSE(LOG_TAG,"Gain set:%f \n",gaindata->gain);
+    PAL_VERBOSE(LOG_TAG,"Gain set:%hu \n",gaindata->gain);
     uint16_t gainQ13 = gaindata->gain;
     payloadSize = sizeof(struct apm_module_param_data_t) +
                   sizeof(struct param_id_module_gain_cfg_t);
