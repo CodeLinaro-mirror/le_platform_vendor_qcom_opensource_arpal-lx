@@ -1,0 +1,1 @@
+SUBDIRS = ConfigSessionUtils ConfigSessionAlsaPcm ConfigSessionAlsaVoice ConfigSessionAlsaCompress
