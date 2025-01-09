@@ -1,0 +1,34 @@
+#!/usr/bin/make -f
+
+%:
+	dh $@
+
+override_dh_auto_configure:
+	dh_auto_configure -- --with-glib --with-syslog
+
+override_dh_install:
+	dh_install
+	rm $(CURDIR)/debian/tmp/usr/lib/*/*.la
+	dh_installsysusers
+
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_idp.xml $(DESTDIR)/etc/mixer_paths_qcm6490_idp.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3_ia.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3_ia.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3_vc.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3_vc.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3_vision.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3_vision.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs8300_ridesx.xml $(DESTDIR)/etc/mixer_paths_qcs8300_ridesx.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs9075_rb8.xml $(DESTDIR)/etc/mixer_paths_qcs9075_rb8.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs9100_ridesx.xml $(DESTDIR)/etc/mixer_paths_qcs9100_ridesx.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_idp.xml $(DESTDIR)/etc/resourcemanager_qcm6490_idp.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3_ia.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3_ia.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3_vc.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3_vc.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3_vision.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3_vision.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs8300_ridesx.xml $(DESTDIR)/etc/resourcemanager_qcs8300_ridesx.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs9075_rb8.xml $(DESTDIR)/etc/resourcemanager_qcs9075_rb8.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs9100_ridesx.xml $(DESTDIR)/etc/resourcemanager_qcs9100_ridesx.xml
+	install -D -m 644 debian/tmp/etc/usecaseKvManager.xml $(DESTDIR)/etc/usecaseKvManager.xml
+	install -D -m 755 debian/tmp/usr/bin/audioadsprpcd $(DESTDIR)/usr/bin/audioadsprpcd
+
+override_dh_installsystemd:
+	dh_installsystemd --name=audioadsprpcd

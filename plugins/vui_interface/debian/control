@@ -1,0 +1,36 @@
+Source: qcom-vui-interface
+Section: misc
+Priority: optional
+Maintainer: Sairamreddy Bojja <quic_sbojja@quicinc.com>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ libglib2.0-0,
+ qcom-kvh2xml-dev,
+ qcom-audiolisten-dev,
+ qcom-pal-headers-dev,
+ qcom-args,
+ qcom-args-dev,
+ qcom-vui-interface-header-dev,
+Standards-Version: 4.6.2
+Homepage: http://support.cdmatech.com
+
+Package: qcom-vui-interface
+Architecture: arm64
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ qcom-audiolisten-dev,
+ qcom-args,
+ qcom-args-dev,
+Description: Qualcomm vui-interface audio stack
+ Firmware and shared libraries package.
+
+Package: qcom-vui-interface-dev
+Section: libdevel
+Architecture: arm64
+Depends:
+ qcom-vui-interface (= ${binary:Version}),
+ ${misc:Depends},
+Description: Qualcomm vui-interface audio stack development headers
+ Headers-only package.
