@@ -148,7 +148,7 @@ libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -lar_osal -laudioroute -lspfheaders
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -version-number @LT_VERSION_NUMBER@
-libpal_la_CPPFLAGS += @GLIB_CFLAGS@ -include glib.h
+libpal_la_CPPFLAGS += @GLIB_CFLAGS@
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_idp.xml \

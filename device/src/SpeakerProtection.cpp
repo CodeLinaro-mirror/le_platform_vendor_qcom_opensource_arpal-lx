@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -73,6 +73,7 @@
 
 #include<fstream>
 #include<sstream>
+#include <climits>
 
 #ifndef PAL_SP_TEMP_PATH
 #define PAL_SP_TEMP_PATH "/data/misc/audio/audio.cal"
