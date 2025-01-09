@@ -28,7 +28,7 @@
 
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 *
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 *
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted (subject to the limitations in the
@@ -205,6 +205,10 @@
                 <custom-config key="48K">
                     <samplerate>48000</samplerate>
                 </custom-config>
+                <custom-config key="dual-mic-true-stereo">
+                    <channels>2</channels>
+                    <snd_device_name>handset-dmic-endfire</snd_device_name>
+                </custom-config>
             </usecase>
         <!--Uncomment these lines instead of above lines if needing to enable EC per custom key
             <usecase>
@@ -368,6 +372,10 @@
                 </custom-config>
                 <custom-config key="48K">
                     <samplerate>48000</samplerate>
+                </custom-config>
+                <custom-config key="dual-mic-true-stereo">
+                    <channels>2</channels>
+                    <snd_device_name>speaker-dmic-endfire</snd_device_name>
                 </custom-config>
             </usecase>
             <usecase>
