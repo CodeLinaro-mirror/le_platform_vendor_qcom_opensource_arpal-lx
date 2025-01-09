@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -344,7 +344,8 @@ int32_t StreamPCM::start()
         case PAL_AUDIO_OUTPUT:
             PAL_VERBOSE(LOG_TAG, "Inside PAL_AUDIO_OUTPUT device count - %zu",
                             mDevices.size());
-            // handle scenario where BT device is not ready
+#ifndef BLUETOOTH_FEATURES_DISABLED
+	    // handle scenario where BT device is not ready
             if (rm->IsDummyDevEnabled()) {
                 status = rm->handleBTDeviceNotReadyToDummy(this, a2dpSuspend);
             } else {
@@ -352,7 +353,7 @@ int32_t StreamPCM::start()
             }
             if (0 != status)
                 goto exit;
-
+#endif
             rm->lockGraph();
             /* Any device start success will be treated as positive status.
              * This allows stream be played even if one of devices failed to start.
