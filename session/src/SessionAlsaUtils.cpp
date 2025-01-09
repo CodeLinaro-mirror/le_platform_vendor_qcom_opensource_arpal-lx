@@ -2390,6 +2390,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
     bool is_compress = false;
     struct pal_stream_attributes sAttr;
     int sub = 1;
+    int device = 0;
     struct pal_device_info devinfo = {};
     struct vsid_info vsidinfo = {};
     sidetone_mode_t sidetoneMode = SIDETONE_OFF;
@@ -2510,10 +2511,17 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
 
     switch (streamType) {
         case PAL_STREAM_COMPRESSED:
-            cntrlName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
-            aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
-            feMdName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
-            is_compress = true;
+            if (pcmDevIds.size() > 0) {
+               device = pcmDevIds.at(0);
+               cntrlName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
+               aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
+               feMdName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
+               is_compress = true;
+            } else {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
+            }
             break;
         case PAL_STREAM_VOICE_CALL:
             status = streamHandle->getStreamAttributes(&sAttr);
@@ -2539,9 +2547,16 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
             }
             break;
         default:
-            cntrlName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
-            aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
-            feMdName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
+             if (pcmDevIds.size() > 0) {
+                 device = pcmDevIds.at(0);
+                 cntrlName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
+                 aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
+                 feMdName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
+             } else {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
+            }
             break;
     }
 

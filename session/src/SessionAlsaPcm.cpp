@@ -1824,13 +1824,38 @@ int SessionAlsaPcm::setupSessionDevice(Stream* streamHandle, pal_stream_type_t s
             txAifBackEndsToConnect);
     deviceToConnect->getDeviceAttributes(&dAttr);
 
-    if (!rxAifBackEndsToConnect.empty())
+    if (!rxAifBackEndsToConnect.empty()) {
         status = SessionAlsaUtils::setupSessionDevice(streamHandle, streamType, rm,
             dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevRxIds), rxAifBackEndsToConnect);
-
-    if (!txAifBackEndsToConnect.empty())
+        if (!status) {
+            for (const auto &elem : rxAifBackEndsToConnect)
+                rxAifBackEnds.push_back(elem);
+        } else {
+               if (pcmDevIds.size() == 0 && pcmDevRxIds.size() == 0) {
+                       PAL_ERR(LOG_TAG, "rxAifBackEnds is not available.");
+               } else {
+                      PAL_ERR(LOG_TAG, "failed to connect rxAifBackEnds: %d",
+                      (pcmDevIds.size() ? pcmDevIds.at(0) : pcmDevRxIds.at(0)));
+              }
+        }
+    }
+    if (!txAifBackEndsToConnect.empty()) {
         status = SessionAlsaUtils::setupSessionDevice(streamHandle, streamType, rm,
             dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevTxIds), txAifBackEndsToConnect);
+
+        if (!status) {
+            for (const auto &elem : txAifBackEndsToConnect)
+                txAifBackEnds.push_back(elem);
+        } else {
+               if (pcmDevIds.size() == 0 && pcmDevTxIds.size() == 0) {
+                       PAL_ERR(LOG_TAG, "txAifBackEnds is not available.");
+               } else {
+                      PAL_ERR(LOG_TAG, "failed to connect txAifBackEnds: %d",
+                      (pcmDevIds.size() ? pcmDevIds.at(0) : pcmDevTxIds.at(0)));
+              }
+        }
+
+    }
 
     return status;
 }
