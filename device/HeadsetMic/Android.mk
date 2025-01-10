@@ -46,7 +46,6 @@ LOCAL_SHARED_LIBRARIES := \
     libagmclient \
     libaudioroute \
     libutilscallstack \
-    libvui_intf \
     libhidlbase
 
  ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
