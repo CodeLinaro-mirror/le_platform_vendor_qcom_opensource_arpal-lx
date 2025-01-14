@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
@@ -106,7 +106,6 @@ class StreamACD : public Stream {
     int32_t prepare() override { return 0; }
     int32_t start() override;
     int32_t stop() override;
-    int32_t getTagsWithModuleInfo(size_t *size, uint8_t *payload) override;
     int32_t setVolume(struct pal_volume_data * volume __unused) { return 0; }
     int32_t mute(bool state __unused) override { return 0; }
     int32_t mute_l(bool state __unused) override { return 0; }
@@ -129,6 +128,8 @@ class StreamACD : public Stream {
     int32_t registerCallBack(pal_stream_callback cb,  uint64_t cookie) override;
     int32_t getCallBack(pal_stream_callback *cb) override;
     int32_t getParameters(uint32_t param_id, void **payload) override;
+    int32_t getCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
+                           void* param_payload, size_t* payload_size) override;
     int32_t setParameters(uint32_t param_id, void *payload) override;
     int32_t addRemoveEffect(pal_audio_effect_t effec __unused,
                             bool enable __unused) {
@@ -137,6 +138,7 @@ class StreamACD : public Stream {
     int32_t isSampleRateSupported(uint32_t sampleRate __unused) override {return 0;}
     int32_t isChannelSupported(uint32_t numChannels __unused) override {return 0;}
     int32_t isBitWidthSupported(uint32_t bitWidth __unused) override {return 0;}
+    bool isStreamSupported() override {return true;};
 
     int32_t Resume(bool is_internal __unused) override;
     int32_t Pause(bool is_internal __unused) override;
@@ -447,7 +449,6 @@ class StreamACD : public Stream {
     int32_t GenerateCallbackEvent(struct pal_acd_recognition_event **event,
                                   uint32_t *event_size);
     static void EventNotificationThread(StreamACD *stream);
-    std::shared_ptr<Device> GetPalDevice(StreamACD *streamHandle, pal_device_id_t dev_id);
 
     std::shared_ptr<ACDStreamConfig> sm_cfg_;
     std::shared_ptr<ACDPlatformInfo> acd_info_;

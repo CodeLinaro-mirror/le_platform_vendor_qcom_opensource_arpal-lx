@@ -63,7 +63,6 @@ void SessionAR::handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id,
                                         void *data __unused,
                                         uint32_t event_size __unused)
 {
-
     PAL_DBG(LOG_TAG,"Event id %x ", event_id);
 
     if (event_id == EVENT_ID_SOFT_PAUSE_PAUSE_COMPLETE) {
@@ -661,81 +660,15 @@ exit:
     return status;
 }
 
-int SessionAR::rwACDBParameters(void *payload, uint32_t sampleRate,
-                                bool isParamWrite)
-{
-    int status = 0;
-    uint8_t *payloadData = NULL;
-    size_t payloadSize = 0;
-    uint32_t miid = 0;
-    char const *control = "setParamTagACDB";
-    struct mixer_ctl *ctl = NULL;
-    pal_effect_custom_payload_t *effectCustomPayload = nullptr;
-    PayloadBuilder builder;
-    pal_param_payload *paramPayload = nullptr;
-    agm_acdb_param *effectACDBPayload = nullptr;
-
-    paramPayload = (pal_param_payload *)payload;
-    if (!paramPayload)
-        return -EINVAL;
-
-    effectACDBPayload = (agm_acdb_param *)(paramPayload->payload);
-    if (!effectACDBPayload)
-        return -EINVAL;
-
-    PAL_DBG(LOG_TAG, "Enter.");
-
-    status = getModuleInfo(control, effectACDBPayload->tag, &miid, &ctl, NULL);
-    if (status || !miid) {
-        PAL_ERR(LOG_TAG, "failed to look for module with tagID 0x%x, status = %d",
-                    effectACDBPayload->tag, status);
-        status = -EINVAL;
-        goto exit;
-    }
-
-    effectCustomPayload =
-        (pal_effect_custom_payload_t *)(effectACDBPayload->blob);
-
-    status = builder.payloadACDBParam(&payloadData, &payloadSize,
-                            (uint8_t *)effectACDBPayload,
-                            miid, sampleRate);
-    if (!payloadData) {
-        PAL_ERR(LOG_TAG, "failed to create payload data.");
-        goto exit;
-    }
-
-   if (isParamWrite) {
-        status = mixer_ctl_set_array(ctl, payloadData, payloadSize);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG, "Set custom config failed, status = %d", status);
-            goto exit;
-        }
-    }
-
-exit:
-    ctl = NULL;
-    free(payloadData);
-    PAL_ERR(LOG_TAG, "Exit. status %d", status);
-    return status;
-}
-
-int SessionAR::rwACDBParamTunnel(void *payload, pal_device_id_t palDeviceId,
-                        pal_stream_type_t palStreamType, uint32_t sampleRate,
-                        uint32_t instanceId, bool isParamWrite, Stream * s)
+int SessionAR::rwACDBParamTunnel(custom_payload_uc_info_t* uc_info, void *payload,
+                                  Stream * s, bool isWrite)
 {
     int status = -EINVAL;
-    struct pal_stream_attributes sAttr = {};
 
     PAL_DBG(LOG_TAG, "Enter");
-    status = s->getStreamAttributes(&sAttr);
-    streamHandle = s;
-    if (0 != status) {
-        PAL_ERR(LOG_TAG,"getStreamAttributes Failed \n");
-        goto exit;
-    }
 
-    PAL_INFO(LOG_TAG, "PAL device id=0x%x", palDeviceId);
-    status = SessionAlsaUtils::rwACDBTunnel(s, rm, palDeviceId, payload, isParamWrite, instanceId);
+    PAL_INFO(LOG_TAG, "PAL device id=0x%x", uc_info->pal_device_id);
+    status = SessionAlsaUtils::rwACDBTunnel(s, rm, uc_info->pal_device_id, payload, isWrite, uc_info->instance_id);
     if (status) {
         PAL_ERR(LOG_TAG, "session alsa open failed with %d", status);
     }
@@ -793,9 +726,13 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
     pal_param_payload *param_payload = NULL;
     pal_device_mute_t *deviceMutePayload = nullptr;
     struct pal_stream_attributes sAttr = {};
+    struct pal_device dAttr = {};
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    void* plugin = nullptr;
+    PluginConfig pluginConfig = nullptr;
 
     PAL_DBG(LOG_TAG, "set parameter %u", param_id);
-    status = s->getStreamAttributes(&sAttr);
+
     switch (param_id) {
         case PAL_PARAM_ID_VOLUME_USING_SET_PARAM:
             status = this->setParamWithTag(s, TAG_STREAM_VOLUME, param_id, payload);
@@ -817,35 +754,32 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
         }
         case PAL_PARAM_ID_DEVICE_ROTATION:
         {
-
-            /* To avoid pop while switching channels, it is required to mute
-               the playback first and then swap the channel and unmute */
-            if (sAttr.type == PAL_STREAM_LOW_LATENCY ||
-                    sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
-                    setConfigStatus = this->setConfig(s, MODULE, MUTE_TAG);
-                } else {
-                    setConfigStatus = this->setConfig(s, MODULE, DEVICEPP_MUTE);
+            try {
+                status = s->getStreamAttributes(&sAttr);
+                pm = PluginManager::getInstance();
+                if(!pm) {
+                    PAL_ERR(LOG_TAG, "unable to get plugin manager instance");
+                    goto exit;
                 }
-            if (setConfigStatus) {
-                PAL_INFO(LOG_TAG, "DevicePP Mute failed");
-            }
-            //mStreamMutex.unlock(); NEED TO FIGURE OUT A WAY TO UNLOCK DURING SLEEP
-            usleep(MUTE_RAMP_PERIOD); // Wait for Mute ramp down to happen
-            // mStreamMutex.lock();
-            status = this->setParamWithTag(s, MUTE_TAG,
-                                            PAL_PARAM_ID_DEVICE_ROTATION,
-                                            payload);
-            // mStreamMutex.unlock();
-            usleep(MUTE_RAMP_PERIOD); // Wait for channel swap to take affect
-            // mStreamMutex.lock();
-            if (sAttr.type == PAL_STREAM_LOW_LATENCY ||
-                    sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY) {
-                    setConfigStatus = this->setConfig(s, MODULE, UNMUTE_TAG);
+                status = pm->openPlugin(PAL_PLUGIN_MANAGER_CONFIG, streamNameLUT.at(sAttr.type), plugin);
+                if (plugin && !status) {
+                    pluginConfig = reinterpret_cast<PluginConfig>(plugin);
+                    SetParamPluginPayload ppld;
+                    ppld.paramId = param_id;
+                    ppld.session = this;
+                    ppld.builder = reinterpret_cast<void*>(builder);
+                    ppld.payload = payload;
+        //call setparam plugin
+                    status = pluginConfig(s, PAL_PLUGIN_CONFIG_SETPARAM, reinterpret_cast<void*>(&ppld), sizeof(ppld));
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG, "PLUGIN_CONFIG_SETPARAM failed");
+                        goto exit;
+                    }
                 } else {
-                    setConfigStatus = this->setConfig(s, MODULE, DEVICEPP_UNMUTE);
+                    PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s", streamNameLUT.at(sAttr.type).c_str());
                 }
-            if (setConfigStatus) {
-                PAL_INFO(LOG_TAG, "DevicePP Unmute failed");
+            } catch (const std::exception& e) {
+                throw std::runtime_error(e.what());
             }
             break;
         }
@@ -927,10 +861,67 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
                 PAL_INFO(LOG_TAG, "Orientation setConfig failed.");
             }
             break;
+        case PAL_PARAM_ID_DTMF_GEN_TONE_CFG:
+        {
+            pal_param_dtmf_gen_tone_cfg_t *dtmf_payload;
+            uint8_t* paramData = NULL;
+            size_t paramSize = 0;
+            uint32_t miid = 0;
+            int dev = 0;
+            struct mixer_ctl *mixer_ctl = NULL;
+            const char *control = "setParam";
+            param_payload = (pal_param_payload *)payload;
+            if (param_payload->payload_size > sizeof(pal_param_dtmf_gen_tone_cfg_t)) {
+                PAL_ERR(LOG_TAG, "Invalid payload size %d", param_payload->payload_size);
+                status = -EINVAL;
+                break;
+            }
+            dtmf_payload = ((pal_param_dtmf_gen_tone_cfg_t *)param_payload->payload);
+            if (dtmf_payload->dir == PAL_AUDIO_OUTPUT) {
+                if (!rxAifBackEnds.empty()) { /** search in RX GKV */
+                    mixer_ctl = getFEMixerCtl(control, &dev, PAL_AUDIO_OUTPUT);
+                    if (!mixer_ctl) {
+                        PAL_ERR(LOG_TAG, "Invalid mixer control\n");
+                        status = -ENOENT;
+                        break;
+                    }
+                }
+
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, dev,
+                                   rxAifBackEnds[0].second.data(), DTMF_GENERATOR, &miid);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "getModuleInstanceId failed %d", status);
+                    break;
+                }
+                builder->payloadDTMFGenConfig(&paramData, &paramSize, miid, dtmf_payload);
+                if (paramSize) {
+                    status = SessionAlsaUtils::setMixerParameter(mixer, dev,
+                                                    paramData, paramSize);
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG,"setMixerParameter failed");
+                        break;
+                    }
+                } else {
+                    PAL_ERR(LOG_TAG,"payloadDTMFGenConfig failed");
+                }
+            } else {
+                status = -EINVAL;
+            }
+            break;
+        }
+        /* will remove once deprecation of feature concludes*/
+        case PAL_PARAM_ID_UIEFFECT:
+            param_payload = (pal_param_payload *)payload;
+            status = setEffectParameters(s, (effect_pal_payload_t *)param_payload->payload);
+            if (status) {
+                PAL_ERR(LOG_TAG, "setEffectParameters failed with %d", status);
+            }
+            break;
         default:
             status = this->setParamWithTag(s, INVALID_TAG, param_id, payload);
             break;
     }
+exit:
     PAL_DBG(LOG_TAG, "set parameter status %d", status);
     return status;
 }
@@ -964,6 +955,43 @@ int SessionAR::setVolume(Stream *s)
         status = this->setConfig(s, MODULE, CRS_CALL_VOLUME, RX_HOSTLESS);
     } else {
         status = this->setConfig(s, CALIBRATION, VOLUME_LVL);
+    }
+    return status;
+}
+
+int32_t SessionAR::setCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
+                                    void* param_payload, size_t payload_size, Stream *s)
+{
+    int32_t status = 0;
+    if(param_str == PAL_CUSTOM_PARAM_AR_UI_EFFECT) {
+        if(uc_info->streamless) {
+            status = rwACDBParamTunnel(uc_info, param_payload, s, true);
+        } else {
+            pal_param_payload *pal_param = (pal_param_payload *)param_payload;
+            effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
+            status = setEffectParameters(s,effectPayload);
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"unsupported set param %s", param_str.c_str());
+    }
+
+    return status;
+}
+
+int32_t SessionAR::getCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
+                                    void* param_payload, size_t* payload_size, Stream *s)
+{
+    int status = -EINVAL;
+    if(param_str == PAL_CUSTOM_PARAM_AR_UI_EFFECT) {
+        if(uc_info->streamless) {
+            status = rwACDBParamTunnel(uc_info, param_payload, s, false);
+        } else {
+            pal_param_payload *pal_param = (pal_param_payload *)param_payload;
+            effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
+            status = getEffectParameters(s,effectPayload);
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"unsupported get param %s", param_str.c_str());
     }
     return status;
 }

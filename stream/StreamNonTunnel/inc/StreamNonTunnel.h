@@ -9,7 +9,6 @@
 
 #include "Stream.h"
 
-class ResourceManager;
 
 extern "C" Stream* CreateNonTunnelStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
@@ -39,7 +38,6 @@ public:
    int32_t drain(pal_drain_type_t type) override;
    int32_t flush();
    int32_t suspend() override;
-   int32_t getTagsWithModuleInfo(size_t *size , uint8_t *payload) override;
    int32_t setBufInfo(size_t *in_buf_size, size_t in_buf_count,
                        size_t *out_buf_size, size_t out_buf_count);
 
@@ -53,6 +51,7 @@ public:
    int32_t isSampleRateSupported(uint32_t sampleRate) override;
    int32_t isChannelSupported(uint32_t numChannels) override;
    int32_t isBitWidthSupported(uint32_t bitWidth) override;
+   bool isStreamSupported() override;
    int32_t setECRef(std::shared_ptr<Device> dev __unused, bool is_enable __unused) {return 0;};
    int32_t setECRef_l(std::shared_ptr<Device> dev __unused, bool is_enable __unused) {return 0;};
    int32_t ssrDownHandler() override;

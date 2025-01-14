@@ -182,13 +182,17 @@ public:
     virtual int32_t isBitWidthSupported(uint32_t bitWidth) = 0;
     virtual int32_t isSampleRateSupported(uint32_t sampleRate) = 0;
     virtual int32_t isChannelSupported(uint32_t numChannels) = 0;
+    virtual bool isStreamSupported();
     virtual int32_t createMmapBuffer(int32_t min_size_frames __unused,
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int32_t GetMmapPosition(struct pal_mmap_position *position __unused) {return -EINVAL;}
-    virtual int32_t getTagsWithModuleInfo(size_t *size __unused, uint8_t *payload __unused) {return -EINVAL;};
     virtual uint32_t GetNumEvents() { return 0; }
     virtual uint32_t GetOutputToken() { return 0; }
     virtual uint32_t GetPayloadSize() { return 0; }
+    virtual int32_t setCustomParam(custom_payload_uc_info_t* uc_info,std::string param_str,
+                           void* param_payload, size_t payload_size);
+    virtual int32_t getCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
+                           void* param_payload, size_t* payload_size);
     virtual bool ConfigSupportLPI() {return true;}; //Only LPI streams can update their vote to NLPI
     virtual bool checkStreamMatch(Stream *ref);
     virtual bool IsStreamInBuffering() {return false;};
@@ -227,8 +231,6 @@ public:
     static int32_t destroy(Stream* s);
     bool isStreamAudioOutFmtSupported(pal_audio_fmt_t format);
     int32_t getTimestamp(struct pal_session_time *stime);
-    int32_t handleBTDeviceNotReadyToDummy(bool& a2dpSuspend);
-    int32_t handleBTDeviceNotReady(bool& a2dpSuspend);
     int disconnectStreamDevice(Stream* streamHandle,  pal_device_id_t dev_id);
     virtual int disconnectStreamDevice_l(Stream* streamHandle,  pal_device_id_t dev_id);
     int connectStreamDevice(Stream* streamHandle, struct pal_device *dattr);
@@ -244,10 +246,6 @@ public:
     bool checkStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type);
     bool isStreamSSRDownFeasibile();
-    int32_t getEffectParameters(void *effect_query);
-    int32_t setEffectParameters(void *effect_param);
-    int32_t rwACDBParameters(void *payload, uint32_t sampleRate,
-                                bool isParamWrite);
     stream_state_t getCurState() { return currentState; }
     virtual bool isActive() { return currentState == STREAM_STARTED; }
     bool isAlive() { return currentState != STREAM_IDLE; }
@@ -270,8 +268,6 @@ public:
         mStreamMutex.unlock();
     };
     bool isMutexLockedbyRm() { return mutexLockedbyRm; }
-    /* GetPalDevice only applies to Sound Trigger streams */
-    std::shared_ptr<Device> GetPalDevice(Stream *streamHandle, pal_device_id_t dev_id);
     void setCachedState(stream_state_t state);
     void clearmDevices();
     void removemDevice(int palDevId);

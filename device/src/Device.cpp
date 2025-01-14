@@ -93,6 +93,10 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         PAL_ERR(LOG_TAG, "Invalid input parameters");
         return NULL;
     }
+    if (device->id == PAL_DEVICE_NONE) {
+        PAL_DBG(LOG_TAG," Device None");
+        return nullptr;
+    }
 
     pm = PluginManager::getInstance();
     if (!pm) {
@@ -448,6 +452,7 @@ int Device::start_l()
 {
     int status = 0;
     std::string backEndName;
+    std::shared_ptr<Device> dev = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter. deviceCount %d deviceStartStopCount %d"
         " for device id %d (%s)", deviceCount, deviceStartStopCount,
@@ -459,7 +464,9 @@ int Device::start_l()
             status = -EINVAL;
             goto exit;
         }
-        if (rm->isPluginPlaybackDevice(this->deviceAttr.id) || rm->isDpDevice(this->deviceAttr.id)) {
+
+        devObj = Device::getInstance(&deviceAttr, rm);
+        if (devObj->isPluginPlaybackDevice(this->deviceAttr.id) || devObj->isDpDevice(this->deviceAttr.id)) {
             /* avoid setting invalid device attribute and the failure of starting device
              * when plugin device disconnects. Audio Policy Manager will go on finishing device switch.
              */
@@ -482,7 +489,6 @@ int Device::start_l()
                 this->deviceAttr.config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
             }
         }
-        devObj = Device::getInstance(&deviceAttr, rm);
         devObj->setMediaConfig(rm, backEndName, &(this->deviceAttr));
 
         if (customPayloadSize) {
@@ -592,6 +598,11 @@ bool Device::isDeviceConnected(struct pal_usb_device_address addr)
 }
 
 int32_t Device::checkDeviceStatus() {
+    return 0;
+}
+
+int32_t Device::getDeviceConfig(struct pal_device *deviceattr,
+                                struct pal_stream_attributes *sAttr) {
     return 0;
 }
 

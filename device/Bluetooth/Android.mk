@@ -1,5 +1,7 @@
 LOCAL_PATH := $(call my-dir)
 
+ifneq ($(TARGET_DISABLE_PAL_BT),true)
+
 #-------------------------------------------
 #            Build DEVICE_BT LIB
 #-------------------------------------------
@@ -12,6 +14,10 @@ LOCAL_MODULE_OWNER  := qti
 LOCAL_VENDOR_MODULE := true
 
 LOCAL_CPPFLAGS += -fexceptions -frtti
+
+ifneq ($(TARGET_BOARD_PLATFORM), anorak)
+LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
+endif
 
 LOCAL_SRC_FILES := \
     src/Bluetooth.cpp
@@ -33,7 +39,8 @@ LOCAL_HEADER_LIBRARIES := \
     libarvui_intf_headers \
     libarmemlog_headers \
     libarpal_internalheaders \
-    libsession_ar_headers
+    libsession_ar_headers \
+    libarvui_intf_headers
 
 LOCAL_SHARED_LIBRARIES := \
     liblog \
@@ -55,4 +62,6 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
     include $(BUILD_STATIC_LIBRARY)
 else
     include $(BUILD_SHARED_LIBRARY)
+endif
+
 endif

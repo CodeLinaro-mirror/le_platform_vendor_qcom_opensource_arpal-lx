@@ -38,10 +38,6 @@ LOCAL_CFLAGS        += -DSOC_PERIPHERAL_PROT
 endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti -Wno-ignored-attributes
 
-ifneq ($(TARGET_BOARD_PLATFORM), anorak)
-LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
-endif
-
 LOCAL_C_INCLUDES := \
     $(TOP)/system/media/audio_route/include \
     $(TOP)/system/media/audio/include
@@ -69,7 +65,6 @@ LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc \
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
-    PalAR.cpp \
     stream/src/Stream.cpp \
     device/src/Device.cpp \
     session/src/Session.cpp \
@@ -84,8 +79,7 @@ LOCAL_SRC_FILES := \
     utils/src/AudioHapticsInterface.cpp \
     utils/src/MetadataParser.cpp \
     utils/src/MemLogBuilder.cpp \
-    utils/src/PerfLock.cpp \
-    utils/src/STUtils.cpp
+    utils/src/PerfLock.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
@@ -121,7 +115,7 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
 
     LOCAL_STATIC_LIBRARIES += \
         libstream_acd \
-        libstream_acdb \
+        libstream_dummy \
         libstream_common \
         libstream_commonproxy \
         libstream_compress \
@@ -174,6 +168,18 @@ LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
 LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libtinyalsa libtinycompress
+endif
+
+ifeq ($(TARGET_DISABLE_PAL_ST),true)
+LOCAL_CFLAGS        += -DSOUND_TRIGGER_FEATURES_DISABLED
+else
+LOCAL_SRC_FILES     += utils/src/STUtils.cpp
+endif
+
+ifeq ($(TARGET_DISABLE_PAL_BT),true)
+LOCAL_CFLAGS        += -DBLUETOOTH_FEATURES_DISABLED
+else
+LOCAL_SRC_FILES     += utils/src/BTUtils.cpp
 endif
 
 include $(BUILD_SHARED_LIBRARY)
