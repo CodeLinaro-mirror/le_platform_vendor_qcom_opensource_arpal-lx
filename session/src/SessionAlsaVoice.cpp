@@ -82,6 +82,7 @@ IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
             ((val) * ((max) - (min)) * 0.01 + (min) + .5)
 
 #define NUM_OF_CAL_KEYS 3
+#define POP_SUPPRESSOR_RAMP_DELAY (1*1000)
 
 SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
 {
@@ -112,36 +113,45 @@ uint32_t SessionAlsaVoice::getMIID(const char *backendName, uint32_t tagId, uint
 
     switch (tagId) {
     case DEVICE_HW_ENDPOINT_TX:
-        device = pcmDevTxIds.at(0);
+    case BT_PLACEHOLDER_DECODER:
+    case COP_DEPACKETIZER_V2:
+    case TAG_ECNS:
+        if (pcmDevTxIds.size()) {
+            device = pcmDevTxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "pcmDevTxIds:%x is not available.",tagId);
+            return -EINVAL;
+        }
         break;
     case DEVICE_HW_ENDPOINT_RX:
-        device = pcmDevRxIds.at(0);
+    case BT_PLACEHOLDER_ENCODER:
+    case COP_PACKETIZER_V2:
+    case COP_PACKETIZER_V0:
+    case MODULE_SP:
+        if (pcmDevRxIds.size()) {
+            device = pcmDevRxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "pcmDevRxIds:%x is not available.",tagId);
+            return -EINVAL;
+        }
         break;
     case RAT_RENDER:
     case BT_PCM_CONVERTER:
-        if(strstr(backendName,"TX"))
-            device = pcmDevTxIds.at(0);
-        else
-            device = pcmDevRxIds.at(0);
-        break;
-    case BT_PLACEHOLDER_DECODER:
-        device = pcmDevTxIds.at(0);
-        break;
-    case BT_PLACEHOLDER_ENCODER:
-        device = pcmDevRxIds.at(0);
-        break;
-    case COP_DEPACKETIZER_V2:
-        device = pcmDevTxIds.at(0);
-        break;
-    case TAG_ECNS:
-        device = pcmDevTxIds.at(0);
-        break;
-    case COP_PACKETIZER_V2:
-    case COP_PACKETIZER_V0:
-        device = pcmDevRxIds.at(0);
-        break;
-    case MODULE_SP:
-        device = pcmDevRxIds.at(0);
+        if (strstr(backendName,"TX")) {
+            if (pcmDevTxIds.size()) {
+                device = pcmDevTxIds.at(0);
+            } else {
+                PAL_ERR(LOG_TAG, "pcmDevTxIds:%x is not available.",tagId);
+                return -EINVAL;
+            }
+        } else {
+            if (pcmDevRxIds.size()) {
+                device = pcmDevRxIds.at(0);
+            } else {
+                PAL_ERR(LOG_TAG, "pcmDevRxIds:%x is not available.",tagId);
+                return -EINVAL;
+            }
+        }
         break;
     default:
         PAL_INFO(LOG_TAG, "Unsupported tag info %x",tagId);
@@ -1010,6 +1020,10 @@ int SessionAlsaVoice::stop(Stream * s)
             }
         }
     }
+    /*config mute on pop suppressor*/
+    setPopSuppressorMute(s);
+    usleep(POP_SUPPRESSOR_RAMP_DELAY);
+
     if (pcmRx) {
         status = pcm_stop(pcmRx);
         if (status) {
@@ -1826,6 +1840,7 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
     if (rxAifBackEnds.size() > 0) {
         /*config mute on pop suppressor*/
         setPopSuppressorMute(streamHandle);
+        usleep(POP_SUPPRESSOR_RAMP_DELAY);
 
         status =  SessionAlsaUtils::disconnectSessionDevice(streamHandle,
                                                             streamType, rm,

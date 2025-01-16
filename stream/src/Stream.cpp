@@ -897,6 +897,17 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
         if (rm->isDeviceAvailable(mDevices, PAL_DEVICE_OUT_SPEAKER)) {
             // If it's a2dp + speaker combo device, route to speaker.
             PAL_INFO(LOG_TAG, "BT A2DP/BLE output device is not ready, route to speaker");
+
+            /* In combo use case, if ringtone routed to a2dp + spkr and at that time a2dp/ble
+             * device is in suspended state, so during resume ringtone won't be able to route
+             * to BLE device. In that case, add both speaker and a2dp/ble into suspended devices
+             * list so that a2dp/ble will be restored during a2dpResume without removing speaker
+             * from stream
+             */
+            suspendedDevIds.clear();
+            suspendedDevIds.push_back(PAL_DEVICE_OUT_SPEAKER);
+            suspendedDevIds.push_back(dattr.id);
+
             for (auto iter = mDevices.begin(); iter != mDevices.end();) {
                 if ((*iter)->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER) {
                     iter++;
@@ -936,6 +947,17 @@ int32_t Stream::handleBTDeviceNotReady(bool& a2dpSuspend)
                     PAL_ERR(LOG_TAG, "disconnectSessionDevice failed:%d", status);
                     rm->unlockGraph();
                     goto exit;
+                }
+                /* Special handling for aaudio usecase on A2DP/BLE.
+                * A2DP/BLE device starts even when stream is not in START state,
+                * hence stop A2DP/BLE device to match device start&stop count.
+                */
+                if (((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
+                    (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE)) && isMMap) {
+                    status = mDevices[i]->stop();
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG, "BT A2DP/BLE device stop failed with status %d", status);
+                        }
                 }
                 status = mDevices[i]->close();
                 if (0 != status) {
@@ -1064,7 +1086,16 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
                 rm->unlockGraph();
                 goto exit;
             }
-            if (currentState != STREAM_INIT && currentState != STREAM_STOPPED) {
+            /* Special handling for aaudio usecase on A2DP/BLE.
+             * A2DP/BLE device starts even when stream is not in START state,
+             * hence stop A2DP/BLE device to match device start&stop count.
+             */
+
+            if ((currentState != STREAM_INIT && currentState != STREAM_STOPPED) ||
+                (currentState == STREAM_INIT &&
+                ((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE)) &&
+                 isMMap)) {
                 status = mDevices[i]->stop();
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
@@ -1297,6 +1328,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
     struct pal_device spkr_devAttr;
+    pal_device_id_t curBtDevId;
 
     rm->lockActiveStream();
     mStreamMutex.lock();
@@ -1322,8 +1354,10 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         uint32_t tmp = numDev;
 
         mDevices[i]->getDeviceAttributes(&dAttr);
-        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP || curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE)
+        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP || curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE) {
             isCurDeviceA2dp = true;
+            curBtDevId = curDevId;
+        }
 
         if (curDevId == PAL_DEVICE_OUT_PROXY)
             isCurrentDeviceProxyOut = true;
@@ -1385,8 +1419,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
          */
         // This assumes that PAL_DEVICE_NONE comes as single device
         if ((newDevices[i].id == PAL_DEVICE_NONE) &&
-            (((isCurDeviceA2dp == true) && ((!rm->isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_A2DP)) ||
-             (!rm->isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_BLE)))) ||
+            (((isCurDeviceA2dp == true) && (!rm->isDeviceReady(curBtDevId))) ||
              (isCurrentDeviceProxyOut) || (isCurrentDeviceDpOut))) {
             newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
 
