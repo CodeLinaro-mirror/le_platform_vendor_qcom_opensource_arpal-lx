@@ -1040,6 +1040,7 @@ int SessionAlsaPcm::start(Stream * s)
     struct pcm_config config = {};
     struct pal_stream_attributes sAttr = {};
     struct pal_device dAttr = {};
+    std::vector<std::shared_ptr<Device>> associatedDevices;
     struct pal_media_config codecConfig = {};
     struct sessionToPayloadParam streamData = {};
     int payload_size = 0;
@@ -1234,6 +1235,20 @@ int SessionAlsaPcm::start(Stream * s)
             break;
         case PAL_AUDIO_OUTPUT:
             if (sAttr.type == PAL_STREAM_SENSOR_PCM_RENDERER) {
+                status = s->getAssociatedDevices(associatedDevices);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                    goto exit;
+                }
+                if (associatedDevices.size() < 1) {
+                    PAL_ERR(LOG_TAG,"no device present\n");
+                    goto exit;
+                }
+                status = associatedDevices[0]->getDeviceAttributes(&dAttr);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+                    goto exit;
+                }
                 std::shared_ptr<group_dev_config_t> groupDevConfig = rm->getActiveGroupDevConfig();
                 group_dev_config_t currentGroupDevConfig = rm->getCurrentGroupDevConfig();
                 if (groupDevConfig) {
@@ -3023,7 +3038,6 @@ int SessionAlsaPcm::getTagsWithModuleInfo(custom_payload_uc_info_t* uc_info,
                                           size_t *size __unused, uint8_t *payload)
 {
     int status = 0;
-    struct pal_stream_attributes sAttr = {};
     int DeviceId;
 
     PAL_DBG(LOG_TAG, "Enter");
@@ -3051,7 +3065,7 @@ int SessionAlsaPcm::getTagsWithModuleInfo(custom_payload_uc_info_t* uc_info,
 
     }
 
-    if (sAttr.type == PAL_STREAM_SENSOR_PCM_RENDERER)
+    if (uc_info->pal_stream_type == PAL_STREAM_SENSOR_PCM_RENDERER)
         status = SessionAlsaUtils::getTagsWithModuleInfo(mixer, DeviceId,
                                       rxAifBackEnds[0].second.data(), payload);
     else
