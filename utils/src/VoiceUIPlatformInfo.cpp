@@ -256,7 +256,7 @@ void VUIStreamConfig::ReadDetectionPropertyList(const char *prop_string)
 {
     int ret = 0;
     char *token = nullptr;
-    char *delims = ",";
+    char delims[] = ",";
     char *save = nullptr;
 
     PAL_VERBOSE(LOG_TAG, "Detection property list %s", prop_string);
