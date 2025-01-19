@@ -178,18 +178,6 @@ int32_t pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
     return -1;
 }
 
-int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
-                                             size_t *size ,uint8_t *payload) {
-    if (!pal_server_died) {
-        android::sp<IPalService> pal = get_pal_server();
-        if (pal.get()) {
-            return pal->ipc_pal_stream_get_tags_with_module_info(stream_handle, size, payload);
-        }
-    }
-
-    return -1;
-}
-
 int32_t pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
                                     pal_buffer_config_t *in_buff_cfg,
                                     pal_buffer_config_t *out_buff_cfg) {
@@ -413,28 +401,52 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie) {
     return -1;
 }
 
-int32_t pal_gef_rw_param(uint32_t param_id, void *param_payload,
-                            size_t payload_size, pal_device_id_t pal_device_id,
-                            pal_stream_type_t pal_stream_type, unsigned int dir) {
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t payload_size) {
     if (!pal_server_died) {
         android::sp<IPalService> pal = get_pal_server();
         if (pal.get()) {
-            return pal->ipc_pal_gef_rw_param(param_id, param_payload, payload_size, pal_device_id, pal_stream_type, dir);
+            return pal->ipc_pal_stream_set_custom_param(handle, param_str, param_payload, payload_size);
         }
     }
 
     return -1;
 }
 
-int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
-                                size_t payload_size, pal_device_id_t pal_device_id,
-                                pal_stream_type_t pal_stream_type, uint32_t sample_rate,
-                                uint32_t instance_id, uint32_t dir, bool is_play) {
+int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t* payload_size) {
     if (!pal_server_died) {
         android::sp<IPalService> pal = get_pal_server();
         if (pal.get()) {
-            return pal->ipc_pal_gef_rw_param_acdb(param_id, param_payload, payload_size, pal_device_id, pal_stream_type,
-                                                  sample_rate, instance_id, dir, is_play);
+            return pal->ipc_pal_stream_get_custom_param(handle, param_str, param_payload, payload_size);
+        }
+    }
+
+    return -1;
+}
+
+int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t payload_size) {
+    if (!pal_server_died) {
+        android::sp<IPalService> pal = get_pal_server();
+        if (pal.get()) {
+            return pal->ipc_pal_set_custom_param(uc_info, param_str, param_payload, payload_size);
+        }
+    }
+
+    return -1;
+}
+
+int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t* payload_size) {
+    if (!pal_server_died) {
+        android::sp<IPalService> pal = get_pal_server();
+        if (pal.get()) {
+            return pal->ipc_pal_get_custom_param(uc_info, param_str, param_payload, payload_size);
         }
     }
 
