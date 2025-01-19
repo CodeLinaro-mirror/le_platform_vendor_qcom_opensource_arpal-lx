@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -680,8 +680,7 @@ int32_t SessionAgm::setCustomParam(custom_payload_uc_info_t* uc_info, std::strin
     int status = -EINVAL;
 
     if(param_str == PAL_CUSTOM_PARAM_AR_TAG_MODULE_CONFIG) {
-        pal_param_payload *payload = (pal_param_payload *)param_payload;
-        status = agm_session_set_params(sessionId, payload->payload, payload->payload_size);
+        status = agm_session_set_params(sessionId, param_payload, payload_size);
         if (0 != status)
             PAL_ERR(LOG_TAG,"setTagsWithModuleInfo Failed");
     }
