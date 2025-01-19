@@ -147,8 +147,8 @@ libpal_la_SOURCES   = $(pal_sources)
 libpal_la_LIBADD    = @GLIB_LIBS@ -ltinyalsa -lar_osal -laudioroute -lspfheaders -lexpat -ltinycompress
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
-libpal_la_LDFLAGS   = -shared -avoid-version
-libpal_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
+libpal_la_LDFLAGS   = -shared -version-number @LT_VERSION_NUMBER@
+libpal_la_CPPFLAGS += @GLIB_CFLAGS@ -include glib.h
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_idp.xml \
@@ -172,7 +172,7 @@ lib_LTLIBRARIES     += lib_bt_bundle.la
 lib_bt_bundle_la_SOURCES   = $(btbundle_plugin_sources)
 lib_bt_bundle_la_LIBADD    = @GLIB_LIBS@ @SPFHEADERS_LIBS@
 lib_bt_bundle_la_CFLAGS    = $(AM_CPPFLAGS)
-lib_bt_bundle_la_LDFLAGS   = -shared -avoid-version
+lib_bt_bundle_la_LDFLAGS   = -shared -version-number @LT_VERSION_NUMBER@
 
 if COMPILE_COMPRESS
 libpal_la_CPPFLAGS += -DSND_COMPRESS_DEC_HDR

@@ -5,7 +5,7 @@ EXTRA_DIST = $(pkgconfig_DATA)
 h_sources = $(top_srcdir)/utils/inc/VoiceUIInterfaceUtils.h
 
 
-AM_CPPFLAGS := -DVUI_USE_SYSLOG @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
+AM_CPPFLAGS := -DVUI_USE_SYSLOG @GLIB_CFLAGS@ -include glib.h
 AM_CPPFLAGS += -I $(top_srcdir)/utils/src/
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc/
 AM_CPPFLAGS += @VUIINTERFACEHEADERS_CFLAGS@
@@ -22,6 +22,5 @@ c_sources := $(top_srcdir)/utils/src/VoiceUIInterfaceUtils.cpp
 lib_LTLIBRARIES = libvuiinterface_utils.la
 libvuiinterface_utils_la_SOURCES = $(c_sources)
 libvuiinterface_utils_la_CPPFLAGS = $(AM_CPPFLAGS)
-libvuiinterface_utils_la_LDFLAGS  = -shared -avoid-version
-libvuiinterface_utils_la_CPPFLAGS += -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat
+libvuiinterface_utils_la_LDFLAGS  = -shared -version-number @LT_VERSION_NUMBER@
 
