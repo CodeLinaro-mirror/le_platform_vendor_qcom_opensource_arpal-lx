@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -391,7 +391,7 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f",
                  streamNameLUT.at(sAttr.type).c_str(), voldB);
 
-        for (int i = LEVEL_15; i >= LEVEL_0; i--) {
+        for (int i = MIN_VOLUME_ON_LEVEL; i >= MAX_VOLUME_ON_LEVEL; i--) {
             if (voldB <= (float)pow(10.0, i * HFP_VOLUME_DB_LINEAR_STEP / 20)) {
                 ckv.push_back(std::make_pair(VOLUME, i));
                 PAL_INFO(LOG_TAG, "select VOLUME_LEVEL_%d", i);

@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2522,8 +2522,8 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             } else if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_8K) {
                 keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
             }
-            keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
-            PAL_DBG(LOG_TAG, "Entered loopback %x %x", VOLUME, LEVEL_15);
+            keyVector.push_back(std::make_pair(VOLUME, MIN_VOLUME_ON_LEVEL));
+            PAL_DBG(LOG_TAG, "Entered loopback %x %x", VOLUME, MIN_VOLUME_ON_LEVEL);
             break;
         default:
             /*
@@ -2531,8 +2531,8 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
              * down while setting the desired volume. Thus avoiding glitch
              * TODO: Decide what to send as ckv in graph open
              */
-            keyVector.push_back(std::make_pair(VOLUME,LEVEL_15));
-            PAL_DBG(LOG_TAG, "Entered default %x %x", VOLUME, LEVEL_15);
+            keyVector.push_back(std::make_pair(VOLUME, MIN_VOLUME_ON_LEVEL));
+            PAL_DBG(LOG_TAG, "Entered default %x %x", VOLUME, MIN_VOLUME_ON_LEVEL);
             break;
      }
 exit:
