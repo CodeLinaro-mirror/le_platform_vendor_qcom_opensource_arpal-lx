@@ -29,7 +29,7 @@
 
 /*
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -377,7 +377,7 @@ bool checkIfAWXBus(char* address,pal_awx_bus_type_t* bus_index)
             for (int i=0; i<BUS_RESERVED ; i++)
             {
                 PAL_INFO(LOG_TAG,"%s address %s index %d\n", __func__,address,i);
-                if (strncmp((char *)bus_address[i], (char *)address,strlen(address)) == 0)
+                if (strncmp((char *)bus_address[i], (char *)address,strlen(address)) == 0 && strlen(address) != 0)
                 {
                     bus_match = true;
                     // Assing the index value and send it
@@ -561,7 +561,7 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
     }
 
     // if AWX BUS Handle the volume appropriately
-    if (true == checkIfAWXBus(sAttr.bus_addr ,&bus_index))
+    if (true == checkIfAWXBus(sAttr.bus_addr ,&bus_index) && sAttr.direction != PAL_AUDIO_INPUT)
     {
         PAL_ERR(LOG_TAG,"AWX Bus index %d",bus_index);
         // if its a valid AWX bus Additional Check should not happen ideally
