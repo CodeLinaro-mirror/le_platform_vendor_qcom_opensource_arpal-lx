@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamCompress"
@@ -181,8 +184,12 @@ int32_t StreamCompress::open()
     /* Check for BT device connected state */
     for (int32_t i = 0; i < mDevices.size(); i++) {
         pal_device_id_t dev_id = (pal_device_id_t) mDevices[i]->getSndDeviceId();
-        if (rm->isBtDevice(dev_id) && !(rm->isDeviceAvailable(dev_id))) {
-            PAL_ERR(LOG_TAG, "BT device %d not connected, cannot open stream", dev_id);
+        if (rm->isBtDevice(dev_id) &&
+            (!rm->isDeviceAvailable(dev_id) ||
+             (!rm->isDeviceReady(dev_id) && mDevices.size() == 1))) {
+            PAL_ERR(LOG_TAG,
+                    "BT device %d not connected or not ready, cannot open stream",
+                    dev_id);
             status = -ENODEV;
             goto exit;
         }
