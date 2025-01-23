@@ -48,7 +48,6 @@
 #include "Stream.h"
 #include "SndCardMonitor.h"
 #include "AudioHapticsInterface.h"
-#include "VUIInterfaceProxy.h"
 #include "VoiceUIPlatformInfo.h"
 #include "PluginManager.h"
 #include "mem_logger.h"
@@ -1425,6 +1424,21 @@ char* ResourceManager::getDeviceNameFromID(uint32_t id)
     }
 
     return NULL;
+}
+
+uint32_t ResourceManager::getDeviceIDFromName(char *name)
+{
+    std::string event_str(name);
+    size_t prefix_idx = 0;
+
+    for (int i=0; i < devInfo.size(); i++) {
+        prefix_idx = event_str.find(devInfo[i].name);
+        if (prefix_idx == 0) {
+            return devInfo[i].deviceId;
+        }
+    }
+
+    return 0;
 }
 
 int ResourceManager::init_audio()
@@ -3656,10 +3670,12 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     // TODO: hard code in common defs
     std::string pcm_prefix = "PCM";
     std::string compress_prefix = "COMPRESS";
+    std::string voicemmod_prefix = "VOICEMMODE";
     std::string event_suffix = "event";
     size_t prefix_idx = 0;
     size_t suffix_idx = 0;
     size_t length = 0;
+    bool voice_id = false;
     struct mixer_ctl *ctl = nullptr;
     char *buf = nullptr;
     unsigned int num_values;
@@ -3705,9 +3721,13 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     if (prefix_idx == event_str.npos) {
         prefix_idx = event_str.find(compress_prefix);
         if (prefix_idx == event_str.npos) {
-            PAL_ERR(LOG_TAG, "Invalid mixer event");
-            status = -EINVAL;
-            goto exit;
+            prefix_idx = event_str.find(voicemmod_prefix);
+            voice_id =  true;
+            if (prefix_idx == event_str.npos) {
+                PAL_ERR(LOG_TAG, "Invalid mixer event");
+                status = -EINVAL;
+                goto exit;
+            }
         } else {
             prefix_idx += compress_prefix.length();
         }
@@ -3723,7 +3743,17 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     }
 
     length = suffix_idx - prefix_idx;
-    pcm_id = std::stoi(event_str.substr(prefix_idx, length));
+    if (voice_id) {
+        pcm_id = getDeviceIDFromName(mixer_str);
+        if (pcm_id == 0) {
+            PAL_ERR(LOG_TAG, "Invalid pcm ID");
+            status = -EINVAL;
+            goto exit;
+        }
+    }
+    else {
+        pcm_id = std::stoi(event_str.substr(prefix_idx, length));
+    }
 
     // acquire callback/cookie with pcm dev id
     it = mixerEventCallbackMap.find(pcm_id);
@@ -7202,10 +7232,6 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
     bool found_id = true;
 
     PAL_DBG(LOG_TAG, "param_id=%d", param_id);
-    if (param_id == PAL_PARAM_ID_VUI_GET_META_DATA ||
-        param_id == PAL_PARAM_ID_VUI_CAPTURE_META_DATA) {
-        return VUIGetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -7380,9 +7406,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
 
-    if (param_id == PAL_PARAM_ID_VUI_SET_META_DATA) {
-        return VUISetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
