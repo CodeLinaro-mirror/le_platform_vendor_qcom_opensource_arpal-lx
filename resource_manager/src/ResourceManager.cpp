@@ -7578,6 +7578,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BLE ||
                     device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
                     dattr.id = device_connection->id;
+                    dattr.addressV1 = device_connection->device.addressV1;
                     dev = Device::getInstance(&dattr, rm);
                     if (dev)
                         status = dev->setDeviceParameter(param_id, param_payload);
@@ -8137,6 +8138,7 @@ int ResourceManager::getDeviceDefaultCapability(pal_param_device_capability_t ca
 int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t connection_state) {
     int status = 0;
     pal_device_id_t device_id = connection_state.id;
+    pal_address_type_t deviceAddress = connection_state.device.addressV1;
     bool is_connected = connection_state.connection_state;
     bool device_available = isDeviceAvailable(device_id);
     struct pal_device dAttr;
@@ -8152,11 +8154,13 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
     memset(&conn_device, 0, sizeof(struct pal_device));
     if (is_connected && !device_available) {
         dAttr.id = device_id;
+        dAttr.addressV1 = deviceAddress;
         dev = Device::getInstance(&dAttr, rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "get dev instance for %d failed", device_id);
         } else if (dev->isPluginDevice(device_id) || dev->isDpDevice(device_id)) {
             conn_device.id = device_id;
+            conn_device.addressV1 = deviceAddress;
             dev = Device::getInstance(&conn_device, rm);
             if (dev) {
                 status = addPlugInDevice(dev, connection_state);
@@ -8179,6 +8183,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
         }
     } else if (!is_connected && device_available) {
         dAttr.id = device_id;
+        dAttr.addressV1 = deviceAddress;
         dev = Device::getInstance(&dAttr, rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "get dev instance for %d failed", device_id);
@@ -8196,6 +8201,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
                 PAL_INFO(LOG_TAG, "found device id 0x%x in avail_device",
                                         device_id);
                 conn_device.id = device_id;
+                conn_device.addressV1 = deviceAddress;
                 dev = Device::getInstance(&conn_device, rm);
                 if (!dev) {
                     PAL_ERR(LOG_TAG, "Device getInstance failed");
