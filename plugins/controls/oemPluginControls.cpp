@@ -131,6 +131,9 @@
 #define MAX_VOLUME 0
 
 #define AWX_VOLUME 0x11112501
+#define AWX_VOLUME_RAMP_SHAPE 0x11112504
+#define AWX_VOLUME_RAMP_UP_TIME 0x11112502
+#define AWX_VOLUME_RAMP_DOWN_TIME 0x11112503
 #define TAG_MODULE_CUSTOM_AWX 0XC0000057
 typedef struct pal_awx_volume_data
 {
@@ -153,8 +156,27 @@ typedef enum pal_awx_bus_type
     BUS_RESERVED =0xF
 }pal_awx_bus_type_t;
 
+/*
+* Bit field for setting all FVM BUSES & RBVM BUSES
+* bit0: media/welcome bus bit1: Sys bus bit2: Nav bus bit3: Phone bus bit4: Nav2 bus
+* bit5: V-warn bus bit6: V-RoadADAS bus bit7~15: Reserved
+*/
+#define AWX_FVM_BUS (uint16_t)0x0F
+
+#define RAMP_SHAPE_LINEAR 1
+#define RAMP_SHAPE_EXP 2
+
+typedef struct pal_ramp_data
+{
+    pal_awx_ramp_t ramp;
+    uint32_t rampshape;
+    uint32_t rampuptime;
+    uint32_t rampdowntime;;
+} pal_awx_volume_ramp_data_t;
 
 extern "C" {
+
+int setAWXVolumeRAMP(Stream* s, pal_awx_ramp_t ramp, std::shared_ptr<ResourceManager> rm);
 
 const char bus_address[BUS_RESERVED][MAX_BUS_ADDRESS]={
         BUS_MEDIA,
@@ -164,6 +186,14 @@ const char bus_address[BUS_RESERVED][MAX_BUS_ADDRESS]={
         BUS_NAVIGATION2,
         BUS_VWARN,
         BUS_ROAD_ADAS
+};
+
+pal_awx_volume_ramp_data_t ramp_info[PAL_AWX_VOL_RAMP_INVALID]=
+{
+    { PAL_AWX_ID_RAMP_VERY_FAST,RAMP_SHAPE_LINEAR,6,6},
+    { PAL_AWX_ID_RAMP_FAST,RAMP_SHAPE_EXP,20,20},
+    { PAL_AWX_ID_RAMP_MED,RAMP_SHAPE_EXP,90,90},
+    { PAL_AWX_VOL_RAMP_SLOW,RAMP_SHAPE_EXP,250,250}
 };
 int payloadCalKeys(Session* s, uint8_t **payload, size_t *size, float volume)
 {
@@ -391,6 +421,217 @@ bool checkIfAWXBus(char* address,pal_awx_bus_type_t* bus_index)
 
     return bus_match;
 }
+
+pal_awx_volume_ramp_data_t* get_Ramp_data(pal_awx_ramp_t ramp)
+{
+    for (int i=0;i<4;i++)
+    {
+        if (ramp_info[i].ramp == ramp)
+        {
+            return &ramp_info[i];
+        }
+    }
+    return NULL;
+
+}
+
+int setAWXVolumRampAttributes(Stream* s,pal_awx_volume_ramp_data_t* rampAttr, std::shared_ptr<ResourceManager> rm)
+{
+   std::string backendName;
+    mixer_ctl *ctl = NULL;
+    struct mixer *mixer;
+    Session *sess = nullptr;
+    int device = 0 ;
+    int status = 0;
+    uint32_t miid = 0;
+    uint16_t* pcmChannel = NULL;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0, size;
+    uint32_t effect_tag = TAG_MODULE_CUSTOM_AWX;
+    struct apm_module_param_data_t* header = NULL;
+    pal_awx_volume_data_t* vol_Data =NULL;
+    char const *control = "setParam";
+    std::ostringstream calCntrlName_awx;
+    const char *stream = "PCM";
+    std::string backend_name;
+
+    PAL_INFO(LOG_TAG,"Enter. setAWXVolumRampAttributes");
+
+    // Get Backend Name
+    status = rm->getBackendName(PAL_DEVICE_OUT_SPEAKER,backend_name);
+    if (status) {
+        PAL_ERR(LOG_TAG,"Error in get Backend name ");
+        goto exit;
+    }
+
+
+    PAL_INFO(LOG_TAG,"backend Name %s ",backend_name.c_str());
+    // Get the Mixer
+    status = rm->getVirtualAudioMixer(&mixer);
+    if (status) {
+        PAL_ERR(LOG_TAG,"mixer error");
+        goto exit;
+    }
+
+    // Get the Associated Session
+    status = s->getAssociatedSession(&sess);
+    if (status || !sess) {
+        PAL_ERR(LOG_TAG,"failed to get session");
+        goto exit;
+    }
+
+    // Get the Associated Device
+    status = sess->getPCMDeviceID(s, &device);
+    if (status) {
+        PAL_ERR(LOG_TAG,"failed to get device id");
+        goto exit;
+    }
+
+    // Get the tag
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,backend_name.c_str(),effect_tag, &miid);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s Get MIID from tag data failed\n", __func__);
+            goto exit;
+    }
+
+    PAL_INFO(LOG_TAG,"%s Get MIID from tag data  Module ID %d\n", __func__,miid);
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                sizeof(pal_awx_volume_data_t);
+
+    padBytes = PADDING_8BYTE_ALIGN(payloadSize);
+
+    payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+    if (!payloadInfo) {
+        status=-ENOMEM;
+        goto exit;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    vol_Data = (pal_awx_volume_data_t*)(payloadInfo +
+                sizeof(struct apm_module_param_data_t));
+
+
+    // Set_ramp_Shape
+    header->module_instance_id = miid;
+    header->param_id = AWX_VOLUME_RAMP_SHAPE;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+    // Fill the data as per the AWX payload.
+    vol_Data->volume_func = AWX_FVM_BUS;
+
+    // Pass the Ramp Shape
+    vol_Data->value[0] = rampAttr->rampshape;
+
+    size = payloadSize + padBytes;
+
+    PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume Func %d Volume value %d\n", __func__,header->module_instance_id,header->param_id,header->param_size,vol_Data->volume_func,vol_Data->value[0]);
+
+    calCntrlName_awx<<stream<<device<<" "<<control;
+
+    ctl = mixer_get_ctl_by_name(mixer, calCntrlName_awx.str().data());
+
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName_awx.str().data());
+        status = -ENOENT;
+        goto exit;
+    }
+    status = mixer_ctl_set_array(ctl, payloadInfo, size);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s mixer_ctl_set_array data failed %d status\n", __func__,status);
+            goto exit;
+    }
+
+    // Pass the Ramp UP Time
+    // Set_ramp_Shape
+    header->module_instance_id = miid;
+    header->param_id = AWX_VOLUME_RAMP_UP_TIME;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+    // Fill the data as per the AWX payload.
+    vol_Data->volume_func = AWX_FVM_BUS ;
+    vol_Data->value[0] = rampAttr->rampuptime;
+
+    size = payloadSize + padBytes;
+
+    PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume Func %d Volume value %d\n", __func__,header->module_instance_id,header->param_id,header->param_size,vol_Data->volume_func,vol_Data->value[0]);
+
+    status = mixer_ctl_set_array(ctl, payloadInfo, size);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s mixer_ctl_set_array data failed %d status \n", __func__,status);
+            goto exit;
+    }
+
+     // Pass the Ramp Down  Time
+    header->module_instance_id = miid;
+    header->param_id = AWX_VOLUME_RAMP_DOWN_TIME;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+    // Fill the data as per the AWX payload.
+    vol_Data->volume_func = AWX_FVM_BUS;
+    vol_Data->value[0] = rampAttr->rampdowntime;
+
+    size = payloadSize + padBytes;
+
+    PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume Func %d Volume value %d\n", __func__,header->module_instance_id,header->param_id,header->param_size,vol_Data->volume_func,vol_Data->value[0]);
+
+    status = mixer_ctl_set_array(ctl, payloadInfo, size);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s mixer_ctl_set_array data failed\n", __func__);
+            goto exit;
+    }
+
+exit:
+    ctl = NULL;
+    if (payloadInfo)
+        free(payloadInfo);
+    return status;
+}
+int setAWXVolumeRAMP(Stream* s, pal_awx_ramp_t ramp, std::shared_ptr<ResourceManager> rm)
+{
+    uint32_t status = 0;
+    //enum Key_AWX_BUS_MAPPING bus_index;
+    pal_stream_attributes sAttr;
+    pal_awx_volume_ramp_data_t *rampAttr=nullptr;
+    PAL_DBG(LOG_TAG, "Enter. ramp:%d \n", ramp);
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+    if (!s) {
+        PAL_ERR(LOG_TAG,"invalid stream handle");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    rampAttr = get_Ramp_data(ramp);
+    if(rampAttr == nullptr) {
+        PAL_ERR(LOG_TAG,"invalid ramp Attribute");
+        goto exit;
+    }
+    else
+    {
+        status = setAWXVolumRampAttributes(s,rampAttr,rm);
+    }
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"RAMP attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+exit:
+    return status;
+}
+
 int setAWXVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm,pal_awx_bus_type_t busIndex)
 {
     mixer_ctl *ctl = NULL;
@@ -910,21 +1151,24 @@ int plugin_get(Stream* s, plugin_control_name_t control, void **payload,
          break;
     case PLUGIN_CONTROL_HD_VOICE:
         data = (ckv_data_t *)calloc(1, sizeof(ckv_data_t));
-         if (!data) {
+        if (!data) {
             PAL_ERR(LOG_TAG, "calloc failed for data");
             status = -EINVAL;
             goto exit;
-         }
-         /*get CKV data*/
-         sess->getParameters(NULL,VOICE_CKV_DATA,0,(void**)&data);
-         memcpy((bool*)*payload, &(data->hd_voice), sizeof(bool));
-         *playload_size = sizeof(bool);
-         break;
-     case PLUGIN_CONTROL_AUDIO_BUFFER:
+        }
+        /*get CKV data*/
+        sess->getParameters(NULL,VOICE_CKV_DATA,0,(void**)&data);
+        memcpy((bool*)*payload, &(data->hd_voice), sizeof(bool));
+        *playload_size = sizeof(bool);
+        break;
+    case PLUGIN_CONTROL_AUDIO_BUFFER:
         get_buffer_configration(s, payload, playload_size);
         break;
-     case PLUGIN_CONTROL_AUDIO_LATENCY:
+    case PLUGIN_CONTROL_AUDIO_LATENCY:
         get_render_latency(s, payload);
+        break;
+    case PLUGIN_CONTROL_VOLUME_RAMP:
+        s->getVolumeRAMPData((struct pal_awx_ramp_curve_t *)*payload, playload_size);
         break;
     default:
         PAL_ERR(LOG_TAG,"control not supported in this plugin");
@@ -948,6 +1192,7 @@ int plugin_set(Stream* s, plugin_control_name_t control, void *payload,
     struct pal_volume_data *voldata = nullptr;
     float volume = 0.0;
     size_t vol_size = 0;
+    pal_awx_ramp_t *ramp = nullptr;
 
     PAL_DBG(LOG_TAG,"Enter with control %d", control);
 
@@ -1008,7 +1253,22 @@ int plugin_set(Stream* s, plugin_control_name_t control, void *payload,
         volume = (voldata->volume_pair[0].vol);
         setVoiceCal(s, volume, rm);
         break;
-
+    case PLUGIN_CONTROL_VOLUME_RAMP:
+        ramp =(pal_awx_ramp_t*)payload;
+        if (!playload_size) {
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "Recieved invalid playload size");
+            goto exit;
+        }
+        if (!ramp) {
+            status = -ENOMEM;
+            PAL_ERR(LOG_TAG, "Recieved invalid ramp playload pointer");
+            goto exit;
+        }
+        s->getStreamType(&type);
+        status = setAWXVolumeRAMP(s, *ramp, rm);
+        ramp = NULL;
+        break;
     default:
         PAL_ERR(LOG_TAG,"control not supported in this plugin");
         status = -EINVAL;

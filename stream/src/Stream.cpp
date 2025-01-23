@@ -56,6 +56,8 @@ std::mutex Stream::mBaseStreamMutex;
 std::mutex Stream::pauseMutex;
 std::condition_variable Stream::pauseCV;
 
+int32_t updateVolumeRamp(pal_awx_ramp_t ramp);
+
 
 void Stream::handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id,
                                         void *data,
@@ -514,6 +516,29 @@ int32_t Stream::getAssociatedSession(Session **s)
     }
     *s = session;
     PAL_DBG(LOG_TAG, "session %pK", *s);
+exit:
+    return status;
+}
+
+int32_t Stream::getVolumeRAMPData(struct pal_awx_ramp_curve_t *vrData, size_t *size)
+{
+    int32_t status = 0;
+
+    if (!vrData) {
+        status = -EINVAL;
+        PAL_INFO(LOG_TAG, "Volume ramp Data not set yet");
+        goto exit;
+    }
+
+    if (mVolumerampData != NULL) {
+        *size = sizeof(pal_awx_ramp_t);
+        ar_mem_cpy(vrData,*size , mVolumerampData, *size);
+
+        PAL_DBG(LOG_TAG, "volume ramp %d", mVolumerampData->ramp_map);
+    } else {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "volume ramp has not been set, status %d", status);
+    }
 exit:
     return status;
 }
@@ -1748,6 +1773,49 @@ int32_t Stream::setVolume(struct pal_volume_data *volume){
     PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
                       (volume->no_of_volpair), (volume->volume_pair->channel_mask),
                       (volume->volume_pair->vol));
+exit:
+    return status;
+}
+
+int32_t Stream::updateVolumeRamp(struct pal_awx_ramp_curve_t *ramp){
+    int32_t status = 0;
+    size_t ramp_size = 0;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+
+    if (mVolumerampData) {
+        free(mVolumerampData);
+    }
+    ramp_size = sizeof(pal_awx_ramp_t);
+    if (ramp == NULL) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "ramp is NULL");
+        goto exit;
+    }
+    mVolumerampData = (struct pal_awx_ramp_curve_t *)calloc(1, ramp_size);
+    if (!mVolumerampData) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "mVolumerampData malloc failed %s", strerror(errno));
+        goto exit;
+    }
+
+    ar_mem_cpy (mVolumerampData, ramp_size, ramp, ramp_size);
+    PAL_INFO(LOG_TAG, "Volume Ramp:%d ",mVolumerampData->ramp_map);
+
+    /* Allow caching of stream volume ramp as part of mVolumerampData
+     * till the pcm_open is not done or if sound card is
+     * offline.
+     */
+    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
+        && currentState != STREAM_INIT) {
+        status = rm->controlPluginSet(this, PLUGIN_CONTROL_VOLUME_RAMP,
+                                      ramp, ramp_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Plugin Control Volume ramp failed %d",
+                    status);
+            goto exit;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit. ramp:%d \n",ramp);
 exit:
     return status;
 }

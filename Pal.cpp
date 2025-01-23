@@ -61,6 +61,7 @@ class Stream;
 
 static std::mutex pal_mutex;
 static uint32_t pal_init_ref_cnt = 0;
+int32_t updateVolumeRamp(pal_awx_ramp_t ramp);
 
 static void notify_concurrent_stream(pal_stream_type_t type,
                                      pal_stream_direction_t dir,
@@ -605,6 +606,55 @@ int32_t pal_stream_set_volume(pal_stream_handle_t *stream_handle,
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "setVolume failed with status %d", status);
+        return status;
+    }
+    PAL_DBG(LOG_TAG, "Exit. status %d", status);
+    return status;
+}
+
+int32_t pal_stream_Volume_Ramp(pal_stream_handle_t *stream_handle, struct pal_awx_ramp_curve_t *ramp)
+{
+    Stream *s = NULL;
+    int status;
+    std::shared_ptr<ResourceManager> rm = NULL;
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+
+    if (!stream_handle || !ramp) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG,"Invalid input parameters status %d", status);
+        return status;
+    }
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm->lockValidStreamMutex();
+    if (!rm->isActiveStream(stream_handle)) {
+        rm->unlockValidStreamMutex();
+        status = -EINVAL;
+        return status;
+    }
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = rm->increaseStreamUserCounter(s);
+    if (0 != status) {
+        rm->unlockValidStreamMutex();
+        PAL_ERR(LOG_TAG, "failed to increase stream user count");
+        return status;
+    }
+    rm->unlockValidStreamMutex();
+
+    status = s->updateVolumeRamp(ramp);
+
+    rm->lockValidStreamMutex();
+    rm->decreaseStreamUserCounter(s);
+    rm->unlockValidStreamMutex();
+
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "Stream source update metadata failed with status %d", status);
         return status;
     }
     PAL_DBG(LOG_TAG, "Exit. status %d", status);

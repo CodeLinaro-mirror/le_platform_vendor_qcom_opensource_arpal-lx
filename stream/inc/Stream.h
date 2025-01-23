@@ -146,6 +146,7 @@ protected:
     std::vector <struct pal_device> mPalDevice;
     Session* session;
     struct pal_stream_attributes* mStreamAttr;
+    struct pal_awx_ramp_curve_t* mVolumerampData = NULL;
     struct pal_volume_data* mVolumeData = NULL;
     int mGainLevel;
     std::mutex mStreamMutex;
@@ -187,6 +188,7 @@ public:
     virtual int32_t drain(pal_drain_type_t type __unused) {return 0;}
     virtual int32_t setStreamAttributes(struct pal_stream_attributes *sattr) = 0;
     virtual int32_t setVolume(struct pal_volume_data *volume);
+    virtual int32_t updateVolumeRamp(struct pal_awx_ramp_curve_t *ramp);
     virtual int32_t mute(bool state) = 0;
     virtual int32_t mute_l(bool state) = 0;
     virtual int32_t pause() = 0;
@@ -230,6 +232,7 @@ public:
     int32_t getBufInfo(size_t *in_buf_size, size_t *in_buf_count,
                        size_t *out_buf_size, size_t *out_buf_count);
     int32_t getMaxMetadataSz(size_t *in_max_metadata_sz, size_t *out_max_metadata_sz);
+    int32_t getVolumeRAMPData(struct pal_awx_ramp_curve_t *vrData, size_t *size);
     int32_t getVolumeData(struct pal_volume_data *vData, size_t *size);
     void setGainLevel(int level) { mGainLevel = level; };
     int getGainLevel() { return mGainLevel; };
@@ -301,6 +304,7 @@ public:
    int32_t prepare() override;
    int32_t setStreamAttributes( struct pal_stream_attributes *sattr __unused) {return 0;};
    int32_t setVolume( struct pal_volume_data *volume __unused) {return 0;};
+   int32_t updateVolumeRamp( struct pal_awx_ramp_curve_t *ramp) {return 0;};
    int32_t mute(bool state __unused) {return 0;};
    int32_t mute_l(bool state __unused) {return 0;};
    int32_t pause() {return 0;};

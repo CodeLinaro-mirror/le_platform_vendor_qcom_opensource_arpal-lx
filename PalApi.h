@@ -609,6 +609,18 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
   */
 int32_t pal_stream_get_path_delay(pal_stream_handle_t *handle, uint32_t *delay_in_ms);
 
+/**
+  * \brief update stream source metadata for RAMP curves
+  *
+  * \param[in] stream_handle - Valid stream handle obtained
+  *       from pal_stream_open
+  * \param[out] rampAttr - ramp curve retrieved based on audio_usage from
+  *       stream.
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_stream_Volume_Ramp(pal_stream_handle_t *stream_handle, struct pal_awx_ramp_curve_t *rampAttr);
+
 extern void  __gcov_flush();
 
 /**

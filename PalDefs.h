@@ -210,6 +210,18 @@ struct pal_snd_dec_vorbis {
     uint32_t bit_stream_fmt;
 };
 
+typedef enum {
+    PAL_AWX_ID_RAMP_VERY_FAST = 1,
+    PAL_AWX_ID_RAMP_FAST,
+    PAL_AWX_ID_RAMP_MED,
+    PAL_AWX_VOL_RAMP_SLOW,
+    PAL_AWX_VOL_RAMP_INVALID,
+} pal_awx_ramp_t;
+
+struct pal_awx_ramp_curve_t {
+    pal_awx_ramp_t ramp_map;
+};
+
 struct pal_snd_dec_opus {
     uint16_t bitstream_format;
     uint16_t payload_type;

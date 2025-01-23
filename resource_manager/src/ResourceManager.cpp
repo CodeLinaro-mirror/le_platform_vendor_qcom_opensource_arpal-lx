@@ -373,6 +373,7 @@ const std::map<std::string, plugin_control_name_t> controlNameMap {
     {std::string{"PLUGIN_CONTROL_AUDIO_BUFFER"}, PLUGIN_CONTROL_AUDIO_BUFFER},
     {std::string{"PLUGIN_CONTROL_AUDIO_LATENCY"}, PLUGIN_CONTROL_AUDIO_LATENCY},
     {std::string{"PLUGIN_CONTROL_KV_PARAM"}, PLUGIN_CONTROL_KV_PARAM},
+    {std::string{"PLUGIN_CONTROL_VOLUME_RAMP"}, PLUGIN_CONTROL_VOLUME_RAMP},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -11020,9 +11021,17 @@ int ResourceManager::controlPluginSet(Stream *s, plugin_control_name_t control, 
     pal_stream_type_t stream_type;
     plugin_fn_ops_t plugin_ops;
 
+    PAL_DBG(LOG_TAG, "Enter.plugin_control_name:%d \n", control);
+
     if (!s) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle recieved");
+        goto exit;
+    }
+
+    if (payload == NULL) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid Payload recieved");
         goto exit;
     }
     s->getStreamType(&stream_type);

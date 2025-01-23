@@ -723,6 +723,8 @@ int SessionAlsaPcm::start(Stream * s)
     bool isStreamAvail = false;
     struct pal_volume_data *voldata = NULL;
     size_t vol_size = 0;
+    struct pal_awx_ramp_curve_t *rampdata = NULL;
+    size_t ramp_size = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -1257,6 +1259,22 @@ pcm_start:
         sAttr.type != PAL_STREAM_ULTRASOUND &&
         sAttr.type != PAL_STREAM_SENSOR_PCM_DATA &&
         sAttr.type != PAL_STREAM_HAPTICS) {
+        rampdata = (struct pal_awx_ramp_curve_t *)calloc(1, (sizeof(pal_awx_ramp_t)));
+        if (!rampdata) {
+            status = -ENOMEM;
+            goto exit;
+        }
+
+        status = rm->controlPluginGet(s,PLUGIN_CONTROL_VOLUME_RAMP, (void**)&rampdata,
+                                      &ramp_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"getRampData Failed \n");
+        } else {
+            if(rm->controlPluginSet(s, PLUGIN_CONTROL_VOLUME_RAMP, (void*)rampdata,
+                                    ramp_size)) {
+                PAL_ERR(LOG_TAG,"failed to set default volume ramp data");
+            }
+        }
         // Setting the volume as no default volume is set now in stream open
         voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
                           (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
