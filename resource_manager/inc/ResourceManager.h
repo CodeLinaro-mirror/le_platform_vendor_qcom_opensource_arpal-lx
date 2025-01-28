@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -515,6 +515,7 @@ private:
     static bool isHandsetProtectionEnabled;
     static bool isHapticsProtectionEnabled;
     static bool isChargeConcurrencyEnabled;
+    static int wsaUsed;
     static int cpsMode;
     static bool isVbatEnabled;
     static bool isRasEnabled;
@@ -1011,6 +1012,7 @@ public:
     bool IsQmpEnabled();
     bool IsSilenceDetectionEnabled();
     int getCpsMode();
+    int getWsaUsed();
     int getSpQuickCalTime();
     int getOrientation();
     uint32_t getProxyChannels();
