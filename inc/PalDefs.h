@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1160,7 +1160,7 @@ enum BeCtrlsIndex {
 
 /** payload for Sound Dose Info */
 typedef struct pal_sound_dose_info {
-    pal_device_id_t id;                     /**<  device id */
+    struct pal_device device;
     uint32_t is_momentary_exposure_warning;
     uint32_t num_mel_values;
     float mel_values[PAL_MAX_SOUND_DOSE_VALUES];
