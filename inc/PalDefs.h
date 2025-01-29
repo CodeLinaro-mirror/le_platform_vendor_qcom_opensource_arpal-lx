@@ -55,6 +55,7 @@
 #define PAL_CUSTOM_PARAM_MAX_STRING_LENGTH 64
 
 #define PAL_VERSION "1.0"
+#define PAL_MAX_SOUND_DOSE_VALUES 10
 
 /** Audio stream handle */
 typedef uint64_t pal_stream_handle_t;
@@ -381,8 +382,9 @@ typedef enum {
     PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST = 23,
     PAL_DEVICE_OUT_DUMMY = 24,
     PAL_DEVICE_OUT_RECORD_PROXY = 25,
+    PAL_DEVICE_OUT_SOUND_DOSE = 26,
     // Add new OUT devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_OUT_MAX = 26,
+    PAL_DEVICE_OUT_MAX = 27,
     //INPUT DEVICES
     PAL_DEVICE_IN_MIN = PAL_DEVICE_OUT_MAX,
     PAL_DEVICE_IN_HANDSET_MIC = PAL_DEVICE_IN_MIN +1,
@@ -470,6 +472,7 @@ typedef enum {
 /* type of global callback events. */
 typedef enum {
     PAL_SND_CARD_STATE,
+    PAL_SOUND_DOSE_INFO, /*To report sound dose related info*/
 } pal_global_callback_event_t;
 
 struct pal_stream_info {
@@ -853,6 +856,45 @@ struct pal_vol_ctrl_ramp_param {
    uint32_t ramp_period_ms;
 };
 
+/* Payload For Custom Config
+ * Description : Used by PAL client to customize
+ *               the device related information.
+ */
+#define PAL_MAX_CUSTOM_KEY_SIZE 128
+typedef struct pal_device_custom_config {
+    char custom_key[PAL_MAX_CUSTOM_KEY_SIZE];
+} pal_device_custom_config_t;
+
+
+/**
+ * @brief Structure to hold various types of device addresses.
+ * ID, basically a string for custom type of address
+ * IEEE 802 MAC address (exactly 6 elements)
+ * IPv4 Address (exactly 4 elements)
+ * IPv6 Address (exactly 8 elements)
+ * PCI bus Address. Set for USB devices (exactly 2 elements)
+ */
+
+typedef union {
+    char id [128];
+    uint8_t mac[6];
+    uint8_t ipv4[4];
+    uint32_t ipv6[8];
+    uint32_t alsa[2];
+} pal_address_type_t;
+
+/**< PAL device */
+#define DEVICE_NAME_MAX_SIZE 128
+struct pal_device {
+    pal_device_id_t id;             /**<  device id */
+    struct pal_media_config config; /**<  media config of the device */
+    struct pal_usb_device_address address;
+    char sndDevName[DEVICE_NAME_MAX_SIZE];
+    pal_device_custom_config_t custom_config; /**<  Optional */
+    pal_address_type_t addressV1;
+};
+
+
 /* Payload For ID: PAL_PARAM_ID_DEVICE_CONNECTION
  * Description   : Device Connection
 */
@@ -860,6 +902,7 @@ typedef struct pal_param_device_connection {
     pal_device_id_t   id;
     bool              connection_state;
     pal_device_config_t device_config;
+    struct pal_device device; // intermediate remove once device_config instances are removed.
 } pal_param_device_connection_t;
 
 /* Payload For ID: PAL_PARAM_ID_GAIN_LVL_MAP
@@ -1097,14 +1140,7 @@ typedef struct pal_param_dtmf_gen_tone_cfg {
     int32_t  duration_ms;
 } pal_param_dtmf_gen_tone_cfg_t;
 
-/* Payload For Custom Config
- * Description : Used by PAL client to customize
- *               the device related information.
-*/
-#define PAL_MAX_CUSTOM_KEY_SIZE 128
-typedef struct pal_device_custom_config {
-    char custom_key[PAL_MAX_CUSTOM_KEY_SIZE];
-} pal_device_custom_config_t;
+
 
 typedef struct pal_bt_lc3_payload_s {
     bool isLC3MonoModeOn;
@@ -1114,16 +1150,6 @@ typedef struct pal_param_haptics_intensity {
     int intensity;
 } pal_param_haptics_intensity_t;
 
-/**< PAL device */
-#define DEVICE_NAME_MAX_SIZE 128
-struct pal_device {
-    pal_device_id_t id;                     /**<  device id */
-    struct pal_media_config config;         /**<  media config of the device */
-    struct pal_usb_device_address address;
-    char sndDevName[DEVICE_NAME_MAX_SIZE];
-    pal_device_custom_config_t custom_config;        /**<  Optional */
-};
-
 enum BeCtrlsIndex {
     BE_METADATA,
     BE_MEDIAFMT,
@@ -1131,6 +1157,16 @@ enum BeCtrlsIndex {
     BE_GROUP_ATTR,
     BE_MAX_NUM_MIXER_CONTROLS,
 };
+
+/** payload for Sound Dose Info */
+typedef struct pal_sound_dose_info {
+    pal_device_id_t id;                     /**<  device id */
+    uint32_t is_momentary_exposure_warning;
+    uint32_t num_mel_values;
+    float mel_values[PAL_MAX_SOUND_DOSE_VALUES];
+    uint64_t timestamp[PAL_MAX_SOUND_DOSE_VALUES];
+} pal_sound_dose_info_t;
+
 
 static const char *beCtrlNames[] = {
     " metadata",

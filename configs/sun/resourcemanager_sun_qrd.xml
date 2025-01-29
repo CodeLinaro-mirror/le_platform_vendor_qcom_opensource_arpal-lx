@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 * -->
 
@@ -69,6 +69,7 @@
         </lpm_supported_streams>
     </config_lpm>
     <config_gapless key="gapless_supported" value="1"/>
+    <config_sound_dose key="sound_dose_enable" value ="false" />
     <bt_codecs>
         <codec codec_format="CODEC_TYPE_AAC" codec_type="enc|dec" codec_library="lib_bt_bundle.so" />
         <codec codec_format="CODEC_TYPE_SBC" codec_type="enc|dec" codec_library="lib_bt_bundle.so" />
@@ -736,6 +737,15 @@
             <bit_width>16</bit_width>
         </in-device>
         <out-device>
+            <id>PAL_DEVICE_OUT_SOUND_DOSE</id>
+            <back_end_name>PCM_DUMMY-RX-0</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>1</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
+        </out-device>
+        <out-device>
             <id>PAL_DEVICE_NONE</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
             <max_channels>2</max_channels>
@@ -1086,7 +1096,7 @@
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>haptics-dev</snd_device_name>
-            <haptics_protection_enabled>1</haptics_protection_enabled>
+            <haptics_protection_enabled>0</haptics_protection_enabled>
             <usecase>
                 <name>PAL_STREAM_HAPTICS</name>
                 <custom-config key="haptics-over-wsa">
@@ -1742,6 +1752,7 @@
             <stream_config>
                 <name>QC_VOICE_UI</name>
                 <param vendor_uuid="68ab2d40-e860-11e3-95ef-0002a5d5c51b" />
+                <param interface_plugin_lib="sva_plugin.so" />
                 <param merge_first_stage_sound_models="false" />
                 <!-- Property for extended detection payload, disabled by default -->
                 <!-- OEM can enable this by adding properties defined in SoundTriggerUtils.h-->
@@ -1824,7 +1835,7 @@
             <stream_config>
                 <name>HOTWORD_VOICE_UI</name>
                 <param vendor_uuid="7038ddc8-30f2-11e6-b0ac-40a8f03d3f15" />
-                <param interface_plugin_lib="libhotword_intf.so" />
+                <param interface_plugin_lib="hotword_plugin.so" />
                 <param get_module_version="false" />
                 <param merge_first_stage_sound_models="false" />
                 <param capture_keyword="2000" />
@@ -1856,7 +1867,7 @@
                 <name>CUSTOM_VOICE_UI</name>
                 <!-- NOTE: Customer need to replace with their own uuid and match with sound model -->
                 <param vendor_uuid="c51c508a-ee1b-11ec-8ea0-0242ac120002" />
-                <param interface_plugin_lib="libcustomva_intf.so" />
+                <param interface_plugin_lib="customva_plugin.so" />
                 <param merge_first_stage_sound_models="false" />
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->

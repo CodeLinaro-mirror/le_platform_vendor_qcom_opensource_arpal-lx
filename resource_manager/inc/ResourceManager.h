@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -525,6 +525,7 @@ private:
     static bool isCRSCallEnabled;
     static bool isDummyDevEnabled;
     static bool isProxyRecordActive;
+    static bool isSoundDoseEnabled;
     static std::mutex mChargerBoostMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
@@ -696,6 +697,7 @@ public:
 #endif
     int initSndMonitor();
     int initContextManager();
+    int initHapticsInterface();
     void deInitContextManager();
     static void AudioFeatureStatsInit();
     static void AudioFeatureStatsDeInit();
@@ -937,6 +939,7 @@ public:
     int32_t streamDevSwitch(std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnectList,
                             std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList);
     char* getDeviceNameFromID(uint32_t id);
+    uint32_t getDeviceIDFromName(char* name);
     int getPalValueFromGKV(pal_key_vector_t *gkv, int key);
     pal_speaker_rotation_type getCurrentRotationType();
     void ssrHandler(card_status_t state);
@@ -946,6 +949,7 @@ public:
     int resetStreamInstanceID(Stream *str);
     int resetStreamInstanceID(Stream *str, uint32_t sInstanceID);
     static void setGaplessMode(const XML_Char **attr);
+    static void setSoundDose(const XML_Char **attr);
     static int initWakeLocks(void);
     static void deInitWakeLocks(void);
     void acquireWakeLock();
@@ -1009,6 +1013,7 @@ public:
     int getSpQuickCalTime();
     int getOrientation();
     uint32_t getProxyChannels();
+    static bool IsSoundDoseEnabled() { return isSoundDoseEnabled; }
     void* getAdmData();
     enum card_status_t getSoundCardState();
     pal_spkr_prot_payload getSpkrProtModeValue();

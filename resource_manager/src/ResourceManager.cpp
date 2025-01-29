@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -48,7 +48,6 @@
 #include "Stream.h"
 #include "SndCardMonitor.h"
 #include "AudioHapticsInterface.h"
-#include "VUIInterfaceProxy.h"
 #include "VoiceUIPlatformInfo.h"
 #include "PluginManager.h"
 #include "mem_logger.h"
@@ -173,6 +172,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -232,6 +232,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_ULTRASOUND,           1},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, 1},
     {PAL_DEVICE_OUT_DUMMY,                0},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -292,6 +293,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -457,6 +459,7 @@ bool ResourceManager::isSpeakerProtectionEnabled = false;
 bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isHapticsProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
+bool ResourceManager::isSoundDoseEnabled = false;
 int ResourceManager::cpsMode = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
@@ -554,6 +557,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_ULTRASOUND,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
+    {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -936,15 +940,6 @@ ResourceManager::ResourceManager()
 
     ResourceManager::loadAdmLib();
     ResourceManager::initWakeLocks();
-
-    if (ResourceManager::isHapticsthroughWSA) {
-        ret = AudioHapticsInterface::init();
-        if (ret) {
-            throw std::runtime_error("Failed to parse hapticsconfig xml");
-        } else {
-            PAL_INFO(LOG_TAG, "hapticsconfig xml parsing successful");
-        }
-    }
 
     PAL_DBG(LOG_TAG, "Creating ContextManager");
     ctxMgr = new ContextManager();
@@ -1436,6 +1431,21 @@ char* ResourceManager::getDeviceNameFromID(uint32_t id)
     return NULL;
 }
 
+uint32_t ResourceManager::getDeviceIDFromName(char *name)
+{
+    std::string event_str(name);
+    size_t prefix_idx = 0;
+
+    for (int i=0; i < devInfo.size(); i++) {
+        prefix_idx = event_str.find(devInfo[i].name);
+        if (prefix_idx == 0) {
+            return devInfo[i].deviceId;
+        }
+    }
+
+    return 0;
+}
+
 int ResourceManager::init_audio()
 {
     int retry = 0;
@@ -1765,6 +1775,32 @@ int ResourceManager::initContextManager()
     return ret;
 }
 
+int ResourceManager::initHapticsInterface()
+{
+    int ret = 0;
+    struct pal_device dattr;
+    std::shared_ptr<Device> dev = nullptr;
+
+    PAL_INFO(LOG_TAG," isHapticsthroughWSA: %s", isHapticsthroughWSA? "true":"false");
+    if (isHapticsthroughWSA) {
+        ret = AudioHapticsInterface::init();
+        if (ret) {
+            throw std::runtime_error("Failed to parse hapticsconfig xml");
+        } else {
+            PAL_INFO(LOG_TAG, "hapticsconfig xml parsing successful");
+        }
+        dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
+        dev = Device::getInstance(&dattr , rm);
+        if (dev) {
+            PAL_DBG(LOG_TAG, "HapticsDev instance created");
+        }
+        else
+           PAL_INFO(LOG_TAG, "HapticsDev instance not created");
+    }
+
+    return ret;
+}
+
 void ResourceManager::deInitContextManager()
 {
     if (isContextManagerEnabled) {
@@ -1797,16 +1833,6 @@ int ResourceManager::init()
     }
     else
         PAL_DBG(LOG_TAG, "Speaker instance not created");
-
-    if (ResourceManager::isHapticsthroughWSA) {
-        dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
-        dev = Device::getInstance(&dattr , rm);
-        if (dev) {
-            PAL_DBG(LOG_TAG, "HapticsDev instance created");
-        }
-        else
-           PAL_INFO(LOG_TAG, "HapticsDev instance not created");
-    }
 
     PAL_INFO(LOG_TAG, "Initialize Audio Feature Stats");
     AudioFeatureStatsInit();
@@ -3649,10 +3675,12 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     // TODO: hard code in common defs
     std::string pcm_prefix = "PCM";
     std::string compress_prefix = "COMPRESS";
+    std::string voicemmod_prefix = "VOICEMMODE";
     std::string event_suffix = "event";
     size_t prefix_idx = 0;
     size_t suffix_idx = 0;
     size_t length = 0;
+    bool voice_id = false;
     struct mixer_ctl *ctl = nullptr;
     char *buf = nullptr;
     unsigned int num_values;
@@ -3698,9 +3726,13 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     if (prefix_idx == event_str.npos) {
         prefix_idx = event_str.find(compress_prefix);
         if (prefix_idx == event_str.npos) {
-            PAL_ERR(LOG_TAG, "Invalid mixer event");
-            status = -EINVAL;
-            goto exit;
+            prefix_idx = event_str.find(voicemmod_prefix);
+            voice_id =  true;
+            if (prefix_idx == event_str.npos) {
+                PAL_ERR(LOG_TAG, "Invalid mixer event");
+                status = -EINVAL;
+                goto exit;
+            }
         } else {
             prefix_idx += compress_prefix.length();
         }
@@ -3716,7 +3748,17 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     }
 
     length = suffix_idx - prefix_idx;
-    pcm_id = std::stoi(event_str.substr(prefix_idx, length));
+    if (voice_id) {
+        pcm_id = getDeviceIDFromName(mixer_str);
+        if (pcm_id == 0) {
+            PAL_ERR(LOG_TAG, "Invalid pcm ID");
+            status = -EINVAL;
+            goto exit;
+        }
+    }
+    else {
+        pcm_id = std::stoi(event_str.substr(prefix_idx, length));
+    }
 
     // acquire callback/cookie with pcm dev id
     it = mixerEventCallbackMap.find(pcm_id);
@@ -7195,10 +7237,6 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
     bool found_id = true;
 
     PAL_DBG(LOG_TAG, "param_id=%d", param_id);
-    if (param_id == PAL_PARAM_ID_VUI_GET_META_DATA ||
-        param_id == PAL_PARAM_ID_VUI_CAPTURE_META_DATA) {
-        return VUIGetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -7373,9 +7411,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
     PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
 
-    if (param_id == PAL_PARAM_ID_VUI_SET_META_DATA) {
-        return VUISetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -7548,6 +7583,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BLE ||
                     device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
                     dattr.id = device_connection->id;
+                    dattr.addressV1 = device_connection->device.addressV1;
                     dev = Device::getInstance(&dattr, rm);
                     if (dev)
                         status = dev->setDeviceParameter(param_id, param_payload);
@@ -8107,6 +8143,7 @@ int ResourceManager::getDeviceDefaultCapability(pal_param_device_capability_t ca
 int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t connection_state) {
     int status = 0;
     pal_device_id_t device_id = connection_state.id;
+    pal_address_type_t deviceAddress = connection_state.device.addressV1;
     bool is_connected = connection_state.connection_state;
     bool device_available = isDeviceAvailable(device_id);
     struct pal_device dAttr;
@@ -8122,11 +8159,13 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
     memset(&conn_device, 0, sizeof(struct pal_device));
     if (is_connected && !device_available) {
         dAttr.id = device_id;
+        dAttr.addressV1 = deviceAddress;
         dev = Device::getInstance(&dAttr, rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "get dev instance for %d failed", device_id);
         } else if (dev->isPluginDevice(device_id) || dev->isDpDevice(device_id)) {
             conn_device.id = device_id;
+            conn_device.addressV1 = deviceAddress;
             dev = Device::getInstance(&conn_device, rm);
             if (dev) {
                 status = addPlugInDevice(dev, connection_state);
@@ -8149,6 +8188,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
         }
     } else if (!is_connected && device_available) {
         dAttr.id = device_id;
+        dAttr.addressV1 = deviceAddress;
         dev = Device::getInstance(&dAttr, rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "get dev instance for %d failed", device_id);
@@ -8166,6 +8206,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
                 PAL_INFO(LOG_TAG, "found device id 0x%x in avail_device",
                                         device_id);
                 conn_device.id = device_id;
+                conn_device.addressV1 = deviceAddress;
                 dev = Device::getInstance(&conn_device, rm);
                 if (!dev) {
                     PAL_ERR(LOG_TAG, "Device getInstance failed");
@@ -9380,6 +9421,23 @@ void ResourceManager::setGaplessMode(const XML_Char **attr)
     }
 }
 
+void ResourceManager::setSoundDose(const XML_Char **attr)
+{
+    if (strcmp(attr[0], "key") != 0) {
+        PAL_ERR(LOG_TAG, "key not found");
+        return;
+    }
+    if (strcmp(attr[2], "value") != 0) {
+        PAL_ERR(LOG_TAG, "value not found");
+        return;
+    }
+    if (strcmp(attr[3], "true") == 0) {
+       isSoundDoseEnabled = true;
+       PAL_DBG(LOG_TAG,"%s is sound dose enabled = %d",__func__,isSoundDoseEnabled);
+       return;
+    }
+}
+
 void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
                                const XML_Char **attr)
 {
@@ -9438,6 +9496,9 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         return;
     } else if (!strcmp(tag_name, "perf_lock")) {
         processPerfLockConfig(attr);
+        return;
+    } else if (strcmp(tag_name, "config_sound_dose") == 0) {
+        setSoundDose(attr);
         return;
     }
 
