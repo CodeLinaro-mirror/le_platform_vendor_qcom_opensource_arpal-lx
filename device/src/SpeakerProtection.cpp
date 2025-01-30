@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1112,6 +1112,7 @@ void SpeakerProtection::spkrCalibrationThread()
     bool proceed = false;
     int i;
     int retryCount = 0;
+    int retryAttempts = 0;
 
     while (!threadExit) {
         PAL_DBG(LOG_TAG, "Inside calibration while loop");
@@ -1188,15 +1189,14 @@ retry:
 
         if (proceed) {
             // Start calibrating the speakers.
-            retryCount = 0;
             PAL_DBG(LOG_TAG, "Speaker not in use, start calibration");
             spkrStartCalibration();
             if (spkrCalState == SPKR_CALIBRATED) {
                 threadExit = true;
             }
             else if (spkrCalState == SPKR_NOT_CALIBRATED && is_vi_low) {
-                 if (retryCount < MAX_RETRY) {
-                       retryCount ++;
+                 if (retryAttempts < MAX_RETRY) {
+                       retryAttempts ++;
                        is_vi_low = false;
                        PAL_DBG(LOG_TAG, "Calibration failed retrying");
                        continue;
