@@ -5,7 +5,7 @@ EXTRA_DIST = $(pkgconfig_DATA)
 h_sources = $(top_srcdir)/utils/inc/VoiceUIInterfaceUtils.h
 
 
-AM_CPPFLAGS := -DVUI_USE_SYSLOG @GLIB_CFLAGS@ -include glib.h
+AM_CPPFLAGS := -DVUI_USE_SYSLOG @GLIB_CFLAGS@
 AM_CPPFLAGS += -I $(top_srcdir)/utils/src/
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc/
 AM_CPPFLAGS += @VUIINTERFACEHEADERS_CFLAGS@
