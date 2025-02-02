@@ -1,0 +1,47 @@
+Source: qcom-pal
+Section: misc
+Priority: optional
+Maintainer: Sairamreddy Bojja <quic_sbojja@quicinc.com>
+Rules-Requires-Root: no
+Build-Depends:
+ debhelper-compat (= 13),
+ libglib2.0-0,
+ libglib2.0-dev,
+ qcom-kvh2xml-dev,
+ libtinyalsa2,
+ libtinyalsa-dev,
+ libtinycompress0,
+ libtinycompress-dev,
+ qcom-args,
+ qcom-args-dev,
+ qcom-agm,
+ qcom-agm-dev,
+ qcom-dspservices-headers-dev,
+ qcom-pal-headers-dev,
+ qcom-audioroute,
+ qcom-audioroute-dev,
+Standards-Version: 4.6.2
+Homepage: https://git.codelinaro.org/clo/le/platform/vendor/qcom/opensource/arpal-lx
+
+Package: qcom-pal
+Architecture: arm64
+Depends:
+ ${shlibs:Depends},
+ ${misc:Depends},
+ libtinyalsa2,
+ libtinyalsa-dev,
+ libtinycompress0,
+ libtinycompress-dev,
+ qcom-audioroute-dev,
+ qcom-args,
+ qcom-args-dev,
+Description: Qualcomm pal audio stack
+ Firmware and shared libraries package.
+
+Package: qcom-pal-utils
+Section: utils
+Architecture: arm64
+Depends:
+ ${misc:Depends},
+Description: Qualcomm adsprpcd audio stack development bins
+ Bins-only package.
