@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -71,7 +71,6 @@
 // ASR handlecb def supports
 #include "asr_module_calibration_api.h"
 #include <fcntl.h>
-#include <sys/stat.h>
 #include <sys/klog.h>        /* Definition of SYSLOG_* constants */
 #include <time.h>
 
