@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -497,7 +497,7 @@ private:
     int checkandEnableEC_l(std::shared_ptr<Device> d, Stream *s, bool enable);
     bool checkDeviceSwitchForHaptics(struct pal_device *inDevAttr, struct pal_device *curDevAttr);
     int rwParameterDummyStream(custom_payload_uc_info_t* uc_info,
-                        char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                        const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                         void* param_payload, size_t* payload_size, bool isWrite);
     uint64_t onResourceAvailCookie;
 
@@ -764,14 +764,14 @@ public:
     int setParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size);
     int setCustomParam(custom_payload_uc_info_t* uc_info,
-                     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                     const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                      void* param_payload, size_t payload_size);
     int setSessionParamConfig(uint32_t param_id, Stream *stream, bool enable);
     int handleChargerEvent(Stream *stream, bool enable);
     int getParameter(uint32_t param_id, void **param_payload,
                      size_t *payload_size, void *query = nullptr);
     int getCustomParam(custom_payload_uc_info_t* uc_info,
-                           char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                           const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                            void* param_payload, size_t* payload_size);
     int getVirtualSndCard();
     int getHwSndCard();
