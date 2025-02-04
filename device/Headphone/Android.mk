@@ -40,6 +40,7 @@ LOCAL_SHARED_LIBRARIES := \
     liblx-osal \
     libar-pal \
     libexpat \
+    libpal_sounddose \
     libutilscallstack
 
  ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)

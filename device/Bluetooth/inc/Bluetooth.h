@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -253,7 +253,7 @@ private:
     bool            isA2dpOffloadSupported;
     uint32_t        a2dpLatencyMode;
     uint32_t        codecLatency;
-    std::unique_ptr<SoundDoseUtility> soundDoseUtility;
+    std::unique_ptr<SoundDoseUtility> mSoundDose;
 
     uint32_t getLatency(uint32_t slatency);
     int startPlayback();

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -48,8 +48,6 @@
 #include <sstream>
 #include <string>
 #include <regex>
-#include "sound_dose_api.h"
-#include "SoundDoseUtility.h"
 
 #define PARAM_ID_RESET_PLACEHOLDER_MODULE 0x08001173
 #define BT_IPC_SOURCE_LIB                 "btaudio_offload_if.so"
@@ -1236,13 +1234,7 @@ BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     a2dpLatencyMode = AUDIO_LATENCY_MODE_FREE;
 #endif
 
-    /*check if device type is a2dp source & check if sound dose is enabled.
-     * then Instantiate SoundDoseUtility object for bt device.*/
-    if (a2dpRole == SOURCE && ResourceManager::IsSoundDoseEnabled()) {
-        soundDoseUtility = std::make_unique<SoundDoseUtility>(this , device->id);
-    } else {
-        soundDoseUtility = nullptr;
-    }
+    mSoundDose = std::make_unique<SoundDoseUtility>(this, *device);
 
     if (isA2dpOffloadSupported) {
         init();
@@ -1571,12 +1563,11 @@ int BtA2dp::start()
         }
     }
 
-    /* Call Sound Dose utility to start the sound dose dev graph
-     ** & register for mixer event */
-    if (a2dpRole == SOURCE && soundDoseUtility) {
-        PAL_DBG(LOG_TAG, "Start sound dose %s for dev %d",__func__, deviceAttr.id);
-        soundDoseUtility->startSoundDoseComputation();
+    // start computation for first start instance
+    if (deviceStartStopCount == 0) {
+        mSoundDose->startComputation();
     }
+
     status = Device::start_l();
 
     if (customPayload) {
@@ -1601,12 +1592,13 @@ int BtA2dp::stop()
     if (isAbrEnabled)
         stopAbr();
 
+    // stop computation only when 1 instance is left
+    if (deviceStartStopCount == 1) {
+        mSoundDose->stopComputation();
+    }
+
     Device::stop_l();
 
-    if (a2dpRole == SOURCE && soundDoseUtility) {
-        PAL_DBG(LOG_TAG, "Start sound dose %s for dev %d",__func__, deviceAttr.id);
-        soundDoseUtility->stopSoundDoseComputation();
-    }
     /* Stop sound dose graph & de-register for the events.*/
     status = (a2dpRole == SOURCE) ? stopPlayback() : stopCapture();
     mDeviceMutex.unlock();
