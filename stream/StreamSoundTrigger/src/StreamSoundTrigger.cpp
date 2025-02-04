@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -169,7 +169,6 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
         err = "incorrect number of devices expected 1, got " +
             std::to_string(no_of_devices);
         PAL_ERR(LOG_TAG, "%s", err.c_str());
-        free(mStreamAttr);
         throw std::runtime_error(err);
     }
 
