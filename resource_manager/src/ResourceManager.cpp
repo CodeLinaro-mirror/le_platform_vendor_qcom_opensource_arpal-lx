@@ -2778,10 +2778,9 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             }
             break;
         case PAL_DEVICE_IN_PROXY:
-        case PAL_DEVICE_IN_FM_TUNER:
         case PAL_DEVICE_IN_RECORD_PROXY:
             {
-            /* For PAL_DEVICE_IN_FM_TUNER/PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
+            /* For PAL_DEVICE_IN_PROXY, copy all config from stream attributes */
             if (!sAttr) {
                 PAL_ERR(LOG_TAG, "Invalid parameter.");
                 return -EINVAL;
@@ -14104,6 +14103,14 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
                 PAL_ERR(LOG_TAG, "get A2DP force device switch device parameter failed");
             }
         }
+    }
+
+    /* Special case - stream switch not needed for FM_Tuner and Handset_mic/Speaker_Mic concurrency */
+    if (inDevAttr->id != curDevAttr->id &&
+        (curDevAttr->id == PAL_DEVICE_IN_HANDSET_MIC || curDevAttr->id == PAL_DEVICE_IN_SPEAKER_MIC || curDevAttr->id == PAL_DEVICE_IN_FM_TUNER) &&
+        (inDevAttr->id == PAL_DEVICE_IN_HANDSET_MIC || inDevAttr->id == PAL_DEVICE_IN_SPEAKER_MIC || inDevAttr->id == PAL_DEVICE_IN_FM_TUNER)) {
+        PAL_INFO(LOG_TAG, "No stream switch is needed as current device %d and incoming device %d need to run concurrently", curDevAttr->id, inDevAttr->id);
+        ret = false;
     }
 
 exit:
