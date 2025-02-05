@@ -3875,7 +3875,7 @@ int32_t SVAInterface::RegisterModel(void *s,
 
     if (module_type_ == ST_MODULE_TYPE_GMM) {
         info = new SoundModelInfo();
-        if (!sm_info_map_[s]->info) {
+        if (!info) {
             ALOGE("%s: %d: Failed to allocate memory for SoundModelInfo",
                 __func__, __LINE__);
             status = -ENOMEM;
