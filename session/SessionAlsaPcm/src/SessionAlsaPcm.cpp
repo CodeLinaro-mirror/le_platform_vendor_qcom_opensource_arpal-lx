@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -4009,9 +4009,28 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
     return status;
 }
 
-int SessionAlsaPcm::drain(pal_drain_type_t type __unused)
+int SessionAlsaPcm::drain(pal_drain_type_t type)
 {
-    return 0;
+    int status = 0;
+
+    if (!pcm) {
+        PAL_ERR(LOG_TAG, "PCM is invalid");
+        return -EINVAL;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "Enter drain");
+    if (pcm && isActive()) {
+        //! Short-term solution now.
+        //! Once PAL directly runs on top of upstream tinyalsa, call pcm_drain() here.
+        //! pcm_drain() has already been upstreamed, but not downstreamed to AOSP branches.
+        status = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_DRAIN);
+        if (status)
+            status = errno;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "status %d", status);
+
+    return status;
 }
 
 int SessionAlsaPcm::flush()
