@@ -197,7 +197,7 @@ int payloadCalKeys(Session* s, uint8_t **payload, size_t *size, float volume)
     }
 
     /*get CKV data*/
-    status = s->getParameters(NULL,VOICE_CKV_DATA,0,(void**)&data);
+    status = s->getParameters(NULL,0,(void**)&data);
     if (status) {
          PAL_ERR(LOG_TAG, "failed to get voice ckv data");
          goto exit;
@@ -877,7 +877,7 @@ int plugin_get(Stream* s, plugin_control_name_t control, void **payload,
             goto exit;
          }
          /*get CKV data*/
-         sess->getParameters(NULL,VOICE_CKV_DATA,0,(void**)&data);
+         sess->getParameters(NULL,0,(void**)&data);
          memcpy((bool*)*payload, &(data->volume_boost), sizeof(bool));
          *playload_size = sizeof(bool);
          break;
@@ -889,7 +889,7 @@ int plugin_get(Stream* s, plugin_control_name_t control, void **payload,
             goto exit;
          }
          /*get CKV data*/
-         sess->getParameters(NULL,VOICE_CKV_DATA,0,(void**)&data);
+         sess->getParameters(NULL,0,(void**)&data);
          memcpy((bool*)*payload, &(data->hd_voice), sizeof(bool));
          *playload_size = sizeof(bool);
          break;
