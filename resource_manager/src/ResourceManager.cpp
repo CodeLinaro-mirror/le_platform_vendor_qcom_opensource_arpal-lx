@@ -1365,9 +1365,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                     mActiveStreamMutex.lock();
                 }
             #ifndef SOUND_TRIGGER_FEATURES_DISABLED
-                mResourceManagerMutex.lock();
                 updateCaptureProfiles();
-                mResourceManagerMutex.unlock();
             #endif
                 for (auto str: rm->mActiveStreams) {
                     ret = increaseStreamUserCounter(str);
@@ -7644,7 +7642,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                              device_connection->id);
                     goto exit;
                 }
+                mResourceManagerMutex.unlock();
                 SwitchSoundTriggerDevices(device_connection->connection_state, st_device);
+                mResourceManagerMutex.lock();
             #endif
             } else {
                 PAL_ERR(LOG_TAG,"Incorrect size : expected (%zu), received(%zu)",
@@ -7878,9 +7878,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         break;
         default:
     #ifndef SOUND_TRIGGER_FEATURES_DISABLED
+            mResourceManagerMutex.unlock();
             status = setSTParameter(param_id, param_payload, payload_size);
             if (status != -ENOENT)
-                goto exit;
+                goto exit_no_unlock;
+            mResourceManagerMutex.lock();
     #endif
     #ifndef BLUETOOTH_FEATURES_DISABLED
             status = setBTParameter(param_id, param_payload, payload_size);
