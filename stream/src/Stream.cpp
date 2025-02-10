@@ -1401,7 +1401,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     for (int i = 0; i < numDev; i++) {
         struct pal_device_info devinfo = {};
         bool devReadyStatus = 0;
-        uint32_t retryCnt = 20;
+        uint32_t retryCnt = 3;
         uint32_t retryPeriodMs = 100;
         pal_param_bta2dp_t* param_bt_a2dp = nullptr;
         std::shared_ptr<Device> dev = nullptr;
