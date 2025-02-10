@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -320,6 +320,20 @@ int32_t StreamSoundTrigger::close() {
     return status;
 }
 
+void StreamSoundTrigger::UpdateCaptureHandleInfo(bool start) {
+    PAL_VERBOSE(LOG_TAG, "start %d, capture requested %d, capture handle %d,"
+                " pal handle %pK", start, rec_config_->capture_requested,
+                rec_config_->capture_handle, this);
+
+    if (!rec_config_->capture_requested) {
+        return;
+    }
+    pal_param_st_capture_info_t stCaptureInfo;
+    stCaptureInfo.capture_handle = rec_config_->capture_handle;
+    stCaptureInfo.pal_handle = reinterpret_cast<pal_stream_handle_t *>(this);
+    rm->RegisterSTCaptureHandle(stCaptureInfo, start);
+}
+
 int32_t StreamSoundTrigger::start() {
     int32_t status = 0;
     stream_state_t prev_state;
@@ -341,9 +355,11 @@ int32_t StreamSoundTrigger::start() {
        new StStartRecognitionEventConfig(false));
     status = cur_state_->ProcessEvent(ev_cfg);
     // restore cached state if start fails
-    if (status)
+    if (status) {
         currentState = prev_state;
-
+    } else {
+        UpdateCaptureHandleInfo(true);
+    }
     rm->unlockActiveStream();
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
@@ -360,6 +376,7 @@ int32_t StreamSoundTrigger::stop() {
      */
     rm->lockActiveStream();
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    UpdateCaptureHandleInfo(false);
     currentState = STREAM_STOPPED;
 
     std::shared_ptr<StEventConfig> ev_cfg(
@@ -1897,15 +1914,37 @@ bool StreamSoundTrigger::compareRecognitionConfig(
     }
 }
 
-int32_t StreamSoundTrigger::notifyClient(bool detection) {
+int32_t StreamSoundTrigger::notifyClient(uint32_t detection) {
     int32_t status = 0;
     struct pal_st_recognition_event *rec_event = nullptr;
-    uint32_t event_size;
+    struct pal_st_phrase_recognition_event *phrase_rec_event = nullptr;
+    uint32_t event_size = 0;
     ChronoSteadyClock_t notify_time;
     uint64_t total_process_duration = 0;
     bool lock_status = false;
 
-    PostDelayedStop();
+    if (detection == PAL_RECOGNITION_STATUS_ABORT) {
+        phrase_rec_event = (struct pal_st_phrase_recognition_event*)calloc(1,
+            sizeof(struct pal_st_phrase_recognition_event));
+        if (phrase_rec_event == nullptr) {
+            PAL_ERR(LOG_TAG, "abort event allocation failed");
+            return -ENOMEM;
+        }
+        // abort event doesn't require any associated payload params.
+        phrase_rec_event->common.status = PAL_RECOGNITION_STATUS_ABORT;
+        if (callback_) {
+            currentState = STREAM_STOPPED;
+            PAL_INFO(LOG_TAG, "Notify abort event to client");
+            mStreamMutex.unlock();
+            callback_((pal_stream_handle_t *)this, 0, (uint32_t *)&phrase_rec_event->common,
+                       event_size, cookie_);
+            mStreamMutex.lock();
+        }
+        free(phrase_rec_event);
+        goto exit;
+    } else {
+        PostDelayedStop();
+    }
 
     status = GenerateCallbackEvent(&rec_event, &event_size,
                                                 detection);
@@ -1957,6 +1996,7 @@ int32_t StreamSoundTrigger::notifyClient(bool detection) {
 
     free(rec_event);
 
+exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -2148,7 +2188,7 @@ void StreamSoundTrigger::FillCallbackConfLevels(uint8_t *opaque_data,
 
 int32_t StreamSoundTrigger::GenerateCallbackEvent(
     struct pal_st_recognition_event **event, uint32_t *evt_size,
-    bool detection) {
+    uint32_t detection) {
 
     struct pal_st_phrase_recognition_event *phrase_event = nullptr;
     struct pal_st_generic_recognition_event *generic_event = nullptr;
@@ -2217,8 +2257,7 @@ int32_t StreamSoundTrigger::GenerateCallbackEvent(
                sizeof(struct pal_st_phrase_recognition_extra));
 
         *event = &(phrase_event->common);
-        (*event)->status = detection ? PAL_RECOGNITION_STATUS_SUCCESS :
-                           PAL_RECOGNITION_STATUS_FAILURE;
+        (*event)->status = detection;
         (*event)->type = sound_model_type_;
         (*event)->st_handle = (pal_st_handle_t *)this;
         (*event)->capture_available = rec_config_->capture_requested;
@@ -3377,7 +3416,13 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
         }
         case ST_EV_START_RECOGNITION: {
             if (st_stream_.paused_) {
-               break; // Concurrency is active, start later.
+                /*
+                 * Send -EBUSY (resource_contention) to framework when audio concurrency
+                 * is active. Framework attempts to start recognition after we notify
+                 * through OnResourcesAvailable API when audio concurrency is inactive.
+                 */
+                status = -EBUSY;
+                break;
             }
             StStartRecognitionEventConfigData *data =
                 (StStartRecognitionEventConfigData *)ev_cfg->data_.get();
@@ -3755,7 +3800,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                 st_stream_.SetDetectedToEngines(true);
             }
             if (st_stream_.engines_.size() == 1) {
-                st_stream_.notifyClient(true);
+                st_stream_.notifyClient(PAL_RECOGNITION_STATUS_SUCCESS);
             }
             break;
         }
@@ -3826,6 +3871,14 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                     PAL_ERR(LOG_TAG, "Failed to unload sound model, status = %d",
                             status);
                 }
+            }
+            if (ev_cfg->id_ == ST_EV_PAUSE) {
+                /*
+                 * Framework will start recognition later when we inform
+                 * onResourcesAvailable callback after the audio concurrency
+                 * is inactive.
+                 */
+                status = st_stream_.notifyClient(PAL_RECOGNITION_STATUS_ABORT);
             }
             break;
         }
@@ -4103,6 +4156,9 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                             status);
                 }
             }
+            if (ev_cfg->id_ == ST_EV_PAUSE)
+                status = st_stream_.notifyClient(PAL_RECOGNITION_STATUS_ABORT);
+
             rm->releaseWakeLock();
             break;
         }
@@ -4397,6 +4453,9 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                             status);
                 }
             }
+            if (ev_cfg->id_ == ST_EV_PAUSE)
+                status = st_stream_.notifyClient(PAL_RECOGNITION_STATUS_ABORT);
+
             rm->releaseWakeLock();
             break;
         }
@@ -4439,7 +4498,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
 
                 if (st_stream_.st_info_->GetNotifySecondStageFailure()) {
                     st_stream_.rejection_notified_ = true;
-                    st_stream_.notifyClient(false);
+                    st_stream_.notifyClient(PAL_RECOGNITION_STATUS_FAILURE);
                 } else {
                     PAL_DBG(LOG_TAG, "Notification for second stage rejection is disabled");
                     for (auto& eng : st_stream_.engines_) {
@@ -4474,7 +4533,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                     }
                     TransitTo(ST_STATE_DETECTED);
                 }
-                st_stream_.notifyClient(true);
+                st_stream_.notifyClient(PAL_RECOGNITION_STATUS_SUCCESS);
             }
             break;
         }
@@ -4711,6 +4770,7 @@ int32_t StreamSoundTrigger::StSSR::ProcessEvent(
         }
         case ST_EV_PAUSE: {
             st_stream_.paused_ = true;
+            status = st_stream_.notifyClient(PAL_RECOGNITION_STATUS_ABORT);
             break;
         }
         case ST_EV_RESUME: {

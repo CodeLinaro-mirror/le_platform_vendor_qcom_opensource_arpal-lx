@@ -4615,6 +4615,7 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
     std::vector<pal_stream_type_t> st_streams;
     bool do_st_stream_switch = false;
     bool use_lpi_temp = use_lpi_;
+    bool st_stream_conc_en = true;
 
     mActiveStreamMutex.lock();
     PAL_DBG(LOG_TAG, "Enter, stream type %d, direction %d, active %d", type, dir, active);
@@ -4624,7 +4625,6 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
     st_streams.push_back(PAL_STREAM_SENSOR_PCM_DATA);
 
     for (pal_stream_type_t st_stream_type : st_streams) {
-        bool st_stream_conc_en = true;
         bool st_stream_tx_conc = false;
         bool st_stream_rx_conc = false;
 
@@ -4660,6 +4660,14 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
                 }
             }
         }
+    }
+
+    /*
+     * The usecases using ST framework register the onResourcesAvailable callback.
+     * Notify the framework upon concurrency is inactive.
+     */
+    if (onResourceAvailCb && !st_stream_conc_en && !active) {
+        onResourceAvailCb(onResourceAvailCookie);
     }
 
     /* Reset enable counts to 0 if they are negative */
@@ -6638,6 +6646,7 @@ int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, st
                 PAL_DBG(LOG_TAG,"connected stream %pK from device %d",
                         std::get<0>(*sIter), (std::get<1>(*sIter))->id);
             }
+            std::get<0>(*sIter)->unlockStreamMutex();
         }
     }
 
@@ -6751,6 +6760,18 @@ int32_t ResourceManager::streamDevSwitch(std::vector <std::tuple<Stream *, uint3
         PAL_ERR(LOG_TAG, "Connect failed");
     }
 
+    for (sIter2 = streamDevConnectList.begin(); sIter2 != streamDevConnectList.end(); sIter2++) {
+        if ((std::get<0>(*sIter2) != NULL) && isStreamActive(std::get<0>(*sIter2), mActiveStreams)) {
+            for (sIter = uniqueStreamsList.begin(); sIter != uniqueStreamsList.end(); sIter++) {
+                if (*sIter == std::get<0>(*sIter2)) {
+                    uniqueStreamsList.erase(sIter);
+                    PAL_VERBOSE(LOG_TAG, "already unlocked, remove stream %pK from list",
+                                std::get<0>(*sIter2));
+                    break;
+                }
+            }
+        }
+    }
 exit:
     // unlock all stream mutexes
     for (sIter = uniqueStreamsList.begin(); sIter != uniqueStreamsList.end(); sIter++) {
@@ -7009,6 +7030,7 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     int status = 0;
     std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnect;
     std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnect;
+    std::vector <std::tuple<Stream *, uint32_t>> sharedBEStreamDev;
     std::vector<Stream*>::iterator sIter;
 
     if (!inDev || !newDevAttr) {
@@ -7026,6 +7048,31 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     }
     mActiveStreamMutex.unlock();
     status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
+    if (status) {
+        PAL_ERR(LOG_TAG, "forceDeviceSwitch failed %d, reset usecases", status);
+        struct pal_device curDevAttr  = {};
+        std::shared_ptr<Device> curDev = nullptr;
+
+        mActiveStreamMutex.lock();
+        getSharedBEActiveStreamDevs(sharedBEStreamDev, newDevAttr->id);
+        if (sharedBEStreamDev.size() > 0) {
+            curDevAttr.id = (pal_device_id_t)std::get<1>(sharedBEStreamDev[0]);
+            curDev = Device::getInstance(&curDevAttr, rm);
+            if (!curDev) {
+                PAL_ERR(LOG_TAG, "Getting Device instance failed");
+                return 0;
+            }
+            curDev->getDeviceAttributes(&curDevAttr);
+            ar_mem_cpy(newDevAttr, sizeof(struct pal_device),
+                      &curDevAttr, sizeof(struct pal_device));
+            for (const auto &elem : sharedBEStreamDev) {
+                streamDevDisconnect.push_back(elem);
+                streamDevConnect.push_back({std::get<0>(elem), &curDevAttr});
+            }
+        }
+        mActiveStreamMutex.unlock();
+        status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
+    }
     if (!status) {
         mActiveStreamMutex.lock();
         for (sIter = prevActiveStreams.begin(); sIter != prevActiveStreams.end(); sIter++) {
@@ -7037,8 +7084,6 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
             }
         }
         mActiveStreamMutex.unlock();
-    } else {
-        PAL_ERR(LOG_TAG, "forceDeviceSwitch failed %d", status);
     }
 
     return 0;
@@ -8190,6 +8235,20 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             **(bool **)param_payload = isHifiFilterEnabled;
         }
         break;
+        case PAL_PARAM_ID_ST_CAPTURE_INFO:
+        {
+            pal_param_st_capture_info_t *stCaptureInfo =
+                                    (pal_param_st_capture_info_t *) param_payload;
+            int captureHandle = stCaptureInfo->capture_handle;
+            if (mStCaptureInfo.find(captureHandle) != mStCaptureInfo.end()) {
+                stCaptureInfo->pal_handle = mStCaptureInfo[captureHandle];
+                PAL_VERBOSE(LOG_TAG, "getParameter capture handle %d, pal handle %pK",
+                                                captureHandle, stCaptureInfo->pal_handle);
+            } else {
+                PAL_ERR(LOG_TAG, "capture handle not found %d", captureHandle);
+            }
+        }
+        break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
@@ -9014,6 +9073,22 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 }
                 PAL_INFO(LOG_TAG, "PAL_PARAM_ID_SET_SINK_METADATA device setparam");
                 dev->setDeviceParameter(param_id, param_payload);
+            }
+        }
+        break;
+        case PAL_PARAM_ID_RESOURCES_AVAILABLE:
+        {
+            pal_param_resources_available_t *resources_avail =
+                (pal_param_resources_available_t *)param_payload;
+            if (resources_avail) {
+                onResourceAvailCb =
+                    (SoundTriggerOnResourceAvailableCallback)resources_avail->callback;
+                onResourceAvailCookie = resources_avail->cookie;
+                PAL_VERBOSE(LOG_TAG, "setParameter onResourceAvailCb %pk"
+                    " onResourceAvailCookie %pk", onResourceAvailCb, onResourceAvailCookie);
+            } else {
+                PAL_ERR(LOG_TAG, "Invalid ST resource payload");
+                status = -EINVAL;
             }
         }
         break;
@@ -11400,4 +11475,15 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
 
 exit:
     return ret;
+}
+
+void ResourceManager::RegisterSTCaptureHandle(pal_param_st_capture_info_t stCaptureInfo,
+                                              bool start) {
+    PAL_DBG(LOG_TAG, "start %d, capture handle %d, pal handle %pK",
+                          start, stCaptureInfo.capture_handle, stCaptureInfo.pal_handle);
+    if (start) {
+        mStCaptureInfo[stCaptureInfo.capture_handle] = stCaptureInfo.pal_handle;
+    } else {
+        mStCaptureInfo.erase(stCaptureInfo.capture_handle);
+    }
 }

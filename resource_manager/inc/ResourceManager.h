@@ -360,6 +360,8 @@ enum NTStreamTypes_t : uint32_t {
     NT_PATH_DECODE
 };
 
+typedef void (*SoundTriggerOnResourceAvailableCallback)(uint64_t cookie);
+
 typedef void (*session_callback)(uint64_t hdl, uint32_t event_id, void *event_data,
                 uint32_t event_size);
 bool isPalPCMFormat(uint32_t fmt_id);
@@ -458,6 +460,8 @@ private:
     void onChargingStateChange();
     void onVUIStreamRegistered();
     void onVUIStreamDeregistered();
+    SoundTriggerOnResourceAvailableCallback onResourceAvailCb = NULL;
+    uint64_t onResourceAvailCookie;
 protected:
     std::list <Stream*> mActiveStreams;
     std::list <StreamPCM*> active_streams_ll;
@@ -578,6 +582,8 @@ protected:
     int32_t scoOutConnectCount = 0;
     int32_t scoInConnectCount = 0;
     std::shared_ptr<SignalHandler> mSigHandler;
+    std::unordered_map<int, pal_stream_handle_t *> mStCaptureInfo;
+
 public:
     ~ResourceManager();
     static bool mixerClosed;
@@ -941,6 +947,7 @@ public:
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
     static void sendCrashSignal(int signal, pid_t pid, uid_t uid);
+    void RegisterSTCaptureHandle(pal_param_st_capture_info_t stCaptureInfo, bool start);
 };
 
 static int getSocId() {
