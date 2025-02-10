@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1551,7 +1551,7 @@ set_mixer:
                 }
             }
 
-            if (!status && isMixerEventCbRegd) {
+            if (!status && isMixerEventCbRegd && !txAifBackEnds.empty()) {
                 // Register for callback for Mic Occlusion Notification
                 size_t payload_size = 0;
                 struct agm_event_reg_cfg event_cfg;
@@ -1565,11 +1565,10 @@ set_mixer:
                     goto exit;
                 }
 
-                if (!txAifBackEnds.empty())
-                    status = SessionAlsaUtils::registerMixerEvent(mixer,
-                                    pcmDevIds.at(0), txAifBackEnds[0].second.data(),
-                                    TAG_MODULE_MIC_OCCLUSION_DET,
-                                    (void *)&event_cfg, payload_size);
+                status = SessionAlsaUtils::registerMixerEvent(mixer,
+                                pcmDevIds.at(0), txAifBackEnds[0].second.data(),
+                                TAG_MODULE_MIC_OCCLUSION_DET,
+                                (void *)&event_cfg, payload_size);
                 if (status == 0) {
                     PAL_DBG(LOG_TAG, "micOcclusion EventCallback Registration is SUCCESS!");
                     isMicOcclusionRegistrationDone = true;
