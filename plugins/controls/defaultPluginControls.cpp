@@ -30,7 +30,7 @@
 /*
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -328,13 +328,13 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
     const char *stream_compress = "COMPRESS";
     const char *setCalibrationControl = "setCalibration";
     struct mixer_ctl *ctl = nullptr;
-    struct agm_cal_config *calConfig = nullptr;
-    std::ostringstream calCntrlName;
     pal_stream_attributes sAttr;
+    std::ostringstream calCntrlName;
     Session *sess = nullptr;
     struct mixer *mixer;
     int ckv_size = 0;
-    int deviceId;
+    int deviceIds[2] = {0};
+    int nDevices = 0;
 
     if (!s) {
         PAL_ERR(LOG_TAG,"invalid streeam handle");
@@ -370,69 +370,80 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
         goto exit;
     }
 
-    status = sess->getPCMDeviceID(s, &deviceId);
+    nDevices = (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT) ? 2 : 1;
+    status = sess->getPCMDeviceID(s, deviceIds);
     if (status) {
         PAL_ERR(LOG_TAG,"failed to get device id");
         goto exit;
     }
 
-    if (voldB > 1.0) {
-        // need to rebase voldB level
-        // doing a map for volume in audio hal is recommended if volume range is
-        // not 0.0 ~ 1.0
-        voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
-    }
-    PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f", streamNameLUT.at(sAttr.type).c_str(), voldB);
+    PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f to %d devices",
+             streamNameLUT.at(sAttr.type).c_str(), voldB, nDevices);
 
-    for (int i = LEVEL_15; i >= LEVEL_0; i--) {
-        if (voldB <= (float)pow(10.0, i * HFP_VOLUME_DB_LINEAR_STEP / 20)) {
-            ckv.push_back(std::make_pair(VOLUME, i));
-            PAL_INFO(LOG_TAG, "select VOLUME_LEVEL_%d", i);
-            break;
+    for(int ii = 0; ii < nDevices; ii++) {
+        struct agm_cal_config *calConfig = nullptr;
+        if (voldB > 1.0) {
+            // need to rebase voldB level
+            // doing a map for volume in audio hal is recommended if volume range is
+            // not 0.0 ~ 1.0
+            voldB = ((voldB > 15.000000) ? 1.0 : (voldB / 15));
         }
+        PAL_INFO(LOG_TAG, "Set stream (%s) volume to %f",
+                 streamNameLUT.at(sAttr.type).c_str(), voldB);
+
+        for (int i = MIN_VOLUME_ON_LEVEL; i >= MAX_VOLUME_ON_LEVEL; i--) {
+            if (voldB <= (float)pow(10.0, i * HFP_VOLUME_DB_LINEAR_STEP / 20)) {
+                ckv.push_back(std::make_pair(VOLUME, i));
+                PAL_INFO(LOG_TAG, "select VOLUME_LEVEL_%d", i);
+                break;
+            }
+        }
+
+        if (ckv.size() == 0) {
+            PAL_ERR(LOG_TAG, "no ckv got with voldB: %f", voldB);
+            status = -EINVAL;
+            goto next_dev;
+        }
+
+        calConfig = (struct agm_cal_config*)malloc(sizeof(struct agm_cal_config) +
+                                                   (ckv.size() * sizeof(agm_key_value)));
+
+        if (!calConfig) {
+            status = -EINVAL;
+            goto next_dev;
+        }
+
+        status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
+        if (sAttr.type == PAL_STREAM_COMPRESSED) {
+            calCntrlName<<stream_compress<<deviceIds[ii]<<" "<<setCalibrationControl;
+        } else {
+            calCntrlName<<stream<<deviceIds[ii]<<" "<<setCalibrationControl;
+        }
+
+        ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
+        if (!ctl) {
+            PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
+            status = -ENOENT;
+            goto next_dev;
+        }
+
+        ckv_size = ckv.size()*sizeof(struct agm_key_value);
+        status = mixer_ctl_set_array(ctl, calConfig, sizeof(struct agm_cal_config) + ckv_size);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
+            goto next_dev;
+        }
+
+next_dev:
+        ctl = NULL;
+        if (calConfig)
+            free(calConfig);
+        ckv.clear();
+        calCntrlName.str("");
+        calCntrlName.clear();
     }
 
-    if (ckv.size() == 0) {
-        PAL_ERR(LOG_TAG, "no ckv got with voldB: %f", voldB);
-        status = -EINVAL;
-        goto exit;
-    }
-
-    calConfig = (struct agm_cal_config*)malloc(sizeof(struct agm_cal_config) +
-                                               (ckv.size() * sizeof(agm_key_value)));
-
-    if (!calConfig) {
-        status = -EINVAL;
-        goto exit;
-    }
-
-    status = SessionAlsaUtils::getCalMetadata(ckv, calConfig);
-    if (sAttr.type == PAL_STREAM_COMPRESSED) {
-        calCntrlName<<stream_compress<<deviceId<<" "<<setCalibrationControl;
-    } else {
-        calCntrlName<<stream<<deviceId<<" "<<setCalibrationControl;
-    }
-
-    ctl = mixer_get_ctl_by_name(mixer, calCntrlName.str().data());
-    if (!ctl) {
-        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName.str().data());
-        status = -ENOENT;
-        goto exit;
-    }
-
-    ckv_size = ckv.size()*sizeof(struct agm_key_value);
-    status = mixer_ctl_set_array(ctl, calConfig, sizeof(struct agm_cal_config) + ckv_size);
-    if (status != 0) {
-        PAL_ERR(LOG_TAG,"failed to set the tag calibration %d", status);
-        goto exit;
-    }
-
- exit:
-    ctl = NULL;
-    if (calConfig)
-        free(calConfig);
-    ckv.clear();
-
+exit:
     return status;
 }
 
