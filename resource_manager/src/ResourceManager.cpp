@@ -4311,9 +4311,13 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     }
 
     // callback
-    session_cb(cookie, params->event_id, (void *)params->event_payload,
+    if (params->event_id == AGM_EVENT_EARLY_EOS ||
+        params->event_id == AGM_EVENT_EARLY_EOS_INTERNAL) {
+         PAL_DBG(LOG_TAG, "Event will be handled by offload Thread loop");
+    } else {
+        session_cb(cookie, params->event_id, (void *)params->event_payload,
                  params->event_payload_size);
-
+    }
 exit:
     if (buf)
         free(buf);
