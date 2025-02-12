@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear -->
 
 <resource_manager_info>
@@ -431,11 +431,11 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_HANDSET_VA_MIC</id>
-            <back_end_name>CODEC_DMA-LPAIF_VA-TX-0</back_end_name>
+            <back_end_name>MI2S-LPAIF_RXTX-TX-PRIMARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
+            <bit_width>32</bit_width>
             <snd_device_name>va-mic</snd_device_name>
             <ec_enable>1</ec_enable>
             <ec_rx_device>
@@ -909,6 +909,8 @@
             <back_end_name>DISPLAY_PORT-RX</back_end_name>
             <max_channels>32</max_channels>
             <channels>2</channels>
+            <samplerate>44100</samplerate>
+            <bit_width>24</bit_width>
             <snd_device_name>display-port</snd_device_name>
             <fractional_sr>1</fractional_sr>
             <usecase>
@@ -1140,7 +1142,7 @@
             <capture_profile name="SINGLE_MIC_16KHZ_16BIT_RAW_LPI">
                 <param sample_rate="16000" />
                 <param channels="1" />
-                <param bit_width="16" />
+                <param bit_width="32" />
                 <param snd_name="va-mic-mono-lpi" />
                 <param ec_ref="false" />
             </capture_profile>
@@ -1255,7 +1257,7 @@
             <capture_profile name="DUAL_MIC_16KHZ_16BIT_FFECNS">
                 <param sample_rate="16000" />
                 <param channels="2" />
-                <param bit_width="16" />
+                <param bit_width="32" />
                 <param snd_name="va-mic-dmic" />
                 <param ec_ref="true" />
             </capture_profile>
