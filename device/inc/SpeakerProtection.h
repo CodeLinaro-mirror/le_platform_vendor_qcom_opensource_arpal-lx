@@ -154,6 +154,7 @@ protected :
     static int numberOfRequest;
     static struct pal_device_info vi_device;
     static struct pal_device_info cps_device;
+    static bool is_vi_low;
 
 private :
 
