@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -610,7 +610,7 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload, size_t pay
 }
 
 int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size) {
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size) {
 
     auto client = getPal();
     RETURN_IF_PAL_SERVICE_NOT_REGISTERED(client);
@@ -631,7 +631,7 @@ int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
 }
 
 int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size) {
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size) {
 
     auto client = getPal();
     RETURN_IF_PAL_SERVICE_NOT_REGISTERED(client);
@@ -661,7 +661,7 @@ int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
 }
 
 int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size){
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size){
 
     auto client = getPal();
     RETURN_IF_PAL_SERVICE_NOT_REGISTERED(client);
@@ -683,7 +683,7 @@ int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
 }
 
 int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size){
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size){
     auto client = getPal();
     RETURN_IF_PAL_SERVICE_NOT_REGISTERED(client);
 

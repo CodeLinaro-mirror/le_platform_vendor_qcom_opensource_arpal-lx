@@ -7341,7 +7341,7 @@ exit:
 
 
 int ResourceManager::getCustomParam(custom_payload_uc_info_t* uc_info,
-                                        char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                        const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                         void* param_payload, size_t* payload_size)
 {
     int status = -EINVAL;
@@ -7786,7 +7786,7 @@ exit_no_unlock:
 
 
 int ResourceManager::setCustomParam(custom_payload_uc_info_t* uc_info,
-                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                     void* param_payload, size_t payload_size)
 {
     int status = -EINVAL;
@@ -7828,7 +7828,7 @@ int ResourceManager::setCustomParam(custom_payload_uc_info_t* uc_info,
 }
 
 int ResourceManager::rwParameterDummyStream(custom_payload_uc_info_t* uc_info,
-                        char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                        const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                         void* param_payload, size_t* payload_size, bool isWrite)
 {
     int status = -EINVAL;

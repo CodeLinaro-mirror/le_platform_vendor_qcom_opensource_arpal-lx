@@ -527,7 +527,7 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie);
   * \return 0 on success, error code otherwise
   */
 int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
 
 
 /**
@@ -562,7 +562,7 @@ int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
   * \return 0 on success, error code otherwise
   */
 int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
 
 
 /**
@@ -583,7 +583,7 @@ int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
   * \return 0 on success, error code otherwise
   */
 int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
-    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size);
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size);
 
 #ifdef __cplusplus
 }  /* extern "C" */
