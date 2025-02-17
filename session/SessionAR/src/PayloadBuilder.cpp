@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2558,6 +2558,19 @@ int PayloadBuilder::populateStreamKV(Stream* s, std::vector<std::pair<int,int>> 
             retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
         } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
            /* no StreamKV for HFP TX */
+        } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_FM) {
+            /* no StreamKV FM TX */
+            PAL_DBG(LOG_TAG, "stream type %d", sattr->type);
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "RX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+                loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs, sattr->type, all_streams, keyVectorRx);
+
+            filled_selector_pairs.clear();
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "TX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+                loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs, sattr->type, all_streams, keyVectorTx);
         } else {
             selector_names = retrieveSelectors(sattr->type, all_streams);
             if (selector_names.empty() != true)
@@ -3324,6 +3337,16 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             keyVector.push_back(std::make_pair(STREAM_CHANNELS,
                 sAttr.in_media_config.ch_info.channels));
             break;
+        case PAL_STREAM_LOOPBACK:
+            PAL_INFO(LOG_TAG, "populate for hfp NB/WB CKV, sample rate=%d", sAttr.in_media_config.sample_rate);
+            if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_16K) {
+                keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
+            } else if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_8K) {
+                keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
+            }
+            keyVector.push_back(std::make_pair(VOLUME, LEVEL_15));
+            PAL_DBG(LOG_TAG, "Entered loopback %x %x", VOLUME, LEVEL_15);
+            break;
         default:
             /*
              * Sending volume minimum as we want to ramp up instead of ramping
@@ -3459,6 +3482,13 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 /* TBD: Push Channels for these types once Channels are added */
                 //keyVector.push_back(std::make_pair(CHANNELS,
                 //                                   dAttr.config.ch_info.channels));
+                break;
+            case PAL_STREAM_LOOPBACK:
+                if (sattr->in_media_config.sample_rate == SAMPLINGRATE_16K) {
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
+                } else if (sattr->in_media_config.sample_rate == SAMPLINGRATE_8K) {
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
+                }
                 break;
             default:
                 PAL_VERBOSE(LOG_TAG,"stream type %d doesn't support DevicePP CKV ", sattr->type);
@@ -3723,6 +3753,17 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
     }
 
     switch (tag) {
+    case PUSHPULL_CHMIXER_COEFFICIENT:
+        if (sAttr.in_media_config.ch_info.channels == 3) {
+            tkv.push_back(std::make_pair(PUSH_PULL_CHMIXER_COEFF, PUSH_PULL_CHMIXER_COEFF_3CH));
+        } else if (sAttr.in_media_config.ch_info.channels == 5) {
+            tkv.push_back(std::make_pair(PUSH_PULL_CHMIXER_COEFF, PUSH_PULL_CHMIXER_COEFF_5CH));
+        } else {
+            PAL_ERR(LOG_TAG, "valid out_num_channels for CHMIXER is 3CH and 5CH, returning error\n");
+            status = -EINVAL;
+        }
+        *gsltag = TAG_STREAM_PUSH_PULL_CHMIXER_COEFF;
+        break;
     case CRS_CALL_VOLUME:
        voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
                          (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -958,8 +958,12 @@ int SessionAlsaPcm::setTKV(Stream * s, configType type, effect_pal_payload_t *ef
             }
 
             if (PAL_STREAM_LOOPBACK == sAttr.type) {
-                if (pcmDevRxIds.size() > 0)
+                if (pcmDevRxIds.size() > 0 &&
+                    sAttr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_RX)
                     tagCntrlName<<stream<<pcmDevRxIds.at(0)<<" "<<setParamTagControl;
+                else if (pcmDevTxIds.size() > 0 &&
+                    sAttr.info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX)
+                    tagCntrlName<<stream<<pcmDevTxIds.at(0)<<" "<<setParamTagControl;
             } else {
                 if (pcmDevIds.size() > 0)
                     tagCntrlName<<stream<<pcmDevIds.at(0)<<" "<<setParamTagControl;
@@ -1329,7 +1333,6 @@ int SessionAlsaPcm::start(Stream * s)
                 (sAttr.type != PAL_STREAM_ASR) &&
                 (sAttr.type != PAL_STREAM_CONTEXT_PROXY) &&
                 (sAttr.type != PAL_STREAM_SENSOR_PCM_DATA) &&
-                (sAttr.type != PAL_STREAM_ULTRA_LOW_LATENCY) &&
                 (sAttr.type != PAL_STREAM_COMMON_PROXY)) {
                 /* Get MFC MIID and configure to match to stream config */
                 /* This has to be done after sending all mixer controls and before connect */
@@ -1495,6 +1498,13 @@ set_mixer:
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
+                }
+                if (sAttr.type == PAL_STREAM_ULTRA_LOW_LATENCY ||
+                    sAttr.type == PAL_STREAM_LOW_LATENCY) {
+                    status = setConfig(s, MODULE, PUSHPULL_CHMIXER_COEFFICIENT);
+
+                    if (status)
+                        PAL_ERR(LOG_TAG, "Failed setConfig status=%d", status);
                 }
                 if (sAttr.type == PAL_STREAM_VOICE_CALL_RECORD) {
                     status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
@@ -2968,8 +2978,14 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
 
 int SessionAlsaPcm::read(Stream *s, struct pal_buffer *buf, int * size)
 {
-    int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0;
+    int status = 0, bytesRead = 0, bytesToRead = 0, offset = 0, pcmReadSize = 0, rc = 0;
     struct pal_stream_attributes sAttr = {};
+
+    uint64_t timestamp = 0;
+    const char *control = "bufTimestamp";
+    const char *stream = "PCM";
+    struct mixer_ctl *ctl;
+    std::ostringstream CntrlName;
 
     PAL_VERBOSE(LOG_TAG, "Enter")
     status = s->getStreamAttributes(&sAttr);
@@ -3006,6 +3022,30 @@ int SessionAlsaPcm::read(Stream *s, struct pal_buffer *buf, int * size)
             PAL_ERR(LOG_TAG, "Failed to read data %d bytes read %d", status, pcmReadSize);
             break;
         }
+        if (!bytesRead && buf->ts) {
+            CntrlName << stream << pcmDevIds.at(0) << " " << control;
+            ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+            if (!ctl) {
+                PAL_ERR(LOG_TAG, "fail to fetch hardware timestamp, Invalid mixer control: %s\n", CntrlName.str().data());
+                bytesRead += pcmReadSize;
+                continue;
+            }
+
+            rc = mixer_ctl_get_array(ctl, (void *)&timestamp, sizeof(uint64_t));
+            if (0 != rc) {
+                PAL_ERR(LOG_TAG, "fail to fetch hardware timestamp, Get timestamp failed, rc = %d", rc);
+                bytesRead += pcmReadSize;
+                continue;
+            }
+            /* timestamp is splitted into sec and nsec,
+               it is not the exact conversion but the fraction is converted to nsec
+            */
+            buf->ts->tv_sec = timestamp / 1000000;
+            buf->ts->tv_nsec = (timestamp - buf->ts->tv_sec * 1000000) * 1000;
+            PAL_VERBOSE(LOG_TAG, "Timestamp %llu, tv_sec = %lu, tv_nsec = %lu",
+                       (long long)timestamp, buf->ts->tv_sec, buf->ts->tv_nsec);
+        }
+
 
         bytesRead += pcmReadSize;
     }
@@ -3542,7 +3582,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 goto exit;
             }
             if (sAttr.direction == PAL_AUDIO_OUTPUT &&
-               (sAttr.type == PAL_STREAM_DEEP_BUFFER || PAL_STREAM_PCM_OFFLOAD)) {
+               ((sAttr.type == PAL_STREAM_DEEP_BUFFER) || (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                          rxAifBackEnds[0].second.data(), tagId, &miid);
                 PAL_DBG(LOG_TAG, "Gainlog - Get MIID status - %d", status);
@@ -3969,9 +4009,28 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
     return status;
 }
 
-int SessionAlsaPcm::drain(pal_drain_type_t type __unused)
+int SessionAlsaPcm::drain(pal_drain_type_t type)
 {
-    return 0;
+    int status = 0;
+
+    if (!pcm) {
+        PAL_ERR(LOG_TAG, "PCM is invalid");
+        return -EINVAL;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "Enter drain");
+    if (pcm && isActive()) {
+        //! Short-term solution now.
+        //! Once PAL directly runs on top of upstream tinyalsa, call pcm_drain() here.
+        //! pcm_drain() has already been upstreamed, but not downstreamed to AOSP branches.
+        status = pcm_ioctl(pcm, SNDRV_PCM_IOCTL_DRAIN);
+        if (status)
+            status = errno;
+    }
+
+    PAL_VERBOSE(LOG_TAG, "status %d", status);
+
+    return status;
 }
 
 int SessionAlsaPcm::flush()
