@@ -1075,27 +1075,6 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                 break;
         }
 
-        /*
-        * When headset is disconnected the music playback pauses
-        * and the policy manager sends routing=0. But if the headset is connected
-        * back before the standby time, it can not switch device to headset any more
-        * because current pal device is headset which equals new device when resuming playback.
-        * So routing to default device first during handling routing = 0 msg will guarantee
-        * the device switch to headset can be executed once headset is connected again.
-        */
-        if (devices[0].id == PAL_DEVICE_NONE &&
-            (rm->isDisconnectedDeviceStillActive(curPalDevices,activeDevices,
-            PAL_DEVICE_OUT_USB_DEVICE) ||
-            rm->isDisconnectedDeviceStillActive(curPalDevices,activeDevices,
-            PAL_DEVICE_OUT_USB_HEADSET) ||
-            rm->isDisconnectedDeviceStillActive(curPalDevices,activeDevices,
-            PAL_DEVICE_OUT_WIRED_HEADPHONE) ||
-            rm->isDisconnectedDeviceStillActive(curPalDevices,activeDevices,
-            PAL_DEVICE_OUT_WIRED_HEADSET)))
-        {
-            devices[0].id = PAL_DEVICE_OUT_SPEAKER;
-        }
-
         if (!force_switch) {
             for (int i = 0; i < no_of_devices; i++) {
                 newDevices.insert(devices[i].id);
@@ -1105,6 +1084,17 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                     PAL_DBG(LOG_TAG, "always switch device for bt device");
                     force_switch = true;
                     break;
+                }
+                if ((devices[i].id == PAL_DEVICE_OUT_USB_DEVICE) ||
+                    (devices[i].id == PAL_DEVICE_OUT_USB_HEADSET) ||
+                    (devices[i].id == PAL_DEVICE_OUT_WIRED_HEADSET) ||
+                    (devices[i].id == PAL_DEVICE_OUT_WIRED_HEADPHONE) ||
+                    (devices[i].id == PAL_DEVICE_OUT_AUX_DIGITAL) ||
+                    (devices[i].id == PAL_DEVICE_OUT_AUX_DIGITAL_1) ||
+                    (devices[i].id == PAL_DEVICE_OUT_HDMI)) {
+                        PAL_DBG(LOG_TAG, "always switch device for plugin and DP device");
+                        force_switch = true;
+                        break;
                 }
             }
         }
@@ -1291,8 +1281,7 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
     kpiEnqueue(__func__, true);
 
     if (cb != NULL) {
-        rm->globalCb = cb;
-        rm->cookie = cookie;
+        rm->registerGlobalCallback(cb, cookie);
     }
     PAL_DBG(LOG_TAG, "Exit");
     kpiEnqueue(__func__, false);
@@ -1418,6 +1407,7 @@ int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
     int32_t status = 0;
     std::shared_ptr<ResourceManager> rm = NULL;
 
+    PAL_DBG(LOG_TAG, "Enter.");
     kpiEnqueue(__func__, true);
     rm = ResourceManager::getInstance();
     if (!rm) {
@@ -1426,8 +1416,13 @@ int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
         goto exit;
     }
     status = rm->setCustomParam(uc_info,param_str,param_payload,payload_size);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "Failed to set Custom parameter %s, status %d",
+                param_str, status);
+    }
     exit:
     kpiEnqueue(__func__, false);
+    PAL_DBG(LOG_TAG, "Exit:");
     return status;
 }
 
@@ -1437,6 +1432,7 @@ int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
     int32_t status = 0;
     std::shared_ptr<ResourceManager> rm = NULL;
 
+    PAL_DBG(LOG_TAG, "Enter.");
     kpiEnqueue(__func__, true);
     rm = ResourceManager::getInstance();
     if (!rm) {
@@ -1445,7 +1441,12 @@ int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
         goto exit;
     }
     status = rm->getCustomParam(uc_info,param_str,param_payload,payload_size);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "Failed to get Custom parameter %s, status %d",
+                param_str, status);
+    }
     exit:
     kpiEnqueue(__func__, false);
+    PAL_DBG(LOG_TAG, "Exit:");
     return status;
 }

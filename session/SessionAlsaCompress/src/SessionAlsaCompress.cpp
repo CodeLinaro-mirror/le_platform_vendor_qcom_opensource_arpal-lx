@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -76,6 +76,26 @@ static void handleSessionCallBack(uint64_t hdl, uint32_t event_id, void *data,
     }
 }
 
+std::string toString(const snd_codec& codec) {
+    std::ostringstream oss;
+    oss << "snd_codec {"
+        << " id: " << codec.id
+        << ", format: " << codec.format
+        << ", ch_in: " << codec.ch_in
+        << ", ch_out: " << codec.ch_out
+        << ", sample_rate: " << codec.sample_rate
+        << ", bit_rate: " << codec.bit_rate
+        << ", rate_control: " << codec.rate_control
+        << ", profile: " << codec.profile
+        << ", level: " << codec.level
+        << ", ch_mode: " << codec.ch_mode
+        << ", align: " << codec.align
+        << ", reserved: [" << codec.reserved[0] << ", " << codec.reserved[1] << ", "
+        << codec.reserved[2] << "]"
+        << " }";
+    return oss.str();
+}
+
 void SessionAlsaCompress::updateCodecOptions(
     pal_param_payload *param_payload, pal_stream_direction_t stream_direction) {
 
@@ -99,6 +119,8 @@ void SessionAlsaCompress::updateCodecOptions(
             case PAL_AUDIO_FMT_PCM_S24_LE:
             case PAL_AUDIO_FMT_PCM_S24_3LE:
             case PAL_AUDIO_FMT_PCM_S32_LE:
+                codec.format = SessionAlsaUtils::palToSndDriverFormat(audio_fmt);
+                PAL_DBG(LOG_TAG, "format set to %d", codec.format);
             break;
             case PAL_AUDIO_FMT_COMPRESSED_RANGE_BEGIN:
             case PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_BEGIN:
@@ -576,6 +598,7 @@ bool SessionAlsaCompress::isGaplessFormat(pal_audio_fmt_t fmt)
         case PAL_AUDIO_FMT_PCM_S24_3LE:
         case PAL_AUDIO_FMT_PCM_S24_LE:
         case PAL_AUDIO_FMT_PCM_S32_LE:
+            isSupported = true;
             break;
         case PAL_AUDIO_FMT_ALAC:
             break;
@@ -668,6 +691,11 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                     event_id = PAL_STREAM_CBK_EVENT_WRITE_READY;
                     compressObj->command = OFFLOAD_CMD_EXIT;
                 }
+                if (ret && (errno == -ECANCELED || errno == -ENETRESET)) {
+                    PAL_INFO(LOG_TAG, "No need of sending callback during SSR or internal unblock");
+                    lock.lock();
+                    continue;
+                }
             } else if (msg && msg->cmd == OFFLOAD_CMD_DRAIN) {
                 if (!is_drain_called) {
                     PAL_INFO(LOG_TAG, "calling compress_drain");
@@ -677,8 +705,8 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                          PAL_INFO(LOG_TAG, "out of compress_drain, ret %d", ret);
                     }
                 }
-                if (ret == -ENETRESET) {
-                    PAL_ERR(LOG_TAG, "Block drain ready event during SSR");
+                if (ret && (errno == -ECANCELED || errno == -ENETRESET)) {
+                    PAL_INFO(LOG_TAG, "No need of sending callback during SSR or internal unblock");
                     lock.lock();
                     continue;
                 }
@@ -704,8 +732,8 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                         event_id = PAL_STREAM_CBK_EVENT_DRAIN_READY;
                     }
                 }
-                if (ret == -ENETRESET) {
-                    PAL_ERR(LOG_TAG, "Block drain ready event during SSR");
+                if (ret && (errno == -ECANCELED || errno == -ENETRESET)) {
+                    PAL_INFO(LOG_TAG, "No need of sending callback during SSR or internal unblock");
                     lock.lock();
                     continue;
                 }
@@ -1351,6 +1379,7 @@ int SessionAlsaCompress::start(Stream * s)
             compress_config.fragments = out_buf_count;
             compress_config.codec = &codec;
             // compress_open
+            PAL_INFO(LOG_TAG," compress_open with %s", toString(codec).c_str());
             compress =
                 compress_open(rm->getVirtualSndCard(), compressDevIds.at(0),
                               COMPRESS_IN, &compress_config);

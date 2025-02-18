@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -66,7 +66,7 @@ Stream::Stream() {
     if (session) {
         delete session;
         session = nullptr;
-        if (Session::pm)
+        if (Session::pm && mStreamAttr)
             Session::pm->closePlugin(PAL_PLUGIN_MANAGER_SESSION,
                                      streamNameLUT.at(mStreamAttr->type));
     }
@@ -882,14 +882,21 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
                 rm->deregisterDevice(mDevices[i], this);
             }
 
-            if(mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER &&
-                     ResourceManager::IsSpeakerProtectionEnabled()) {
-               status = mDevices[i]->stop();
-               if (0 != status) {
-                   PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
-                   rm->unlockGraph();
-                   goto exit;
-               }
+            bool isDeviceStopped = false;
+            if ((currentState != STREAM_INIT && currentState != STREAM_STOPPED) &&
+                mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER &&
+                ResourceManager::IsSpeakerProtectionEnabled()) {
+                /*
+                 * Special handling if speaker protection enabled to disable vi
+                 * feedback firstly before disconnecting session device to avoid
+                 * glitch in vi_tx.
+                 */
+                status = mDevices[i]->stop();
+                isDeviceStopped = true;
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
+                    goto exit;
+                }
             }
 
             rm->lockGraph();
@@ -904,12 +911,12 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
              * hence stop A2DP/BLE device to match device start&stop count.
              */
 
-            if ((currentState != STREAM_INIT && currentState != STREAM_STOPPED) ||
+            if (((currentState != STREAM_INIT && currentState != STREAM_STOPPED) ||
                 ((currentState == STREAM_INIT || currentState == STREAM_STOPPED) &&
                 ((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) &&
-                 isMMap)) {
+                 isMMap)) && !isDeviceStopped) {
                 status = mDevices[i]->stop();
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
@@ -1165,10 +1172,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     int32_t status = 0;
     int32_t connectCount = 0, disconnectCount = 0;
     bool isNewDeviceA2dp = false;
-    bool isCurDeviceA2dp = false;
-    bool isCurDeviceSco = false;
-    bool isCurrentDeviceProxyOut = false;
-    bool isCurrentDeviceDpOut = false;
+    bool checkNoneDevice = false;
     bool matchFound = false;
     bool voice_call_switch = false;
     bool force_switch_dev_id[PAL_DEVICE_IN_MAX] = {};
@@ -1187,7 +1191,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     bool has_out_device = false, has_in_device = false;
     std::vector <std::shared_ptr<Device>>::iterator dIter;
     struct pal_volume_data *volume = NULL;
-    pal_device_id_t curBtDevId = PAL_DEVICE_NONE;
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
 
@@ -1205,26 +1208,23 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
     for (int i = 0; i < mDevices.size(); i++) {
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
-
-        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
-            isCurDeviceA2dp = true;
-            curBtDevId = curDevId;
-        }
-
-        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_SCO) {
-            isCurDeviceSco = true;
-            curBtDevId = curDevId;
-        }
-
-        if (curDevId == PAL_DEVICE_OUT_PROXY)
-            isCurrentDeviceProxyOut = true;
-
-        if (curDevId == PAL_DEVICE_OUT_AUX_DIGITAL ||
+        /*
+         * Check the current output device if need to check and handle later
+         * in case the new routing request is PAL_DEVICE_NONE.
+         */
+        if (curDevId < PAL_DEVICE_OUT_MAX &&
+            (((rm->isBtA2dpDevice(curDevId) || rm->isBtScoDevice(curDevId))
+            && (!rm->isDeviceReady(curDevId))) ||
+            curDevId == PAL_DEVICE_OUT_PROXY ||
+            curDevId == PAL_DEVICE_OUT_USB_DEVICE ||
+            curDevId == PAL_DEVICE_OUT_USB_HEADSET ||
+            curDevId == PAL_DEVICE_OUT_WIRED_HEADSET ||
+            curDevId == PAL_DEVICE_OUT_WIRED_HEADPHONE ||
+            curDevId == PAL_DEVICE_OUT_AUX_DIGITAL ||
             curDevId == PAL_DEVICE_OUT_AUX_DIGITAL_1 ||
-            curDevId == PAL_DEVICE_OUT_HDMI)
-            isCurrentDeviceDpOut = true;
+            curDevId == PAL_DEVICE_OUT_HDMI)) {
+            checkNoneDevice = true;
+        }
 
         /*
          * If stream is currently running on same device, then check if
@@ -1290,7 +1290,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         struct pal_device inBleDattr = {};
 
         /*
-         * When A2DP, Out Proxy and DP device is disconnected the
+         * When A2DP, Out Proxy, USB device and DP device is disconnected the
          * music playback is paused and the policy manager sends routing=0
          * But the audioflinger continues to write data until standby time
          * (3sec). As BT is turned off, the write gets blocked.
@@ -1305,11 +1305,11 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
          * config mismatch. Added OUT_SCO device handling to resolve this.
          */
         // This assumes that PAL_DEVICE_NONE comes as single device
-        if ((newDevices[i].id == PAL_DEVICE_NONE) &&
-            ((isCurrentDeviceProxyOut) || (isCurrentDeviceDpOut) ||
-             ((isCurDeviceA2dp || isCurDeviceSco) && (!rm->isDeviceReady(curBtDevId))))) {
-            newDevices[i].id = PAL_DEVICE_OUT_DUMMY;
-
+        if (checkNoneDevice && newDevices[i].id == PAL_DEVICE_NONE) {
+            if (rm->IsDummyDevEnabled())
+                newDevices[i].id = PAL_DEVICE_OUT_DUMMY;
+            else
+                newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
             if (rm->getDeviceConfig(&newDevices[i], mStreamAttr)) {
                 continue;
             }
@@ -1534,10 +1534,11 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
         /* Add device associated with current stream to streamDevDisconnect/StreamDevConnect list */
         for (int j = 0; j < disconnectCount; j++) {
-            // check to make sure device direction is the same
+            // check to make sure device direction is the same.
             // for shared BE, new device on the slot may change in compareSharedBEStreamDevAttr()
+            // and do device switch if current device differs from new device.
             if (rm->matchDevDir(mDevices[curDeviceSlots[j]]->getSndDeviceId(), newDeviceId) &&
-                newDeviceId == newDevices[newDeviceSlots[i]].id) {
+                mDevices[curDeviceSlots[j]]->getSndDeviceId() != newDevices[newDeviceSlots[i]].id) {
                 streamDevDisconnect.push_back({streamHandle, mDevices[curDeviceSlots[j]]->getSndDeviceId()});
                 // if something disconnected incoming device and current dev diff so push on a switchwe need to add the deivce
                 matchFound = true;

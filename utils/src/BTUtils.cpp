@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -553,6 +553,7 @@ int handleBTDeviceConnectionChange(pal_param_device_connection_t connection_stat
     bool device_available = rm->isDeviceAvailable(device_id);
     struct pal_device dAttr;
     struct pal_device conn_device;
+    pal_address_type_t deviceAddress = connection_state.device.addressV1;
     std::shared_ptr<Device> dev = nullptr;
     struct pal_device_info devinfo = {};
     int32_t scoCount = is_connected ? 1 : -1;
@@ -576,6 +577,7 @@ int handleBTDeviceConnectionChange(pal_param_device_connection_t connection_stat
         device_id == PAL_DEVICE_IN_BLUETOOTH_BLE ||
         rm->isBtScoDevice(device_id)) {
         dAttr.id = device_id;
+        dAttr.addressV1 = deviceAddress;
         /* Stream type is irrelevant here as we need device num channels
            which is independent of stype for BT devices */
         status = rm->getDeviceConfig(&dAttr, NULL);
@@ -597,6 +599,7 @@ int handleBTDeviceConnectionChange(pal_param_device_connection_t connection_stat
     if (is_connected && !device_available) {
         if (!dev) {
             dAttr.id = device_id;
+            dAttr.addressV1 = deviceAddress;
             dev = Device::getInstance(&dAttr, rm);
             if (!dev)
                 PAL_ERR(LOG_TAG, "get dev instance for %d failed", device_id);
@@ -615,6 +618,7 @@ int handleBTDeviceConnectionChange(pal_param_device_connection_t connection_stat
                 PAL_INFO(LOG_TAG, "found device id 0x%x in avail_device",
                                         device_id);
                 conn_device.id = device_id;
+                conn_device.addressV1 = deviceAddress;
                 dev = Device::getInstance(&conn_device, rm);
                 if (!dev) {
                     PAL_ERR(LOG_TAG, "Device getInstance failed");
@@ -2017,6 +2021,7 @@ void reconfigureScoStreams() {
     std::vector <pal_device *> palDevices;
     struct pal_device *dattr = nullptr;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    std::vector <Stream *> reconfigureStreams;
 
     scoDevs.push_back(PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET);
     scoDevs.push_back(PAL_DEVICE_OUT_BLUETOOTH_SCO);
@@ -2036,14 +2041,22 @@ void reconfigureScoStreams() {
         activeScoStreams.clear();
         rm->lockActiveStream();
         rm->getActiveStream_l(activeScoStreams, dev);
-        rm->unlockActiveStream();
         if (activeScoStreams.size() > 0) {
             for (sIter = activeScoStreams.begin();
                 sIter != activeScoStreams.end(); sIter++) {
+                status = rm->increaseStreamUserCounter(*sIter);
+                reconfigureStreams.push_back(*sIter);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,
+                            "Error incrementing the stream counter for the stream handle: %pK",
+                            *sIter);
+                    continue;
+                }
                 streamDevDisconnect.push_back({*sIter, devId});
                 streamDevConnect.push_back({*sIter, dattr});
             }
         }
+        rm->unlockActiveStream();
         dattr = nullptr;
     }
 
@@ -2053,6 +2066,20 @@ void reconfigureScoStreams() {
     if (status) {
         PAL_ERR(LOG_TAG, "streamDevSwitch failed %d", status);
     }
+    rm->lockActiveStream();
+    if (reconfigureStreams.size() > 0) {
+        for (sIter = reconfigureStreams.begin();
+            sIter != reconfigureStreams.end(); sIter++) {
+            status = rm->decreaseStreamUserCounter(*sIter);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,
+                        "Error decrementing the stream counter for the stream handle: %pK",
+                        *sIter);
+                continue;
+            }
+        }
+    }
+    rm->unlockActiveStream();
     for (auto dAttr : palDevices) free(dAttr);
 }
 

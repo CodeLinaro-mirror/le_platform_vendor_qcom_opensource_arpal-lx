@@ -3068,6 +3068,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
     pal_device_id_t deviceId;
     std::string key = "";
     struct pal_stream_attributes curStrAttr;
+    PAL_DBG(TAG_LOG," : Enter");
 
     if (tx_dev == nullptr || ec_enable == nullptr || streamHandle == nullptr) {
         PAL_ERR(LOG_TAG, "invalid input");
@@ -3088,6 +3089,10 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
 
     PAL_DBG(TAG_LOG, "stream type: %d, deviceid: %d, custom key: %s",
                       curStrAttr.type, deviceId, key.c_str());
+    if (deviceInfo.empty()) {
+        PAL_ERR(LOG_TAG, "deviceInfo empty");
+        goto exit;
+    }
     for (auto devInfo : deviceInfo) {
         if (deviceId != devInfo.deviceId)
             continue;
@@ -3774,7 +3779,8 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     }
 
     // callback
-    if (params->event_id == AGM_EVENT_EARLY_EOS) {
+    if (params->event_id == AGM_EVENT_EARLY_EOS ||
+        params->event_id == AGM_EVENT_EARLY_EOS_INTERNAL) {
          PAL_DBG(LOG_TAG, "Event will be handled by offload Thread loop");
     } else {
         session_cb(cookie, params->event_id, (void *)params->event_payload,
@@ -4780,6 +4786,11 @@ void ResourceManager::checkAndSetDutyCycleParam()
             PAL_DBG(LOG_TAG, "set duty cycling: %d", enable_duty);
         }
     }
+}
+
+void ResourceManager::registerGlobalCallback(pal_global_callback cb, uint64_t cookie) {
+    this->globalCb = cb;
+    this->cookie = cookie;
 }
 
 std::shared_ptr<ResourceManager> ResourceManager::getInstance()
@@ -6228,6 +6239,16 @@ int32_t ResourceManager::streamDevSwitch(std::vector <std::tuple<Stream *, uint3
     // lock all stream mutexes
     for (sIter = uniqueStreamsList.begin(); sIter != uniqueStreamsList.end(); sIter++) {
         PAL_DBG(LOG_TAG, "uniqueStreamsList stream %pK lock", (*sIter));
+        if (PAL_CARD_STATUS_DOWN(rm->cardState) && (*sIter)->getCurState() != STREAM_IDLE) {
+            /* SSR coming, but ssrDownHandler has not yet processed it. Here, proactively
+             * call it to ensure the stream state is IDLE before switching devices during
+             * SSR.
+             */
+            status = (*sIter)->ssrDownHandler();
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "SSR down handling failed for %pK, status: %d", (*sIter), status);
+            }
+        }
         (*sIter)->lockStreamMutex();
     }
     isDeviceSwitch = true;
@@ -6473,6 +6494,7 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     int status = 0;
     std::vector <std::tuple<Stream *, uint32_t>> streamDevDisconnect, streamsSkippingSwitch;
     std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnect;
+    std::vector <std::tuple<Stream *, uint32_t>> sharedBEStreamDev;
     std::vector<Stream*>::iterator sIter;
 
     if (!inDev || !newDevAttr) {
@@ -6505,6 +6527,32 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
     }
 
     status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
+    if (status) {
+        PAL_ERR(LOG_TAG, "forceDeviceSwitch failed %d, reset usecases", status);
+        struct pal_device curDevAttr  = {};
+        std::shared_ptr<Device> curDev = nullptr;
+
+        mActiveStreamMutex.lock();
+        getSharedBEActiveStreamDevs(sharedBEStreamDev, newDevAttr->id);
+        if (sharedBEStreamDev.size() > 0) {
+            curDevAttr.id = (pal_device_id_t)std::get<1>(sharedBEStreamDev[0]);
+            curDev = Device::getInstance(&curDevAttr, rm);
+            if (!curDev) {
+                PAL_ERR(LOG_TAG, "Getting Device instance failed");
+                mActiveStreamMutex.unlock();
+                return 0;
+            }
+            curDev->getDeviceAttributes(&curDevAttr);
+            ar_mem_cpy(newDevAttr, sizeof(struct pal_device),
+                      &curDevAttr, sizeof(struct pal_device));
+            for (const auto &elem : sharedBEStreamDev) {
+                streamDevDisconnect.push_back(elem);
+                streamDevConnect.push_back({std::get<0>(elem), &curDevAttr});
+            }
+        }
+        mActiveStreamMutex.unlock();
+        status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
+    }
     if (!status) {
         mActiveStreamMutex.lock();
         for (sIter = prevActiveStreams.begin(); sIter != prevActiveStreams.end(); sIter++) {
@@ -6520,8 +6568,6 @@ int32_t ResourceManager::forceDeviceSwitch(std::shared_ptr<Device> inDev,
             }
         }
         mActiveStreamMutex.unlock();
-    } else {
-        PAL_ERR(LOG_TAG, "forceDeviceSwitch failed %d", status);
     }
 
     return 0;
@@ -8500,15 +8546,6 @@ bool ResourceManager::isDeviceAvailable(
     }
 
     return isAvailable;
-}
-
-bool ResourceManager::isDisconnectedDeviceStillActive(
-    std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices,
-    pal_device_id_t id)
-{
-    return (!isDeviceAvailable(id)) &&
-        (curPalDevices.find(id) != curPalDevices.end()) &&
-        (activeDevices.find(id) != activeDevices.end());
 }
 
 bool ResourceManager::isDeviceReady(pal_device_id_t id)

@@ -190,6 +190,7 @@
         <ctl name="WSA PCM CH1 MUX" value="AIF_PCM_PB" />
         <ctl name="SA1 Rx Channel Select" value="CH1" />
         <ctl name="SA1 OT23 Usage Mode" value="8" />
+        <ctl name="SA1 FU21 Stereo Gain Offset dB" value="60" />
     </path>
 
     <path name="handset">
@@ -200,12 +201,14 @@
         <ctl name="WSA PCM CH1 MUX" value="AIF_PCM_PB" />
         <ctl name="SA1 Rx Channel Select" value="CH1" />
         <ctl name="SA1 OT23 Usage Mode" value="0" />
+        <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
     </path>
 
     <path name="speaker-mono-2">
         <ctl name="WSA PCM CH2 MUX" value="AIF_PCM_PB" />
         <ctl name="SA1 Rx Channel Select" value="CH2" />
         <ctl name="SA1 OT23 Usage Mode" value="0" />
+        <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
     </path>
 
     <path name="speaker-hdk">
@@ -222,6 +225,7 @@
         <ctl name="WSA PCM CH2 MUX" value="AIF_PCM_PB" />
         <ctl name="SA1 OT23 Usage Mode" value="0" />
         <ctl name="SA1 Rx Channel Select" value="CH_Stereo" />
+        <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
     </path>
 
     <path name="speaker-mono-vbat">
@@ -592,7 +596,7 @@
         <ctl name="RX INT1 MIX2 INP" value="SRC0" />
     </path>
 
-    <path name="sidetone-heaphone-handset-mic">
+    <path name="sidetone-headphone-handset-mic">
         <path name="sidetone-iir" />
         <ctl name="IIR0 INP0 Volume" value="0" />
         <ctl name="IIR0 INP0 MUX" value="DEC2" />

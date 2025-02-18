@@ -590,6 +590,10 @@ private:
     static void *feature_stats_handle;
     static afs_init_t feature_stats_init;
     static afs_deinit_t feature_stats_deinit;
+
+    uint64_t cookie;
+    pal_global_callback globalCb;
+
 protected:
     std::list <Stream*> mActiveStreams;
     std::map<pal_stream_type_t, std::list <Stream*>> activeStreamMap;
@@ -685,8 +689,11 @@ protected:
 
 public:
     ~ResourceManager();
-    uint64_t cookie;
-    pal_global_callback globalCb = NULL;
+
+    void registerGlobalCallback(pal_global_callback cb, uint64_t cookie);
+    pal_global_callback getCallback() { return globalCb; }
+    uint64_t getCookie() { return cookie; }
+
 #ifdef SOC_PERIPHERAL_PROT
     static int deregPeripheralCb(void *cntxt);
     static int registertoPeripheral(uint32_t pUID);
@@ -914,7 +921,6 @@ public:
     bool isDeviceAvailable(pal_device_id_t id);
     bool isDeviceAvailable(std::vector<std::shared_ptr<Device>> devices, pal_device_id_t id);
     bool isDeviceAvailable(struct pal_device *devices, uint32_t devCount, pal_device_id_t id);
-    bool isDisconnectedDeviceStillActive(std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices, pal_device_id_t id);
     bool isDeviceReady(pal_device_id_t id);
     bool isBtScoDevice(pal_device_id_t id);
     bool isBtDevice(pal_device_id_t id);

@@ -56,18 +56,18 @@ public:
     void HandleStartTag(const char *tag, const char **attribs) override;
     void HandleEndTag(struct xml_userdata *data, const char *tag) override;
 
+    bool PartialModeInLpiSupported() const { return partial_mode_in_lpi_; }
     size_t GetInputBufferSize() const { return input_buffer_size_; }
     size_t GetPartialModeInputBufferSize() const { return partial_mode_input_buffer_size_; }
     size_t GetBufferingModeOutBufferSize() const { return buffering_mode_out_buffer_size_; }
-    uint32_t GetCommandModeTimeout() const { return command_mode_timeout_; }
     uint32_t GetInputBufferSize(int mode);
     uint32_t GetOutputBufferSize(int mode);
 
 private:
+    bool partial_mode_in_lpi_;
     size_t input_buffer_size_;
     size_t partial_mode_input_buffer_size_;
     size_t buffering_mode_out_buffer_size_;
-    uint32_t command_mode_timeout_;
 };
 
 class ASRStreamConfig : public SoundTriggerXml
