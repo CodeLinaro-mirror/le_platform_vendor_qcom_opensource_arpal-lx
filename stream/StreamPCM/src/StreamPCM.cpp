@@ -762,98 +762,6 @@ int32_t StreamPCM::prepare()
     return status;
 }
 
-int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
-{
-    int32_t status = 0;
-    struct volume_set_param_info vol_set_param_info;
-    uint8_t volSize = 0;
-    bool forceSetParameters = false;
-
-    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
-    if (!volume || (volume->no_of_volpair == 0)) {
-       PAL_ERR(LOG_TAG, "Invalid arguments");
-       status = -EINVAL;
-       goto exit;
-    }
-
-    // if already allocated free and reallocate
-    if (mVolumeData) {
-        free(mVolumeData);
-        mVolumeData = NULL;
-    }
-
-    volSize = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair));
-    mVolumeData = (struct pal_volume_data *)calloc(1, volSize);
-    if (!mVolumeData) {
-        status = -ENOMEM;
-        PAL_ERR(LOG_TAG, "failed to calloc for volume data");
-        goto exit;
-    }
-
-    /* Allow caching of stream volume as part of mVolumeData
-     * till the stream_start is not done or if sound card is offline.
-     */
-    ar_mem_cpy(mVolumeData, volSize, volume, volSize);
-    for (int32_t i = 0; i < (mVolumeData->no_of_volpair); i++) {
-        if ((i > 0) &&
-            (abs(mVolumeData->volume_pair[0].vol -
-                mVolumeData->volume_pair[i].vol) > VOLUME_TOLERANCE)) {
-                forceSetParameters = true;
-        }
-        PAL_INFO(LOG_TAG, "Volume payload mask:%x vol:%f",
-                      (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
-    }
-
-    if (a2dpMuted) {
-        PAL_DBG(LOG_TAG, "a2dp muted, just cache volume update");
-        goto exit;
-    }
-
-    memset(&vol_set_param_info, 0, sizeof(struct volume_set_param_info));
-    rm->getVolumeSetParamInfo(&vol_set_param_info);
-    if ((rm->getSoundCardState() == CARD_STATUS_ONLINE) && (currentState != STREAM_IDLE)
-            && (currentState != STREAM_INIT) && (!isPaused)) {
-        bool isStreamAvail = (find(vol_set_param_info.streams_.begin(),
-                    vol_set_param_info.streams_.end(), mStreamAttr->type) !=
-                    vol_set_param_info.streams_.end());
-        if (!forceSetParameters && mVolumeData->volume_pair[0].vol == 0.0f &&
-            !vol_set_param_info.isVolumeUsingSetParam) {
-            //if the volume is 0, force settting parameters as well
-            status = session->setVolume(this);
-            forceSetParameters = true;
-        }
-        if ((isStreamAvail && vol_set_param_info.isVolumeUsingSetParam) || forceSetParameters) {
-            uint8_t *volPayload = new uint8_t[sizeof(pal_param_payload) + volSize]();
-            pal_param_payload *pld = (pal_param_payload *)volPayload;
-            pld->payload_size = sizeof(struct pal_volume_data);
-            memcpy(pld->payload, mVolumeData, volSize);
-            status = session->setParameters(this, PAL_PARAM_ID_VOLUME_USING_SET_PARAM, (void *)pld);
-            delete[] volPayload;
-            PAL_DBG(LOG_TAG, "set volume by parameter, status: %d", status);
-        } else {
-            status = session->setVolume(this);
-        }
-
-        if (0 != status) {
-            PAL_ERR(LOG_TAG, "session setVolume for VOLUME_TAG failed with status %d",
-                    status);
-            goto exit;
-        }
-        if (unMutePending) {
-            unMutePending = false;
-            mute_l(false);
-        }
-    }
-
-exit:
-    if (volume) {
-        PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
-                          (volume->no_of_volpair), (volume->volume_pair->channel_mask),
-                          (volume->volume_pair->vol));
-    }
-    return status;
-}
-
 int32_t  StreamPCM::read(struct pal_buffer* buf)
 {
     int32_t status = 0;
@@ -1194,6 +1102,7 @@ int32_t StreamPCM::resume_l()
     int32_t status = 0;
     struct pal_vol_ctrl_ramp_param ramp_param;
     struct pal_volume_data *voldata = NULL;
+    size_t vol_size = 0;
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (PAL_CARD_STATUS_DOWN(rm->getSoundCardState())) {
         cachedState = STREAM_STARTED;
@@ -1234,7 +1143,7 @@ int32_t StreamPCM::resume_l()
         goto exit;
     }
 
-    status = this->getVolumeData(voldata);
+    status = this->getVolumeData(voldata, &vol_size);
     if (0 != status) {
         PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
         goto exit;

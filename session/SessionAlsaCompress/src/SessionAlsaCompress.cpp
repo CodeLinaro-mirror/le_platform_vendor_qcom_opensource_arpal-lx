@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1431,6 +1431,8 @@ int SessionAlsaCompress::start(Stream * s)
     uint32_t miid;
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
+    struct pal_volume_data *voldata = NULL;
+    size_t vol_size = 0;
     struct sessionToPayloadParam streamData = {};
     pal_param_mspp_linear_gain_t mLinearGain = rm->getLinearGain();
     memset(&streamData, 0, sizeof(struct sessionToPayloadParam));
@@ -1752,7 +1754,28 @@ int SessionAlsaCompress::start(Stream * s)
         default:
             break;
     }
-    setInitialVolume();
+    // Setting the volume as no default volume is set now in stream open
+    // setInitialVolume();
+    voldata = (struct pal_volume_data*)calloc(1, (sizeof(uint32_t) +
+        (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
+    if (!voldata) {
+        status = -ENOMEM;
+        goto exit;
+    }
+    status = rm->controlPluginGet(s, PLUGIN_CONTROL_VOLUME, (void**)&voldata, &vol_size);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "getVolumeData Failed \n");
+    } else {
+        status = rm->controlPluginSet(s, PLUGIN_CONTROL_VOLUME, (void*)voldata, vol_size);
+        if (status) {
+            PAL_ERR(LOG_TAG, "failed to set default volume data");
+        }
+    }
+
+    if (voldata) {
+        free(voldata);
+    }
+
     //Setting the device orientation during stream open
     if (PAL_DEVICE_OUT_SPEAKER == dAttr.id) {
         PAL_DBG(LOG_TAG,"set device orientation %d", rm->getOrientation());
@@ -2651,7 +2674,7 @@ int SessionAlsaCompress::pause(Stream * s)
     std::unique_lock<std::mutex> pauseLock(pauseMutex);
     struct pal_vol_ctrl_ramp_param ramp_param;
     struct pal_volume_data *volume = NULL;
-    uint8_t volSize = 0;
+    size_t volSize = 0;
     struct pal_volume_data *voldata = NULL;
 
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", this);
@@ -2684,7 +2707,7 @@ int SessionAlsaCompress::pause(Stream * s)
         goto exit;
     }
 
-    status = s->getVolumeData(voldata);
+    status = s->getVolumeData(voldata, &volSize);
     if (0 != status) {
         PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
         goto exit;
@@ -2704,8 +2727,6 @@ int SessionAlsaCompress::pause(Stream * s)
         status = 0; //non-fatal
     }
 
-    volSize = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
-                                        (voldata->no_of_volpair));
     /* set volume to 0 to avoid the secerio of doing ramping up
         * from higher volume to lower volume in coming resume.
         */
@@ -2751,5 +2772,28 @@ exit:
          free(voldata);
          voldata = NULL;
     }
+    return status;
+}
+
+int SessionAlsaCompress::getPCMDeviceID(Stream *s, int *devId)
+{
+    int status = 0;
+    pal_stream_attributes sAttr;
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    if (sAttr.direction == PAL_AUDIO_OUTPUT) {
+        *devId = compressDevIds.at(0);
+    }
+    else {
+        PAL_ERR(LOG_TAG, "invalid direction");
+        status = -EINVAL;
+    }
+exit:
     return status;
 }

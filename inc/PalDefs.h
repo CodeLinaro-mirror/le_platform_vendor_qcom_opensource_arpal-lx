@@ -800,6 +800,7 @@ typedef enum {
     PAL_PARAM_ID_VENDOR_UUID = 84,
     PAL_PARAM_ID_IS_DEVICE_CONNECTED = 85,
     PAL_PARAM_ID_DTMF_DETECTION_CFG = 86,
+    PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 87,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
