@@ -421,7 +421,6 @@ std::vector <int> ResourceManager::listAllPcmVoice2RxFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmVoice2TxFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallMusicFrontEnds = {0};
-std::vector <int> ResourceManager::listAllPcmCallTranslationFrontEnds = {0};
 std::vector <int> ResourceManager::listAllNonTunnelSessionIds = {0};
 std::vector <int> ResourceManager::listAllPcmContextProxyFrontEnds = {0};
 std::vector <std::string> ResourceManager::usb_vendor_uuid_list = {""};
@@ -860,7 +859,6 @@ ResourceManager::ResourceManager()
     listAllPcmVoice2TxFrontEnds.clear();
     listAllPcmInCallRecordFrontEnds.clear();
     listAllPcmInCallMusicFrontEnds.clear();
-    listAllPcmCallTranslationFrontEnds.clear();
     listAllPcmContextProxyFrontEnds.clear();
     listAllPcmExtEcTxFrontEnds.clear();
     memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
@@ -883,8 +881,6 @@ ResourceManager::ResourceManager()
                 listAllPcmInCallMusicFrontEnds.push_back(devInfo[i].deviceId);
             } else if (devInfo[i].sess_mode == NO_CONFIG && devInfo[i].record == 1) {
                 listAllPcmContextProxyFrontEnds.push_back(devInfo[i].deviceId);
-            } else if (devInfo[i].sess_mode == NO_CONFIG && devInfo[i].record == 1) {
-                listAllPcmCallTranslationFrontEnds.push_back(devInfo[i].deviceId);
             }
         } else if (devInfo[i].type == COMPRESS) {
             if (devInfo[i].playback == 1) {
@@ -5266,23 +5262,8 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
             }
             break;
         case PAL_STREAM_CALL_TRANSLATION:
-            if (howMany > listAllPcmCallTranslationFrontEnds.size()) {
-                    PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
-                                      howMany, listAllPcmCallTranslationFrontEnds.size());
-                    goto error;
-                }
-            id = (listAllPcmCallTranslationFrontEnds.size() - 1);
-            it = (listAllPcmCallTranslationFrontEnds.begin() + id);
-            for (int i = 0; i < howMany; i++) {
-                f.push_back(listAllPcmCallTranslationFrontEnds.at(id));
-                listAllPcmCallTranslationFrontEnds.erase(it);
-                PAL_ERR(LOG_TAG, "allocateFrontEndIds: front end %d", f[i]);
-                it -= 1;
-                id -= 1;
-            }
-            break;
-       case PAL_STREAM_CONTEXT_PROXY:
-       case PAL_STREAM_COMMON_PROXY:
+        case PAL_STREAM_CONTEXT_PROXY:
+        case PAL_STREAM_COMMON_PROXY:
             if (howMany > listAllPcmContextProxyFrontEnds.size()) {
                     PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
                                       howMany, listAllPcmContextProxyFrontEnds.size());
@@ -5477,12 +5458,8 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
             }
             break;
         case PAL_STREAM_CALL_TRANSLATION:
-            for (int i = 0; i < frontend.size(); i++) {
-                listAllPcmCallTranslationFrontEnds.push_back(frontend.at(i));
-            }
-            removeDuplicates(listAllPcmCallTranslationFrontEnds);
-       case PAL_STREAM_CONTEXT_PROXY:
-       case PAL_STREAM_COMMON_PROXY:
+        case PAL_STREAM_CONTEXT_PROXY:
+        case PAL_STREAM_COMMON_PROXY:
             for (int i = 0; i < frontend.size(); i++) {
                  listAllPcmContextProxyFrontEnds.push_back(frontend.at(i));
             }

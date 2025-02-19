@@ -639,7 +639,6 @@ protected:
     static std::vector<int> listAllPcmExtEcTxFrontEnds;
     static std::vector<int> listAllPcmInCallRecordFrontEnds;
     static std::vector<int> listAllPcmInCallMusicFrontEnds;
-    static std::vector<int> listAllPcmCallTranslationFrontEnds;
     static std::vector<int> listAllPcmContextProxyFrontEnds;
     static std::vector<std::pair<int32_t, std::string>> listAllBackEndIds;
     static std::vector<std::pair<int32_t, std::string>> sndDeviceNameLUT;
