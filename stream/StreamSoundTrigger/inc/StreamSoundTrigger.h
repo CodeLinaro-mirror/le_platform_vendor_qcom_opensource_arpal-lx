@@ -132,7 +132,6 @@ public:
 
     int32_t ssrDownHandler() override;
     int32_t ssrUpHandler() override;
-    int32_t setVolume(struct pal_volume_data * volume __unused) { return 0; }
     int32_t mute(bool state __unused) override { return 0; }
     int32_t mute_l(bool state __unused) override { return 0; }
     int32_t getDeviceMute(pal_stream_direction_t dir __unused, bool *state __unused) override {return 0;}

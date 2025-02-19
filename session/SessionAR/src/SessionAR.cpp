@@ -927,6 +927,22 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
                 PAL_INFO(LOG_TAG, "Orientation setConfig failed.");
             }
             break;
+        case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
+        {
+            effect_pal_payload_t *effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
+            param_payload = (pal_param_payload*)payload;
+
+            if (effectPalPayload->isTKV) {
+                status = this->setTKV(s, MODULE, effectPalPayload);
+            } else {
+                status = this->setParamWithTag(s, effectPalPayload->tag, param_id, payload);
+            }
+            if (status) {
+                PAL_ERR(LOG_TAG, "setParameters %d failed with %d", param_id, status);
+            }
+            break;
+        }
         default:
             status = this->setParamWithTag(s, INVALID_TAG, param_id, payload);
             break;

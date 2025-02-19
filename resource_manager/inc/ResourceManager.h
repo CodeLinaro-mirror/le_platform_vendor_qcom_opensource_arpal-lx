@@ -63,6 +63,7 @@
 #include "SoundTriggerPlatformInfo.h"
 #include "SignalHandler.h"
 #include "Session.h"
+#include "PluginControlIntf.h"
 
 typedef enum {
     RX_HOSTLESS = 1,
@@ -172,6 +173,8 @@ typedef enum {
     TAG_AVOID_VOTE_STREAM,
     TAG_STANDBY_STREAM_TYPE,
     TAG_STANDBY_SUPPORT_STREAMS,
+    TAG_CONTROL,
+    TAG_CONTROL_PLUGIN,
 } resource_xml_tags_t;
 
 typedef enum {
@@ -334,6 +337,24 @@ struct tx_ecinfo {
     std::vector<int> disabled_rx_streams;
 };
 
+struct plugin_fn_ops {
+    plugin_set_control_fn_t set_control;
+    plugin_get_control_fn_t get_control;
+}typedef plugin_fn_ops_t;
+
+struct plugin_t {
+    std::string name;
+    void *handle;
+    plugin_fn_ops_t ops;
+    std::vector<uint32_t> usecases;
+}typedef plugin_t;
+
+struct control_t {
+    plugin_control_name_t name;
+    plugin_t default_plugin;
+    std::vector<plugin_t> plugins;
+};
+
 enum {
     NATIVE_AUDIO_MODE_SRC = 1,
     NATIVE_AUDIO_MODE_TRUE_44_1,
@@ -494,12 +515,13 @@ private:
     void onVUIStreamRegistered();
     void onVUIStreamDeregistered();
     bool checkDeviceSwitchForHaptics(struct pal_device *inDevAttr, struct pal_device *curDevAttr);
+    static int openControlPlugin(plugin_t *plugin, plugin_control_name_t control);
+    int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
     SoundTriggerOnResourceAvailableCallback onResourceAvailCb = NULL;
     uint64_t onResourceAvailCookie;
 
     static bool isQmpEnabled;
     static bool mixerClosed;
-    enum card_status_t cardState;
     //bool ssrStarted = false;
     /* Variable to cache a2dp suspended state for a2dp device */
     static bool a2dp_suspended;
@@ -669,6 +691,7 @@ protected:
     static std::map<uint32_t, uint32_t> btSlimClockSrcMap;
     static std::vector<deviceIn> deviceInfo;
     static std::vector<tx_ecinfo> txEcInfo;
+    static std::vector<control_t> ControlInfo;
     static struct vsid_info vsidInfo;
     static struct volume_set_param_info volumeSetParamInfo_;
     static struct disable_lpm_info disableLpmInfo_;
@@ -731,6 +754,7 @@ protected:
 public:
     ~ResourceManager();
     uint64_t cookie;
+    enum card_status_t cardState;
     pal_global_callback globalCb = NULL;
 #ifdef SOC_PERIPHERAL_PROT
     static int deregPeripheralCb(void *cntxt);
@@ -1132,6 +1156,11 @@ public:
     adm_deregister_stream_t getAdmDeregisterStreamFn();
     std::shared_ptr<group_dev_config_t> getActiveGroupDevConfig();
     group_dev_config_t getCurrentGroupDevConfig();
+    static void process_control(const XML_Char **attr);
+    static void process_plugin(struct xml_userdata *data, const XML_Char **attr);
+    static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
+    int controlPluginSet(Stream *s, plugin_control_name_t control, void *payload, size_t playload_size);
+    int controlPluginGet(Stream *s, plugin_control_name_t control, void **payload, size_t *playload_size);
 
 };
 

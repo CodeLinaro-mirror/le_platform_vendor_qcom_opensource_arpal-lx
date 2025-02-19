@@ -54,6 +54,14 @@ class Session;
 
 extern "C" Session* CreateVoiceSession(const std::shared_ptr<ResourceManager> rm);
 
+struct ckv_data {
+    uint32_t vsid;
+    uint32_t ttyMode;
+    bool volume_boost;
+    bool slow_talk;
+    bool hd_voice;
+}typedef ckv_data_t;
+
 class SessionAlsaVoice : public SessionAR
 {
 private:
@@ -88,6 +96,7 @@ public:
     int setConfig(Stream * s, configType type, int tag = 0, int dir = 0) override;
     int setParamWithTag(Stream *streamHandle, int tagId, uint32_t param_id,
                       void *payload) override;
+    int getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) override;
     int setSessionParameters(Stream *s, int dir);
     int32_t reconfigureSession(Stream *s, struct pal_media_config config,
                                pal_stream_direction_t dir) override;
@@ -104,9 +113,7 @@ public:
                              std::shared_ptr<Device> deviceToConnect);
     bool isActive();
     int setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable) override {return 0;};
-    int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) override {return 0;};
 private:
-    int payloadCalKeys(Stream * s, uint8_t **payload, size_t *size);
     int payloadTaged(Stream * s, configType type, int tag, int device, int dir);
     int payloadSetVSID(Stream* s);
     int payloadSetChannelInfo(Stream * s, uint8_t **payload, size_t *size);
@@ -133,6 +140,7 @@ private:
     int setExtECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable);
     int getRXDevice(Stream *s, std::shared_ptr<Device> &rx_dev);
     int getDeviceData(Stream *s, struct sessionToPayloadParam *deviceData);
+    int getPCMDeviceID(Stream *s, int *devId) override;
 };
 
 #endif //SESSION_ALSAVOICE_H

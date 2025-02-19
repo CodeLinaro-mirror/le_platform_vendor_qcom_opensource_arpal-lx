@@ -1097,6 +1097,8 @@ int SessionAlsaPcm::start(Stream * s)
     std::shared_ptr<group_dev_config_t> groupDevConfig;
     group_dev_config_t currentGroupDevConfig;
     pal_param_mspp_linear_gain_t linearGain;
+    struct pal_volume_data *voldata = NULL;
+    size_t vol_size = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -2148,7 +2150,30 @@ pcm_start:
                     goto exit;
                 }
             }
-            setInitialVolume();
+            //setInitialVolume();
+            // Setting the volume as no default volume is set now in stream open
+            voldata = (struct pal_volume_data*)calloc(1, (sizeof(uint32_t) +
+                (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
+            if (!voldata) {
+                status = -ENOMEM;
+                goto exit;
+            }
+            status = rm->controlPluginGet(s, PLUGIN_CONTROL_VOLUME, (void**)&voldata,
+                &vol_size);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "getVolumeData Failed \n");
+            } else {
+                if (rm->controlPluginSet(s, PLUGIN_CONTROL_VOLUME, (void*)voldata,
+                    vol_size)) {
+                    PAL_ERR(LOG_TAG, "failed to set default volume data");
+                }
+            }
+
+            if (voldata) {
+                free(voldata);
+                voldata = NULL;
+            }
+
             memset(&lpm_info, 0, sizeof(struct disable_lpm_info));
             rm->getDisableLpmInfo(&lpm_info);
             isStreamAvail = (find(lpm_info.streams_.begin(),
@@ -2287,11 +2312,37 @@ pcm_start:
            break;
     }
     if (sAttr.direction != PAL_AUDIO_OUTPUT) {
-        setInitialVolume();
+        // setInitialVolume();
+        // Setting the volume as no default volume is set now in stream open
+        voldata = (struct pal_volume_data*)calloc(1, (sizeof(uint32_t) +
+            (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
+        if (!voldata) {
+            status = -ENOMEM;
+            goto exit;
+        }
+        status = rm->controlPluginGet(s, PLUGIN_CONTROL_VOLUME, (void**)&voldata,
+            &vol_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "getVolumeData Failed \n");
+        } else {
+            if (rm->controlPluginSet(s, PLUGIN_CONTROL_VOLUME, (void*)voldata,
+                vol_size)) {
+                PAL_ERR(LOG_TAG, "failed to set default volume data");
+            }
+        }
+
+        if (voldata) {
+            free(voldata);
+            voldata = NULL;
+        }
     }
     mState = SESSION_STARTED;
 
 exit:
+    if (voldata) {
+        free(voldata);
+        voldata = NULL;
+    }
     if (status != 0)
         rm->voteSleepMonitor(s, false);
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
@@ -3227,6 +3278,64 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                     status = -EINVAL;
                     goto exit;
                 }
+            }
+            break;
+        }
+        case PAL_PARAM_ID_UIEFFECT:
+        case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
+        {
+            pal_effect_custom_payload_t *customPayload;
+            pal_param_payload *param_payload = (pal_param_payload*)payload;
+            effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
+            status = streamHandle->getStreamAttributes(&sAttr);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "stream get attributes failed");
+                goto exit;
+            }
+
+            if (PAL_AUDIO_INPUT == sAttr.direction)
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                    txAifBackEnds[0].second.data(),
+                    tagId, &miid);
+            else if (PAL_AUDIO_OUTPUT == sAttr.direction)
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                    rxAifBackEnds[0].second.data(),
+                    tagId, &miid);
+            else {
+                status = -EINVAL;
+                if (pcmDevRxIds.size() > 0) {
+                    device = pcmDevRxIds.at(0);
+                    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                        rxAifBackEnds[0].second.data(),
+                        tagId, &miid);
+                    if (status) {
+                        if (pcmDevTxIds.size() > 0)
+                            device = pcmDevTxIds.at(0);
+                        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                            txAifBackEnds[0].second.data(),
+                            tagId, &miid);
+                    }
+                }
+            }
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
+                break;
+            } else {
+                customPayload = (pal_effect_custom_payload_t*)effectPalPayload->payload;
+                status = builder->payloadCustomParam(&paramData, &paramSize,
+                    customPayload->data,
+                    effectPalPayload->payloadSize - sizeof(uint32_t),
+                    miid, customPayload->paramId);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "payloadCustomParam failed. status = %d",
+                        status);
+                    break;
+                }
+                status = SessionAlsaUtils::setMixerParameter(mixer,
+                    device,
+                    paramData,
+                    paramSize);
+                PAL_INFO(LOG_TAG, "mixer set param status=%d\n", status);
             }
             break;
         }
@@ -4805,7 +4914,7 @@ int SessionAlsaPcm::pause(Stream * s)
     std::unique_lock<std::mutex> pauseLock(pauseMutex);
     struct pal_vol_ctrl_ramp_param ramp_param;
     struct pal_volume_data *volume = NULL;
-    uint8_t volSize = 0;
+    size_t volSize = 0;
     struct pal_volume_data *voldata = NULL;
     pal_stream_type_t palStreamType;
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", this);
@@ -4851,7 +4960,7 @@ int SessionAlsaPcm::pause(Stream * s)
         goto exit;
     }
 
-    status = s->getVolumeData(voldata);
+    status = s->getVolumeData(voldata, &volSize);
     if (0 != status) {
         PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
         goto exit;
@@ -4871,8 +4980,6 @@ int SessionAlsaPcm::pause(Stream * s)
         status = 0; //non-fatal
     }
 
-    volSize = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
-                                        (voldata->no_of_volpair));
     /* set volume to 0 to avoid the secerio of doing ramping up
         * from higher volume to lower volume in coming resume.
         */
@@ -4937,5 +5044,26 @@ int32_t SessionAlsaPcm::reconfigureSession(Stream *s, struct pal_media_config co
         //for in call reconfigure PSPD MFC
        status = reconfigureModule(PER_STREAM_PER_DEVICE_MFC, "ZERO", &deviceData);
     }
+    return status;
+}
+
+int SessionAlsaPcm::getPCMDeviceID(Stream *s, int *devId)
+{
+    int status = 0;
+    pal_stream_attributes sAttr;
+
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    if (sAttr.direction == PAL_AUDIO_OUTPUT || sAttr.direction == PAL_AUDIO_INPUT) {
+        *devId = pcmDevIds.at(0);
+    } else {
+        *devId = pcmDevRxIds.at(0);
+    }
+exit:
     return status;
 }

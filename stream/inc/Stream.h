@@ -75,6 +75,7 @@ typedef enum {
 #define PCM_OFFLOAD_OUTPUT_PERIOD_DURATION 80
 #define COMPRESS_OFFLOAD_FRAGMENT_SIZE (32 * 1024)
 #define NO_OF_BUF 4
+#define VOICE_CKV_DATA 45
 
 /* This sleep is added to give time to kernel and
  * spf to recover from SSR so that audio-hal will
@@ -155,7 +156,7 @@ public:
     virtual int32_t stop() = 0;
     virtual int32_t prepare() = 0;
     virtual int32_t drain(pal_drain_type_t type __unused) = 0;
-    virtual int32_t setVolume(struct pal_volume_data *volume) = 0;
+    virtual int32_t setVolume(struct pal_volume_data *volume);
     virtual int32_t mute(bool state) = 0;
     virtual int32_t mute_l(bool state) = 0;
     virtual int32_t getDeviceMute(pal_stream_direction_t dir, bool *state) {return 0;};
@@ -211,7 +212,7 @@ public:
                        size_t *out_buf_size, size_t *out_buf_count);
     int32_t getMaxMetadataSz(size_t *in_max_metadata_sz, size_t *out_max_metadata_sz);
     int32_t getBufSize(size_t *in_buf_size, size_t *out_buf_size);
-    int32_t getVolumeData(struct pal_volume_data *vData);
+    int32_t getVolumeData(struct pal_volume_data *vData, size_t *size);
     void setGainLevel(int level) { mGainLevel = level; };
     int getGainLevel() { return mGainLevel; };
     void setDutyCycleEnable(bool enable) { mDutyCycleEnable = enable; };
