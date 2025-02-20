@@ -30,7 +30,6 @@
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 #define LOG_TAG "PAL: StreamPCM"
 
 #include "StreamPCM.h"
@@ -55,6 +54,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         usleep(SSR_RECOVERY);
         mStreamMutex.unlock();
         throw std::runtime_error("Sound card offline");
+    }
+
+    if (!sattr || !dattr) {
+        PAL_ERR(LOG_TAG,"invalid arguments");
+        mStreamMutex.unlock();
+        throw std::runtime_error("invalid arguments");
     }
 
     session = NULL;
@@ -92,20 +97,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     mVolumeData->volume_pair[0].vol = 1.0f;
     volRampPeriodms = 0x28;
 
-    if (!sattr || !dattr) {
-        PAL_ERR(LOG_TAG,"invalid arguments");
-        free(mVolumeData);
-        mVolumeData = nullptr;
-        mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
-    }
-
     attribute_size = sizeof(struct pal_stream_attributes);
     mStreamAttr = (struct pal_stream_attributes *) calloc(1, attribute_size);
     if (!mStreamAttr) {
         PAL_ERR(LOG_TAG, "malloc for stream attributes failed %s", strerror(errno));
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to malloc for stream attributes");
     }
@@ -125,10 +122,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     session = Session::makeSession(rm, sattr);
     if (!session) {
         PAL_ERR(LOG_TAG, "session creation failed");
-        free(mStreamAttr);
-        mStreamAttr = nullptr;
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
+        delete session;
+        session = nullptr;
+        free(mStreamAttr);
+        mStreamAttr = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to create session object");
     }
@@ -144,11 +143,11 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         if (!dev) {
             PAL_ERR(LOG_TAG, "Device creation failed");
             free(mStreamAttr);
-            mStreamAttr = nullptr;
+            mStreamAttr = NULL;
             free(mVolumeData);
-            mVolumeData = nullptr;
-
-            //TBD::free session too
+            mVolumeData = NULL;
+            delete session;
+            session = nullptr;
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }

@@ -115,7 +115,7 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
     if (!mStreamAttr) {
         PAL_ERR(LOG_TAG, "malloc for stream attributes failed");
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to malloc for stream attributes");
     }
@@ -124,13 +124,13 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
 
     session = Session::makeSession(rm, sattr);
     if (session == NULL){
-       PAL_ERR(LOG_TAG,"session (compress) creation failed");
-       free(mStreamAttr);
-       mStreamAttr = nullptr;
-       free(mVolumeData);
-       mVolumeData = nullptr;
-       mStreamMutex.unlock();
-       throw std::runtime_error("failed to create session object");
+        PAL_ERR(LOG_TAG,"session (compress) creation failed");
+        free(mStreamAttr);
+        mStreamAttr = NULL;
+        free(mVolumeData);
+        mVolumeData = NULL;
+        mStreamMutex.unlock();
+        throw std::runtime_error("failed to create session object");
     }
 
     session->registerCallBack(handleSessionCallBack, (uint64_t)this);
@@ -141,9 +141,11 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
         if (dev == nullptr) {
             PAL_ERR(LOG_TAG, "Device creation is failed");
             free(mStreamAttr);
-            mStreamAttr = nullptr;
+            mStreamAttr = NULL;
             free(mVolumeData);
-            mVolumeData = nullptr;
+            mVolumeData = NULL;
+            delete session;
+            session = nullptr;
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }
