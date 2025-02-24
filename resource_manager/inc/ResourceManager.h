@@ -683,6 +683,8 @@ public:
     static int monoSpeakerPosition;
     /* Variable to store Quick calibration time for Speaker protection */
     static int spQuickCalTime;
+    /* Variable to store calibration temprature for Speaker protection from RM.xml file */
+    static int spCalTemp;
     /* Variable to store the mode request for Speaker protection */
     pal_spkr_prot_payload mSpkrProtModeValue;
 
