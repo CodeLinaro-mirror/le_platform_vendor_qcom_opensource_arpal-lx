@@ -26,7 +26,7 @@
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                             -->
 <!-- Changes from Qualcomm Innovation Center are provided under the following license: -->
 <!--                                                                                   -->
-<!-- Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved           -->
+<!-- Copyright (c) 2022,2025 Qualcomm Innovation Center, Inc. All rights reserved           -->
 <!--                                                                                   -->
 <!-- Redistribution and use in source and binary forms, with or without                -->
 <!-- modification, are permitted (subject to the limitations in the                    -->
@@ -386,6 +386,7 @@
             <param concurrent_capture="true" />
             <param concurrent_voice_call="true" />
             <param concurrent_voip_call="true" />
+            <param concurrent_hfp_call="true" />
             <param low_latency_bargein_enable="false" />
         </common_config>
         <capture_profile_list>

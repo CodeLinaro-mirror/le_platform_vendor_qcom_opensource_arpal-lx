@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -194,8 +194,11 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
         onVUIStreamRegistered();
 
     // Print the concurrency feature flags supported
-    PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,voip conc enable %d",
-        vui_ptfm_info_->GetConcurrentCaptureEnable(), vui_ptfm_info_->GetConcurrentVoiceCallEnable(),
+    PAL_INFO(LOG_TAG, "capture conc enable %d,voice conc enable %d,"
+        "hfp conc enable %d,voip conc enable %d",
+        vui_ptfm_info_->GetConcurrentCaptureEnable(),
+        vui_ptfm_info_->GetConcurrentVoiceCallEnable(),
+        vui_ptfm_info_->GetConcurrentHfpCallEnable(),
         vui_ptfm_info_->GetConcurrentVoipCallEnable());
 
     // check concurrency count from rm

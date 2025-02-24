@@ -1607,6 +1607,7 @@
         <acd_platform_info>
             <config>
                 <param acd_enable="true" />
+                <param concurrent_hfp_call="true" />
             </config>
             <!-- ACD -->
             <stream_config>
