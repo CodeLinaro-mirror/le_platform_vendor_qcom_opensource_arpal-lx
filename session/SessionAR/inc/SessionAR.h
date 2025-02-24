@@ -136,7 +136,7 @@ public:
     int HDRConfigKeyToDevOrientation(const char* hdr_custom_key);
     void setPmQosMixerCtl(pmQosVote vote);
     virtual int32_t getParameters(Stream *s, uint32_t param_id, void **payload) override;
-    virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) = 0;
+    virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) override { return 0; };
     virtual int setParameters(Stream *s, uint32_t param_id, void *payload) override;
     virtual int setParamWithTag(Stream *s, int tagId __unused, uint32_t param_id, void *payload) = 0;
     virtual int setConfig(Stream * s, configType type, int tag) = 0;

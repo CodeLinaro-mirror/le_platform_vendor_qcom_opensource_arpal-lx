@@ -14,6 +14,7 @@ LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/device/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/utils/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/context_manager/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/codecs
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/controls
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/PluginManager/inc
 
 LOCAL_VENDOR_MODULE := true
@@ -201,6 +202,8 @@ LOCAL_CFLAGS += -Wall -Werror -Wno-unused-function -Wno-unused-variable
 LOCAL_SHARED_LIBRARIES += libcutils liblog
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/utils/inc
+LOCAL_C_INCLUDES += $(TOP)/system/media/audio/include
+LOCAL_C_INCLUDES += $(TOP)/system/media/audio_route/include
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -221,7 +224,9 @@ LOCAL_HEADER_LIBRARIES := \
     libarpal_headers
 
 LOCAL_SHARED_LIBRARIES := \
-                          libpalclient
+                          libpalclient \
+                          libcutils
+
 LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_EXECUTABLE)

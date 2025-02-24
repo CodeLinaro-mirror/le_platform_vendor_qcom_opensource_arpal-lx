@@ -144,6 +144,7 @@ public:
             us_tone_renderer_ep_media_format_status_t event);
     int32_t reconfigureSession(Stream *s, struct pal_media_config config,
                                pal_stream_direction_t dir) override;
+    int getPCMDeviceID(Stream *s, int *devId) override;
 };
 
 #endif //SESSION_ALSAPCM_H

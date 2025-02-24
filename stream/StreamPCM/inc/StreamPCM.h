@@ -57,7 +57,6 @@ public:
    int32_t start() override;
    int32_t stop() override;
    int32_t prepare() override;
-   int32_t setVolume( struct pal_volume_data *volume) override;
    int32_t mute(bool state) override;
    int32_t mute_l(bool state) override;
    int32_t getDeviceMute(pal_stream_direction_t dir, bool *state) override;
