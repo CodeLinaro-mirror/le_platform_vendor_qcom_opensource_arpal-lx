@@ -350,6 +350,7 @@ typedef enum {
     PAL_STREAM_ASR = 30,                  /**< ASR Stream */
     PAL_STREAM_HPCM = 31,                 /**< hpcm usecase */
     PAL_STREAM_DUMMY = 32,                /**< Dummy stream used to directly push configurations without a stream instance */
+    PAL_STREAM_CALL_TRANSLATION = 33,     /**< Translation usecase for Voice & Voip Calls */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 

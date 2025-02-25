@@ -356,6 +356,7 @@ const std::map<uint32_t, uint32_t> streamPriorityLUT {
     {PAL_STREAM_ULTRASOUND,         4},
     {PAL_STREAM_SPATIAL_AUDIO,      3},
     {PAL_STREAM_SENSOR_PCM_RENDERER,4},
+    {PAL_STREAM_CALL_TRANSLATION,   2},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -2663,7 +2664,7 @@ bool ResourceManager::isStreamSupported(Stream *s, struct pal_device *devices, i
     }
 
     if (((no_of_devices > 0) && !devices && (attributes.type != PAL_STREAM_VOICE_CALL_MUSIC)
-                         && (attributes.type != PAL_STREAM_VOICE_CALL_RECORD))) {
+                         && (attributes.type != PAL_STREAM_VOICE_CALL_RECORD) && (attributes.type != PAL_STREAM_CALL_TRANSLATION))) {
         PAL_ERR(LOG_TAG, "Invalid input parameter, noOfDevices %d devices %p",
                 no_of_devices, devices);
         goto exit;
@@ -5313,8 +5314,9 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
                 id -= 1;
             }
             break;
-       case PAL_STREAM_CONTEXT_PROXY:
-       case PAL_STREAM_COMMON_PROXY:
+        case PAL_STREAM_CALL_TRANSLATION:
+        case PAL_STREAM_CONTEXT_PROXY:
+        case PAL_STREAM_COMMON_PROXY:
             if (howMany > listAllPcmContextProxyFrontEnds.size()) {
                     PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
                                       howMany, listAllPcmContextProxyFrontEnds.size());
@@ -5508,8 +5510,9 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
                 break;
             }
             break;
-       case PAL_STREAM_CONTEXT_PROXY:
-       case PAL_STREAM_COMMON_PROXY:
+        case PAL_STREAM_CALL_TRANSLATION:
+        case PAL_STREAM_CONTEXT_PROXY:
+        case PAL_STREAM_COMMON_PROXY:
             for (int i = 0; i < frontend.size(); i++) {
                  listAllPcmContextProxyFrontEnds.push_back(frontend.at(i));
             }
