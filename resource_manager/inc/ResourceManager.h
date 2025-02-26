@@ -80,6 +80,11 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
+<<<<<<< HEAD   (146e2b Merge 77b9f14beefe6d4356ff31f9e4e1a842fc6aea85 on remote bra)
+=======
+#define AUDIO_PARAMETER_KEY_HFP_SET_BOOT "hfp_volgrp_set_boot"
+#define AUDIO_PARAMETER_KEY_BUS_MEDIA_BOOT_LOAD "bus_media_boot_load"
+>>>>>>> CHANGE (112107 PAL : Config is_bus_media_boot_load flag based on the XML fi)
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -807,6 +812,11 @@ public:
     static int setLpiLoggingParams(struct str_parms *parms, char *value, int len);
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
+<<<<<<< HEAD   (146e2b Merge 77b9f14beefe6d4356ff31f9e4e1a842fc6aea85 on remote bra)
+=======
+    static int setHfpVolGroupBoot(struct str_parms *parms,char *value, int len);
+    static int setBusMediaBootLoad(struct str_parms *parms,char *value, int len);
+>>>>>>> CHANGE (112107 PAL : Config is_bus_media_boot_load flag based on the XML fi)
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);
