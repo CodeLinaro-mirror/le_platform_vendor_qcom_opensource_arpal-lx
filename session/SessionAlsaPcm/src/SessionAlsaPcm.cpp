@@ -1279,7 +1279,9 @@ int SessionAlsaPcm::start(Stream * s)
                     goto exit;
                 }
             }
-            setInitialVolume();
+            if (!(sAttr.info.opt_stream_info.isBitPerfect)) {
+                setInitialVolume();
+            }
             memset(&lpm_info, 0, sizeof(struct disable_lpm_info));
             rm->getDisableLpmInfo(&lpm_info);
             isStreamAvail = (find(lpm_info.streams_.begin(),
