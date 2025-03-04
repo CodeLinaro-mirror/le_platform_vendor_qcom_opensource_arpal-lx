@@ -2245,7 +2245,7 @@ int SessionAlsaVoice::getPCMDeviceID(Stream *s, int *devId)
         goto exit;
     }
 
-    if (sAttr.direction == PAL_AUDIO_OUTPUT || PAL_AUDIO_INPUT_OUTPUT) {
+    if ((sAttr.direction == PAL_AUDIO_OUTPUT) || (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT)) {
         *devId = pcmDevRxIds.at(0);
     } else if (sAttr.direction == PAL_AUDIO_INPUT) {
         *devId = pcmDevTxIds.at(0);
