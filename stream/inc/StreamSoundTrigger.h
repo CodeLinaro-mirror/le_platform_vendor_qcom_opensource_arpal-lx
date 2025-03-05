@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -548,6 +548,7 @@ private:
     int32_t DisconnectEvent(std::shared_ptr<StEventConfig> ev_cfg,
           bool device_switch_event = false);
     int32_t ConnectEvent(std::shared_ptr<StEventConfig> ev_cfg);
+    bool IsCommonBackend(pal_device_id_t dev_id);
     std::thread timer_thread_;
     std::mutex timer_mutex_;
     std::condition_variable timer_start_cond_;
