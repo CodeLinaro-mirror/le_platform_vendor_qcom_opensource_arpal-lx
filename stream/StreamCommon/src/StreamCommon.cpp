@@ -99,6 +99,8 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
     session = Session::makeSession(rm, sattr);
     if (!session) {
         PAL_ERR(LOG_TAG, "Error:session creation failed");
+        free(mStreamAttr);
+        mStreamAttr = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to create session object");
     }
@@ -129,7 +131,10 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
         dev = Device::getInstance((struct pal_device *)&dattr[i] , rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "Error:Device creation failed");
-            //TBD::free session too
+            free(mStreamAttr);
+            mStreamAttr = NULL;
+            delete session;
+            session = nullptr;
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }
