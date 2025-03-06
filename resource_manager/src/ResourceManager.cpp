@@ -5181,7 +5181,7 @@ void ResourceManager::mixerEventWaitThreadLoop(
 
     while (1) {
         PAL_VERBOSE(LOG_TAG, "going to wait for event");
-        ret = mixer_wait_event(mixer, -1);
+        ret = mixer_wait_event(mixer, 3000);
         PAL_VERBOSE(LOG_TAG, "mixer_wait_event returns %d", ret);
         if (ret <= 0) {
             PAL_DBG(LOG_TAG, "mixer_wait_event err! ret = %d", ret);
@@ -6833,15 +6833,15 @@ void ResourceManager::deinit()
     card_status_t state = CARD_STATUS_NONE;
 
     mixerClosed = true;
+    if (mixerEventTread.joinable()) {
+        mixerEventTread.join();
+    }
+    PAL_INFO(LOG_TAG, "Mixer event thread joined");
     mixer_close(audio_virt_mixer);
     mixer_close(audio_hw_mixer);
     if (audio_route) {
        audio_route_free(audio_route);
     }
-    if (mixerEventTread.joinable()) {
-        mixerEventTread.join();
-    }
-    PAL_DBG(LOG_TAG, "Mixer event thread joined");
     if (sndmon)
         delete sndmon;
 
