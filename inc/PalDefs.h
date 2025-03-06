@@ -816,6 +816,7 @@ typedef enum {
     PAL_PARAM_ID_DTMF_GEN_TONE_CFG = 87,
     PAL_PARAM_ID_HAPTICS_MODE = 88,
     PAL_PARAM_ID_MMA_MODE_BIT_CONFIG = 89,
+    PAL_PARAM_ID_WNR_MODE = 90,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
