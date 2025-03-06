@@ -42,6 +42,10 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
 
     LOCAL_C_INCLUDES += $(TOP)/system/media/audio_route/include
     LOCAL_C_INCLUDES += $(TOP)/system/media/audio/include
+    LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/sounddose/inc
+    LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/plugins/configs/ConfigSessionAlsaPcm/inc
+    LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/plugins/configs/ConfigSessionAlsaCompress/inc
+    LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/plugins/configs/ConfigSessionAlsaVoice/inc
 
     LOCAL_HEADER_LIBRARIES += \
         libarpal_headers \
@@ -71,6 +75,7 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libstream_soundtrigger_headers \
         libstream_ultrasound_headers \
         libstream_asr_headers \
+        libstream_calltranslation_headers \
         libsession_ar_headers \
         libsession_agm_headers \
         libsession_compress_headers \

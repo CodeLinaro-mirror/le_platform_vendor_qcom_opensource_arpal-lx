@@ -15,6 +15,7 @@ LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/utils/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/context_manager/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/codecs
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/PluginManager/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/sounddose/inc/
 
 LOCAL_VENDOR_MODULE := true
 
@@ -158,7 +159,12 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_dummy \
         libdev_haptics \
         libdev_ext_ec \
-        libdev_ec_ref
+        libdev_ec_ref \
+        libpal_sounddose \
+        libsession_pcm_config \
+        libsession_compress_config \
+        libsession_voice_config \
+        libsession_config_utils
 endif #end of static compilation
 
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun canoe), true)
@@ -268,7 +274,11 @@ else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
 endif
 
-include $(BUILD_SHARED_LIBRARY)
+ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
+    include $(BUILD_STATIC_LIBRARY)
+else
+    include $(BUILD_SHARED_LIBRARY)
+endif
 
 include $(CLEAR_VARS)
 
