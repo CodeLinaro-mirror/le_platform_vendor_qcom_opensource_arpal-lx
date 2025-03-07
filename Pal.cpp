@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1515,4 +1515,39 @@ int32_t pal_get_mic_mute(bool *state){
 int32_t pal_set_mic_mute(bool state){
     PAL_ERR(LOG_TAG, "error: API: pal_set_mic_mute not implemented");
     return -ENOSYS;
+}
+
+int32_t pal_stream_get_available_frame_count(pal_stream_handle_t *stream_handle, uint32_t *frame_count)
+{
+    int32_t ret = 0;
+    Stream *s = NULL;
+    if (!stream_handle || !frame_count) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+    PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+    s = reinterpret_cast<Stream *>(stream_handle);
+    ret = s->getAvailableFrameCount(frame_count);
+    if (ret) {
+        PAL_ERR(LOG_TAG, "stream getAvailableFrameCount failed with error %d", ret);
+    }
+
+    return ret;
+}
+
+int32_t pal_stream_get_path_delay(pal_stream_handle_t *stream_handle, uint32_t *delay_in_ms)
+{
+    uint32_t rc = 0;
+    Stream *s = NULL;
+    if (!stream_handle || !delay_in_ms) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+    PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+    s = reinterpret_cast<Stream *>(stream_handle);
+    rc = s->getLatency(delay_in_ms);
+    if (rc){
+        PAL_ERR(LOG_TAG, "Stream get_latency failed with error %d", rc);
+    }
+    return rc;
 }

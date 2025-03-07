@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -325,6 +325,7 @@ public:
     static bool compareNumSelectors(struct kvInfo info_1, struct kvInfo info_2);
     static int payloadDualMono(uint8_t **payloadInfo);
     void payloadAFSInfo(uint8_t **payload, size_t *size, uint32_t moduleId);
+    int32_t payloadPathDelay(void** payload, uint32_t *payloadSize, uint32_t srcMiid, uint32_t dstMiid);
     PayloadBuilder();
     ~PayloadBuilder();
 };

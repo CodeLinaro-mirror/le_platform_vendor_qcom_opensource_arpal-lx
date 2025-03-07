@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -4047,4 +4047,76 @@ int SessionAlsaPcm::reconfigureModule(uint32_t tagID, const char* BE, struct ses
 
 exit:
     return status;
+}
+
+int32_t SessionAlsaPcm::getAvailableFrameCount(uint32_t *frame_count, int dir)
+{
+    int32_t ret = 0;
+    struct mixer_ctl *ctl;
+    std::ostringstream CntrlName;
+    if (!pcmDevIds.size())
+    {
+        PAL_ERR(LOG_TAG, "No devices found");
+        return -EINVAL;
+    }
+
+    CntrlName << "PCM" << pcmDevIds.at(0) << " getAvailableFrameCount";
+
+    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "mixer_get_ctl_by_name did not get control with name %s", CntrlName.str().data());
+        return -ENOENT;
+    }
+
+    ret = mixer_ctl_get_array(ctl, frame_count, sizeof(uint32_t));
+
+    if (ret)
+        PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with err %d", ret);
+
+    return ret;
+}
+
+uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
+{
+    struct pal_stream_attributes sAttr;
+    int32_t rc = 0;
+    uint32_t srcMiid, dstMiid;
+    int status = 0;
+
+    if (!s || !latency)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    rc = s->getStreamAttributes(&sAttr);
+    if (rc) {
+        PAL_ERR(LOG_TAG, "Stream getStreamAttributes failed with error %d", rc);
+        return rc;
+    }
+
+    if (!pcmDevIds.size() || (sAttr.direction == PAL_AUDIO_OUTPUT && !rxAifBackEnds.size()))
+    {
+        PAL_ERR(LOG_TAG, "Device or backends not available");
+        return -EINVAL;
+    }
+
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &srcMiid);
+    if (0 != status)
+    {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+        return status;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_RX, &dstMiid);
+    if (0 != status)
+    {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+        return status;
+    }
+
+    rc = SessionAlsaUtils::getLatency(mixer, latency, srcMiid, dstMiid, pcmDevIds);
+
+    if(rc)
+        PAL_ERR(LOG_TAG, "getLatency failed with error %d", rc);
+    return rc;
 }
