@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -417,8 +417,15 @@ int Device::close()
            disableDevice(audioRoute, mSndDeviceName);
            mCurrentPriority = MIN_USECASE_PRIORITY;
            deviceStartStopCount = 0;
-           if(rm->getProxyChannels() != 0)
-               rm->setProxyChannels(0);
+           if(rm) {
+               if(rm->getProxyChannels() != 0)
+                   rm->setProxyChannels(0);
+           }
+           else {
+                    PAL_ERR(LOG_TAG, "Failed to get proxy channel, rm is null: "
+                           "deviceCount %d for device id %d (%s)",
+                            deviceCount, this->deviceAttr.id, mPALDeviceName.c_str());
+           }
        }
     }
     PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s), exit status %d", deviceCount,

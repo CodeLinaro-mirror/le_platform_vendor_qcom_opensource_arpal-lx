@@ -7590,6 +7590,16 @@ bool ResourceManager::compareSharedBEStreamDevAttr(std::vector <std::tuple<Strea
                     if (newDevPrio <= curDevPrio) {
                         PAL_DBG(LOG_TAG, "incoming dev: %d priority: 0x%x has same or higher priority than cur dev:%d priority: 0x%x",
                                             newDevAttr->id, newDevPrio, curDevAttr.id, curDevPrio);
+                        if (newDevAttr->id != curDevAttr.id &&
+                           (curDevAttr.id == PAL_DEVICE_IN_HANDSET_MIC || curDevAttr.id == PAL_DEVICE_IN_SPEAKER_MIC || 
+                             curDevAttr.id == PAL_DEVICE_IN_FM_TUNER) &&
+                           (newDevAttr->id == PAL_DEVICE_IN_HANDSET_MIC || newDevAttr->id == PAL_DEVICE_IN_SPEAKER_MIC || 
+                             newDevAttr->id == PAL_DEVICE_IN_FM_TUNER)) {
+                            PAL_INFO(LOG_TAG, "No stream switch is needed as current device %d and incoming device %d need to run concurrently", 
+                                               curDevAttr.id, newDevAttr->id);
+                            switchStreams = false;
+                            goto exit;
+                        }
                         switchStreams = true;
                     } else if (isBtA2dpDevice(newDevAttr->id) && isBtScoDevice(curDevAttr.id) &&
                                !curDev->isDeviceReady()) {
@@ -7716,7 +7726,7 @@ bool ResourceManager::compareSharedBEStreamDevAttr(std::vector <std::tuple<Strea
                 free((*it).second);
         }
     }
-
+exit:
     PAL_INFO(LOG_TAG, "switchStreams is %d", switchStreams);
 
     return switchStreams;
