@@ -25,6 +25,8 @@ Homepage: https://git.codelinaro.org/clo/le/platform/vendor/qcom/opensource/arpa
 
 Package: qcom-pal
 Architecture: arm64
+Replaces: arpal-lx0
+Breaks: arpal-lx0
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
