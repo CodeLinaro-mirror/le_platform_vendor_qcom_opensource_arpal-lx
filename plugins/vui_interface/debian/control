@@ -17,6 +17,8 @@ Homepage: http://support.cdmatech.com
 
 Package: qcom-vui-interface
 Architecture: arm64
+Replaces: vui-interface0
+Breaks: vui-interface0
 Depends:
  ${shlibs:Depends},
  ${misc:Depends},
