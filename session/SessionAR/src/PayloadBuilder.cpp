@@ -205,6 +205,55 @@ struct param_id_dtmf_gen_tone_cfg_t
 typedef struct param_id_dtmf_gen_tone_cfg_t param_id_dtmf_gen_tone_cfg_t;
 
 
+/** Parameter ID for DTMF generation V2*/
+#define PARAM_ID_DTMF_GEN_TONE_CFG_V2 0X08001AE8
+
+/** @h2xmlp_parameter   {"PARAM_ID_DTMF_GEN_TONE_CFG_V2", PARAM_ID_DTMF_GEN_TONE_CFG_V2}
+    @h2xmlp_description {Parameter for generating DTMF }
+    @h2xmlp_toolPolicy  {Calibration; RTC} */
+
+#include "spf_begin_pack.h"
+struct param_id_dtmf_gen_tone_cfg_v2_t
+{
+   uint16_t high_freq;
+   /**< @h2xmle_description {DTMF Tone high frequency in Hz, 100-4000 Hz}
+        @h2xmle_default     {1209}
+        @h2xmle_range       {100...4000}
+        @h2xmle_policy      {Basic} */
+
+   uint16_t low_freq;
+   /**< @h2xmle_description {DTMF Tone low frequency in Hz, 100-4000 Hz, <= high_freq }
+        @h2xmle_default     {697}
+        @h2xmle_range       {100...4000}
+        @h2xmle_policy      {Basic} */
+
+   int32_t duration_ms;
+   /**< @h2xmle_description {Duration of the tone in milliseconds. The duration includes
+                             ramp-up and ramp-down periods of 1 ms and 2 ms, respectively.}
+        @h2xmle_default     {0}
+        @h2xmle_range       {-1...0x7FFFFFFF}
+        @h2xmle_policy      {Basic} */
+
+   uint16_t gain;
+   /**< @h2xmle_description {DTMF tone linear gain. Because the level of tone generation is fixed
+                             at 0 dBFS, this parameter must be set to a value in Q13 format.}
+        @h2xmle_default     {8192}
+        @h2xmle_dataFormat  {Q13}
+        @h2xmle_policy      {Basic} */
+
+   uint16_t reserved;
+   /**< @h2xmle_description {16 bits are reserved for 32-bit alignment.}
+        @h2xmle_default     {0}
+        @h2xmle_range       {0...0}
+        @h2xmle_dataFormat  {Q13}
+        @h2xmle_policy      {Basic} */
+}
+#include "spf_end_pack.h"
+;
+
+/* Type definition for the above structure */
+typedef struct param_id_dtmf_gen_tone_cfg_v2_t param_id_dtmf_gen_tone_cfg_v2_t;
+
 /* ID of the Output Media Format parameters used by MODULE_ID_MFC */
 #define PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x08001024
 #include "spf_begin_pack.h"
@@ -5258,7 +5307,7 @@ void PayloadBuilder::payloadDTMFGenConfig(uint8_t **payload, size_t *size,
     uint32_t moduleId, pal_param_dtmf_gen_tone_cfg_t *dtmf_payload)
 {
     struct apm_module_param_data_t* header;
-    param_id_dtmf_gen_tone_cfg_t *dtmf_config;
+    param_id_dtmf_gen_tone_cfg_v2_t *dtmf_config;
     uint8_t* payloadInfo = NULL;
     size_t payloadSize = 0, padBytes = 0;
 
@@ -5272,13 +5321,13 @@ void PayloadBuilder::payloadDTMFGenConfig(uint8_t **payload, size_t *size,
     }
     header = (struct apm_module_param_data_t*)payloadInfo;
     header->module_instance_id = moduleId;
-    header->param_id = PARAM_ID_DTMF_GEN_TONE_CFG;
+    header->param_id = PARAM_ID_DTMF_GEN_TONE_CFG_V2;
     header->error_code = 0x0;
     header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
     PAL_DBG(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
                        header->module_instance_id, header->param_id,
                        header->error_code, header->param_size);
-    dtmf_config = (param_id_dtmf_gen_tone_cfg_t*)(payloadInfo +
+    dtmf_config = (param_id_dtmf_gen_tone_cfg_v2_t*)(payloadInfo +
                    sizeof(struct apm_module_param_data_t));
     dtmf_config->high_freq = dtmf_payload->high_freq;
     dtmf_config->low_freq = dtmf_payload->low_freq;
@@ -5291,8 +5340,7 @@ void PayloadBuilder::payloadDTMFGenConfig(uint8_t **payload, size_t *size,
 
     dtmf_config->gain = dtmf_payload->gain;
     dtmf_config->duration_ms = dtmf_payload->duration_ms;
-    dtmf_config->version = DTMF_GEN_TONE_VERSION_V2;
-    PAL_DBG(LOG_TAG, "high_freq:%d, low_freq:%d, gain:%d,duration_ms:%d",
+    PAL_DBG(LOG_TAG, "high_freq:%u, low_freq:%u, gain:%u,duration_ms:%d",
             dtmf_config->high_freq, dtmf_config->low_freq, dtmf_config->gain,
             dtmf_config->duration_ms);
 
