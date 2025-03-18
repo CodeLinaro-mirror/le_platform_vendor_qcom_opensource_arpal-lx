@@ -557,12 +557,12 @@
     </path>
 
     <path name="handset">
+        <ctl name="EAR_MUX" value="RX2" />
         <ctl name="RX_MACRO RX2 MUX" value="AIF2_PB" />
         <ctl name="RX INT2_1 MIX1 INP0" value="RX2" />
         <ctl name="RX_EAR Mode" value="ON" />
         <ctl name="DAC1 Switch" value="1" />
         <ctl name="EAR_MIXER Switch" value="1" />
-        <ctl name="EAR_MUX" value="RX2" />
     </path>
 
     <path name="handset-mic">
