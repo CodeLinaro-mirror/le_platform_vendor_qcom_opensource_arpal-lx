@@ -7964,6 +7964,18 @@ bool ResourceManager::isValidDeviceSwitchForStream(Stream *s, pal_device_id_t ne
             break;
         }
         break;
+    case PAL_STREAM_VOICE_UI:
+        switch (newDeviceId) {
+        case PAL_DEVICE_IN_HANDSET_VA_MIC:
+        case PAL_DEVICE_IN_SPEAKER_MIC:
+        case PAL_DEVICE_IN_HANDSET_MIC:
+            ret = true;
+            break;
+        default:
+            ret = false;
+            break;
+        }
+        break;
     default:
         if (!isValidStreamId(sAttr.type)) {
             PAL_DBG(LOG_TAG, "Invalid stream type\n");
