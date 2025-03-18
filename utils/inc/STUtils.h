@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -28,6 +28,7 @@ bool IsLowLatencyBargeinSupported();
 bool IsAudioCaptureConcurrencySupported();
 bool IsVoiceCallConcurrencySupported();
 bool IsVoipConcurrencySupported();
+bool IsHfpCallConcurrencySupported(pal_stream_type_t type);
 bool CheckForForcedTransitToNonLPI();
 std::shared_ptr<CaptureProfile> GetASRCaptureProfileByPriority(
     Stream *s, std::shared_ptr<CaptureProfile> cap_prof_priority, std::string backend);
