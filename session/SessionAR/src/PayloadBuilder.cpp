@@ -3178,6 +3178,7 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
     struct pal_stream_attributes sAttr;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
     struct volume_set_param_info vol_set_param_info;
+    uint32_t type = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
     memset(&sAttr, 0, sizeof(struct pal_stream_attributes));
@@ -3195,6 +3196,9 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             /* Push stream channels CKV for SVA/PDK module calibration */
             keyVector.push_back(std::make_pair(STREAM_CHANNELS,
                 sAttr.in_media_config.ch_info.channels));
+            type = s->GetMMAModelType();
+            if (type)
+                keyVector.push_back(std::make_pair(MMA_MODEL_TYPE, type));
             break;
         default:
             /*
