@@ -151,6 +151,7 @@
         <stream name="PAL_STREAM_COMMON_PROXY" max_size="8" />
         <stream name="PAL_STREAM_SENSOR_PCM_RENDERER" max_size="1" />
         <stream name="PAL_STREAM_ASR" max_size="1" />
+        <stream name="PAL_STREAM_CALL_TRANSLATION" max_size="1" />
     </config_max_sessions>
     <device_profile>
         <in-device>
@@ -746,7 +747,6 @@
             <max_channels>2</max_channels>
             <channels>2</channels>
             <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
             <snd_device_name>speaker</snd_device_name>
             <speaker_protection_enabled>0</speaker_protection_enabled>
             <fractional_sr>0</fractional_sr>
@@ -808,7 +808,6 @@
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
             <ext_ec_ref_enabled>0</ext_ec_ref_enabled>
             <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
             <fractional_sr>0</fractional_sr>
             <snd_device_name>handset-wsa</snd_device_name>
             <handset_protection_enabled>0</handset_protection_enabled>
@@ -1101,6 +1100,19 @@
             <snd_device_name>ultrasound-handset-wsa</snd_device_name>
             <samplerate>96000</samplerate>
             <bit_width>16</bit_width>
+            <usecase>
+                <name>PAL_STREAM_SENSOR_PCM_RENDERER</name>
+                <custom-config key="stereo-spkr">
+                    <snd_device_name>speaker</snd_device_name>
+                    <channels>2</channels>
+                </custom-config>
+                <custom-config key="top-spkr">
+                    <snd_device_name>handset</snd_device_name>
+                </custom-config>
+                <custom-config key="bottom-spkr">
+                    <snd_device_name>speaker-mono-2</snd_device_name>
+                </custom-config>
+            </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND_DEDICATED</id>
@@ -1899,6 +1911,7 @@
             <stream_config>
                 <name>QC_MMA</name>
                 <param vendor_uuid="018f8585-3890-7419-b0f3-e5b6ec961d9c" />
+                <param interface_plugin_lib="sva_plugin.so" />
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->
                 <param client_capture_read_delay="2000" /> <!-- reserved buffer duration for rt data -->

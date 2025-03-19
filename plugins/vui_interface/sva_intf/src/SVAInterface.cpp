@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1431,8 +1431,10 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
                 sizeof(struct st_keyword_indices_info) +
                 conf_levels_size + ext_payload_size;
         } else {
+            ext_payload_size = GetExtendedPayloadSize(s);
             opaque_size = sizeof(struct st_param_header) +
-                sizeof(struct event_id_mma_detection_event_t);
+                sizeof(struct event_id_mma_detection_event_t) +
+                ext_payload_size;
         }
 
         event_size = sizeof(struct pal_st_phrase_recognition_event) +
@@ -1480,13 +1482,15 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
         opaque_data = (uint8_t *)phrase_event +
                        phrase_event->common.data_offset;
 
-        if (module_type_ != ST_MODULE_TYPE_MMA) {
-            status = PackSVADetectionOpaqueData(s, opaque_data, ext_payload_size);
-        } else {
-            status = PackMMADetectionOpaqueData(s, opaque_data);
-        }
+        status = PackDetectionOpaqueData(s, opaque_data, ext_payload_size);
     } else if (sm_info->type == PAL_SOUND_MODEL_TYPE_GENERIC) {
-        event_size = sizeof(struct pal_st_generic_recognition_event);
+        if (module_type_ == ST_MODULE_TYPE_MMA) {
+            ext_payload_size = GetExtendedPayloadSize(s);
+            opaque_size = sizeof(struct st_param_header) +
+                sizeof(struct event_id_mma_detection_event_t) +
+                ext_payload_size;
+        }
+        event_size = sizeof(struct pal_st_generic_recognition_event) + opaque_size;
         generic_event = (struct pal_st_generic_recognition_event *)
                        calloc(1, event_size);
         if (!generic_event) {
@@ -1506,7 +1510,7 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
         (*event)->capture_delay_ms = 0;
         (*event)->capture_preamble_ms = 0;
         (*event)->trigger_in_data = true;
-        (*event)->data_size = 0;
+        (*event)->data_size = opaque_size;
         (*event)->data_offset = sizeof(struct pal_st_generic_recognition_event);
         (*event)->media_config.sample_rate =
             str_attr_.in_media_config.sample_rate;
@@ -1515,6 +1519,12 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
         (*event)->media_config.ch_info.channels =
             str_attr_.in_media_config.ch_info.channels;
         (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+        if (opaque_size) {
+            // Filling Opaque data
+            opaque_data = (uint8_t *)generic_event +
+                        generic_event->common.data_offset;
+            status = PackDetectionOpaqueData(s, opaque_data, ext_payload_size);
+        }
     }
     *size = event_size;
 exit:
@@ -1522,7 +1532,7 @@ exit:
     return status;
 }
 
-int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
+int32_t SVAInterface::PackDetectionOpaqueData(void *s,
     uint8_t *opaque_data, uint32_t ext_payload_size) {
 
     int32_t num_models = 0;
@@ -1537,6 +1547,31 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
     struct model_stats *det_model_stat = nullptr;
     struct detection_event_info_pdk *det_ev_info_pdk = nullptr;
     struct detection_event_info *det_ev_info = nullptr;
+    struct detection_event_info_mma *det_ev_info_mma = nullptr;
+
+    if (module_type_ == ST_MODULE_TYPE_MMA) {
+        det_ev_info_mma = &det_event_info_[s]->mma_event_info_;
+        if (!det_ev_info_mma) {
+            ALOGE("%s: %d: detection info mma not available",
+                __func__, __LINE__);
+            return -EINVAL;
+        }
+
+        /* Pack the opaque data mma detection result */
+        param_hdr = (struct st_param_header *)opaque_data;
+        param_hdr->key_id = ST_PARAM_KEY_MMA_DETECTION_RESULT;
+        param_hdr->payload_size =
+            sizeof(struct event_id_mma_detection_event_t);
+        opaque_data += sizeof(struct st_param_header);
+        ar_mem_cpy(opaque_data, param_hdr->payload_size,
+            det_ev_info_mma, param_hdr->payload_size);
+
+        if (ext_payload_size) {
+            opaque_data += sizeof(struct event_id_mma_detection_event_t);
+            FillExtendedDetectionPayload(s, opaque_data, ext_payload_size);
+        }
+        return 0;
+    }
 
     // sm_info_map_[s] validity is verified in GenerateCallbackEvent already
     sm_info = sm_info_map_[s];
@@ -1634,30 +1669,6 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
         opaque_data += sizeof(struct st_timestamp_info);
         FillExtendedDetectionPayload(s, opaque_data, ext_payload_size);
     }
-
-    return 0;
-}
-
-int32_t SVAInterface::PackMMADetectionOpaqueData(void *s, uint8_t *opaque_data) {
-
-    struct st_param_header *param_hdr = nullptr;
-    struct detection_event_info_mma *det_ev_info_mma = nullptr;
-
-    det_ev_info_mma = &det_event_info_[s]->mma_event_info_;
-    if (!det_ev_info_mma) {
-        ALOGE("%s: %d: detection info mma not available",
-            __func__, __LINE__);
-        return -EINVAL;
-    }
-
-    /* Pack the opaque data mma detection result */
-    param_hdr = (struct st_param_header *)opaque_data;
-    param_hdr->key_id = ST_PARAM_KEY_MMA_DETECTION_RESULT;
-    param_hdr->payload_size =
-        sizeof(struct event_id_mma_detection_event_t);
-    opaque_data += sizeof(struct st_param_header);
-    ar_mem_cpy(opaque_data, param_hdr->payload_size,
-        det_ev_info_mma, param_hdr->payload_size);
 
     return 0;
 }

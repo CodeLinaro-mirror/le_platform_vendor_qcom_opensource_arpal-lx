@@ -33,7 +33,7 @@ LOCAL_CFLAGS        += -Wall -Werror -Wno-unused-variable -Wno-unused-parameter
 LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
 LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR
-ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
+ifeq ($(call is-board-platform-in-list,kalama pineapple sun canoe), true)
 LOCAL_CFLAGS        += -DSOC_PERIPHERAL_PROT
 endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti -Wno-ignored-attributes
@@ -117,6 +117,7 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libstream_dummy \
         libstream_common \
         libstream_commonproxy \
+        libstream_calltranslation \
         libstream_compress \
         libstream_contextproxy \
         libstream_haptics \
@@ -153,7 +154,7 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_ec_ref
 endif #end of static compilation
 
-ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
+ifeq ($(call is-board-platform-in-list,kalama pineapple sun canoe), true)
 LOCAL_SHARED_LIBRARIES += libPeripheralStateUtils
 LOCAL_HEADER_LIBRARIES += peripheralstate_headers \
     vendor_common_inc\
