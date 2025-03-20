@@ -1351,6 +1351,8 @@ int32_t Stream::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t d
                 ((currentState == STREAM_INIT || currentState == STREAM_STOPPED) &&
                 ((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_SCO) ||
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET) ||
                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) &&
                  isMMap)) {
                 status = mDevices[i]->stop();
@@ -1478,6 +1480,8 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
         ((currentState == STREAM_INIT || currentState == STREAM_STOPPED) &&
         ((dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
         (dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+        (dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_SCO) ||
+        (dev->getSndDeviceId() == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET) ||
         (dev->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) &&
         isMMap)) {
         status = dev->start();
