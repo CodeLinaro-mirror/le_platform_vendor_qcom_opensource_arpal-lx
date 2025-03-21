@@ -814,7 +814,7 @@ silence_ev_setup_done:
             }
             if (hpCnfg != nullptr && status == 0) {
                 builder->payloadHapticsDevPConfig(&payload, &payloadSize,
-                            miid, PARAM_ID_HAPTICS_WAVE_DESIGNER_CFG,(void *)hpCnfg);
+                            miid, PARAM_ID_HAPTICS_WAVE_DESIGNER_CFG_V2,(void *)hpCnfg);
                 if (payloadSize && payload) {
                     status = builder->updateCustomPayload(payload, payloadSize);
                     builder->freeCustomPayload(&payload, &payloadSize);
