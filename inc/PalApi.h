@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -584,6 +584,16 @@ int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
   */
 int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size);
+
+
+/**
+  * \brief registers a callback function to get notification for audio events.
+  *
+  * \param[in] cb_event - Callback function to be called
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_register_for_events(pal_audio_event_callback cb_event);
 
 #ifdef __cplusplus
 }  /* extern "C" */

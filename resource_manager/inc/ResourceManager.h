@@ -693,7 +693,7 @@ public:
     void registerGlobalCallback(pal_global_callback cb, uint64_t cookie);
     pal_global_callback getCallback() { return globalCb; }
     uint64_t getCookie() { return cookie; }
-
+    static pal_audio_event_callback callback_event;
 #ifdef SOC_PERIPHERAL_PROT
     static int deregPeripheralCb(void *cntxt);
     static int registertoPeripheral(uint32_t pUID);
