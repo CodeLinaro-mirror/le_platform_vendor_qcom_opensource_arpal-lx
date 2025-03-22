@@ -704,10 +704,24 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
+void ResourceManager::setagmstatus(int status)
+{
+   agm_status = status;
+   PAL_DBG(LOG_TAG,"%s: Agm_status = %d", __func__, agm_status);
+}
+int ResourceManager::getagmstatus()
+{
+    PAL_DBG(LOG_TAG,"%s: Agm_status = %d", __func__, agm_status);
+    return agm_status;
+}
+
 void agmServiceCrashHandler(uint64_t cookie __unused)
 {
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
     PAL_ERR(LOG_TAG,"AGM service crashed :( ");
-    _exit(1);
+    if (rm) {
+        rm->setagmstatus(1);
+    }
 }
 
 pal_device_id_t ResourceManager::getDeviceId(std::string device_name)

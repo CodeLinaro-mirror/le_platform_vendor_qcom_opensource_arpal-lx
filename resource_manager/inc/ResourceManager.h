@@ -572,6 +572,7 @@ private:
     static bool isSilenceDetectionEnabled;
     /*variable to store MSPP linear gain*/
     pal_param_mspp_linear_gain_t linear_gain;
+    int agm_status = 0;
 #ifdef SOC_PERIPHERAL_PROT
     static std::thread socPerithread;
     static bool isTZSecureZone;
@@ -1161,6 +1162,8 @@ public:
     static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
     int controlPluginSet(Stream *s, plugin_control_name_t control, void *payload, size_t playload_size);
     int controlPluginGet(Stream *s, plugin_control_name_t control, void **payload, size_t *playload_size);
+    int getagmstatus();
+    void setagmstatus(int status);
 
 };
 
