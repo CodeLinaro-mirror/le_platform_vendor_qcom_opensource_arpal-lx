@@ -449,6 +449,7 @@ set_mixer:
                 goto exit;
             }
             if (sAttr.type == PAL_STREAM_VOICE_CALL_RECORD) {
+#ifdef CONFIGURE_INCALL_RECORD_RAT_MODULE
                 status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),
                                                             "ZERO", RAT_RENDER, &miid);
                 if (status != 0) {
@@ -489,6 +490,7 @@ set_mixer:
                     PAL_ERR(LOG_TAG, "setMixerParameter failed for RAT render");
                     goto exit;
                 }
+#endif
                 switch (sAttr.info.voice_rec_info.record_direction) {
                     case INCALL_RECORD_VOICE_UPLINK:
                         tagId = INCALL_RECORD_UPLINK;
