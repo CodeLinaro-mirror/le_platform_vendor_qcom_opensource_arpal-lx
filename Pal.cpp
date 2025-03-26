@@ -251,6 +251,36 @@ exit:
     return status;
 }
 
+int get_agm_status()
+{
+    int status = 0;
+    std::shared_ptr<ResourceManager> rm = NULL;
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+    status = rm->getagmstatus();
+    PAL_ERR(LOG_TAG,"%s: agm_status = %d", __func__, status);
+    return status;
+}
+
+int set_agm_status(int data)
+{
+    int status = 0;
+    std::shared_ptr<ResourceManager> rm = NULL;
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        return status;
+    }
+    rm->setagmstatus(data);
+    PAL_ERR(LOG_TAG,"%s: data = %d", __func__, data);
+    return status;
+}
+
 int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
 {
     ATRACE_CALL();

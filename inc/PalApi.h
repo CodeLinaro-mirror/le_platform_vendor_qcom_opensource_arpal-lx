@@ -133,6 +133,10 @@ void pal_deinit();
   *
   * \return 0 on success, error code otherwise
   */
+
+int set_agm_status(int data);
+int get_agm_status();
+
 int32_t pal_stream_open(struct pal_stream_attributes *attributes,
                         uint32_t no_of_devices, struct pal_device *devices,
                         uint32_t no_of_modifiers, struct modifier_kv *modifiers,
