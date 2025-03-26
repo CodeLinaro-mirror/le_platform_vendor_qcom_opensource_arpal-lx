@@ -1063,6 +1063,14 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
                                             status);
             break;
         }
+        case PAL_PARAM_ID_ASRC:
+        {
+            status = session->setParameters(this, TAG_MODULE_ASRC, param_id, payload);
+            if (status)
+                PAL_ERR(LOG_TAG, "setParam for ASRC failed with %d",
+                                            status);
+            break;
+        }
 
         default:
             PAL_ERR(LOG_TAG, "Unsupported param id %u", param_id);
