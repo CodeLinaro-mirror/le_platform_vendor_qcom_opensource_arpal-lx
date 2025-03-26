@@ -41,8 +41,13 @@ LOCAL_SHARED_LIBRARIES := \
     liblx-osal \
     libar-pal \
     libexpat \
-    libar-gsl \
     libsession_ar
+
+ifeq ($(ENABLE_HYP), true)
+LOCAL_SHARED_LIBRARIES += libar-gsl_fe
+else
+LOCAL_SHARED_LIBRARIES += libar-gsl
+endif
 
 ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
     include $(BUILD_STATIC_LIBRARY)

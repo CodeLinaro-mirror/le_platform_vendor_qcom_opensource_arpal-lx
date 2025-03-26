@@ -44,8 +44,13 @@ LOCAL_SHARED_LIBRARIES := \
     libar-pal \
     libexpat \
     libagmclient \
-    libaudioroute \
-    libar-gsl
+    libaudioroute
+
+ ifeq ($(ENABLE_HYP), true)
+ LOCAL_SHARED_LIBRARIES += libar-gsl_fe
+ else
+ LOCAL_SHARED_LIBRARIES += libar-gsl
+ endif
 
  ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
  LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress

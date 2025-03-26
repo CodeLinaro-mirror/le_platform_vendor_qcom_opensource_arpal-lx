@@ -70,54 +70,6 @@ LOCAL_VENDOR_MODULE := true
 include $(BUILD_SHARED_LIBRARY)
 
 #--------------------------------------------
-#          Build default_set_param_control LIB
-#--------------------------------------------
-include $(CLEAR_VARS)
-
-LOCAL_SRC_FILES := \
-    defaultShmemPluginControls.cpp
-
-LOCAL_CFLAGS += -O2 -fvisibility=hidden
-
-LOCAL_SHARED_LIBRARIES := \
-    libcutils \
-    liblog \
-    libdl \
-    libexpat \
-    libar-pal
-
-#if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
-#This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
-LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
-else
-LOCAL_SHARED_LIBRARIES += libtinyalsa
-endif
-
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/session/inc
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/stream/inc
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/resource_manager/inc
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/device/inc
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/utils/inc
-LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/context_manager/inc
-LOCAL_C_INCLUDES += $(TOP)/system/media/audio_route/include
-LOCAL_C_INCLUDES += $(TOP)/system/media/audio/include
-
-LOCAL_HEADER_LIBRARIES := \
-    libagm_headers \
-    libarosal_headers \
-    libaudiologutils_headers \
-    libacdb_headers \
-    liblisten_headers
-
-LOCAL_MODULE_TAGS := optional
-LOCAL_MODULE := lib_default_set_param_plugin_controls
-LOCAL_MODULE_OWNER := qti
-LOCAL_VENDOR_MODULE := true
-include $(BUILD_SHARED_LIBRARY)
-
-#--------------------------------------------
 #          Build audio_volume LIB
 #--------------------------------------------
 
@@ -140,15 +92,18 @@ LOCAL_SHARED_LIBRARIES := \
     liblog \
     libdl \
     libexpat \
-    libar-pal
+    libar-pal \
+    libsession_ar
 
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/session/inc
+LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/session/SessionAR/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/stream/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/resource_manager/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/device/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/utils/inc
 LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/context_manager/inc
+LOCAL_C_INCLUDES += $(TOP)/vendor/qcom/opensource/pal/plugins/PluginManager/inc
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/ar_osal
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/spf/api/apm
 LOCAL_C_INCLUDES += $(TARGET_OUT_INTERMEDIATES)/include/mm-audio/ar/spf/api/vcpm
@@ -181,7 +136,11 @@ LOCAL_HEADER_LIBRARIES := \
     libaudiologutils_headers \
     libacdb_headers \
     liblisten_headers \
-    libar-gsl_headers
+    libarvui_intf_headers \
+    libsession_ar_headers \
+    libaudiofeaturestats_headers \
+    plugin_manager_headers \
+    libsession_voice_headers
 
 LOCAL_MODULE_TAGS := optional
 LOCAL_MODULE := lib_oem_plugin_controls
