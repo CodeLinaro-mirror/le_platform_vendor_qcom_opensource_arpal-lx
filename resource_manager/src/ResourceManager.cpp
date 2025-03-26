@@ -8610,6 +8610,33 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_ASRC:
+        {
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes sAttr;
+
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+
+                status = (*sIter)->getStreamAttributes(&sAttr);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "Failed to get attributes, status= %d", status);
+                    return status;
+                }
+
+                if(strcmp(sAttr.bus_addr, "BUS00_MEDIA") == 0){
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_ASRC, param_payload);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set ASRC");
+                        goto exit;
+                    }
+                    goto exit;
+                }
+            }
+            PAL_ERR(LOG_TAG, "Failed to find the BUS00_MEDIA stream");
+            status = -EIO;
+            goto exit;
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
