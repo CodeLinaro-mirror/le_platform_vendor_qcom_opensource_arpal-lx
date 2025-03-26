@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -615,7 +615,11 @@ int HapticsDevProtection::HapticsDevStartCalibration()
         goto err_pcm_open;
     }
 
-    enableDevice(audioRoute, mSndDeviceName_vi);
+    if (rm->isNonAlsaBackend(backEndNameTx)) {
+        Device::enableCodecRoute(backEndNameTx, mSndDeviceName_vi);
+    } else {
+        enableDevice(audioRoute, mSndDeviceName_vi);
+    }
 
     PAL_DBG(LOG_TAG, "pcm start for TX path");
     if (pcm_start(txPcm) < 0) {
@@ -810,7 +814,12 @@ int HapticsDevProtection::HapticsDevStartCalibration()
     }
 
 
-    enableDevice(audioRoute, mSndDeviceName_rx);
+    if (rm->isNonAlsaBackend(backEndNameRx)) {
+        Device::enableCodecRoute(backEndNameRx, mSndDeviceName_rx);
+    } else {
+        enableDevice(audioRoute, mSndDeviceName_rx);
+    }
+
     PAL_DBG(LOG_TAG, "pcm start for RX path");
     if (pcm_start(rxPcm) < 0) {
         PAL_ERR(LOG_TAG, "pcm start failed for RX path");
@@ -871,7 +880,11 @@ err_pcm_open :
             pcm_stop(txPcm);
 
         pcm_close(txPcm);
-        disableDevice(audioRoute, mSndDeviceName_vi);
+        if (rm->isNonAlsaBackend(backEndNameTx)) {
+            Device::disableCodecRoute(backEndNameTx, mSndDeviceName_vi);
+        } else {
+            disableDevice(audioRoute, mSndDeviceName_vi);
+        }
 
         txPcm = NULL;
     }
@@ -880,7 +893,11 @@ err_pcm_open :
         if (isRxStarted)
             pcm_stop(rxPcm);
         pcm_close(rxPcm);
-        disableDevice(audioRoute, mSndDeviceName_rx);
+        if (rm->isNonAlsaBackend(backEndNameRx)) {
+            Device::disableCodecRoute(backEndNameRx, mSndDeviceName_rx);
+        } else {
+            disableDevice(audioRoute, mSndDeviceName_rx);
+        }
         rxPcm = NULL;
     }
 
@@ -1463,7 +1480,12 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
             }
         }
 
-        enableDevice(audioRoute, mSndDeviceName_vi);
+        if (rm->isNonAlsaBackend(backEndName)) {
+            Device::enableCodecRoute(backEndName, mSndDeviceName_vi);
+        } else {
+            enableDevice(audioRoute, mSndDeviceName_vi);
+        }
+
         PAL_DBG(LOG_TAG, "pcm start for TX");
         if (pcm_start(txPcm) < 0) {
             PAL_ERR(LOG_TAG, "pcm start failed for TX path");
@@ -1503,7 +1525,12 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
 
             pcm_stop(txPcm);
             pcm_close(txPcm);
-            disableDevice(audioRoute, mSndDeviceName_vi);
+            if (rm->isNonAlsaBackend(backEndName)) {
+                Device::disableCodecRoute(backEndName, mSndDeviceName_vi);
+            } else {
+                disableDevice(audioRoute, mSndDeviceName_vi);
+            }
+
             txPcm = NULL;
             sAttr.type = PAL_STREAM_HAPTICS;
             sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
@@ -1514,7 +1541,11 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
 err_pcm_open :
     if (txPcm) {
         pcm_close(txPcm);
-        disableDevice(audioRoute, mSndDeviceName_vi);
+        if (rm->isNonAlsaBackend(backEndName)) {
+            Device::disableCodecRoute(backEndName, mSndDeviceName_vi);
+        } else {
+            disableDevice(audioRoute, mSndDeviceName_vi);
+        }
         txPcm = NULL;
     }
 
