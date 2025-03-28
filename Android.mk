@@ -103,6 +103,7 @@ LOCAL_HEADER_LIBRARIES := \
     libarpal_internalheaders
 
 LOCAL_SHARED_LIBRARIES := \
+    libar-gsl\
     liblog\
     libexpat\
     liblx-osal\
@@ -113,12 +114,6 @@ LOCAL_SHARED_LIBRARIES := \
     libvui_intf \
     libarmemlog \
     libhidlbase
-
-ifeq ($(ENABLE_HYP), true)
-LOCAL_SHARED_LIBRARIES += libar-gsl_fe
-else
-LOCAL_SHARED_LIBRARIES += libar-gsl
-endif
 
 LOCAL_STATIC_LIBRARIES := libplugin_manager
 

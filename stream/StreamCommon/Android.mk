@@ -37,13 +37,8 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     liblx-osal \
     libar-pal \
-    libexpat
-
-ifeq ($(ENABLE_HYP), true)
-LOCAL_SHARED_LIBRARIES += libar-gsl_fe
-else
-LOCAL_SHARED_LIBRARIES += libar-gsl
-endif
+    libexpat \
+    libar-gsl
 
 ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
     include $(BUILD_STATIC_LIBRARY)
