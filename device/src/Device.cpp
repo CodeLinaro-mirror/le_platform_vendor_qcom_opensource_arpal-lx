@@ -190,6 +190,7 @@ int32_t Device::initHdrRoutine(const char *hdr_custom_key)
 
 Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
 {
+   if (Rm != NULL) {
     rm = Rm;
     rm->getHwAudioMixer(&hwMixerHandle);
     rm->getVirtualAudioMixer(&virtualMixerHandle);
@@ -203,7 +204,9 @@ Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     strlcpy(mSndDeviceName, "", DEVICE_NAME_MAX_SIZE);
     mCurrentPriority = MIN_USECASE_PRIORITY;
     PAL_DBG(LOG_TAG,"device instance for id %d created", device->id);
-
+   }
+    else
+       PAL_ERR(LOG_TAG, "Rm is NULL");
 }
 
 Device::Device()

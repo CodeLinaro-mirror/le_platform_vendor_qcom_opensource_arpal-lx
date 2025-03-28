@@ -964,7 +964,19 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
 {
     pal_param_payload *param_payload = nullptr;
     PAL_DBG(LOG_TAG, "Enter.");
+    int32_t status = 0;
+    effect_pal_payload_t *effectPalPayload = nullptr;
 
+    PAL_DBG(LOG_TAG, "Enter, get parameter %u, session handle - %p", param_id, session);
+
+    if (!payload)
+    {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "wrong params");
+        goto exit;
+    }
+
+    mStreamMutex.lock();
     switch(param_id) {
         case PAL_PARAM_ID_DEVICE_MUTE:
         {
@@ -973,12 +985,27 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
             getDeviceMute(deviceMutePayload->dir, &(deviceMutePayload->mute));
             break;
         }
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+            param_payload = (pal_param_payload *)(*payload);
+
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+            status = session->getParamWithTag(this, effectPalPayload->tag, param_id, payload);
+            if (status) {
+               PAL_ERR(LOG_TAG, "getParamwithTag %d failed with %d", param_id, status);
+            }
+            break;
+        }
+
         default:
             PAL_INFO(LOG_TAG, "Not supported for param id %u", param_id);
             break;
     }
 
-    return 0;
+    mStreamMutex.unlock();
+exit:
+    return status;
+
 }
 
 int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
