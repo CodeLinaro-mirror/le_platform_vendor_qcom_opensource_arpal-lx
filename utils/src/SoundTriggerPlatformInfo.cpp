@@ -152,7 +152,7 @@ CaptureProfile::CaptureProfile(const std::string name) :
 
 void CaptureProfile::HandleStartTag(const char* tag, const char** attribs)
 {
-    PAL_DBG(LOG_TAG, "Got start tag %s", tag);
+    PAL_VERBOSE(LOG_TAG, "Got start tag %s", tag);
 
     if (!strcmp(tag, "param")) {
         uint32_t i = 0;
@@ -298,7 +298,7 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag, const char** attr
         return;
     }
 
-    PAL_DBG(LOG_TAG, "Got start tag %s", tag);
+    PAL_VERBOSE(LOG_TAG, "Got start tag %s", tag);
 
     if (!strcmp(tag, "vui_platform_info")) {
         curr_child_ = std::static_pointer_cast<SoundTriggerXml>(
@@ -384,7 +384,7 @@ void SoundTriggerPlatformInfo::HandleStartTag(const char* tag, const char** attr
 
 void SoundTriggerPlatformInfo::HandleEndTag(struct xml_userdata *data, const char* tag)
 {
-    PAL_DBG(LOG_TAG, "Got end tag %s", tag);
+    PAL_VERBOSE(LOG_TAG, "Got end tag %s", tag);
 
     if (!strcmp(tag, "capture_profile")) {
         std::shared_ptr<CaptureProfile> cap_prof(

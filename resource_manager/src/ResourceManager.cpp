@@ -711,7 +711,7 @@ void ResourceManager::setagmstatus(int status)
 }
 int ResourceManager::getagmstatus()
 {
-    PAL_DBG(LOG_TAG,"%s: Agm_status = %d", __func__, agm_status);
+    PAL_VERBOSE(LOG_TAG,"%s: Agm_status = %d", __func__, agm_status);
     return agm_status;
 }
 
