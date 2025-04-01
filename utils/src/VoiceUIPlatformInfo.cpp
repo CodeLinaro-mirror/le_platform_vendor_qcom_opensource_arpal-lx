@@ -289,7 +289,7 @@ void VUIStreamConfig::HandleStartTag(const char* tag, const char** attribs)
         return;
     }
 
-    PAL_DBG(LOG_TAG, "Got start tag %s", tag);
+    PAL_VERBOSE(LOG_TAG, "Got start tag %s", tag);
 
     if (!strcmp(tag, "first_stage_module_params")) {
         auto st_module_info_ = std::make_shared<VUIFirstStageConfig>();
@@ -372,7 +372,7 @@ void VUIStreamConfig::HandleStartTag(const char* tag, const char** attribs)
 
 void VUIStreamConfig::HandleEndTag(struct xml_userdata *data, const char* tag)
 {
-    PAL_DBG(LOG_TAG, "Got end tag %s", tag);
+    PAL_VERBOSE(LOG_TAG, "Got end tag %s", tag);
 
     if (!strcmp(tag, "first_stage_module_params")) {
         std::shared_ptr<VUIFirstStageConfig> st_module_info(
@@ -504,7 +504,7 @@ void VoiceUIPlatformInfo::HandleStartTag(const char* tag, const char** attribs)
 
 void VoiceUIPlatformInfo::HandleEndTag(struct xml_userdata *data, const char* tag)
 {
-    PAL_DBG(LOG_TAG, "Got end tag %s", tag);
+    PAL_VERBOSE(LOG_TAG, "Got end tag %s", tag);
 
     if (!strcmp(tag, "stream_config")) {
         std::shared_ptr<VUIStreamConfig> sm_cfg(

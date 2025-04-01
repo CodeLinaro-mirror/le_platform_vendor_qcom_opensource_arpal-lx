@@ -106,14 +106,14 @@ int32_t PluginManager::registeredPlugin(pm_item_t item, pal_plugin_manager_t typ
     }
         for (auto& reg : *pluginList) {
             if (item.libName == reg.libName) {
-                PAL_DBG(LOG_TAG, "%s lib already mapped adding key %s", item.libName.c_str(), item.keyNames[0].c_str());
+                PAL_VERBOSE(LOG_TAG, "%s lib already mapped adding key %s", item.libName.c_str(), item.keyNames[0].c_str());
                 reg.keyNames.push_back(item.keyNames[0]);
                 foundLib = true;
                 break;
             }
         }
         if (!foundLib){
-            PAL_ERR(LOG_TAG, "%s registered", item.libName.c_str());
+            PAL_VERBOSE(LOG_TAG, "%s registered", item.libName.c_str());
             pluginList->push_back(item);
         }
 
@@ -222,7 +222,7 @@ void PluginManager::startElement(void* userData, const char* name, const char** 
     if (strcmp(name, "stream") == 0 || strcmp(name, "session") == 0 || strcmp(name, "device") == 0) {
         pm_item_t item;
         // std::string stream;
-        PAL_DBG(LOG_TAG, "enter");
+        PAL_VERBOSE(LOG_TAG, "enter");
 
         // Extract attributes
         for (int i = 0; attrs[i]; i += 2) {

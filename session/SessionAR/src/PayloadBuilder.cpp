@@ -1027,18 +1027,18 @@ void PayloadBuilder:: processKVSelectorData(struct user_xml_data *data,
     int size = -1;
 
     std::vector<std::string> sel_values_superset;
-    PAL_DBG(LOG_TAG, "process kv selectors stream:%d streampp:%d device:%d devicepp:%d",
+    PAL_VERBOSE(LOG_TAG, "process kv selectors stream:%d streampp:%d device:%d devicepp:%d",
         data->is_parsing_streams, data->is_parsing_streampps,
         data->is_parsing_devices, data->is_parsing_devicepps);
 
     for (int i = 0; attr[i]; i += 2) {
         kvinfo.selector_names.push_back(attr[i]);
         sel_values_superset.push_back(attr[i + 1]);
-        PAL_DBG(LOG_TAG, "key_values attr :%s-%s", attr[i], attr[i + 1]);
+        PAL_VERBOSE(LOG_TAG, "key_values attr :%s-%s", attr[i], attr[i + 1]);
     }
 
     for (int i = 0; i < kvinfo.selector_names.size(); i++) {
-        PAL_DBG(LOG_TAG, "process kv selectors:%s", kvinfo.selector_names[i].c_str());
+        PAL_VERBOSE(LOG_TAG, "process kv selectors:%s", kvinfo.selector_names[i].c_str());
         selector_type_t selector_type =  selectorstypeLUT.at(kvinfo.selector_names[i]);
 
         std::vector<std::string> selector_values =
@@ -1047,7 +1047,7 @@ void PayloadBuilder:: processKVSelectorData(struct user_xml_data *data,
         for (int j = 0; j < selector_values.size(); j++) {
             kvinfo.selector_pairs.push_back(std::make_pair(selector_type,
                 selector_values[j]));
-            PAL_DBG(LOG_TAG, "selector pair type:%d, value:%s", selector_type,
+            PAL_VERBOSE(LOG_TAG, "selector pair type:%d, value:%s", selector_type,
                 selector_values[j].c_str());
         }
     }
@@ -1095,18 +1095,18 @@ void PayloadBuilder:: processKVTypeData(struct user_xml_data *data,const XML_Cha
     int32_t stream_id, dev_id;
     std::vector<std::string> typeNames;
 
-    PAL_DBG(LOG_TAG, "stream-device ID/type:%s, tag_name:%d", attr[1], data->tag);
+    PAL_VERBOSE(LOG_TAG, "stream-device ID/type:%s, tag_name:%d", attr[1], data->tag);
     if (data->tag == TAG_STREAM_SEL || data->tag == TAG_STREAMPP_SEL) {
         if (!strcmp(attr[0], "type")) {
             typeNames = splitStrings(attr[1]);
             for (int i = 0; i < typeNames.size(); i++) {
                 stream_id = ResourceManager::getStreamType(typeNames[i]);
                 sdTypeKV.id_type.push_back(stream_id);
-                PAL_DBG(LOG_TAG, "type name:%s", typeNames[i].c_str());
+                PAL_VERBOSE(LOG_TAG, "type name:%s", typeNames[i].c_str());
             }
             if (data->tag == TAG_STREAM_SEL) {
                 all_streams.push_back(sdTypeKV);
-                PAL_DBG(LOG_TAG, "stream types all_size: %zu", all_streams.size());
+                PAL_VERBOSE(LOG_TAG, "stream types all_size: %zu", all_streams.size());
             } else if (data->tag == TAG_STREAMPP_SEL) {
                 all_streampps.push_back(sdTypeKV);
                 PAL_DBG(LOG_TAG, "streampp types all_size: %zu", all_streampps.size());
@@ -1146,7 +1146,7 @@ void PayloadBuilder::startTag(void *userdata, const XML_Char *tag_name,
 {
     struct user_xml_data *data = ( struct user_xml_data *)userdata;
 
-    PAL_DBG(LOG_TAG, "StartTag :%s", tag_name);
+    PAL_VERBOSE(LOG_TAG, "StartTag :%s", tag_name);
     if (!strcmp(tag_name, "graph_key_value_pair_info")) {
         data->tag = TAG_USECASEXML_ROOT;
     } else if (!strcmp(tag_name, "streams")) {
@@ -1183,7 +1183,7 @@ void PayloadBuilder::endTag(void *userdata, const XML_Char *tag_name)
     struct user_xml_data *data = ( struct user_xml_data *)userdata;
     int size = -1;
 
-    PAL_DBG(LOG_TAG, "Endtag: %s", tag_name);
+    PAL_VERBOSE(LOG_TAG, "Endtag: %s", tag_name);
     if ( !strcmp(tag_name, "keys_and_values") || !strcmp(tag_name, "graph_kv")) {
         return;
     }

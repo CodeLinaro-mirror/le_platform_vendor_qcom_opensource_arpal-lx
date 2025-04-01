@@ -262,7 +262,7 @@ int get_agm_status()
         return status;
     }
     status = rm->getagmstatus();
-    PAL_ERR(LOG_TAG,"%s: agm_status = %d", __func__, status);
+    PAL_VERBOSE(LOG_TAG,"%s: agm_status = %d", __func__, status);
     return status;
 }
 
@@ -277,7 +277,7 @@ int set_agm_status(int data)
         return status;
     }
     rm->setagmstatus(data);
-    PAL_ERR(LOG_TAG,"%s: data = %d", __func__, data);
+    PAL_DBG(LOG_TAG,"%s: data = %d", __func__, data);
     return status;
 }
 
