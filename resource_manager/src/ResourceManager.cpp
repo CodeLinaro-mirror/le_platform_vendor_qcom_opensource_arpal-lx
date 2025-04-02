@@ -140,12 +140,14 @@
 
 /*this can be over written by the config file settings*/
 uint32_t pal_log_lvl = (PAL_LOG_ERR|PAL_LOG_INFO);
-
+bool hfp_setBoot = false;
 static struct str_parms *configParamKVPairs;
 
 char rmngr_xml_file[XML_PATH_MAX_LENGTH] = {0};
 
 char vendor_config_path[VENDOR_CONFIG_PATH_MAX_LENGTH] = {0};
+
+bool is_bus_media_boot_load = false;
 
 // default properties which will be updated based on platform configuration
 static struct pal_st_properties qst_properties = {
@@ -3918,12 +3920,14 @@ bool ResourceManager::UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active
     }
     // backend config update
     if (is_active) {
-        if (sAttr.type == PAL_STREAM_VOICE_UI)
+        if (sAttr.type == PAL_STREAM_VOICE_UI && st_st != NULL)
             cap_prof = st_st->GetCurrentCaptureProfile();
-        else if (sAttr.type == PAL_STREAM_ACD)
+        else if (sAttr.type == PAL_STREAM_ACD && st_acd != NULL)
             cap_prof = st_acd->GetCurrentCaptureProfile();
-        else
-            cap_prof = st_sns_pcm_data->GetCurrentCaptureProfile();
+        else {
+            if (st_sns_pcm_data != NULL)
+                cap_prof = st_sns_pcm_data->GetCurrentCaptureProfile();
+        }
 
         if (!cap_prof) {
             PAL_ERR(LOG_TAG, "Failed to get capture profile");
@@ -6776,6 +6780,8 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
 
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
+    ret = setHfpVolGroupBoot(parms, value, len);
+    ret = setBusMediaBootLoad(parms, value, len);
 
     /* Not checking return value as this is optional */
     setLpiLoggingParams(parms, value, len);
@@ -6786,6 +6792,40 @@ exit:
         free(value);
     if(kv_pairs != NULL)
         free(kv_pairs);
+    return ret;
+}
+
+int ResourceManager::setHfpVolGroupBoot(struct str_parms *parms, char *value,
+                                         int len)
+{
+    int ret = -EINVAL;
+    if (!value || !parms)
+        return ret;
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_HFP_SET_BOOT, value, len);
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            hfp_setBoot =  true;
+        PAL_INFO(LOG_TAG, "hfp_setBoot  %d", hfp_setBoot);
+        ret = 0;
+    }
+    return ret;
+}
+
+int ResourceManager::setBusMediaBootLoad(struct str_parms *parms, char *value,
+                                         int len)
+{
+    int ret = -EINVAL;
+    if (!value || !parms)
+        return ret;
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_BUS_MEDIA_BOOT_LOAD , value, len);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            is_bus_media_boot_load =  true;
+
+        PAL_INFO(LOG_TAG, "is_bus_media_boot_load is set to %d", is_bus_media_boot_load);
+        ret = 0;
+    }
     return ret;
 }
 
