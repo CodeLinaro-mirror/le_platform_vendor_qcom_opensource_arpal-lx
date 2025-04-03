@@ -4101,17 +4101,35 @@ uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
         return -EINVAL;
     }
 
-    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &srcMiid);
-    if (0 != status)
-    {
-        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
-        return status;
+    if (sAttr.direction == PAL_AUDIO_INPUT)
+   {
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, &srcMiid);
+        if (0 != status)
+        {
+            PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+            return status;
+        }
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), txAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &dstMiid);
+        if (0 != status)
+        {
+            PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+            return status;
+        }
     }
-    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_RX, &dstMiid);
-    if (0 != status)
+    else
     {
-        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
-        return status;
+        status  =  SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &srcMiid);
+        if (0 != status)
+        {
+            PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+            return status;
+        }
+        SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), rxAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_RX, &dstMiid);
+        if (0 != status)
+        {
+            PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+            return status;
+        }
     }
 
     rc = SessionAlsaUtils::getLatency(mixer, latency, srcMiid, dstMiid, pcmDevIds);
