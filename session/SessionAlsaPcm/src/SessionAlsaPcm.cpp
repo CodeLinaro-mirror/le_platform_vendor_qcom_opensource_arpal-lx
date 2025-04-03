@@ -4037,6 +4037,21 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
                           PARAM_ID_ASR_OUTPUT, configSize);
             break;
         }
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+
+            pal_effect_custom_payload_t *customPayload = nullptr;
+            pal_param_payload *param_payload = nullptr;
+            effect_pal_payload_t *effectPalPayload = nullptr;
+            param_payload = (pal_param_payload *)(*payload);
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+
+            customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
+            configSize = effectPalPayload->payloadSize - sizeof(uint32_t);
+            builder->payloadQuery(&payloadData, &payloadSize, miid,
+                        customPayload->paramId, effectPalPayload->payloadSize - sizeof(uint32_t));
+             break;
+        }
         default:
             status = EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
