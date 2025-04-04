@@ -159,7 +159,7 @@ int32_t SoundTriggerEngineGsl::StartBuffering(StreamSoundTrigger *s) {
     size_t bytes_written = 0;
     uint32_t sleep_ms = 0;
     bool event_notified = false;
-    StreamSoundTrigger *st = (StreamSoundTrigger *)s;
+    StreamSoundTrigger *st = nullptr;
     struct pal_mmap_position mmap_pos;
     FILE *dsp_output_fd = nullptr;
     ChronoSteadyClock_t kw_transfer_begin;
@@ -373,7 +373,7 @@ int32_t SoundTriggerEngineGsl::StartBuffering(StreamSoundTrigger *s) {
                         total_read_size, ftrt_size, (long long)kw_transfer_latency_);
                 if (s) {
                     mutex_.unlock();
-                    status = st->SetEngineDetectionState(GMM_DETECTED);
+                    status = s->SetEngineDetectionState(GMM_DETECTED);
                     mutex_.lock();
                     if (status < 0) {
                         PAL_ERR(LOG_TAG, "Failed to set detection to stream, status %d", status);
@@ -403,7 +403,7 @@ exit:
         while (!det_streams_q_.empty()) {
             st = det_streams_q_.front();
             det_streams_q_.pop();
-            RestartRecognition_l(s);
+            RestartRecognition_l(st);
         }
         // Detected streams notified to clients and buffering
         std::vector<StreamSoundTrigger *> streams = GetBufferingStreams();
@@ -458,6 +458,7 @@ SoundTriggerEngineGsl::SoundTriggerEngineGsl(
     ec_ref_count_ = 0;
     is_crr_dev_using_ext_ec_ = false;
     device_switch_stream_ = nullptr;
+    mma_mode_bit_ = 0;
 
     UpdateState(ENG_IDLE);
 
@@ -511,7 +512,7 @@ SoundTriggerEngineGsl::SoundTriggerEngineGsl(
     }
 
     // get lpi state from stream side
-    use_lpi_ = dynamic_cast<StreamSoundTrigger *>(s)->isLPIProfile();
+    use_lpi_ = s->isLPIProfile();
 
     // Create session
     rm = ResourceManager::getInstance();
@@ -768,11 +769,32 @@ int32_t SoundTriggerEngineGsl::LoadSoundModel(StreamSoundTrigger *s, uint8_t *da
         goto exit;
     }
 
-    status = UpdateSessionPayload(s, LOAD_SOUND_MODEL);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "Failed to update session payload, status = %d", status);
-        session_->close(s);
-        goto exit;
+    if (module_type_ == ST_MODULE_TYPE_MMA) {
+        status = UpdateSessionPayload(s, MMA_MODE_BIT_CONFIG);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Failed to set MMA mode bit config, status = %d",
+                status);
+            goto exit;
+        }
+        /*
+         * If mode bit is set, mma model is loaded from acdb calibration,
+         * hence only load model passed from client when mode bit is not set.
+         */
+        if (!mma_mode_bit_) {
+            status = UpdateSessionPayload(s, LOAD_SOUND_MODEL);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to update session payload, status = %d", status);
+                session_->close(s);
+                goto exit;
+            }
+        }
+    } else {
+        status = UpdateSessionPayload(s, LOAD_SOUND_MODEL);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Failed to update session payload, status = %d", status);
+            session_->close(s);
+            goto exit;
+        }
     }
 
     UpdateState(ENG_LOADED);
@@ -1811,6 +1833,7 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(StreamSoundTrigger *s, st_pa
     uint32_t ses_param_id = 0;
     uint32_t detection_miid = 0;
     vui_intf_param_t intf_param {};
+    uint32_t mode_bit = 0;
 
     PAL_DBG(LOG_TAG, "Enter, param : %u", param);
 
@@ -1882,6 +1905,40 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(StreamSoundTrigger *s, st_pa
         case CUSTOM_CONFIG:
             status = vui_intf_->GetParameter(PARAM_CUSTOM_CONFIG, &intf_param);
             ses_param_id = PAL_PARAM_ID_WAKEUP_CUSTOM_CONFIG;
+            break;
+        case MMA_MODE_BIT_CONFIG:
+            if (!mma_mode_bit_) {
+                status = vui_intf_->GetParameter(PARAM_MMA_MODE_BIT_CONFIG, &intf_param);
+                ses_param_id = PAL_PARAM_ID_MMA_MODE_BIT_CONFIG;
+                if (!status) {
+                    mma_mode_bit_ = *(uint32_t *)intf_param.data;
+                } else {
+                    /*
+                     * If MMA client directly set first stage model instead of mode bit,
+                     * default mode bit config in ACDB will be used, in this case we can
+                     * skip error for getting mode bit config from vui interface.
+                     */
+                    return 0;
+                }
+            }
+            if (mma_mode_bit_) {
+                mode_bit = mma_mode_bit_;
+                /*
+                 * In HLOS side we need to differentiate mode bit NVD and
+                 * SPEECH to load different audio models. While in ADSP
+                 * side NVD and SPEECH are defined as same mode bit, hence
+                 * reset NVD bit and set SPEECH bit before set to ADSP.
+                 *
+                 * TODO: Remove this when mode bit defs are aligned within
+                 * HLOS and ADSP.
+                 */
+                if (mode_bit & (1 << NVD)) {
+                    mode_bit &= ~(1 << NVD);
+                    mode_bit |= (1 << SPEECH);
+                }
+                intf_param.data = (void *)&mode_bit;
+                intf_param.size = sizeof(uint32_t);
+            }
             break;
         default:
             PAL_ERR(LOG_TAG, "Invalid param id %u", param);

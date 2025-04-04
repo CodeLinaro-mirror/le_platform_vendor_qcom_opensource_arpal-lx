@@ -98,6 +98,12 @@ typedef enum {
     PAL_AUDIO_FMT_COMPRESSED_RANGE_END   = PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_END /* Reserved for beginning of 3rd party codecs */
 } pal_audio_fmt_t;
 
+typedef enum {
+    PAL_NOTIFY_START = 1,
+    PAL_NOTIFY_STOP,
+    PAL_NOTIFY_DEVICESWITCH
+} pal_notification_t;
+
 #define PCM_24_BIT_PACKED (0x6u)
 #define PCM_32_BIT (0x3u)
 #define PCM_16_BIT (0x1u)
@@ -488,6 +494,7 @@ struct pal_stream_info {
     int32_t tx_proxy_type;   /** enums defined in enum pal_stream_proxy_tx_types */
     int32_t rx_proxy_type;   /** enums defined in enum pal_stream_proxy_rx_types */
     int32_t haptics_type;    /** enums defined in enum pal_sream_haptics_types */
+    bool isBitPerfect;                    /** true if stream is bitperfect (PCM_Immutable) */
     //pal_audio_attributes_t usage;       /** Not sure if we make use of this */
 };
 
@@ -582,6 +589,14 @@ struct pal_stream_attributes {
     struct pal_media_config in_media_config;     /**<  media config of the input audio samples */
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
 };
+
+typedef struct pal_callback_config {
+    int32_t noOfPrevDevices;
+    int32_t noOfCurrentDevices;
+    pal_device_id_t *prevDevices;
+    pal_device_id_t *currentDevices;
+    struct pal_stream_attributes streamAttributes;
+} pal_callback_config_t;
 
 /**< Key value pair to identify the topology of a usecase from default  */
 struct modifier_kv  {
@@ -814,6 +829,7 @@ typedef enum {
     PAL_PARAM_ID_DTMF_DETECTION_CFG = 86,
     PAL_PARAM_ID_DTMF_GEN_TONE_CFG = 87,
     PAL_PARAM_ID_HAPTICS_MODE = 88,
+    PAL_PARAM_ID_MMA_MODE_BIT_CONFIG = 89,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1411,18 +1427,23 @@ struct pal_asr_config {
     bool enable_translation;                /**< translation switch enable/disable flag */
     bool enable_continuous_mode;            /**< continuous mode enable/disable flag */
     bool enable_partial_transcription;      /**< partial transcription switch enable/disable flag */
+    bool enable_logger_mode;                /**< Flag to enable/disable logger mode */
     uint32_t threshold;                     /**< Confidence threshold for ASR transcription */
-    uint32_t timeout_duration;              /**< ASR processing timeout, in milliseconds, if silence is not detected
-                                                 after the speech processing is started*/
-    uint32_t silence_detection_duration;    /**< "No speech" duration needed before determining speech has ended (in ms) */
+    uint32_t timeout_duration;              /**< ASR processing timeout, in milliseconds,
+                                                 if silence is not detected after the speech
+                                                 processing is started */
+    uint32_t silence_detection_duration;    /**< "No speech" duration needed before
+                                                 determining speech has ended (in ms) */
 
     bool outputBufferMode;                  /**< Buffer mode enable/disable */
     uint32_t data_size;                     /**< Additional Engine specific custom data size */
-    uint8_t data[];                         /**< custom data offset from the start of this structure */
+    uint8_t data[];                         /**< custom data offset from the start of this
+                                                 structure */
 };
 
 #define MAX_TRANSCRIPTION_CHAR_SIZE 1024
 #define MAX_JSON_CHAR_SIZE 4096
+
 struct pal_asr_engine_event {
     bool is_final;                          /**< Final transcription after end of speech is detected. */
     uint32_t confidence;                    /**< Confidence for the entire transcription */
@@ -1488,6 +1509,17 @@ typedef int32_t (*pal_stream_callback)(pal_stream_handle_t *stream_handle,
                                        uint32_t event_id, uint32_t *event_data,
                                        uint32_t event_data_size,
                                        uint64_t cookie);
+
+/** @brief Callback function prototype to be given for
+ *         pal_audio_event_callback.
+ *
+ * \param[in] config - configuration data related to
+ *       stream and device.
+ * \param[in] event - event raised on the stream.
+ * \param[in] isregister - specifies if it is called
+ *       during register of callback.
+ */
+typedef int32_t (*pal_audio_event_callback)(pal_callback_config_t *config, uint32_t event, bool isregister);
 
 /** @brief Callback function prototype to be given for
  *         pal_register_callback.

@@ -159,7 +159,7 @@
         <stream name="PAL_STREAM_HAPTICS" max_size="2" />
         <stream name="PAL_STREAM_ACD" max_size="8" />
         <stream name="PAL_STREAM_CONTEXT_PROXY" max_size="8" />
-        <stream name="PAL_STREAM_SENSOR_PCM_DATA" max_size="1" />
+        <stream name="PAL_STREAM_SENSOR_PCM_DATA" max_size="3" />
         <stream name="PAL_STREAM_ULTRASOUND" max_size="1" />
         <stream name="PAL_STREAM_SPATIAL_AUDIO" max_size="1" />
         <stream name="PAL_STREAM_COMMON_PROXY" max_size="8" />
@@ -724,7 +724,7 @@
             <max_channels>1</max_channels>
             <channels>1</channels>
             <bit_width>32</bit_width>
-            <samplerate>8000</samplerate>
+            <samplerate>48000</samplerate>
             <usecase>
                 <name>PAL_STREAM_HAPTICS</name>
             </usecase>
@@ -1943,6 +1943,7 @@
                     <first_stage_module_params>
                         <param module_type="MMA" />
                         <param load_sound_model_ids="0xC0000008, 0x08001AC6" />
+                        <param mode_bit_config_ids="0xC0000008, 0x08001AC5" />
                         <param wakeup_config_ids="0xC0000008, 0x08001AC7" />
                         <param buffering_config_ids="0xC0000008, 0x08001ACF" />
                         <param engine_reset_ids="0xC0000008, 0x08001AD0" />

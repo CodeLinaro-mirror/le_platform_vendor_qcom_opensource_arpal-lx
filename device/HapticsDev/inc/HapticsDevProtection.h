@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -65,12 +65,16 @@ enum {
 };
 
 struct haptics_vi_cal_param {
-    int32_t Re_ohm_Cal_q24 = 0;  // cal & ftm
-    int32_t Fres_Hz_Cal_q20 = 0; // cal & ftm
-    int32_t Bl_q24 = 0;          // cal & ftm
-    int32_t Rms_KgSec_q24 = 0;   // cal & ftm
-    int32_t Blq_ftm_q24 = 0;     // ftm
-    int32_t Le_mH_ftm_q24 = 0;   // ftm
+    int32_t Re_ohm_Cal_q24[HAPTICS_MAX_OUT_CHAN] = {0};  // cal & ftm
+    int32_t Fres_Hz_Cal_q20[HAPTICS_MAX_OUT_CHAN] = {0}; // cal & ftm
+    int32_t Bl_q24[HAPTICS_MAX_OUT_CHAN] = {0};          // cal & ftm
+    int32_t Rms_KgSec_q24[HAPTICS_MAX_OUT_CHAN] = {0};   // cal & ftm
+    int32_t Blq_ftm_q24[HAPTICS_MAX_OUT_CHAN] = {0};     // ftm
+    int32_t Le_mH_ftm_q24[HAPTICS_MAX_OUT_CHAN] = {0};   // ftm
+    int32_t Fres_offset_Hz_q20[HAPTICS_MAX_OUT_CHAN] = {0}; // cal & ftm
+    int32_t Tuned_LRA_ID[HAPTICS_MAX_OUT_CHAN] = {0};    //cal & ftm
+    uint32_t payload_size = 0;
+    uint8_t *payload_data;
 };
 
 class HapticsDevProtection : public HapticsDev
@@ -95,12 +99,14 @@ protected :
     wsa_haptics_ex_lra_param_t *VIscale;
     static int numberOfChannels;
     static bool mDspCallbackRcvd;
-    static haptics_vi_cal_param cbCalData[HAPTICS_MAX_OUT_CHAN];
+    static haptics_vi_cal_param cbCalData;
     struct pal_device mDeviceAttr;
     std::vector<int> pcmDevIdTx;
     static int calibrationCallbackStatus;
     static int numberOfRequest;
     static struct pal_device_info vi_device;
+    int fresHzQ20;  /* stores the auto resonance value from pmic */
+    bool lraF0CalState; /* holds the flag to indicate if LRA F0 calibration is done */
 
 private :
 
@@ -141,10 +147,13 @@ public:
     int getCpsDevNumber(std::string mixer);
 //    int32_t getCalibrationData(void **param);
     int32_t getAndsetVIScalingParameter(uint32_t pcmid, uint32_t miid);
+    int32_t getRxPersistentParameter(param_id_haptics_rx_persistent_data_param_t *VIpeValue);
     int32_t getFTMParameter(void **param);
     int32_t getAndsetPersistentParameter(bool flag);
     void disconnectFeandBe(std::vector<int> pcmDevIds, std::string backEndName);
-
+    int getLraFrequency();
+    int isPmicAutoResonanceEnabled();
+    void updateAutoBrakingCustomPayload(int miid);
 };
 
 class HapticsDevFeedback : public HapticsDev

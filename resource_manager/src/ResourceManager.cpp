@@ -481,6 +481,7 @@ bool ResourceManager::isCPEnabled = false;
 bool ResourceManager::isDummyDevEnabled = false;
 bool ResourceManager::isProxyRecordActive = false;
 bool ResourceManager::isSilenceDetectionEnabled = false;
+pal_audio_event_callback ResourceManager::callback_event = nullptr;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 bool ResourceManager::isSignalHandlerEnabled = false;
 static int haptics_priority;

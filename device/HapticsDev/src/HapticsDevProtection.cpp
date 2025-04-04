@@ -74,6 +74,13 @@
 #define CALIBRATION_MODE 1
 #define FACTORY_TEST_MODE 2
 
+#define LPASS_WR_CMD_REG_PHY_ADDR   0x6AB4020
+#define LPASS_RD_CMD_REG_PHY_ADDR   0x6AB4024
+#define LPASS_RD_FIFO_REG_PHY_ADDR  0x6AB4040
+
+#define AB_INITIALIZE_PKD_REG_ADDR  0x8c113081
+#define AB_TRIGGER_PKD_REG_ADDR     0x0c113081
+#define AB_STOP_PKD_REG_ADDR        0x84113081
 
 typedef enum haptics_vi_calib_state_t
 {
@@ -130,6 +137,14 @@ typedef struct haptics_vi_calib_param_t {
 
     int32_t Le_mH_ftm_q24[HAPTICS_MAX_OUT_CHAN];    // LRA inductance from FTM
 
+    int32_t Fres_offset_Hz_q20[HAPTICS_MAX_OUT_CHAN];      // F0 offset from duffing non linerity
+
+    int32_t Tuned_LRA_ID[HAPTICS_MAX_OUT_CHAN];    // ID of LRA selected during FTM
+
+    uint32_t payload_size; // Custom payload size in bytes, returned from FTM.
+
+    uint8_t payload_data[0];
+
 } haptics_vi_calib_param_t;
 
 std::thread HapticsDevProtection::mCalThread;
@@ -145,7 +160,7 @@ struct timespec HapticsDevProtection::devLastTimeUsed;
 struct mixer *HapticsDevProtection::virtMixer;
 struct mixer *HapticsDevProtection::hwMixer;
 haptics_dev_prot_cal_state HapticsDevProtection::hapticsDevCalState = HAPTICS_DEV_NOT_CALIBRATED;
-haptics_vi_cal_param HapticsDevProtection::cbCalData[HAPTICS_MAX_OUT_CHAN];
+haptics_vi_cal_param HapticsDevProtection::cbCalData;
 struct pcm * HapticsDevProtection::rxPcm = NULL;
 struct pcm * HapticsDevProtection::txPcm = NULL;
 int HapticsDevProtection::numberOfChannels;
@@ -238,12 +253,27 @@ void HapticsDevProtection::handleHPCallback(uint64_t hdl __unused, uint32_t even
 
         if (param_data->state == HAPTICS_VI_CALIB_STATE_SUCCESS) {
             PAL_DBG(LOG_TAG, "Calibration is successful");
-            cbCalData[0].Re_ohm_Cal_q24 = param_data->Re_ohm_q24[0];
-            cbCalData[0].Fres_Hz_Cal_q20 = param_data->Fres_Hz_q20[0];
-            cbCalData[0].Bl_q24 = param_data->Bl_q24[0];
-            cbCalData[0].Rms_KgSec_q24 = param_data->Rms_KgSec_q24[0];
-            cbCalData[0].Blq_ftm_q24 = param_data->Blq_ftm_q24[0];
-            cbCalData[0].Le_mH_ftm_q24 = param_data->Le_mH_ftm_q24[0];
+            for(int i = 0; i < numberOfChannels; i++) {
+                cbCalData.Re_ohm_Cal_q24[i] = param_data->Re_ohm_q24[i];
+                cbCalData.Fres_Hz_Cal_q20[i] = param_data->Fres_Hz_q20[i];
+                cbCalData.Bl_q24[i] = param_data->Bl_q24[i];
+                cbCalData.Rms_KgSec_q24[i] = param_data->Rms_KgSec_q24[i];
+                cbCalData.Blq_ftm_q24[i] = param_data->Blq_ftm_q24[i];
+                cbCalData.Le_mH_ftm_q24[i] = param_data->Le_mH_ftm_q24[i];
+                cbCalData.Fres_offset_Hz_q20[i] = param_data->Fres_offset_Hz_q20[i];
+                cbCalData.Tuned_LRA_ID[i] = param_data->Tuned_LRA_ID[i];
+            }
+
+            cbCalData.payload_size = param_data->payload_size;
+            if(param_data->payload_size > 0) {
+                cbCalData.payload_data = (uint8_t *)calloc(1, param_data->payload_size);
+                if (!cbCalData.payload_data) {
+                    PAL_ERR(LOG_TAG," payload creation Failed");
+                } else {
+                    memcpy(cbCalData.payload_data, param_data->payload_data,
+                           param_data->payload_size);
+                }
+            }
 
             mDspCallbackRcvd = true;
             calibrationCallbackStatus = HAPTICS_VI_CALIB_STATE_SUCCESS;
@@ -814,8 +844,38 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
                 PAL_ERR(LOG_TAG, "Unable to open file for write");
             } else {
                 PAL_DBG(LOG_TAG, "Write calibrated values to file");
-                for (i = 0; i < numberOfChannels; i++) {
-                      outFile.write(reinterpret_cast<char*>(&cbCalData[i]), sizeof(cbCalData[0]));
+                size_t chunkSize = 0;
+                for (int i = 0; i < numberOfChannels; i++) {
+                    chunkSize += sizeof(cbCalData.Re_ohm_Cal_q24[i]) + sizeof(cbCalData.Fres_Hz_Cal_q20[i]) +
+                                sizeof(cbCalData.Bl_q24[i]) + sizeof(cbCalData.Rms_KgSec_q24[i]) +
+                                sizeof(cbCalData.Blq_ftm_q24[i]) + sizeof(cbCalData.Le_mH_ftm_q24[i]) +
+                                sizeof(cbCalData.Fres_offset_Hz_q20[i]) + sizeof(cbCalData.Tuned_LRA_ID[i]);
+                }
+                std::unique_ptr<uint8_t[]> buffer(new uint8_t[chunkSize * numberOfChannels]);
+                for (int i = 0; i < numberOfChannels; i++) {
+                    uint8_t *ptr = buffer.get() + i * chunkSize;
+                    memcpy(ptr, &cbCalData.Re_ohm_Cal_q24[i], sizeof(cbCalData.Re_ohm_Cal_q24[i]));
+                    ptr += sizeof(cbCalData.Re_ohm_Cal_q24[i]);
+                    memcpy(ptr, &cbCalData.Fres_Hz_Cal_q20[i], sizeof(cbCalData.Fres_Hz_Cal_q20[i]));
+                    ptr += sizeof(cbCalData.Fres_Hz_Cal_q20[i]);
+                    memcpy(ptr, &cbCalData.Bl_q24[i], sizeof(cbCalData.Bl_q24[i]));
+                    ptr += sizeof(cbCalData.Bl_q24[i]);
+                    memcpy(ptr, &cbCalData.Rms_KgSec_q24[i], sizeof(cbCalData.Rms_KgSec_q24[i]));
+                    ptr += sizeof(cbCalData.Rms_KgSec_q24[i]);
+                    memcpy(ptr, &cbCalData.Blq_ftm_q24[i], sizeof(cbCalData.Blq_ftm_q24[i]));
+                    ptr += sizeof(cbCalData.Blq_ftm_q24[i]);
+                    memcpy(ptr, &cbCalData.Le_mH_ftm_q24[i], sizeof(cbCalData.Le_mH_ftm_q24[i]));
+                    ptr += sizeof(cbCalData.Le_mH_ftm_q24[i]);
+                    memcpy(ptr, &cbCalData.Fres_offset_Hz_q20[i], sizeof(cbCalData.Fres_offset_Hz_q20[i]));
+                    ptr += sizeof(cbCalData.Fres_offset_Hz_q20[i]);
+                    memcpy(ptr, &cbCalData.Tuned_LRA_ID[i], sizeof(cbCalData.Tuned_LRA_ID[i]));
+                }
+                outFile.write(reinterpret_cast<char*>(buffer.get()), (chunkSize * numberOfChannels));
+                if((cbCalData.payload_size > 0) && cbCalData.payload_data) {
+                    outFile.write(reinterpret_cast<char*>(cbCalData.payload_data),
+                                    sizeof(cbCalData.payload_size));
+                    free(cbCalData.payload_data);
+                    cbCalData.payload_data = nullptr;
                 }
                 hapticsDevCalState = HAPTICS_DEV_CALIBRATED;
                 outFile.close();
@@ -1389,6 +1449,25 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
             }
         }
 
+        param_id_haptics_rx_persistent_data_param_t VIpeValue;
+        if (getRxPersistentParameter(&VIpeValue) == 0) {
+            payloadSize = 0;
+            builder->payloadHapticsDevPConfig(&payload, &payloadSize, miid,
+                    PARAM_ID_HAPTICS_RX_PERSISTENT_DATA_PARAM,(void *)&VIpeValue);
+            if (payloadSize) {
+                if (customPayload) {
+                    free (customPayload);
+                    customPayloadSize = 0;
+                    customPayload = NULL;
+                }
+                ret = updateCustomPayload(payload, payloadSize);
+                free(payload);
+                if (0 != ret) {
+                    PAL_ERR(LOG_TAG," updateCustomPayload Failed\n");
+                }
+            }
+        }
+        updateAutoBrakingCustomPayload(miid);
         enableDevice(audioRoute, mSndDeviceName_vi);
         PAL_DBG(LOG_TAG, "pcm start for TX");
         if (pcm_start(txPcm) < 0) {
@@ -1459,6 +1538,55 @@ exit:
        builder = NULL;
     }
     return ret;
+}
+
+void HapticsDevProtection::updateAutoBrakingCustomPayload(int miid)
+{
+    PayloadBuilder* builder = new PayloadBuilder();
+    uint8_t* payload = NULL;
+    size_t payloadSize = 0;
+    param_id_haptics_lpass_swr_hw_reg_cfg_t *haptics_reg_cfg = NULL;
+    haptics_pkd_reg_addr_t pkedRegAddr[numberOfChannels];
+    int ret = 0;
+
+    memset(&pkedRegAddr, 0, sizeof(haptics_pkd_reg_addr_t) * numberOfChannels);
+
+    haptics_reg_cfg = (param_id_haptics_lpass_swr_hw_reg_cfg_t *) calloc(1,
+	                               sizeof(param_id_haptics_lpass_swr_hw_reg_cfg_t)
+                       + sizeof(haptics_pkd_reg_addr_t) * numberOfChannels);
+    if (haptics_reg_cfg == NULL) {
+        PAL_ERR(LOG_TAG,"Unable to allocate Memory for reg config\n");
+        goto exit;
+    }
+    haptics_reg_cfg->num_channel = numberOfChannels;
+    haptics_reg_cfg->lpass_wr_cmd_reg_phy_addr = LPASS_WR_CMD_REG_PHY_ADDR;
+    haptics_reg_cfg->lpass_rd_cmd_reg_phy_addr = LPASS_RD_CMD_REG_PHY_ADDR;
+    haptics_reg_cfg->lpass_rd_fifo_reg_phy_addr = LPASS_RD_FIFO_REG_PHY_ADDR;
+
+    pkedRegAddr[0].ab_initialize_pkd_reg_addr = AB_INITIALIZE_PKD_REG_ADDR;
+    pkedRegAddr[0].ab_trigger_pkd_reg_addr = AB_TRIGGER_PKD_REG_ADDR;
+    pkedRegAddr[0].ab_stop_pkd_reg_addr = AB_STOP_PKD_REG_ADDR;
+
+    memcpy(haptics_reg_cfg->haptics_pkd_reg_addr, pkedRegAddr, sizeof(haptics_pkd_reg_addr_t));
+
+    // Payload builder for ParamID : PARAM_ID_HAPTICS_LPASS_SWR_HW_REG_CFG
+    payloadSize = 0;
+    builder->payloadHapticsDevPConfig(&payload, &payloadSize, miid,
+            PARAM_ID_HAPTICS_LPASS_SWR_HW_REG_CFG ,(void *)haptics_reg_cfg);
+    if (payloadSize) {
+        ret = updateCustomPayload(payload, payloadSize);
+        free(payload);
+        free(haptics_reg_cfg);
+        if (0 != ret) {
+            PAL_ERR(LOG_TAG," updateCustomPayload Failed\n");
+        }
+    }
+
+exit:
+    if(builder) {
+       delete builder;
+       builder = NULL;
+    }
 }
 
 void HapticsDevProtection::updateHPcustomPayload()
@@ -1621,20 +1749,20 @@ void HapticsDevProtection::PMICHapticsVIScaling(wsa_haptics_ex_lra_param_t *VIpe
 
     ret = snprintf(vgain_sysfs, sizeof(vgain_sysfs), "%s%s", HAPTICS_SYSFS, "/v_gain_error");
     if (ret < 0) {
-        ALOGE("Failed to generate v_gain_error path name, ret = %d\n", ret);
+        PAL_ERR(LOG_TAG, "Failed to generate v_gain_error path name, ret = %d\n", ret);
         goto exit;
     }
 
     fd = TEMP_FAILURE_RETRY(::open(vgain_sysfs, O_RDONLY));
     if (fd < 0) {
-        ALOGE("Open %s failed, fd = %d\n", vgain_sysfs, fd);
+        PAL_ERR(LOG_TAG, "Open %s failed, fd = %d\n", vgain_sysfs, fd);
         goto exit;
     }
 
     ret = TEMP_FAILURE_RETRY(::read(fd, vgain, sizeof(vgain)));
     ::close(fd);
     if (ret < 0) {
-        ALOGE("Failed to read %s, errno = %d\n", vgain_sysfs, errno);
+        PAL_ERR(LOG_TAG, "Failed to read %s, errno = %d\n", vgain_sysfs, errno);
         goto exit;
     }
 
@@ -1643,20 +1771,20 @@ void HapticsDevProtection::PMICHapticsVIScaling(wsa_haptics_ex_lra_param_t *VIpe
 
     ret = snprintf(igain_sysfs, sizeof(igain_sysfs), "%s%s", HAPTICS_SYSFS, "/i_gain_error");
     if (ret < 0) {
-        ALOGE("Failed to generate i_gain_error path name, ret = %d\n", ret);
+        PAL_ERR(LOG_TAG, "Failed to generate i_gain_error path name, ret = %d\n", ret);
         goto exit;
     }
 
     fd = TEMP_FAILURE_RETRY(::open(igain_sysfs, O_RDONLY));
     if (fd < 0) {
-        ALOGE("Open %s failed, fd = %d\n", igain_sysfs, fd);
+        PAL_ERR(LOG_TAG, "Open %s failed, fd = %d\n", igain_sysfs, fd);
         goto exit;
     }
 
     ret = TEMP_FAILURE_RETRY(::read(fd, igain, sizeof(igain)));
     ::close(fd);
     if (ret < 0) {
-        ALOGE("Failed to read %s, errno = %d\n", igain_sysfs, errno);
+        PAL_ERR(LOG_TAG, "Failed to read %s, errno = %d\n", igain_sysfs, errno);
         goto exit;
     }
 
@@ -1679,7 +1807,6 @@ exit:
     PAL_DBG(LOG_TAG, "Vscale %x Iscale %x",VIpeValue->vsens_scale_q24, VIpeValue->isens_scale_q24);
 }
 
-
 int32_t HapticsDevProtection::getFTMParameter(void **param)
 {
     int ret = 0;
@@ -1695,15 +1822,24 @@ int32_t HapticsDevProtection::getFTMParameter(void **param)
         goto exit;
     }
     inFile.read(reinterpret_cast<char*>(&FtmCalParam), sizeof(haptics_vi_cal_param));
+    inFile.read(reinterpret_cast<char*>(FtmCalParam.payload_data), FtmCalParam.payload_size);
     inFile.close();
 
-    resString << "HapticsParamStatus: " <<  "; Re: "
-              << ((FtmCalParam.Re_ohm_Cal_q24)/(1<<24)) << "; Fres: "
-              << ((FtmCalParam.Fres_Hz_Cal_q20)/(1<<20)) << "; Bl: "
-              << ((FtmCalParam.Bl_q24)/(1<<24)) << "; Rms: "
-              << ((FtmCalParam.Rms_KgSec_q24)/(1<<24)) << "; Blq: "
-              << ((FtmCalParam.Blq_ftm_q24)/(1<<24)) << "; Le: "
-              << ((FtmCalParam.Le_mH_ftm_q24)/(1<<24));
+    for(int i = 0; i < numberOfChannels; i++) {
+        resString << "HapticsParamStatus: " <<  "; Re: "
+                << ((FtmCalParam.Re_ohm_Cal_q24[i])/(1<<24)) << "; Fres: "
+                << ((FtmCalParam.Fres_Hz_Cal_q20[i])/(1<<20)) << "; Bl: "
+                << ((FtmCalParam.Bl_q24[i])/(1<<24)) << "; Rms: "
+                << ((FtmCalParam.Rms_KgSec_q24[i])/(1<<24)) << "; Blq: "
+                << ((FtmCalParam.Blq_ftm_q24[i])/(1<<24)) << "; Le: "
+                << ((FtmCalParam.Le_mH_ftm_q24[i])/(1<<24)) << "; Fres_offset: "
+                << ((FtmCalParam.Fres_offset_Hz_q20[i])/(1<<20)) << "; Tuned_LRA_ID: "
+                << FtmCalParam.Tuned_LRA_ID[i];
+    }
+
+    resString << " payload_size: "
+              << FtmCalParam.payload_size << "; payload_data: "
+              << std::string((char*)FtmCalParam.payload_data, FtmCalParam.payload_size);
 
     PAL_DBG(LOG_TAG, "Get param value %s, length:%d",
             resString.str().c_str(), resString.str().length());
@@ -1714,6 +1850,81 @@ int32_t HapticsDevProtection::getFTMParameter(void **param)
         ret = payload_size;
     }
 exit:
+    return ret;
+}
+
+int HapticsDevProtection::isPmicAutoResonanceEnabled()
+{
+    char f0_state_sysfs[50];
+    int fd;
+    char f0_state[8];
+    std::stringstream vi;
+    int ret = 0;
+
+    ret = snprintf(f0_state_sysfs, sizeof(f0_state_sysfs), "%s%s", HAPTICS_SYSFS, "/lra_f0_cal_in_play");
+    if (ret < 0) {
+        PAL_ERR(LOG_TAG, "Failed to generate lra_frequency_hz path name, ret = %d\n", ret);
+        goto exit;
+    }
+
+    fd = TEMP_FAILURE_RETRY(::open(f0_state_sysfs, O_RDONLY));
+    if (fd < 0) {
+        PAL_ERR(LOG_TAG, "Open %s failed, fd = %d\n", f0_state_sysfs, fd);
+        goto exit;
+    }
+
+    ret = TEMP_FAILURE_RETRY(::read(fd, f0_state, sizeof(f0_state)));
+    ::close(fd);
+    if (ret < 0) {
+        PAL_ERR(LOG_TAG, "Failed to read %s, errno = %d\n", f0_state_sysfs, errno);
+        goto exit;
+    }
+
+    vi << std::hex << f0_state;
+    vi >> lraF0CalState;
+    PAL_INFO(LOG_TAG,"lraF0CalState = %d", lraF0CalState);
+    ret = lraF0CalState;
+
+exit:
+    PAL_DBG(LOG_TAG,"Exit status = %d", ret);
+    return ret;
+}
+
+int HapticsDevProtection::getLraFrequency()
+{
+    char f0_sysfs[50];
+    int fd;
+    char lra_f0[8];
+    std::stringstream vi;
+    int ret = 0;
+
+    ret = snprintf(f0_sysfs, sizeof(f0_sysfs), "%s%s", HAPTICS_SYSFS, "/lra_frequency_hz");
+    if (ret < 0) {
+        PAL_ERR(LOG_TAG, "Failed to generate lra_frequency_hz path name, ret = %d\n", ret);
+        goto exit;
+    }
+
+    fd = TEMP_FAILURE_RETRY(::open(f0_sysfs, O_RDONLY));
+    if (fd < 0) {
+        PAL_ERR(LOG_TAG, "Open %s failed, fd = %d\n", f0_sysfs, fd);
+        goto exit;
+    }
+
+    ret = TEMP_FAILURE_RETRY(::read(fd, lra_f0, sizeof(lra_f0)));
+    ::close(fd);
+    if (ret < 0) {
+        PAL_ERR(LOG_TAG, "Failed to read %s, errno = %d\n", f0_sysfs, errno);
+        goto exit;
+    }
+
+    vi << lra_f0;
+    vi >> fresHzQ20;
+
+    PAL_INFO(LOG_TAG,"lra_frequency_hz = %d", fresHzQ20);
+    fresHzQ20 = fresHzQ20 << 20;
+
+exit:
+    PAL_DBG(LOG_TAG,"Exit status = %d", ret);
     return ret;
 }
 
@@ -1732,7 +1943,6 @@ int HapticsDevProtection::HapticsDevProtectionFTM()
     calibrationCallbackStatus = HAPTICS_VI_CALIB_STATE_INACTIVE;
     mDspCallbackRcvd = false;
     ftmThrdCreated.store(true);
-
     PAL_DBG(LOG_TAG, "creating Haptics FTM thread");
     std::thread dynamicFTMThread(&HapticsDevProtection::HapticsDevFTMThread, this);
 
@@ -1835,6 +2045,50 @@ int32_t HapticsDevProtection::getParameter(uint32_t param_id, void **param)
     return status;
 }
 
+int32_t HapticsDevProtection::getRxPersistentParameter(param_id_haptics_rx_persistent_data_param_t *VIpeValue)
+{
+    int fd;
+
+    fd = TEMP_FAILURE_RETRY(::open(PAL_HP_VI_PER_PATH, O_RDONLY));
+    if (fd < 0) {
+        PAL_INFO(LOG_TAG, "Haptics_Persistent.cal file not present, use the default Persistent values");
+        return -ENOENT;
+    }
+
+    size_t chunkSize = 0;
+    for (int i = 0; i < numberOfChannels; i++) {
+        chunkSize += sizeof(VIpeValue->Re_ohm_q24[i]) + sizeof(VIpeValue->Le_mH_q24[i]) +
+                     sizeof(VIpeValue->Bl_q24[i]) + sizeof(VIpeValue->Rms_KgSec_q24[i]) +
+                     sizeof(VIpeValue->Kms_Nmm_q24[i]) + sizeof(VIpeValue->Fres_Hz_q20[i]);
+    }
+
+    std::unique_ptr<uint8_t[]> buffer(new uint8_t[chunkSize * numberOfChannels]);
+
+    PAL_INFO(LOG_TAG, "update RX persistent value from file");
+    ssize_t bytesRead = TEMP_FAILURE_RETRY(::read(fd, buffer.get(), chunkSize * numberOfChannels));
+    ::close(fd);
+    if (bytesRead != static_cast<ssize_t>(chunkSize * numberOfChannels)) {
+        PAL_INFO(LOG_TAG, "Failed to read the expected amount of data from file");
+        return -EIO;
+    }
+
+    for (int i = 0; i < numberOfChannels; i++) {
+        uint8_t *ptr = buffer.get() + i * chunkSize;
+        memcpy(&VIpeValue->Re_ohm_q24[i], ptr, sizeof(VIpeValue->Re_ohm_q24[i]));
+        ptr += sizeof(VIpeValue->Re_ohm_q24[i]);
+        memcpy(&VIpeValue->Le_mH_q24[i], ptr, sizeof(VIpeValue->Le_mH_q24[i]));
+        ptr += sizeof(VIpeValue->Le_mH_q24[i]);
+        memcpy(&VIpeValue->Bl_q24[i], ptr, sizeof(VIpeValue->Bl_q24[i]));
+        ptr += sizeof(VIpeValue->Bl_q24[i]);
+        memcpy(&VIpeValue->Rms_KgSec_q24[i], ptr, sizeof(VIpeValue->Rms_KgSec_q24[i]));
+        ptr += sizeof(VIpeValue->Rms_KgSec_q24[i]);
+        memcpy(&VIpeValue->Kms_Nmm_q24[i], ptr, sizeof(VIpeValue->Kms_Nmm_q24[i]));
+        ptr += sizeof(VIpeValue->Kms_Nmm_q24[i]);
+        memcpy(&VIpeValue->Fres_Hz_q20[i], ptr, sizeof(VIpeValue->Fres_Hz_q20[i]));
+    }
+    return 0;
+}
+
 int32_t HapticsDevProtection::getAndsetPersistentParameter(bool flag)
 {
     int size = 0, status = 0, ret = 0;
@@ -1879,6 +2133,14 @@ int32_t HapticsDevProtection::getAndsetPersistentParameter(bool flag)
         PAL_ERR(LOG_TAG, "Error: %d Failed to get tag info %x", status, MODULE_HAPTICS_VI);
         goto exit;
     }
+
+    if (isPmicAutoResonanceEnabled() == TRUE) {
+        status = getLraFrequency();
+        if (status < 0) {
+            PAL_ERR(LOG_TAG, "getLraFrequency failed");
+        }
+    }
+
     if (flag) {
         builder->payloadHapticsDevPConfig (&payload, &payloadSize, miid,
                               PARAM_ID_HAPTICS_EX_VI_PERSISTENT, &ViPe);
@@ -1904,24 +2166,29 @@ int32_t HapticsDevProtection::getAndsetPersistentParameter(bool flag)
             } else {
                 PAL_DBG(LOG_TAG, "Write the Vi persistant value to file");
                 for (int i = 0; i < numberOfChannels; i++) {
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Re_ohm_q24[i] =%d",VIpeValue->Re_ohm_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Re_ohm_q24[i] =%d",VIpeValue->Re_ohm_q24[i]);
                     fwrite(&VIpeValue->Re_ohm_q24[i], sizeof(VIpeValue->Re_ohm_q24[i]),
                                              1, fp);
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Le_mH_q24[i] =%d",VIpeValue->Le_mH_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Le_mH_q24[i] =%d",VIpeValue->Le_mH_q24[i]);
                     fwrite(&VIpeValue->Le_mH_q24[i], sizeof(VIpeValue->Le_mH_q24[i]),
                                              1, fp);
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Bl_q24[i] =%d",VIpeValue->Bl_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Bl_q24[i] =%d",VIpeValue->Bl_q24[i]);
                     fwrite(&VIpeValue->Bl_q24[i], sizeof(VIpeValue->Bl_q24[i]),
                                              1, fp);
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Rms_KgSec_q24[i] =%d",VIpeValue->Rms_KgSec_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Rms_KgSec_q24[i] =%d",VIpeValue->Rms_KgSec_q24[i]);
                     fwrite(&VIpeValue->Rms_KgSec_q24[i], sizeof(VIpeValue->Rms_KgSec_q24[i]),
                                              1, fp);
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Kms_Nmm_q24[i] =%d",VIpeValue->Kms_Nmm_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Kms_Nmm_q24[i] =%d",VIpeValue->Kms_Nmm_q24[i]);
                     fwrite(&VIpeValue->Kms_Nmm_q24[i], sizeof(VIpeValue->Kms_Nmm_q24[i]),
                                              1, fp);
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Fres_Hz_q20[i] =%d",VIpeValue->Fres_Hz_q20[i]);
-                    fwrite(&VIpeValue->Fres_Hz_q20[i], sizeof(VIpeValue->Fres_Hz_q20[i]),
+                    if (lraF0CalState) {
+                        PAL_INFO(LOG_TAG, "persistent values Fres_Hz_q20[i] =%d",fresHzQ20);
+                        fwrite(&fresHzQ20, sizeof(fresHzQ20), 1, fp);
+                    } else {
+                        PAL_INFO(LOG_TAG, "persistent values VIpeValue->Fres_Hz_q20[i] =%d",VIpeValue->Fres_Hz_q20[i]);
+                        fwrite(&VIpeValue->Fres_Hz_q20[i], sizeof(VIpeValue->Fres_Hz_q20[i]),
                                              1, fp);
+                    }
                 }
                 fclose(fp);
             }
@@ -1940,22 +2207,25 @@ int32_t HapticsDevProtection::getAndsetPersistentParameter(bool flag)
             for (int i = 0; i < numberOfChannels; i++) {
                     fread(&VIpeValue->Re_ohm_q24[i], sizeof(VIpeValue->Re_ohm_q24[i]),
                                              1, fp);
-                     PAL_ERR(LOG_TAG, "persistent values VIpeValue->Re_ohm_q24[i] =%d",VIpeValue->Re_ohm_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Re_ohm_q24[i] =%d",VIpeValue->Re_ohm_q24[i]);
                     fread(&VIpeValue->Le_mH_q24[i], sizeof(VIpeValue->Le_mH_q24[i]),
                                              1, fp);
-                     PAL_ERR(LOG_TAG, "persistent values VIpeValue->Le_mH_q24[i] =%d",VIpeValue->Le_mH_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Le_mH_q24[i] =%d",VIpeValue->Le_mH_q24[i]);
                     fread(&VIpeValue->Bl_q24[i], sizeof(VIpeValue->Bl_q24[i]),
                                              1, fp);
-                     PAL_ERR(LOG_TAG, "persistent values VIpeValue->Bl_q24[i] =%d",VIpeValue->Bl_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Bl_q24[i] =%d",VIpeValue->Bl_q24[i]);
                     fread(&VIpeValue->Rms_KgSec_q24[i], sizeof(VIpeValue->Rms_KgSec_q24[i]),
                                              1, fp);
-                    PAL_ERR(LOG_TAG, "persistent values VIpeValue->Rms_KgSec_q24[i] =%d",VIpeValue->Rms_KgSec_q24[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Rms_KgSec_q24[i] =%d",VIpeValue->Rms_KgSec_q24[i]);
                     fread(&VIpeValue->Kms_Nmm_q24[i], sizeof(VIpeValue->Kms_Nmm_q24[i]),
                                              1, fp);
-                     PAL_ERR(LOG_TAG, "persistent values VIpeValue->Kms_Nmm_q24[i] =%d",VIpeValue->Kms_Nmm_q24[i]);
-                    fread(&VIpeValue->Fres_Hz_q20[i], sizeof(VIpeValue->Fres_Hz_q20[i]),
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Kms_Nmm_q24[i] =%d",VIpeValue->Kms_Nmm_q24[i]);
+                    if (lraF0CalState)
+                        VIpeValue->Fres_Hz_q20[i] = fresHzQ20;
+                    else
+                        fread(&VIpeValue->Fres_Hz_q20[i], sizeof(VIpeValue->Fres_Hz_q20[i]),
                                              1, fp);
-                     PAL_ERR(LOG_TAG, "persistent values VIpeValue->Fres_Hz_q20[i] =%d",VIpeValue->Fres_Hz_q20[i]);
+                    PAL_INFO(LOG_TAG, "persistent values VIpeValue->Fres_Hz_q20[i] =%d",VIpeValue->Fres_Hz_q20[i]);
             }
             fclose(fp);
         }

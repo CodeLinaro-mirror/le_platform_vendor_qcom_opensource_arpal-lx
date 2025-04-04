@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2874,6 +2874,14 @@ int PayloadBuilder::populateStreamKV(Stream* s,
                 "icmd_plus"));
             PAL_INFO(LOG_TAG, "ICMD + playback usecase");
         }
+    } else if (sattr->type == PAL_STREAM_RAW) {
+        PAL_DBG(LOG_TAG, "IsBitPerfect %d", sattr->info.opt_stream_info.isBitPerfect);
+        if (sattr->info.opt_stream_info.isBitPerfect) {
+            filled_selector_pairs.push_back(
+                std::make_pair(CUSTOM_CONFIG_SEL,
+                "bit_perfect"));
+            PAL_INFO(LOG_TAG, "BitPerfect Playback, hence select PCM_IMMUTABLE KV");
+        }
     }
 
     retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVector);
@@ -2997,7 +3005,6 @@ int PayloadBuilder::populateDeviceKV(Stream* s, int32_t beDevId,
         }
         goto exit;
     }
-
 
     if (beDevId > 0) {
         memset (&dAttr, 0, sizeof(struct pal_device));
@@ -3171,6 +3178,7 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
     struct pal_stream_attributes sAttr;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
     struct volume_set_param_info vol_set_param_info;
+    uint32_t type = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
     memset(&sAttr, 0, sizeof(struct pal_stream_attributes));
@@ -3188,6 +3196,9 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             /* Push stream channels CKV for SVA/PDK module calibration */
             keyVector.push_back(std::make_pair(STREAM_CHANNELS,
                 sAttr.in_media_config.ch_info.channels));
+            type = s->GetMMAModelType();
+            if (type)
+                keyVector.push_back(std::make_pair(MMA_MODEL_TYPE, type));
             break;
         default:
             /*
@@ -4513,6 +4524,7 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
             }
         break;
       case PARAM_ID_HAPTICS_EX_VI_PERSISTENT:
+      case PARAM_ID_HAPTICS_RX_PERSISTENT_DATA_PARAM:
             {
                 param_id_haptics_ex_vi_persistent *hpConf;
                 param_id_haptics_ex_vi_persistent *data;
@@ -4556,12 +4568,12 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                 memcpy(VIConf, data, sizeof(wsa_haptics_ex_lra_param_t));
             }
         break;
-      case PARAM_ID_HAPTICS_WAVE_DESIGNER_CFG:
+      case PARAM_ID_HAPTICS_WAVE_DESIGNER_CFG_V2:
             {
                 pal_param_haptics_cnfg_t *data;
-                param_id_haptics_wave_designer_config_t *hpconf = nullptr;
-                rx_wave_designer_config_h  *hpwaveConf = nullptr;
-                haptics_wave_designer_config_t *HConfig = nullptr;
+                param_id_haptics_wave_designer_config_v2_t *hpconf = nullptr;
+                rx_wave_designer_config_v2_h  *hpwaveConf = nullptr;
+                haptics_wave_designer_config_v2_t *HConfig = nullptr;
                 std::shared_ptr<AudioHapticsInterface> hap_info = AudioHapticsInterface::GetInstance();
                 int32_t *pwltime = nullptr;
                 int32_t *pwlacc = nullptr;
@@ -4575,8 +4587,8 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                         return;
                     }
                     payloadSize = sizeof(struct apm_module_param_data_t) +
-                                     sizeof(param_id_haptics_wave_designer_config_t) +
-                                      (sizeof(rx_wave_designer_config_h) *
+                                     sizeof(param_id_haptics_wave_designer_config_v2_t) +
+                                      (sizeof(rx_wave_designer_config_v2_h) *
                                        HConfig->num_channels) +
                                       (sizeof(int32_t) * 2 *
                                       HConfig->num_pwl *
@@ -4588,21 +4600,21 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                         return;
                     }
                     header = (struct apm_module_param_data_t *) payloadInfo;
-                    hpconf = (param_id_haptics_wave_designer_config_t *) (payloadInfo +
+                    hpconf = (param_id_haptics_wave_designer_config_v2_t *) (payloadInfo +
                                  sizeof(struct apm_module_param_data_t));
-                    hpwaveConf = (rx_wave_designer_config_h *) (payloadInfo +
+                    hpwaveConf = (rx_wave_designer_config_v2_h *) (payloadInfo +
                                   sizeof(struct apm_module_param_data_t)
-                                 + sizeof(param_id_haptics_wave_designer_config_t));
+                                 + sizeof(param_id_haptics_wave_designer_config_v2_t));
 
                     if (HConfig->num_pwl != 0) {
                         pwltime = (int32_t *) (payloadInfo +
                                      sizeof(struct apm_module_param_data_t) +
-                                     sizeof(param_id_haptics_wave_designer_config_t) +
-                                     sizeof(rx_wave_designer_config_h));
+                                     sizeof(param_id_haptics_wave_designer_config_v2_t) +
+                                     sizeof(rx_wave_designer_config_v2_h));
                         pwlacc = (int32_t *) (payloadInfo +
                                      sizeof(struct apm_module_param_data_t) +
-                                     sizeof(param_id_haptics_wave_designer_config_t) +
-                                     sizeof(rx_wave_designer_config_h) + sizeof(int32_t) *
+                                     sizeof(param_id_haptics_wave_designer_config_v2_t) +
+                                     sizeof(rx_wave_designer_config_v2_h) + sizeof(int32_t) *
                                       HConfig->num_pwl);
                     }
                     hpconf->num_channels = HConfig->num_channels;
@@ -4626,6 +4638,14 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                                           HConfig->f0_tracking_en;
                         PAL_DBG(LOG_TAG, "Haptics Effect, .f0_tracking_en %d",
                                                 hpwaveConf[ch].f0_tracking_en);
+                        hpwaveConf[ch].rtcl_mode =
+                                          HConfig->rtcl_mode;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .rtcl_mode %d",
+                                                hpwaveConf[ch].rtcl_mode);
+                        hpwaveConf[ch].pmic_autobrake_en =
+                                          HConfig->pmic_autobrake_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .pmic_autobrake_en %d",
+                                                hpwaveConf[ch].pmic_autobrake_en);
                         hpwaveConf[ch].f0_tracking_param_reset_flag =
                                          HConfig->f0_tracking_param_reset_flag;
                         PAL_DBG(LOG_TAG, "Haptics Effect, .f0_param_reset_flag %d",
@@ -4678,7 +4698,7 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                             hpwaveConf[ch].pulse_intensity = (data->amplitude * 100);
                         }
                         if (hpwaveConf[ch].pulse_intensity > 100 ||
-                                            hpwaveConf[ch].pulse_intensity < 0)
+                                            hpwaveConf[ch].pulse_intensity <= 0)
                             hpwaveConf[ch].pulse_intensity = 30;
                             PAL_DBG(LOG_TAG, "Haptics Effect .pulse_intensity %d for strength %d",
                                                   hpwaveConf[ch].pulse_intensity, data->strength);
@@ -4702,9 +4722,10 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                     }
                     free(HConfig);
                 } else if(data->mode == PAL_STREAM_HAPTICS_RINGTONE) {
+                    hap_info->getRingtoneHapticsEffectConfiguration(&HConfig);
                     payloadSize = sizeof(struct apm_module_param_data_t) +
-                                   sizeof(param_id_haptics_wave_designer_config_t) +
-                                   (sizeof(rx_wave_designer_config_h));
+                                   sizeof(param_id_haptics_wave_designer_config_v2_t) +
+                                   (sizeof(rx_wave_designer_config_v2_h));
                     padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
                     payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
                     if (!payloadInfo) {
@@ -4712,19 +4733,52 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                         return;
                     }
                     header = (struct apm_module_param_data_t *) payloadInfo;
-                    hpconf = (param_id_haptics_wave_designer_config_t *) (payloadInfo +
+                    hpconf = (param_id_haptics_wave_designer_config_v2_t *) (payloadInfo +
                                 sizeof(struct apm_module_param_data_t));
-                    hpwaveConf = (rx_wave_designer_config_h *) (payloadInfo +
+                    hpwaveConf = (rx_wave_designer_config_v2_h *) (payloadInfo +
                                 sizeof(struct apm_module_param_data_t)
-                                + sizeof(param_id_haptics_wave_designer_config_t));
-                    hpconf->num_channels = 1;
-                    hpconf->channel_mask = 1;
-                    hpwaveConf[0].wave_design_mode = hap_info->getRingtoneHapticsEffectConfiguration();
-                    PAL_ERR(LOG_TAG, "ringtone haptics mode %d", hpwaveConf[0].wave_design_mode);
+                                + sizeof(param_id_haptics_wave_designer_config_v2_t));
+                    hpconf->num_channels = HConfig->num_channels;
+                    hpconf->channel_mask = HConfig->channel_mask;
+                    hpwaveConf[0].wave_design_mode = (uint32_t)HConfig->wave_design_mode;
+                        PAL_DBG(LOG_TAG, " Ringtone Haptics Effect, desgn mode %d",
+                                                 hpwaveConf[0].wave_design_mode);
+                        hpwaveConf[0].auto_overdrive_brake_en =
+                                           HConfig->auto_overdrive_brake_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, auto_ov_b_en %d",
+                                                hpwaveConf[0].auto_overdrive_brake_en);
+                        hpwaveConf[0].f0_tracking_en =
+                                          HConfig->f0_tracking_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .f0_tracking_en %d",
+                                                hpwaveConf[0].f0_tracking_en);
+                        hpwaveConf[0].rtcl_mode =
+                                          HConfig->rtcl_mode;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .rtcl_mode %d",
+                                                hpwaveConf[0].rtcl_mode);
+                        hpwaveConf[0].pmic_autobrake_en =
+                                          HConfig->pmic_autobrake_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .pmic_autobrake_en %d",
+                                                hpwaveConf[0].pmic_autobrake_en);
+                        hpwaveConf[0].f0_tracking_param_reset_flag =
+                                         HConfig->f0_tracking_param_reset_flag;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .f0_param_reset_flag %d",
+                                         hpwaveConf[0].f0_tracking_param_reset_flag);
+                        hpwaveConf[0].override_flag =
+                                           HConfig->override_flag;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .override_flag %d",
+                                                      hpwaveConf[0].override_flag);
+                        hpwaveConf[0].num_pwl = 0;
+                        free(HConfig);
                 } else if(data->mode == PAL_STREAM_HAPTICS_PCM) {
+                    hap_info->getPcmHapticsEffectConfiguration(&HConfig);
+                    if (HConfig == nullptr) {
+                        PAL_ERR(LOG_TAG, "HapticsConfig is not found.");
+                        return;
+                    }
+
                     payloadSize = sizeof(struct apm_module_param_data_t) +
-                                   sizeof(param_id_haptics_wave_designer_config_t) +
-                                   (sizeof(rx_wave_designer_config_h));
+                                   sizeof(param_id_haptics_wave_designer_config_v2_t) +
+                                   (sizeof(rx_wave_designer_config_v2_h));
                     padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
                     payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
                     if (!payloadInfo) {
@@ -4732,17 +4786,50 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                         return;
                     }
                     header = (struct apm_module_param_data_t *) payloadInfo;
-                    hpconf = (param_id_haptics_wave_designer_config_t *) (payloadInfo +
+                    hpconf = (param_id_haptics_wave_designer_config_v2_t *) (payloadInfo +
                                 sizeof(struct apm_module_param_data_t));
-                    hpwaveConf = (rx_wave_designer_config_h *) (payloadInfo +
+                    hpwaveConf = (rx_wave_designer_config_v2_h *) (payloadInfo +
                                 sizeof(struct apm_module_param_data_t)
-                                + sizeof(param_id_haptics_wave_designer_config_t));
-                    hpconf->num_channels = 1;
-                    hpconf->channel_mask = 1;
-                    hpwaveConf[0].wave_design_mode = 5;
-                    hpwaveConf[0].repetition_count = 1;
-                    hpwaveConf[0].num_pwl=0;
-                    PAL_ERR(LOG_TAG, "PCM haptics mode %d", hpwaveConf[0].wave_design_mode);
+                                + sizeof(param_id_haptics_wave_designer_config_v2_t));
+                    hpconf->num_channels = HConfig->num_channels;
+                    hpconf->channel_mask = HConfig->channel_mask;
+                    hpwaveConf[0].wave_design_mode = (uint32_t)HConfig->wave_design_mode;
+                        PAL_DBG(LOG_TAG, "Pcm Haptics Effect, desgn mode %d",
+                                                 hpwaveConf[0].wave_design_mode);
+                        hpwaveConf[0].auto_overdrive_brake_en =
+                                           HConfig->auto_overdrive_brake_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, auto_ov_b_en %d",
+                                                hpwaveConf[0].auto_overdrive_brake_en);
+                        hpwaveConf[0].f0_tracking_en =
+                                          HConfig->f0_tracking_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .f0_tracking_en %d",
+                                                hpwaveConf[0].f0_tracking_en);
+                        hpwaveConf[0].rtcl_mode =
+                                          HConfig->rtcl_mode;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .rtcl_mode %d",
+                                                hpwaveConf[0].rtcl_mode);
+                        hpwaveConf[0].pmic_autobrake_en =
+                                          HConfig->pmic_autobrake_en;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .pmic_autobrake_en %d",
+                                                hpwaveConf[0].pmic_autobrake_en);
+                        hpwaveConf[0].f0_tracking_param_reset_flag =
+                                         HConfig->f0_tracking_param_reset_flag;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .f0_param_reset_flag %d",
+                                         hpwaveConf[0].f0_tracking_param_reset_flag);
+                        hpwaveConf[0].override_flag =
+                                           HConfig->override_flag;
+                        PAL_DBG(LOG_TAG, "Haptics Effect, .override_flag %d",
+                                                      hpwaveConf[0].override_flag);
+                        hpwaveConf[0].repetition_count = 1;
+                        hpwaveConf[0].num_pwl = 0;
+                    if ((data->amplitude * 100 > 1000)) {
+                         hpwaveConf[0].pulse_intensity = 1000;
+                    } else if (data->amplitude * 100 <= 0) {
+                         hpwaveConf[0].pulse_intensity = 100;
+                    } else {
+                         hpwaveConf[0].pulse_intensity = (data->amplitude * 100);
+                    }
+                    free(HConfig);
                 }
             }
             break;
@@ -4771,7 +4858,7 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                  pal_param_haptics_cnfg_t *data;
                  rx_wave_designer_update_config_t *hpwaveConf = nullptr;
                  std::shared_ptr<AudioHapticsInterface> hap_info = AudioHapticsInterface::GetInstance();
-                 haptics_wave_designer_config_t *HConfig = nullptr;
+                 haptics_wave_designer_config_v2_t *HConfig = nullptr;
 
                  data = (pal_param_haptics_cnfg_t *)param;
                  hap_info->getTouchHapticsEffectConfiguration(-1, &HConfig);
@@ -4835,6 +4922,30 @@ void PayloadBuilder::payloadHapticsDevPConfig(uint8_t** payload, size_t* size, u
                 hpconf->channel_mask = 1;
                 hpconf->buffer_size = data->buffer_size;
                 memcpy(buf_ptr, data->buffer_ptr, hpconf->buffer_size);
+            }
+            break;
+            break;
+            case PARAM_ID_HAPTICS_LPASS_SWR_HW_REG_CFG:
+            {
+                param_id_haptics_lpass_swr_hw_reg_cfg_t *data = NULL;
+                param_id_haptics_lpass_swr_hw_reg_cfg_t *cfgPayload = NULL;
+                data = (param_id_haptics_lpass_swr_hw_reg_cfg_t *) param;
+                payloadSize = sizeof(struct apm_module_param_data_t) +
+                                    sizeof(param_id_haptics_lpass_swr_hw_reg_cfg_t) +
+                                    sizeof(haptics_pkd_reg_addr_t) * data->num_channel;
+                padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+
+                payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+                if (!payloadInfo) {
+                    PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+                    return;
+                }
+                header = (struct apm_module_param_data_t*) payloadInfo;
+                cfgPayload = (param_id_haptics_lpass_swr_hw_reg_cfg_t * ) (payloadInfo +
+                                sizeof(struct apm_module_param_data_t));
+
+                memcpy(cfgPayload, data, sizeof(param_id_haptics_lpass_swr_hw_reg_cfg_t) +
+                                sizeof(haptics_pkd_reg_addr_t) * data->num_channel);
             }
             break;
         default:
