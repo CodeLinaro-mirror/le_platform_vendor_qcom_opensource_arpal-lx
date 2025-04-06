@@ -502,8 +502,11 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
         return status;
     }
     rm->unlockValidStreamMutex();
-
-    status = s->getParameters(param_id, (void **)param_payload);
+    if ( param_id == PAL_PARAM_ID_UIEFFECT) {
+        status = s->getEffectParameters((void *)*param_payload);
+    } else {
+        status = s->getParameters(param_id, (void **)param_payload);
+    }
     if (0 != status) {
         PAL_ERR(LOG_TAG, "get parameters failed status %d param_id %u", status, param_id);
     }
