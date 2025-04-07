@@ -520,7 +520,8 @@ private:
     SoundTriggerOnResourceAvailableCallback onResourceAvailCb = NULL;
     uint64_t onResourceAvailCookie;
     static int closeControlPlugin(plugin_t *plugin, plugin_control_name_t control);
-
+    /* gets respective device index */
+    static int getSndDeviceIndex(int32_t);
     static bool isQmpEnabled;
     static bool mixerClosed;
     //bool ssrStarted = false;

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -393,6 +393,8 @@ int SessionAR::checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
     device.id = PAL_DEVICE_IN_EXT_EC_REF;
     rm->getDeviceConfig(&device, &sAttr);
     dev = Device::getInstance(&device, rm);
+    /* set device attributes to Ext Ec Ref device */
+    dev->setDeviceAttributes(device);
     if (!dev) {
         PAL_ERR(LOG_TAG, "dev get instance failed");
         status = -EINVAL;

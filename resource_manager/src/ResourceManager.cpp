@@ -783,6 +783,16 @@ int32_t ResourceManager::secureZoneEventCb(const uint32_t peripheral,
 }
 #endif
 
+int ResourceManager::getSndDeviceIndex(int32_t sndDeviceId) {
+    for (int devLis = 0; devLis < deviceInfo.size(); ++devLis) {
+        if (deviceInfo[devLis].deviceId == sndDeviceId) {
+            //iterating through list of devices to find the calling device's index
+            return devLis;
+        }
+    }
+    return -EINVAL;
+}
+
 uint32_t ResourceManager::getNTPathForStreamAttr(
                               const pal_stream_attributes &attr)
 {
@@ -4207,7 +4217,10 @@ int ResourceManager::checkandEnableEC_l(std::shared_ptr<Device> d, Stream *s, bo
     int status = 0;
     struct pal_stream_attributes sAttr;
     std::vector<std::shared_ptr<Device>> tx_devices;
-
+    bool isEcRefEnabled_d = false;
+    int deviceIndex = getSndDeviceIndex(d->getSndDeviceId());
+    if (deviceIndex != -EINVAL)
+        isEcRefEnabled_d = deviceInfo[deviceIndex].isExternalECRefEnabled;
     if (!d || !s) {
         status = -EINVAL;
         goto exit;
@@ -4231,7 +4244,9 @@ int ResourceManager::checkandEnableEC_l(std::shared_ptr<Device> d, Stream *s, bo
         status = checkandEnableECForRXStream_l(d, s, enable);
     } else if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT) {
         if (d->getSndDeviceId() < PAL_DEVICE_OUT_MAX) {
-            if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+            if (sAttr.type == PAL_STREAM_VOICE_CALL || (sAttr.type == PAL_STREAM_LOOPBACK &&
+                isEcRefEnabled_d)) {
+                PAL_DBG(LOG_TAG, "External Echo Ref: %s", isEcRefEnabled_d ? "ON" : "OFF");
                 status = s->setECRef_l(d, enable);
                 s->getAssociatedDevices(tx_devices);
                 if (status || tx_devices.empty()) {
