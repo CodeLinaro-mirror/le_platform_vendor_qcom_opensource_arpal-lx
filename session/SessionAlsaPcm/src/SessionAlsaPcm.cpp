@@ -3798,7 +3798,16 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         goto exit;
     }
 
-    if (sAttr.direction != PAL_AUDIO_INPUT) {
+    /* do not apply ECRef for Mic -> BT SCO */
+    if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.info.opt_stream_info.loopback_type != PAL_STREAM_LOOPBACK_HFP_RX) {
+        PAL_ERR(LOG_TAG, "Ext EC Ref cannot be set to PAL_STREAM_LOOPBACK_HFP_TX");
+        status = 0; /* setting status to zero as we dont need ec ref for hfp uplink but
+        device registration should be successful */
+        goto exit;
+    }
+    /* EC Ref cannot be set to output stream (EC Ref is only supported for input streams) */
+    if (sAttr.direction == PAL_AUDIO_OUTPUT) {
         PAL_ERR(LOG_TAG, "EC Ref cannot be set to output stream");
         status = -EINVAL;
         goto exit;
