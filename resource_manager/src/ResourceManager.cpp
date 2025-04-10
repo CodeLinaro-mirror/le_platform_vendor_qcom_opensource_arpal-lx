@@ -1605,6 +1605,12 @@ int ResourceManager::init_audio()
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
                     break;
+                } else if (strstr(snd_card_name, "VIOSND")) {
+                        PAL_INFO(LOG_TAG, "Found virtio sound card");
+                        snd_card_found = true;
+                        audio_hw_mixer = tmp_mixer;
+                        snd_virt_card = snd_hw_card;
+                        break;
                 } else {
                     if (snd_card_name) {
                         free(snd_card_name);

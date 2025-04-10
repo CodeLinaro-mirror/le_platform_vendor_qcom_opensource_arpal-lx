@@ -37,7 +37,7 @@ std::shared_ptr<Device> DummyDev::getObject(pal_device_id_t id)
 std::shared_ptr<Device> DummyDev::getInstance(struct pal_device *device,
                                               std::shared_ptr<ResourceManager> Rm)
 {
-    if (device->id == PAL_DEVICE_OUT_DUMMY) {
+    if (device->id < PAL_DEVICE_OUT_MAX) {
         if (!objRx) {
             PAL_INFO(LOG_TAG, "creating instance for %d", device->id);
             std::shared_ptr<Device> sp(new DummyDev(device, Rm));
