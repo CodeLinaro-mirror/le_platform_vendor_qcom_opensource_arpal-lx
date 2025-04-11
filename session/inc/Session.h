@@ -107,7 +107,7 @@ public:
     virtual int read(Stream *s __unused, struct pal_buffer *buf __unused, int * size __unused) = 0;
     virtual int write(Stream *s __unused, struct pal_buffer *buf __unused, int * size __unused) = 0;
     virtual int32_t getParameters(Stream *s, uint32_t param_id, void **payload) = 0;
-    virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) = 0;
+    virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) {return -EINVAL;};
     virtual int setParameters(Stream *s, uint32_t param_id, void *payload) = 0;
     virtual int getTimestamp(struct pal_session_time *stime __unused) = 0;
     virtual int setupSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
@@ -138,7 +138,7 @@ public:
                                        pal_stream_direction_t dir){return -EINVAL;};
     virtual int getTagsWithModuleInfo(Stream *s __unused, size_t *size __unused,
                                       uint8_t *payload __unused) {return -EINVAL;}; //Revert this later
-    virtual int getPCMDeviceID(Stream* s, int *devId) = 0;
+    virtual int getPCMDeviceID(Stream* s, int *devId) {return -EINVAL;};
 };
 
 #endif //SESSION_H
