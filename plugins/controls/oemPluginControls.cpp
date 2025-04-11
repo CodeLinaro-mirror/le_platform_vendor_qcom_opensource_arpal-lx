@@ -454,8 +454,21 @@ int setAWXVolumRampAttributes(Stream* s,pal_awx_volume_ramp_data_t* rampAttr, st
     std::ostringstream calCntrlName_awx;
     const char *stream = "PCM";
     std::string backend_name;
+    pal_stream_attributes sAttr;
+    const char *stream_compress = "COMPRESS";
 
     PAL_INFO(LOG_TAG,"Enter. setAWXVolumRampAttributes");
+    if (!s) {
+        PAL_ERR(LOG_TAG,"invalid streeam handle");
+        status = -EINVAL;
+        goto exit;
+    }
+    status = s->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"stream get attributes failed");
+        status = -EINVAL;
+        goto exit;
+    }
 
     // Get Backend Name
     status = rm->getBackendName(PAL_DEVICE_OUT_SPEAKER,backend_name);
@@ -529,7 +542,11 @@ int setAWXVolumRampAttributes(Stream* s,pal_awx_volume_ramp_data_t* rampAttr, st
 
     PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume Func %d Volume value %d\n", __func__,header->module_instance_id,header->param_id,header->param_size,vol_Data->volume_func,vol_Data->value[0]);
 
-    calCntrlName_awx<<stream<<device<<" "<<control;
+    if (sAttr.type == PAL_STREAM_COMPRESSED) {
+        calCntrlName_awx<<stream_compress<<device<<" "<<control;
+    } else {
+        calCntrlName_awx<<stream<<device<<" "<<control;
+    }
 
     ctl = mixer_get_ctl_by_name(mixer, calCntrlName_awx.str().data());
 
