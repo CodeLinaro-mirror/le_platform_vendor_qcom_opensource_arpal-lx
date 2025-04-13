@@ -32,6 +32,7 @@ Depends:
  libtinyalsa-dev,
  libtinycompress0,
  libtinycompress-dev,
+ qcom-fastrpc1,
  qcom-audioroute-dev,
  qcom-args,
  qcom-args-dev,
