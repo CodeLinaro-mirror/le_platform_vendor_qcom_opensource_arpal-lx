@@ -1097,7 +1097,7 @@ typedef struct pal_param_uhqa_state {
 /* Payload For ID: PAL_PARAM_ID_BT_SCO*
  * Description   : BT SCO related device parameters
 */
-static const char* lc3_reserved_params[] = {
+/*static const char* lc3_reserved_params[] = {
     "StreamMap",
     "Codec",
     "FrameDuration",
@@ -1107,7 +1107,7 @@ static const char* lc3_reserved_params[] = {
     "Blocks_forSDU",
     "vendor",
 };
-
+*/
 enum {
     LC3_STREAM_MAP_BIT     = 0x1,
     LC3_CODEC_BIT          = 0x1 << 1,
