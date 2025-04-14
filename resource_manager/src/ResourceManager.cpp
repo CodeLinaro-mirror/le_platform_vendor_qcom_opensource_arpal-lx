@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -155,6 +155,7 @@ uint32_t pal_log_lvl = (PAL_LOG_ERR|PAL_LOG_INFO);
 static struct str_parms *configParamKVPairs;
 
 char rmngr_xml_file[XML_PATH_MAX_LENGTH] = {0};
+char rmngr_xml_file_wo_variant[XML_PATH_MAX_LENGTH] = {0};
 
 char vendor_config_path[VENDOR_CONFIG_PATH_MAX_LENGTH] = {0};
 
@@ -754,7 +755,10 @@ ResourceManager::ResourceManager()
         throw std::runtime_error("error in init audio route and audio mixer");
     }
 
+    cardState = CARD_STATUS_ONLINE;
     ret = ResourceManager::XmlParser(rmngr_xml_file);
+    if (ret == -ENOENT) // try resourcemanager xml without variant name
+        ret = ResourceManager::XmlParser(rmngr_xml_file_wo_variant);
     if (ret) {
         PAL_ERR(LOG_TAG, "error in resource xml parsing ret %d", ret);
         throw std::runtime_error("error in resource xml parsing");
@@ -11449,7 +11453,7 @@ int ResourceManager::XmlParser(std::string xmlFile)
     PAL_INFO(LOG_TAG, "XML parsing started - file name %s", xmlFile.c_str());
     file = fopen(xmlFile.c_str(), "r");
     if(!file) {
-        ret = EINVAL;
+        ret = -ENOENT;
         PAL_ERR(LOG_TAG, "Failed to open xml file name %s ret %d", xmlFile.c_str(), ret);
         goto done;
     }
