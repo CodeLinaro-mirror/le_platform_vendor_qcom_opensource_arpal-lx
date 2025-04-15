@@ -32,3 +32,7 @@ override_dh_install:
 
 override_dh_installsystemd:
 	dh_installsystemd --name=audioadsprpcd
+
+override_dh_installudev:
+	dh_installudev
+	dh_installudev --name=audio-node
