@@ -532,6 +532,7 @@ bool ResourceManager::isRasEnabled = false;
 bool ResourceManager::is_multiple_sample_rate_combo_supported = true;
 int ResourceManager::monoSpeakerPosition = SPKR_RIGHT;
 int ResourceManager::spQuickCalTime;
+int ResourceManager::spCalTemp = INT_MAX;
 bool ResourceManager::isGaplessEnabled = false;
 bool ResourceManager::isDualMonoEnabled = false;
 bool ResourceManager::isUHQAEnabled = false;
@@ -13534,7 +13535,9 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
             PAL_DBG(LOG_TAG, "monoSpeakerPosition %d", monoSpeakerPosition);
         } else if (!strcmp(tag_name, "quick_cal_time")) {
             spQuickCalTime = atoi(data->data_buf);
-        }else if (!strcmp(tag_name, "ras_enabled")) {
+        } else if (!strcmp(tag_name, "spkr_cal_temp")) {
+            spCalTemp = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "ras_enabled")) {
             if (atoi(data->data_buf))
                 isRasEnabled = true;
         } else if (!strcmp(tag_name, "fractional_sr")) {

@@ -373,6 +373,13 @@ int SpeakerProtection::getSpeakerTemperature(int spkr_pos)
      * TODO: Get the channel from RM.xml
      */
     PAL_DBG(LOG_TAG, "Enter Speaker Get Temperature %d", spkr_pos);
+
+    if (ResourceManager::spCalTemp >= TZ_TEMP_MIN_THRESHOLD &&
+                      ResourceManager::spCalTemp <= TZ_TEMP_MAX_THRESHOLD) {
+        status = ResourceManager::spCalTemp;
+        PAL_DBG(LOG_TAG, "set static T0 %d from RM", status);
+        return status;
+    }
     mixer_ctl_name = rm->getSpkrTempCtrl(spkr_pos);
     if (mixer_ctl_name.empty()) {
         PAL_DBG(LOG_TAG, "Using default mixer control");
