@@ -2364,6 +2364,7 @@ int32_t Stream::setVolume(struct pal_volume_data *volume) {
     int32_t status = 0;
     size_t vol_size = 0;
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+    // Initial null check for volume
     if (!volume || volume->no_of_volpair == 0) {
         if (volume)
             PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));

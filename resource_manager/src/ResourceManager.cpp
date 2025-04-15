@@ -6464,6 +6464,10 @@ int ResourceManager::checkAndUpdateGroupDevConfig(struct pal_device *deviceattr,
         return -EINVAL;
     }
 
+    if (!streamDevAttr) {
+        PAL_ERR(LOG_TAG, "Invalid pal streamDevAttr");
+        return -EINVAL;
+    }
     /* handle special case for UPD device with virtual port:
      * 1. Enable
      *   1) if upd is coming and there's any active stream on speaker or handset,
@@ -7535,11 +7539,13 @@ void ResourceManager::getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream
                 std::list<Stream*>::iterator it;
                 for(it = mActiveStreams.begin(); it != mActiveStreams.end(); it++) {
                     std::vector <std::shared_ptr<Device>> devices;
-                    (*it)->getAssociatedDevices(devices);
-                    typename std::vector<std::shared_ptr<Device>>::iterator result =
-                             std::find(devices.begin(), devices.end(), dev);
-                    if (result != devices.end())
-                        activeStreams.push_back(*it);
+                    if (*it != NULL) {
+                        (*it)->getAssociatedDevices(devices);
+                        typename std::vector<std::shared_ptr<Device>>::iterator result =
+                                std::find(devices.begin(), devices.end(), dev);
+                        if (result != devices.end())
+                            activeStreams.push_back(*it);
+                    }
                 }
                 PAL_DBG(LOG_TAG, "got dev %d active streams on dev is %zu", i, activeStreams.size() );
                 for (int j=0; j < activeStreams.size(); j++) {
@@ -11154,13 +11160,15 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                              */
                             for (sIter = activestreams.begin();
                                      sIter != activestreams.end(); sIter++) {
-                                (*sIter)->suspendedDevIds.clear();
-                                if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_A2DP))
-                                    (*sIter)->suspendedDevIds.
-                                                  push_back(PAL_DEVICE_IN_BLUETOOTH_A2DP);
-                                else if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_BLE))
-                                    (*sIter)->suspendedDevIds.
-                                                  push_back(PAL_DEVICE_IN_BLUETOOTH_BLE);
+                                if (*sIter != NULL) {
+                                    (*sIter)->suspendedDevIds.clear();
+                                    if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_A2DP))
+                                        (*sIter)->suspendedDevIds.
+                                                    push_back(PAL_DEVICE_IN_BLUETOOTH_A2DP);
+                                    else if (isDeviceAvailable(PAL_DEVICE_IN_BLUETOOTH_BLE))
+                                        (*sIter)->suspendedDevIds.
+                                                    push_back(PAL_DEVICE_IN_BLUETOOTH_BLE);
+                                }
                             }
                             PAL_DBG(LOG_TAG, "a2dp resumed, switch bt sco mic to in_dummy device");
                             getDeviceConfig(&in_dummy_dattr, NULL);
@@ -11475,13 +11483,15 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                              */
                             for (sIter = activestreams.begin();
                                      sIter != activestreams.end(); sIter++) {
-                                (*sIter)->suspendedDevIds.clear();
-                                if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_A2DP))
-                                    (*sIter)->suspendedDevIds.
-                                                  push_back(PAL_DEVICE_OUT_BLUETOOTH_A2DP);
-                                else if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE))
-                                    (*sIter)->suspendedDevIds.
-                                                  push_back(PAL_DEVICE_OUT_BLUETOOTH_BLE);
+                                if (*sIter != NULL) {
+                                    (*sIter)->suspendedDevIds.clear();
+                                    if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_A2DP))
+                                        (*sIter)->suspendedDevIds.
+                                                    push_back(PAL_DEVICE_OUT_BLUETOOTH_A2DP);
+                                    else if (isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE))
+                                        (*sIter)->suspendedDevIds.
+                                                    push_back(PAL_DEVICE_OUT_BLUETOOTH_BLE);
+                                }
                             }
                             PAL_DBG(LOG_TAG, "a2dp resumed, switch bt sco out to out_dummy device");
                             getDeviceConfig(&out_dummy_dattr, NULL);
@@ -14275,20 +14285,21 @@ int32_t  ResourceManager::getActiveVoiceCallDevices(std::vector <std::shared_ptr
     int status = 0;
 
     for(it = mActiveStreams.begin(); it != mActiveStreams.end(); it++) {
-        (*it)->getStreamAttributes(&sAttr);
-        status = (*it)->getStreamAttributes(&sAttr);
-        if (status != 0) {
-            PAL_ERR(LOG_TAG,"stream get attributes failed");
-            goto exit;
-        }
-        if(sAttr.type == PAL_STREAM_VOICE_CALL)
-        {
-            (*it)->getAssociatedDevices(devices);
-            if (devices.empty()) {
-                PAL_ERR(LOG_TAG, "Voice stream is not assoicated with a device");
-                status = -EINVAL;
+        if (*it != NULL) {
+            status = (*it)->getStreamAttributes(&sAttr);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG,"stream get attributes failed");
+                goto exit;
             }
-            break;
+            if(sAttr.type == PAL_STREAM_VOICE_CALL)
+            {
+                (*it)->getAssociatedDevices(devices);
+                if (devices.empty()) {
+                    PAL_ERR(LOG_TAG, "Voice stream is not assoicated with a device");
+                    status = -EINVAL;
+                }
+                break;
+            }
         }
     }
 exit:
@@ -14508,7 +14519,8 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
 
     PAL_DBG(LOG_TAG, "Enter");
 
-    if (!plugin) {
+    // Initial null check for plugin handle
+    if (plugin == nullptr) {
         PAL_ERR(LOG_TAG, "Invalid plugin handle");
         status = -EINVAL;
         goto exit;
