@@ -775,6 +775,11 @@ ResourceManager::ResourceManager()
     memset(&this->mSpkrProtModeValue, 0, sizeof(pal_spkr_prot_payload));
     mHighestPriorityActiveStream = nullptr;
     mPriorityHighestPriorityActiveStream = 0;
+    is_charger_online_ = false;
+    is_concurrent_boost_state_ = false;
+    current_concurrent_state_ = false;
+    is_ICL_config_ = false;
+    rotation_type_ = PAL_SPEAKER_ROTATION_LR;
 
     ret = memLoggerInitQ(PAL_STATE_Q, MEMLOG_CFG_FILE); //initializes the queue for the debug logger
 
@@ -9754,7 +9759,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
             goto exit;
         }
         dev->getDeviceAttributes(&newDevAttr);
-        checkHapticsConcurrency(&newDevAttr, NULL, streamsToSwitch, NULL);
+        checkHapticsConcurrency(&newDevAttr, &sAttr, streamsToSwitch, NULL);
     }
 
     getSharedBEActiveStreamDevs(sharedBEStreamDev, dev->getSndDeviceId());
