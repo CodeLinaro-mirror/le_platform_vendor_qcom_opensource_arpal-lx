@@ -1524,6 +1524,11 @@ int dump_silence_event_status(char *out_file, uint32_t channel_group, uint32_t s
 
     pos = snprintf(event_data_buf, 255, "channel_group :: %u \n",
                         channel_group);
+
+    if(pos <= 0 || pos > 255) {
+    	return -EINVAL;
+    }
+
     pos += snprintf(event_data_buf+pos, 255-pos, "Channel_Status :: %u \n",
                         status_ch_mask);
 
