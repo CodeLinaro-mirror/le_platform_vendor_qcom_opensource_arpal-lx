@@ -354,6 +354,7 @@ const std::map<uint32_t, uint32_t> streamPriorityLUT {
     {PAL_STREAM_ULTRASOUND,         4},
     {PAL_STREAM_SPATIAL_AUDIO,      3},
     {PAL_STREAM_SENSOR_PCM_RENDERER,4},
+    {PAL_STREAM_HPCM,               2},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -5068,6 +5069,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
         case PAL_STREAM_SENSOR_PCM_DATA:
         case PAL_STREAM_VOICE_RECOGNITION:
         case PAL_STREAM_SENSOR_PCM_RENDERER:
+        case PAL_STREAM_HPCM:
             switch (sAttr.direction) {
                 case PAL_AUDIO_INPUT:
                     if (lDirection == TX_HOSTLESS) {
@@ -5369,6 +5371,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         case PAL_STREAM_RAW:
         case PAL_STREAM_VOICE_RECOGNITION:
         case PAL_STREAM_SENSOR_PCM_RENDERER:
+        case PAL_STREAM_HPCM:
             switch (sAttr.direction) {
                 case PAL_AUDIO_INPUT:
                     if (lDirection == TX_HOSTLESS) {
