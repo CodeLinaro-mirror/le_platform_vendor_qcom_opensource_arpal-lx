@@ -49,6 +49,7 @@
 #include "ResourceManager.h"
 #include "AudioHapticsInterface.h"
 #include "us_tone_renderer_api.h"
+#include "hpcm_api.h"
 
 #define PAL_ALIGN_8BYTE(x) (((x) + 7) & (~7))
 #define PAL_PADDING_8BYTE_ALIGN(x)  ((((x) + 7) & 7) ^ 7)
@@ -227,6 +228,8 @@ public:
                             uint32_t sampleRate);
     int payloadConfig(uint8_t **payload, size_t *size, uint8_t *config,
                       size_t config_size, uint32_t miid, uint32_t param_id);
+
+    void payloadHpcmConfig(uint8_t **payload, size_t *size, uint32_t moduleId, param_id_hpcm_config_t *hpcm_payload);
     void payloadGetParam(Stream* s, uint8_t **payload, size_t *size, uint32_t moduleId,
                          uint32_t param_id, size_t config_size);
     void payloadQuery(uint8_t **payload, size_t *size, uint32_t moduleId,

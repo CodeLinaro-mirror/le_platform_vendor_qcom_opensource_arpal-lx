@@ -1957,6 +1957,51 @@ int PayloadBuilder::payloadConfig(uint8_t **payload, size_t *size,
     return 0;
 }
 
+
+void PayloadBuilder::payloadHpcmConfig(uint8_t **payload, size_t *size, uint32_t moduleId, param_id_hpcm_config_t *hpcm_payload)
+{
+
+    struct apm_module_param_data_t* header;
+    param_id_hpcm_config_t *hpcm_config;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(param_id_hpcm_config_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = new uint8_t[payloadSize + padBytes]();
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = moduleId;
+    header->param_id = PARAM_ID_HPCM_CONFIG;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+    PAL_INFO(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
+                       header->module_instance_id, header->param_id,
+                       header->error_code, header->param_size);
+    hpcm_config = (param_id_hpcm_config_t*)(payloadInfo +
+                   sizeof(struct apm_module_param_data_t));
+    hpcm_config->enable = 1;
+    hpcm_config->mode = hpcm_payload->mode;
+    hpcm_config->num_channels = hpcm_payload->num_channels;
+    hpcm_config->sampling_rate = hpcm_payload->sampling_rate;
+    hpcm_config->duration_ms = 20;
+    hpcm_config->reserved = 0;
+    PAL_INFO(LOG_TAG, "enable:%d, mode:%d, num_channels:%d,sampling_rate:%d",
+            hpcm_config->enable, hpcm_config->mode, hpcm_config->num_channels,
+            hpcm_config->sampling_rate);
+    PAL_INFO(LOG_TAG, " duration_ms:%d, reserved:%d",
+           hpcm_config->duration_ms, hpcm_config->reserved);
+
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
+    PAL_INFO(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo, *size);
+
+}
+
 void PayloadBuilder::payloadQuery(uint8_t **payload, size_t *size,
                     uint32_t moduleId, uint32_t paramId, uint32_t querySize)
 {
@@ -3082,6 +3127,26 @@ int PayloadBuilder::populateStreamKV(Stream* s,
     if (selectors.empty() != true)
         filled_selector_pairs = getSelectorValues(selectors, s, NULL);
 
+    if (sattr->type == PAL_STREAM_HPCM) {
+        switch(sattr->info.hpcm_stream_info.hpcm_stream_type) {
+            case PAL_HPCM_RX_PLAYBACK:
+            case PAL_HPCM_RX_CAPTURE:
+            filled_selector_pairs.push_back(std::make_pair(CUSTOM_CONFIG_SEL,"HPCM_RX"));
+            PAL_INFO(LOG_TAG, "HPCM_RX usecase");
+            break;
+
+            case PAL_HPCM_TX_PLAYBACK:
+            case PAL_HPCM_TX_CAPTURE:
+            filled_selector_pairs.push_back(std::make_pair(CUSTOM_CONFIG_SEL,"HPCM_TX"));
+            PAL_INFO(LOG_TAG, "HPCM_TX usecase");
+            break;
+
+            default:
+            PAL_INFO(LOG_TAG, "Unkonwn HPCM usecase");
+            status = -EINVAL;
+            goto exit;
+        }
+    }
     if (sattr->type == PAL_STREAM_VOICE_CALL_MUSIC) {
         PAL_DBG(LOG_TAG, "ICMD + playback usecase is %d", sattr->info.incall_music_info.local_playback);
         if (sattr->info.incall_music_info.local_playback) {
