@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -144,8 +144,7 @@ class Stream
 protected:
     uint32_t mNoOfDevices;
     std::vector <std::shared_ptr<Device>> mDevices;  //current running devices
-    std::vector <std::shared_ptr<Device>> mPalDevices; // pal devices set from client, which may differ from mDevices 
-    std::vector <struct pal_device> mPalDevice;
+    std::vector <std::shared_ptr<Device>> mPalDevices; // pal devices set from client, which may differ from mDevices
     Session* session;
     struct pal_stream_attributes* mStreamAttr;
     int mGainLevel;
@@ -223,8 +222,9 @@ public:
     uint32_t getLatency();
     int32_t getAssociatedDevices(std::vector <std::shared_ptr<Device>> &adevices);
     int32_t getAssociatedPalDevices(std::vector <struct pal_device> &palDevices);
-    void clearOutPalDevices();
-    void addPalDevice(struct pal_device *dattr) { mPalDevice.push_back(*dattr); }
+    int32_t getPalDevices(std::vector <std::shared_ptr<Device>> &PalDevices);
+    void clearOutPalDevices(Stream *streamHandle);
+    void addPalDevice(Stream* streamHandle, struct pal_device *dattr);
     int32_t updatePalDevice(struct pal_device *dattr, pal_device_id_t dev_id);
     int32_t getSoundCardId();
     int32_t getAssociatedSession(Session** session);
@@ -258,6 +258,7 @@ public:
     bool checkStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type);
     int32_t getEffectParameters(void *effect_query);
+    int32_t setEffectParameters(void *effect_param);
     int32_t rwACDBParameters(void *payload, uint32_t sampleRate,
                                 bool isParamWrite);
     stream_state_t getCurState() { return currentState; }

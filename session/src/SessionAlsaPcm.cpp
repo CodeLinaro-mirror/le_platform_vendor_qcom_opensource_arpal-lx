@@ -29,7 +29,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2023, Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023, 2025  Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -332,22 +332,36 @@ exit:
     return status;
 }
 
-struct mixer_ctl* SessionAlsaPcm::getFEMixerCtl(const char *controlName, int *device)
+struct mixer_ctl* SessionAlsaPcm::getFEMixerCtl(const char *controlName, int *device, pal_stream_direction_t dir)
 {
     std::ostringstream CntrlName;
     struct mixer_ctl *ctl;
 
-    if (pcmDevIds.size() == 0) {
-        PAL_ERR(LOG_TAG, "frontendIDs is not available.");
-        return nullptr;
+    if (dir == PAL_AUDIO_OUTPUT) {
+        if (pcmDevIds.size()) {
+            *device = pcmDevIds.at(0);
+        } else if (pcmDevRxIds.size()) {
+            *device = pcmDevRxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            return NULL;
+        }
+    } else if (dir == PAL_AUDIO_INPUT) {
+        if (pcmDevIds.size()) {
+            *device = pcmDevIds.at(0);
+        } else if (pcmDevTxIds.size()) {
+            *device = pcmDevTxIds.at(0);
+        } else {
+            PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+            return NULL;
+        }
     }
 
-    *device = pcmDevIds.at(0);
-    CntrlName << "PCM" <<pcmDevIds.at(0) << " " << controlName;
+    CntrlName << "PCM" << *device << " " << controlName;
     ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
     if (!ctl) {
         PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
-        return nullptr;
+        return NULL;
     }
 
     return ctl;
@@ -1824,13 +1838,38 @@ int SessionAlsaPcm::setupSessionDevice(Stream* streamHandle, pal_stream_type_t s
             txAifBackEndsToConnect);
     deviceToConnect->getDeviceAttributes(&dAttr);
 
-    if (!rxAifBackEndsToConnect.empty())
+    if (!rxAifBackEndsToConnect.empty()) {
         status = SessionAlsaUtils::setupSessionDevice(streamHandle, streamType, rm,
             dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevRxIds), rxAifBackEndsToConnect);
-
-    if (!txAifBackEndsToConnect.empty())
+        if (!status) {
+            for (const auto &elem : rxAifBackEndsToConnect)
+                rxAifBackEnds.push_back(elem);
+        } else {
+               if (pcmDevIds.size() == 0 && pcmDevRxIds.size() == 0) {
+                       PAL_ERR(LOG_TAG, "rxAifBackEnds is not available.");
+               } else {
+                      PAL_ERR(LOG_TAG, "failed to connect rxAifBackEnds: %d",
+                      (pcmDevIds.size() ? pcmDevIds.at(0) : pcmDevRxIds.at(0)));
+              }
+        }
+    }
+    if (!txAifBackEndsToConnect.empty()) {
         status = SessionAlsaUtils::setupSessionDevice(streamHandle, streamType, rm,
             dAttr, (pcmDevIds.size() ? pcmDevIds : pcmDevTxIds), txAifBackEndsToConnect);
+
+        if (!status) {
+            for (const auto &elem : txAifBackEndsToConnect)
+                txAifBackEnds.push_back(elem);
+        } else {
+               if (pcmDevIds.size() == 0 && pcmDevTxIds.size() == 0) {
+                       PAL_ERR(LOG_TAG, "txAifBackEnds is not available.");
+               } else {
+                      PAL_ERR(LOG_TAG, "failed to connect txAifBackEnds: %d",
+                      (pcmDevIds.size() ? pcmDevIds.at(0) : pcmDevTxIds.at(0)));
+              }
+        }
+
+    }
 
     return status;
 }
@@ -2128,63 +2167,6 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             }
             break;
         }
-        case PAL_PARAM_ID_UIEFFECT:
-        {
-            pal_effect_custom_payload_t *customPayload;
-            pal_param_payload *param_payload = (pal_param_payload *)payload;
-            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
-            status = streamHandle->getStreamAttributes(&sAttr);
-            if (status != 0) {
-                PAL_ERR(LOG_TAG, "stream get attributes failed");
-                goto exit;
-            }
-
-            if (PAL_AUDIO_INPUT == sAttr.direction)
-                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                               txAifBackEnds[0].second.data(),
-                                                               tagId, &miid);
-            else if (PAL_AUDIO_OUTPUT == sAttr.direction)
-                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                               rxAifBackEnds[0].second.data(),
-                                                               tagId, &miid);
-            else {
-                status = -EINVAL;
-                if (pcmDevRxIds.size() > 0) {
-                    device = pcmDevRxIds.at(0);
-                    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                                   rxAifBackEnds[0].second.data(),
-                                                                   tagId, &miid);
-                    if (status) {
-                        if (pcmDevTxIds.size() > 0)
-                            device = pcmDevTxIds.at(0);
-                        status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                                       txAifBackEnds[0].second.data(),
-                                                                       tagId, &miid);
-                    }
-                }
-            }
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                break;
-            } else {
-                customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
-                status = builder->payloadCustomParam(&paramData, &paramSize,
-                            customPayload->data,
-                            effectPalPayload->payloadSize - sizeof(uint32_t),
-                            miid, customPayload->paramId);
-                if (status != 0) {
-                    PAL_ERR(LOG_TAG, "payloadCustomParam failed. status = %d",
-                                status);
-                    break;
-                }
-                status = SessionAlsaUtils::setMixerParameter(mixer,
-                                                             device,
-                                                             paramData,
-                                                             paramSize);
-                PAL_INFO(LOG_TAG, "mixer set param status=%d\n", status);
-            }
-            break;
-        }
         case PAL_PARAM_ID_BT_A2DP_TWS_CONFIG:
         {
             pal_bt_tws_payload *tws_payload = (pal_bt_tws_payload *)payload;
@@ -2405,7 +2387,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
 
     rxDevInfo.isExternalECRefEnabledFlag = 0;
     if (rx_dev) {
-        status = rx_dev->getDeviceAttributes(&rxDevAttr);
+        status = rx_dev->getDeviceAttributes(&rxDevAttr, s);
         if (status != 0) {
             PAL_ERR(LOG_TAG," get device attributes failed");
             goto exit;
@@ -2416,7 +2398,7 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         rxDevAttr.id = ecRefDevId;
         rx_dev = Device::getInstance(&rxDevAttr, rm);
         if (rx_dev) {
-            status = rx_dev->getDeviceAttributes(&rxDevAttr);
+            status = rx_dev->getDeviceAttributes(&rxDevAttr, s);
             if (status) {
                 PAL_ERR(LOG_TAG, "getDeviceAttributes failed for ec dev: %d", ecRefDevId);
                 goto exit;

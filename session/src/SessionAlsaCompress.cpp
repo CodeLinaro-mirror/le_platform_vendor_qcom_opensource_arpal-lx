@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -624,6 +624,11 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                     event_id = PAL_STREAM_CBK_EVENT_WRITE_READY;
                     compressObj->command = OFFLOAD_CMD_EXIT;
                 }
+                if (ret && (errno == -ECANCELED || errno == -ENETRESET)) {
+                    PAL_INFO(LOG_TAG, "No need of sending callback during SSR or internal unblock");
+                    lock.lock();
+                    continue;
+                }
             } else if (msg && msg->cmd == OFFLOAD_CMD_DRAIN) {
                 if (!is_drain_called) {
                     PAL_INFO(LOG_TAG, "calling compress_drain");
@@ -633,8 +638,8 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                          PAL_INFO(LOG_TAG, "out of compress_drain, ret %d", ret);
                     }
                 }
-                if (ret == -ENETRESET) {
-                    PAL_ERR(LOG_TAG, "Block drain ready event during SSR");
+                if (ret && (errno == -ECANCELED || errno == -ENETRESET)) {
+                    PAL_INFO(LOG_TAG, "No need of sending callback during SSR or internal unblock");
                     lock.lock();
                     continue;
                 }
@@ -660,8 +665,8 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                         event_id = PAL_STREAM_CBK_EVENT_DRAIN_READY;
                     }
                 }
-                if (ret == -ENETRESET) {
-                    PAL_ERR(LOG_TAG, "Block drain ready event during SSR");
+                if (ret && (errno == -ECANCELED || errno == -ENETRESET)) {
+                    PAL_INFO(LOG_TAG, "No need of sending callback during SSR or internal unblock");
                     lock.lock();
                     continue;
                 }
@@ -1532,6 +1537,10 @@ int SessionAlsaCompress::stop(Stream * s __unused)
     }
     switch (sAttr.direction) {
         case PAL_AUDIO_OUTPUT:
+            if (compress && playback_started) {
+                status = compress_stop(compress);
+                playback_started = false;
+            }
             // Deregister for callback for Soft Pause
             if (isPauseRegistrationDone) {
                 payload_size = sizeof(struct agm_event_reg_cfg);
@@ -1543,10 +1552,6 @@ int SessionAlsaCompress::stop(Stream * s __unused)
                     mixer, compressDevIds.at(0), rxAifBackEnds[0].second.data(),
                     TAG_PAUSE, (void *)&event_cfg, payload_size);
                 isPauseRegistrationDone = false;
-            }
-
-            if (compress && playback_started) {
-                status = compress_stop(compress);
             }
             break;
         case PAL_AUDIO_INPUT:
@@ -1784,7 +1789,7 @@ int SessionAlsaCompress::writeBufferInit(Stream *s __unused, size_t noOfBuf __un
     return 0;
 }
 
-struct mixer_ctl* SessionAlsaCompress::getFEMixerCtl(const char *controlName, int *device)
+struct mixer_ctl* SessionAlsaCompress::getFEMixerCtl(const char *controlName, int *device, pal_stream_direction_t dir __unused)
 {
     std::ostringstream CntrlName;
     struct mixer_ctl *ctl;
@@ -1844,37 +1849,6 @@ int SessionAlsaCompress::setParameters(Stream *s __unused, int tagId, uint32_t p
                                           builder, rxAifBackEnds);
         }
         break;
-        case PAL_PARAM_ID_UIEFFECT:
-        {
-            pal_effect_custom_payload_t *customPayload;
-            param_payload = (pal_param_payload *)payload;
-            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
-            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                           rxAifBackEnds[0].second.data(),
-                                                           tagId, &miid);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                break;
-            } else {
-                customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
-                status = builder->payloadCustomParam(&alsaParamData, &alsaPayloadSize,
-                            customPayload->data,
-                            effectPalPayload->payloadSize - sizeof(uint32_t),
-                            miid, customPayload->paramId);
-                if (status != 0) {
-                    PAL_ERR(LOG_TAG, "payloadCustomParam failed. status = %d",
-                                status);
-                    break;
-                }
-                status = SessionAlsaUtils::setMixerParameter(mixer,
-                                                             compressDevIds.at(0),
-                                                             alsaParamData,
-                                                             alsaPayloadSize);
-                PAL_INFO(LOG_TAG, "mixer set param status=%d\n", status);
-                freeCustomPayload(&alsaParamData, &alsaPayloadSize);
-            }
-            break;
-        }
         case PAL_PARAM_ID_BT_A2DP_TWS_CONFIG:
         {
             pal_bt_tws_payload *tws_payload = (pal_bt_tws_payload *)payload;

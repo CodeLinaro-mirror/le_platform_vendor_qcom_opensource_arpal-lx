@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -217,13 +217,14 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
         return status;
     }
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
         status = -EINVAL;
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         return status;
     }
-    rm->unlockValidStreamMutex();
+
+    rm->unlockActiveStream();
 
     s = reinterpret_cast<Stream *>(stream_handle);
     s->setCachedState(STREAM_IDLE);
@@ -266,27 +267,26 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
         goto exit;
     }
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         status = -EINVAL;
         goto exit;
     }
-
     s = reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         PAL_ERR(LOG_TAG, "failed to increase stream user count");
         goto exit;
     }
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     status = s->start();
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
@@ -317,9 +317,9 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
         goto exit;
     }
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         status = -EINVAL;
         goto exit;
     }
@@ -327,17 +327,17 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
     s = reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         PAL_ERR(LOG_TAG, "failed to increase stream user count");
         goto exit;
     }
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
     s->setCachedState(STREAM_STOPPED);
     status = s->stop();
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream stop failed. status : %d", status);
@@ -353,41 +353,18 @@ ssize_t pal_stream_write(pal_stream_handle_t *stream_handle, struct pal_buffer *
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
-
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle) || !buf) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle || !buf) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
-
     PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->write(buf);
     if (status < 0) {
         PAL_ERR(LOG_TAG, "stream write failed status %d", status);
+        return status;
     }
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
-
     PAL_VERBOSE(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -396,40 +373,18 @@ ssize_t pal_stream_read(pal_stream_handle_t *stream_handle, struct pal_buffer *b
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
-
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle) || !buf) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle || !buf) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
-
     PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->read(buf);
     if (status < 0) {
         PAL_ERR(LOG_TAG, "stream read failed status %d", status);
+        return status;
     }
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_VERBOSE(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -439,18 +394,8 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG,  "Invalid input parameters status %d", status);
         return status;
@@ -458,28 +403,17 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->getParameters(param_id, (void **)param_payload);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "get parameters failed status %d param_id %u", status, param_id);
+        return status;
     }
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
 
 int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle, uint32_t param_id,
-                             pal_param_payload *param_payload)
+                            pal_param_payload *param_payload)
 {
     Stream *s = NULL;
     int status;
@@ -491,32 +425,20 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle, uint32_t param_
         PAL_ERR(LOG_TAG, "Invalid resource manager");
         return status;
     }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG,  "Invalid stream handle, status %d", status);
         return status;
     }
-
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK param_id %d", stream_handle,
             param_id);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
+    if (PAL_PARAM_ID_UIEFFECT == param_id) {
+        status = s->setEffectParameters((void *)param_payload);
+    } else {
+        status = s->setParameters(param_id, (void *)param_payload);
     }
-    rm->unlockValidStreamMutex();
-
     status = s->setParameters(param_id, (void *)param_payload);
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
-
     if (0 != status) {
         PAL_ERR(LOG_TAG, "set parameters failed status %d param_id %u", status, param_id);
         return status;
@@ -551,9 +473,9 @@ int32_t pal_stream_set_volume(pal_stream_handle_t *stream_handle,
     }
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         status = -EINVAL;
         return status;
     }
@@ -561,17 +483,17 @@ int32_t pal_stream_set_volume(pal_stream_handle_t *stream_handle,
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         PAL_ERR(LOG_TAG, "failed to increase stream user count");
         return status;
     }
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     status = s->setVolume(volume);
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "setVolume failed with status %d", status);
@@ -602,9 +524,9 @@ int32_t pal_stream_set_mute(pal_stream_handle_t *stream_handle, bool state)
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         status = -EINVAL;
         goto exit;
     }
@@ -612,20 +534,20 @@ int32_t pal_stream_set_mute(pal_stream_handle_t *stream_handle, bool state)
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         PAL_ERR(LOG_TAG, "failed to increase stream user count");
         goto exit;
     }
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
     status = s->mute(state);
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "mute failed with status %d", status);
-        return status;
+        goto exit;
     }
 
 exit:
@@ -637,18 +559,8 @@ int32_t pal_stream_pause(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
@@ -656,21 +568,11 @@ int32_t pal_stream_pause(pal_stream_handle_t *stream_handle)
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->pause();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "pal_stream_pause failed with status %d", status);
+        return status;
     }
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -679,18 +581,8 @@ int32_t pal_stream_resume(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
@@ -698,21 +590,13 @@ int32_t pal_stream_resume(pal_stream_handle_t *stream_handle)
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
 
     status = s->resume();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "resume failed with status %d", status);
+        return status;
     }
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -738,9 +622,11 @@ int32_t pal_stream_drain(pal_stream_handle_t *stream_handle, pal_drain_type_t ty
         goto exit;
     }
 
-    rm->lockValidStreamMutex();
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         status = -EINVAL;
         goto exit;
     }
@@ -748,17 +634,17 @@ int32_t pal_stream_drain(pal_stream_handle_t *stream_handle, pal_drain_type_t ty
     s =  reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         PAL_ERR(LOG_TAG, "failed to increase stream user count");
         goto exit;
     }
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     status = s->drain(type);
 
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "drain failed with status %d", status);
@@ -773,18 +659,8 @@ int32_t pal_stream_flush(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
@@ -792,22 +668,13 @@ int32_t pal_stream_flush(pal_stream_handle_t *stream_handle)
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
 
     status = s->flush();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "flush failed with status %d", status);
+        return status;
     }
 
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -816,18 +683,8 @@ int32_t pal_stream_suspend(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
@@ -835,22 +692,12 @@ int32_t pal_stream_suspend(pal_stream_handle_t *stream_handle)
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
 
     status = s->suspend();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "suspend failed with status %d", status);
     }
 
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -861,40 +708,21 @@ int32_t pal_stream_set_buffer_size (pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
+    if (!stream_handle) {
         status = -EINVAL;
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
 
     status = s->setBufInfo(in_buffer_cfg, out_buffer_cfg);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "pal_stream_set_buffer_size failed with status %d", status);
+        return status;
     }
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -907,32 +735,27 @@ int32_t pal_get_timestamp(pal_stream_handle_t *stream_handle,
     std::shared_ptr<ResourceManager> rm = NULL;
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK\n", stream_handle);
 
+    if (!stream_handle) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters status %d\n", status);
+        return status;
+    }
+
     rm = ResourceManager::getInstance();
     if (!rm) {
         PAL_ERR(LOG_TAG, "Invalid resource manager");
         return status;
     }
 
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
-        return status;
-    }
-    s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-    status = s->getTimestamp(stime);
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK\n", stream_handle);
 
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->lockActiveStream();
+    if (rm->isActiveStream(stream_handle)) {
+        s =  reinterpret_cast<Stream *>(stream_handle);
+        status = s->getTimestamp(stime);
+    } else {
+        PAL_ERR(LOG_TAG, "stream handle in stale state.\n");
+    }
+    rm->unlockActiveStream();
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "pal_get_timestamp failed with status %d\n", status);
@@ -952,18 +775,8 @@ int32_t pal_add_remove_effect(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status = 0;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        status = -EINVAL;
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
@@ -971,22 +784,11 @@ int32_t pal_add_remove_effect(pal_stream_handle_t *stream_handle,
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->addRemoveEffect(effect, enable);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "pal_add_effect failed with status %d", status);
+        return status;
     }
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 
@@ -1001,8 +803,8 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     struct pal_stream_attributes sattr;
     struct pal_device_info devinfo = {};
     struct pal_device *pDevices = NULL;
-    std::vector <std::shared_ptr<Device>> aDevices;
-    std::vector <struct pal_device> palDevices;
+    struct pal_device curPalDevAttr;
+    std::vector <std::shared_ptr<Device>> aDevices, palDevices;
 
     if (!stream_handle) {
         status = -EINVAL;
@@ -1025,9 +827,11 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
         return status;
     }
 
-    rm->lockValidStreamMutex();
+    PAL_INFO(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+
+    rm->lockActiveStream();
     if (!rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         status = -EINVAL;
         return status;
     }
@@ -1037,11 +841,11 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     s = reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
-        rm->unlockValidStreamMutex();
+        rm->unlockActiveStream();
         PAL_ERR(LOG_TAG, "failed to increase stream user count");
         return status;
     }
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
 
     s->getStreamAttributes(&sattr);
 
@@ -1059,9 +863,9 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
         goto exit;
     }
 
-    s->getAssociatedPalDevices(palDevices);
     s->getAssociatedDevices(aDevices);
-    if (!palDevices.empty() && !aDevices.empty()) {
+    s->getPalDevices(palDevices);
+    if (!aDevices.empty() && !palDevices.empty()) {
         std::set<pal_device_id_t> activeDevices, curPalDevices;
         std::set<pal_device_id_t> newDevices;
         bool force_switch = s->isA2dpMuted();
@@ -1069,17 +873,18 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
         for (auto &dev : aDevices)
             activeDevices.insert((pal_device_id_t)dev->getSndDeviceId());
 
-        for (auto palDev: palDevices) {
-            curPalDevices.insert(palDev.id);
-            // check if custom key matches for stream associated pal device
+        for (auto &dev : palDevices) {
+            curPalDevices.insert((pal_device_id_t)dev->getSndDeviceId());
+            // check if custom key matches for same device
             for (int i = 0; i < no_of_devices; i++) {
-                if (palDev.id == devices[i].id) {
+                if (dev->getSndDeviceId() == devices[i].id) {
+                    dev->getDeviceAttributes(&curPalDevAttr, s);
                     if (strcmp(devices[i].custom_config.custom_key,
-                        palDev.custom_config.custom_key) != 0) {
+                        curPalDevAttr.custom_config.custom_key) != 0) {
                         PAL_DBG(LOG_TAG, "diff custom key found, force device switch");
                         force_switch = true;
+                        break;
                     }
-                    break;
                 }
             }
             if (force_switch)
@@ -1097,8 +902,7 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                 }
             }
         }
-        if (!force_switch && (activeDevices == newDevices) &&
-                             (curPalDevices == newDevices)) {
+        if (!force_switch && (activeDevices == newDevices)) {
             status = 0;
             PAL_DBG(LOG_TAG, "devices are same, no need to switch");
             goto exit;
@@ -1142,9 +946,9 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     }
 
 exit:
-    rm->lockValidStreamMutex();
+    rm->lockActiveStream();
     rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
+    rm->unlockActiveStream();
     if (pDevices)
         free(pDevices);
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
@@ -1156,18 +960,8 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
 {
     int status = 0;
     Stream *s = NULL;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
+    if (!stream_handle) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
         return status;
@@ -1176,19 +970,8 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
 
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->getTagsWithModuleInfo(size, payload);
 
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. Stream handle: %pK, status %d", stream_handle, status);
     return status;
 }
@@ -1244,41 +1027,20 @@ int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
+    if (!stream_handle) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->GetMmapPosition(position);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "pal_stream_get_mmap_position failed with status %d", status);
+        return status;
     }
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
@@ -1289,41 +1051,20 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
 {
     Stream *s = NULL;
     int status;
-    std::shared_ptr<ResourceManager> rm = NULL;
 
-    rm = ResourceManager::getInstance();
-    if (!rm) {
+    if (!stream_handle) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid resource manager");
-        return status;
-    }
-
-    rm->lockValidStreamMutex();
-    if (!stream_handle || !rm->isActiveStream(stream_handle)) {
-        rm->unlockValidStreamMutex();
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        PAL_ERR(LOG_TAG, "Invalid input parameters status %d", status);
         return status;
     }
 
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     s =  reinterpret_cast<Stream *>(stream_handle);
-    status = rm->increaseStreamUserCounter(s);
-    if (0 != status) {
-        rm->unlockValidStreamMutex();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
-        return status;
-    }
-    rm->unlockValidStreamMutex();
-
     status = s->createMmapBuffer(min_size_frames, info);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "pal_stream_create_mmap_buffer failed with status %d", status);
+        return status;
     }
-
-    rm->lockValidStreamMutex();
-    rm->decreaseStreamUserCounter(s);
-    rm->unlockValidStreamMutex();
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }

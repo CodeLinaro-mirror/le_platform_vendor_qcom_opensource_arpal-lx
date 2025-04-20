@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
 * Changes from Qualcomm Innovation Center are provided under the following license:
-* Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -435,7 +435,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                     emptyKV);
         else {
             for (i = 0; i < associatedDevices.size(); i++) {
-                associatedDevices[i]->getDeviceAttributes(&dAttr);
+                associatedDevices[i]->getDeviceAttributes(&dAttr, streamHandle);
                 if (be->first == dAttr.id) {
                     break;
                 }
@@ -1443,7 +1443,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
     // get keyvalue pair info
     for (i = 0; i < associatedDevices.size(); i++) {
-        associatedDevices[i]->getDeviceAttributes(&dAttr);
+        associatedDevices[i]->getDeviceAttributes(&dAttr, streamHandle);
         if (txBackEnds[0].first == dAttr.id) {
             isDeviceFound = true;
             break;
@@ -2390,6 +2390,7 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
     bool is_compress = false;
     struct pal_stream_attributes sAttr;
     int sub = 1;
+    int device = 0;
     struct pal_device_info devinfo = {};
     struct vsid_info vsidinfo = {};
     sidetone_mode_t sidetoneMode = SIDETONE_OFF;
@@ -2510,10 +2511,17 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
 
     switch (streamType) {
         case PAL_STREAM_COMPRESSED:
-            cntrlName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
-            aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
-            feMdName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
-            is_compress = true;
+            if (pcmDevIds.size() > 0) {
+               device = pcmDevIds.at(0);
+               cntrlName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
+               aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
+               feMdName << COMPRESS_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
+               is_compress = true;
+            } else {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
+            }
             break;
         case PAL_STREAM_VOICE_CALL:
             status = streamHandle->getStreamAttributes(&sAttr);
@@ -2539,9 +2547,16 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
             }
             break;
         default:
-            cntrlName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
-            aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
-            feMdName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
+             if (pcmDevIds.size() > 0) {
+                 device = pcmDevIds.at(0);
+                 cntrlName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " control";
+                 aifMdName << aifBackEndsToConnect[0].second.data() << " metadata";
+                 feMdName << PCM_SND_DEV_NAME_PREFIX << pcmDevIds.at(0) << " metadata";
+             } else {
+                PAL_ERR(LOG_TAG, "frontendIDs is not available.");
+                status = -EINVAL;
+                goto exit;
+            }
             break;
     }
 

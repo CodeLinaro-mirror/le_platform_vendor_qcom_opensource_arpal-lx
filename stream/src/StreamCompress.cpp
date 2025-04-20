@@ -1,7 +1,7 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -86,7 +86,6 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
     inBufCount = COMPRESS_OFFLOAD_NUM_FRAGMENTS;
     outBufCount = COMPRESS_OFFLOAD_NUM_FRAGMENTS;
     mDevices.clear();
-    mPalDevice.clear();
     PAL_VERBOSE(LOG_TAG,"enter");
 
     //TBD handle modifiers later
@@ -145,7 +144,8 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }
-        mPalDevice.push_back(dattr[i]);
+        dev->insertStreamDeviceAttr(&dattr[i], this);
+        mPalDevices.push_back(dev);
         mStreamMutex.unlock();
         if (!str_registered) {
             rm->registerStream(this);
@@ -273,6 +273,11 @@ StreamCompress::~StreamCompress()
 {
     rm->resetStreamInstanceID(this);
     rm->deregisterStream(this);
+
+    /* remove the device-stream attribute entry for the stopped stream */
+    for (int32_t i=0; i < mPalDevices.size(); i++)
+        mPalDevices[i]->removeStreamDeviceAttr(this);
+
     if (mStreamAttr) {
         free(mStreamAttr);
         mStreamAttr = (struct pal_stream_attributes *)NULL;
@@ -288,7 +293,7 @@ StreamCompress::~StreamCompress()
         rm->restoreDevice(mDevices[i]);
 
     mDevices.clear();
-    mPalDevice.clear();
+    mPalDevices.clear();
     if (session) {
         delete session;
         session = nullptr;
@@ -302,7 +307,8 @@ int32_t StreamCompress::stop()
     mStreamMutex.lock();
     PAL_DBG(LOG_TAG,"Enter. state %d session handle - %p mStreamAttr->direction %d",
                 currentState, session, mStreamAttr->direction);
-    if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED) {
+    if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED ||
+            currentState == STREAM_OPENED) {
         mStreamMutex.unlock();
         rm->lockActiveStream();
         mStreamMutex.lock();
@@ -710,20 +716,6 @@ int32_t StreamCompress::setParameters(uint32_t param_id, void *payload)
         return -EINVAL;
     }
     switch (param_id) {
-        case PAL_PARAM_ID_UIEFFECT:
-        {
-            param_payload = (pal_param_payload *)payload;
-            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
-            if (effectPalPayload->isTKV) {
-                status = session->setTKV(this, MODULE, effectPalPayload);
-            } else {
-                status = session->setParameters(this, effectPalPayload->tag, param_id, payload);
-            }
-            if (status) {
-               PAL_ERR(LOG_TAG, "setParameters %d failed with %d", param_id, status);
-            }
-            break;
-        }
         case PAL_PARAM_ID_DEVICE_ROTATION:
         {
             // Call Session for Setting the parameter.

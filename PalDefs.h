@@ -1600,6 +1600,9 @@ typedef enum card_status_t {
     CARD_STATUS_NONE,
 } card_status_t;
 
+#define PAL_CARD_STATUS_DOWN(n)     (n == CARD_STATUS_OFFLINE || n == CARD_STATUS_STANDBY)
+#define PAL_CARD_STATUS_UP(n)       (n == CARD_STATUS_ONLINE)
+
 typedef struct pal_buffer_config {
     size_t buf_count; /**< number of buffers*/
     size_t buf_size; /**< This would be the size of each buffer*/
