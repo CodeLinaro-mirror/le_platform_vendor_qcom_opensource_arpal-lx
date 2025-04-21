@@ -131,6 +131,20 @@
 
 #define AWX_VOLUME 0x11112501
 #define TAG_MODULE_CUSTOM_AWX 0XC0000057
+#define TAG_MODULE_STREAM_AVC  0xC000F024
+#define AUDIO_AVC_VOLUME       0x8001296
+
+typedef struct pal_avc_volume
+{
+    uint16_t value;
+    /**< description {volume index, if a volume curve is defined,
+     * \n else attenuation at the 1 kHz reference point in 1/100th of dB} */
+    /**< range       {0..20000} */
+    uint16_t hard_change;
+    /**< description {when set to non zero, loudness filter is reset and no blend is applied, gains are applied immediately}
+         rangeList   {"Smooth Change"=0; "Hard Change"=1}  */
+} pal_avc_volume_t;
+
 typedef struct pal_awx_volume_data
 {
     uint16_t volume_func;
@@ -504,6 +518,134 @@ exit:
 
     return status;
 }
+
+int setVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
+{
+    mixer_ctl *ctl = NULL;
+    struct mixer *mixer = nullptr;
+    Session *sess = nullptr;
+    int device = 0 ;
+    int status = 0;
+    uint32_t miid = 0;
+    uint16_t* pcmChannel = NULL;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0, size;
+    int32_t param_id = AUDIO_AVC_VOLUME;
+    uint32_t effect_tag = TAG_MODULE_STREAM_AVC;
+    struct apm_module_param_data_t* header = NULL;
+    pal_avc_volume_t* vol_Data =NULL;
+    char const *control = "setParam";
+    std::ostringstream calCntrlName_nonawx;
+    const char *stream = "PCM";
+    std::string backend_name;
+
+    PAL_INFO(LOG_TAG,"set_volume_non_awx %f ",voldB);
+
+    // Check volume range
+    if (voldB > MAX_VOLUME)
+      voldB = MAX_VOLUME;
+    else if (voldB < MIN_VOLUME)
+           voldB = MIN_VOLUME;
+
+    // Get Backend Name
+    status = rm->getBackendName(PAL_DEVICE_OUT_SPEAKER,backend_name);
+
+    if (status) {
+        PAL_ERR(LOG_TAG,"Error in get Backend name %d",status);
+        goto exit;
+    }
+
+
+    PAL_INFO(LOG_TAG,"backend Name %s",backend_name.c_str());
+    // Get the Mixer
+    status = rm->getVirtualAudioMixer(&mixer);
+    if (status) {
+        PAL_ERR(LOG_TAG,"mixer error");
+        goto exit;
+    }
+
+    // Get the Associated Session
+    status = s->getAssociatedSession(&sess);
+    if (status || !sess) {
+        PAL_ERR(LOG_TAG,"failed to get session");
+        goto exit;
+    }
+
+    // Get the Associated Device
+    status = sess->getPCMDeviceID(s, &device);
+    if (status) {
+        PAL_ERR(LOG_TAG,"failed to get device id");
+        goto exit;
+    }
+
+    // Get the tag
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,backend_name.c_str(),effect_tag, &miid);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s Get MIID from tag data failed\n", __func__);
+            goto exit;
+    }
+
+    PAL_INFO(LOG_TAG,"%s Get MIID from tag data  Module ID %d\n", __func__,miid);
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                sizeof(pal_awx_volume_data_t);
+
+    padBytes = PADDING_8BYTE_ALIGN(payloadSize);
+
+    payloadInfo = (uint8_t*) calloc(1, payloadSize + padBytes);
+    if (!payloadInfo) {
+        status=-ENOMEM;
+        goto exit;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    vol_Data = (pal_avc_volume_t*)(payloadInfo +
+                sizeof(struct apm_module_param_data_t));
+
+    header->module_instance_id = miid;
+    header->param_id = param_id;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+    // Fill the data as per the AVC payload.
+    vol_Data->value = -voldB;
+    vol_Data->hard_change = 0;
+
+    size = payloadSize + padBytes;
+
+    PAL_INFO(LOG_TAG,"%s Module ID %d, Param ID  %x param size %d  Volume value %d\n", 
+             __func__,
+             header->module_instance_id,
+             header->param_id,
+             header->param_size,
+             vol_Data->value);
+
+    calCntrlName_nonawx<<stream<<device<<" "<<control;
+
+    ctl = mixer_get_ctl_by_name(mixer, calCntrlName_nonawx.str().data());
+
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", calCntrlName_nonawx.str().data());
+        status = -ENOENT;
+        goto exit;
+    }
+
+    status = mixer_ctl_set_array(ctl, payloadInfo, size);
+
+    if (status) {
+            PAL_ERR(LOG_TAG,"%s mixer_ctl_set_array data failed\n", __func__);
+            goto exit;
+    }
+
+exit:
+    ctl = NULL;
+    if (payloadInfo)
+        free(payloadInfo);
+
+    return status;
+}
+
 int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
 {
     uint32_t status = 0;
@@ -560,6 +702,11 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
                 goto exit;
             }
         #endif
+
+            if ((strncmp(sAttr.bus_addr, BUS_SWARN,strlen(sAttr.bus_addr)) == 0)) {
+               status = setVolume(s,voldB,rm);
+               goto exit;
+            }
 
             status = rm->getVirtualAudioMixer(&mixer);
             if (status) {
