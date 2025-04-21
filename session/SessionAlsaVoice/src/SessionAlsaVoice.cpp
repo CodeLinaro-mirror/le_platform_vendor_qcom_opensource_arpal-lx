@@ -1605,6 +1605,10 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
         status = pm->openPlugin(PAL_PLUGIN_MANAGER_CONFIG, streamNameLUT.at(streamType), plugin);
         if (plugin && !status) {
             pluginConfig = reinterpret_cast<PluginConfig>(plugin);
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
         } else {
             PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s", streamNameLUT.at(streamType).c_str());
         }

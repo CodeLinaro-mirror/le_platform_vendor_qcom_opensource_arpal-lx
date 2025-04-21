@@ -1323,6 +1323,10 @@ int SessionAlsaCompress::start(Stream * s)
         status = pm->openPlugin(PAL_PLUGIN_MANAGER_CONFIG, streamNameLUT.at(sAttr.type), plugin);
         if (plugin && !status) {
             pluginConfig = reinterpret_cast<PluginConfig>(plugin);
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
         } else {
             PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s", streamNameLUT.at(sAttr.type).c_str());
         }
@@ -1829,6 +1833,10 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
         status = pm->openPlugin(PAL_PLUGIN_MANAGER_CONFIG, streamNameLUT.at(sAttr.type), plugin);
         if (plugin && !status) {
             pluginConfig = reinterpret_cast<PluginConfig>(plugin);
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
         } else {
             PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s", streamNameLUT.at(sAttr.type).c_str());
         }
