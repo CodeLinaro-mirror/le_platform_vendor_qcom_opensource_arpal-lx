@@ -57,9 +57,9 @@ StreamSensorPCMData::StreamSensorPCMData(const struct pal_stream_attributes *sat
                     const std::shared_ptr<ResourceManager> rm):
                     StreamCommon(sattr,dattr,no_of_devices,modifiers,no_of_modifiers,rm)
 {
-    int32_t enable_concurrency_count = 0;
     int32_t disable_concurrency_count = 0;
     paused_ = false;
+    conc_notified_ = false;
 
     PAL_DBG(LOG_TAG, "Enter");
     /* get ACD platform info */
@@ -77,9 +77,7 @@ StreamSensorPCMData::StreamSensorPCMData(const struct pal_stream_attributes *sat
              acd_info_->GetConcurrentVoiceCallEnable(),
              acd_info_->GetConcurrentVoipCallEnable());
 
-    /* check concurrency count from rm */
-    GetSoundTriggerConcurrencyCount(PAL_STREAM_SENSOR_PCM_DATA,
-                                    &enable_concurrency_count,
+    GetSTDisableConcurrencyCount(PAL_STREAM_SENSOR_PCM_DATA,
                                     &disable_concurrency_count);
 
     /*
@@ -166,20 +164,42 @@ int32_t  StreamSensorPCMData::close()
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
     mStreamMutex.unlock();
 
+    if (conc_notified_) {
+        rm->ConcurrentStreamStatus(this, false);
+        conc_notified_ = false;
+    }
     PAL_DBG(LOG_TAG, "Exit ret %d", status);
     return status;
 }
+
 int32_t StreamSensorPCMData::start()
 {
     int32_t status = 0;
-    bool backend_update = false;
-    std::shared_ptr<Device> device = nullptr;
 
     PAL_DBG(LOG_TAG,
             "Enter. session handle: %pK, state: %d, paused_: %s",
             session, currentState, paused_ ? "True" : "False");
 
+    /*
+     * If LPI to NLPI is deferred such as when another ST stream is buffering,
+     * and if this stream is configured to run in NLPI, defer start of the stream
+     * until the buffering is stopped.
+     */
+    if (!sm_cfg_->GetStreamLPIFlag() &&
+        (getSTDeferedSwitchState() == DEFER_LPI_NLPI_SWITCH)) {
+        updateDeferredSTStreams(this, true);
+        return status;
+    }
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    return start_l();
+}
+
+int32_t StreamSensorPCMData::start_l()
+{
+    int32_t status = 0;
+    bool backend_update = false;
+    std::shared_ptr<Device> device = nullptr;
+
     if (true == paused_) {
         PAL_DBG(LOG_TAG,"concurrency is not supported, start the stream later");
         goto exit;
@@ -282,8 +302,17 @@ int32_t StreamSensorPCMData::stop()
     PAL_DBG(LOG_TAG, "Enter. session handle: %pK, state: %d, paused_: %s",
             session, currentState, paused_ ? "True" : "False");
 
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    /*
+     * Remove stream from start deferred stream if it hasn't been
+     * scheduled yet. If it's already started during handling
+     * deferred stream, it can be removed there.
+     */
+    if (!sm_cfg_->GetStreamLPIFlag()) {
+        updateDeferredSTStreams(this, false);
+        return status;
+    }
 
+    std::lock_guard<std::mutex> lck(mStreamMutex);
     if (currentState == STREAM_STARTED || currentState == STREAM_PAUSED) {
         /* Do not update capture profile when pausing stream */
         if (false == paused_) {
@@ -523,8 +552,15 @@ int32_t StreamSensorPCMData::addRemoveEffect(pal_audio_effect_t effect, bool ena
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter. session handle: %pK", session);
-    std::lock_guard<std::mutex> lck(mStreamMutex);
 
+    /* Use QC Sensor PCM Data as default streamConfig */
+    status = SetupStreamConfig(&qc_sensor_pcm_data_uuid);
+    if (status)
+        return status;
+    rm->ConcurrentStreamStatus(this, true);
+    conc_notified_ = true;
+
+    mStreamMutex.lock();
     /* Check lpi here to determine if EC is needed */
     if (enable) {
         if (PAL_AUDIO_EFFECT_NONE == effect && getLPIUsage()) {
@@ -546,11 +582,6 @@ int32_t StreamSensorPCMData::addRemoveEffect(pal_audio_effect_t effect, bool ena
         goto exit;
     }
 
-    /* Use QC Sensor PCM Data as default streamConfig */
-    status = SetupStreamConfig(&qc_sensor_pcm_data_uuid);
-    if (status)
-        goto exit;
-
     cap_prof_ = GetCurrentCaptureProfile();
     if (cap_prof_) {
         mDevPPSelector = cap_prof_->GetName();
@@ -561,6 +592,7 @@ int32_t StreamSensorPCMData::addRemoveEffect(pal_audio_effect_t effect, bool ena
     PAL_DBG(LOG_TAG, "Exit. addRemoveEffect successful");
 
 exit:
+    mStreamMutex.unlock();
     if (status)
         PAL_ERR(LOG_TAG, "addRemoveEffect failed with status %d", status);
     return status;
@@ -862,4 +894,13 @@ int32_t StreamSensorPCMData::getParameters(uint32_t param_id, void **payload)
             break;
     }
     return status;
+}
+
+bool StreamSensorPCMData::ConfigSupportLPI() {
+    if (!sm_cfg_) {
+        PAL_ERR(LOG_TAG, "stream config not available, return LPI by default");
+        return true;
+    }
+
+    return sm_cfg_->GetStreamLPIFlag();
 }

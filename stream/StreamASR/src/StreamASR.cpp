@@ -71,6 +71,7 @@ StreamASR::StreamASR(const struct pal_stream_attributes *sattr, struct pal_devic
     curState = nullptr;
     prevState = nullptr;
     engine = nullptr;
+    conc_notified_ = false;
     stateToRestore = ASR_STATE_NONE;
 
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
@@ -168,7 +169,7 @@ int32_t StreamASR::close()
 
     PAL_INFO(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
 
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
 
     if (recConfig) {
         free(recConfig);
@@ -190,6 +191,12 @@ int32_t StreamASR::close()
     }
 
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+    mStreamMutex.unlock();
+
+    if (conc_notified_) {
+        rm->ConcurrentStreamStatus(this, false);
+        conc_notified_ = false;
+    }
     PAL_INFO(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -200,7 +207,24 @@ int32_t StreamASR::start()
 
     PAL_INFO(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
 
+    /*
+     * If LPI to NLPI is deferred such as when another ST stream is buffering,
+     * and if this stream is configured to run in NLPI, defer start of the stream
+     * until the buffering is stopped.
+     */
+    if (!smCfg->GetStreamLPIFlag() &&
+        (getSTDeferedSwitchState() == DEFER_LPI_NLPI_SWITCH)) {
+        updateDeferredSTStreams(this, true);
+        return status;
+    }
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    return start_l();
+}
+
+int32_t StreamASR::start_l()
+{
+    int32_t status = 0;
+
     std::shared_ptr<ASREventConfig> ev_cfg(
        new ASRStartRecognitionEventConfig());
     status = curState->ProcessEvent(ev_cfg);
@@ -217,6 +241,16 @@ int32_t StreamASR::stop()
     int32_t status = 0;
 
     PAL_INFO(LOG_TAG, "Enter.");
+
+    /*
+     * Remove stream from start deferred stream if it hasn't been
+     * scheduled yet. If it's already started during handling
+     * deferred stream, it can be removed there.
+     */
+    if (!smCfg->GetStreamLPIFlag()) {
+        updateDeferredSTStreams(this, false);
+        return status;
+    }
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
     std::shared_ptr<ASREventConfig> ev_cfg(
@@ -264,7 +298,7 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
         return status;
     }
 
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
     switch (paramId) {
         case PAL_PARAM_ID_ASR_MODEL: {
             PAL_VERBOSE(LOG_TAG, "Currently model loading is not supported");
@@ -290,6 +324,12 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
             PAL_ERR(LOG_TAG, "Error:%d Unsupported param %u", status, paramId);
             break;
         }
+    }
+
+    mStreamMutex.unlock();
+    if (!status && paramId == PAL_PARAM_ID_ASR_CONFIG) {
+        rm->ConcurrentStreamStatus(this, true);
+        conc_notified_ = true;
     }
 
     PAL_INFO(LOG_TAG, "Exit, status %d", status);
@@ -443,7 +483,7 @@ std::shared_ptr<CaptureProfile> StreamASR::GetCurrentCaptureProfile()
         inputMode = ST_INPUT_MODE_HEADSET;
 
     if (!UseLpiCaptureProfile())
-        setForceNLPI(true);
+        registerNLPIStream(this);
 
     if (getLPIUsage())
         operatingMode = ST_OPERATING_MODE_LOW_POWER;
@@ -610,7 +650,7 @@ int32_t StreamASR::SetupDetectionEngine()
     if (getLPIUsage() &&
        !UseLpiCaptureProfile()) {
         mStreamMutex.unlock();
-        setForceNLPI(true);
+        registerNLPIStream(this);
         forceSwitchSoundTriggerStreams(true);
         mStreamMutex.lock();
     }
@@ -954,7 +994,7 @@ int32_t StreamASR::ASRActive::ProcessEvent(
         case ASR_EV_STOP_SPEECH_RECOGNITION: {
             bool backendUpdate = false;
 
-            setForceNLPI(false);
+            deregisterNLPIStream(&asrStream);
 
             backendUpdate = UpdateSoundTriggerCaptureProfile(&asrStream, false);
 
@@ -1402,4 +1442,13 @@ int32_t StreamASR::isBitWidthSupported(uint32_t bitWidth) {
             break;
     }
     return rc;
+}
+
+bool StreamASR::ConfigSupportLPI() {
+    if (!smCfg) {
+        PAL_ERR(LOG_TAG, "stream config not available, return LPI by default");
+        return true;
+    }
+
+    return smCfg->GetStreamLPIFlag();
 }

@@ -100,6 +100,7 @@ class StreamASR : public Stream {
     int32_t close() override;
     int32_t prepare() override { return 0; }
     int32_t start() override;
+    int32_t start_l() override;
     int32_t stop() override;
 
     int32_t isSampleRateSupported(uint32_t sampleRate) override;
@@ -160,6 +161,7 @@ class StreamASR : public Stream {
     param_id_asr_config_t* GetSpeechConfig() { return recConfig;}
     param_id_asr_output_config_t* GetOutputConfig() { return outputConfig; }
     param_id_asr_input_threshold_t* GetInputBufConfig() { return inputConfig; }
+    bool ConfigSupportLPI() override;
 
  private:
     class ASREventData {
@@ -429,5 +431,6 @@ class StreamASR : public Stream {
     asrStateIdT stateToRestore;
 
     std::condition_variable cv;
+    bool conc_notified_;
 };
 #endif // STREAMASR_H_
