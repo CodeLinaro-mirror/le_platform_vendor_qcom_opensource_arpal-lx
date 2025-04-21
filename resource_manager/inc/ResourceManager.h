@@ -540,6 +540,8 @@ private:
     pal_haptics_payload mHapticsModeValue;
     /* Variable to store the device orientation for Speaker*/
     int mOrientation = 0;
+    /* Variable to store the wnr module state */
+    bool wnrEnableStatus = false;
     uint32_t num_proxy_channels = 0;
     /* Flag to store the state of VI record */
     static bool isVIRecordStarted;
@@ -1025,6 +1027,7 @@ public:
     int getCpsMode();
     int getSpQuickCalTime();
     int getOrientation();
+    bool isWNRModuleEnabled();
     uint32_t getProxyChannels();
     static bool IsSoundDoseEnabled() { return isSoundDoseEnabled; }
     void* getAdmData();
