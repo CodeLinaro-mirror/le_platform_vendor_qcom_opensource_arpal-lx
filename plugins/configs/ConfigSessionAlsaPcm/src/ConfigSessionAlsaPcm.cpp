@@ -808,8 +808,7 @@ silence_det_setup_done:
             }
         }
         if (PAL_DEVICE_OUT_SPEAKER == dAttr.id &&
-            ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
-            (sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
+            ((sAttr.type == PAL_STREAM_PCM_OFFLOAD) ||
             (sAttr.type == PAL_STREAM_DEEP_BUFFER))) {
             // Set MSPP volume during initlization.
             if (!strcmp(dAttr.custom_config.custom_key, "mspp")) {
