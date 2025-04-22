@@ -1765,3 +1765,41 @@ int32_t StreamPCM::getLatency(uint32_t *latency)
 
   return rc;
 }
+
+int32_t StreamPCM::allocSprSharedMemory(pal_spr_shmem_info_t *info)
+{
+    int32_t status = 0;
+    if (!info->size) {
+        status = -EINVAL;
+        goto exit;
+    }
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE ");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+    if (NULL != session)
+        status = session->allocSprSharedMemory(info);
+    mStreamMutex.unlock();
+exit:
+    return status;
+}
+
+int32_t StreamPCM::deallocSprSharedMemory(pal_spr_shmem_info_t *info)
+{
+    int32_t status = 0;
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+    if (NULL != session)
+        status = session->deallocSprSharedMemory(info);
+    mStreamMutex.unlock();
+exit:
+    return status;
+}

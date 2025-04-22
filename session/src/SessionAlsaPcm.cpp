@@ -4138,3 +4138,29 @@ uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
         PAL_ERR(LOG_TAG, "getLatency failed with error %d", rc);
     return rc;
 }
+
+int32_t SessionAlsaPcm::allocSprSharedMemory(pal_spr_shmem_info_t *info)
+{
+    int status = 0;
+    int device = 0;
+    if (pcmDevIds.size() > 0)
+        device = pcmDevIds.at(0);
+    status = SessionAlsaUtils::allocSprSharedMemory(mixer, device,rxAifBackEnds[0].second.data(), info);
+    if (status != 0)
+        PAL_ERR(LOG_TAG, "allocSprShareMemory failed. status = %d", status);
+
+    return status;
+}
+
+int32_t SessionAlsaPcm::deallocSprSharedMemory(pal_spr_shmem_info_t *info)
+{
+    int status = 0;
+    int device = 0;
+    if (pcmDevIds.size() > 0)
+        device = pcmDevIds.at(0);
+    status = SessionAlsaUtils::deallocSprSharedMemory(mixer, device, info);
+    if (status != 0)
+        PAL_ERR(LOG_TAG, "deallocSprSharedMemory failed. status = %d", status);
+
+    return status;
+}

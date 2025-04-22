@@ -632,6 +632,25 @@ int32_t pal_stream_get_path_delay(pal_stream_handle_t *handle, uint32_t *delay_i
 
 int32_t pal_stream_get_available_frame_count(pal_stream_handle_t *stream_handle, uint32_t *frame_count);
 
+/**
+* \brief Allocate shared memory to get timestamp data from SPR.
+*
+* \param[in] handle - PAL stream handle.
+* \param[out] info - Info required to allocate shared memory.
+*
+* \return 0 on success, error code otherwise
+*/
+int32_t pal_alloc_spr_shared_memory(pal_stream_handle_t *stream_handle, pal_spr_shmem_info_t *info);
+
+/**
+* \brief Deallocate shared memory, shared with SPR.
+*
+* \param[in] handle - PAL stream handle.
+* \param[out] info - Info required to deallocate shared memory.
+*
+* \return 0 on success, error code otherwise
+*/
+int32_t pal_dealloc_spr_shared_memory(pal_stream_handle_t *stream_handle, pal_spr_shmem_info_t *info);
 
 #ifdef __cplusplus
 }  /* extern "C" */

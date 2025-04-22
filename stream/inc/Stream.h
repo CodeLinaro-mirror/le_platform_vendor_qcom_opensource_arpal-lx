@@ -346,6 +346,8 @@ public:
     int32_t setTempMute();
     int32_t restoreVolume();
     static void setRampDuration(Stream *stream, uint32_t duration);
+    virtual int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) {return 0;};
+    virtual int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) {return 0;};
 };
 
 class StreamNonTunnel : public Stream

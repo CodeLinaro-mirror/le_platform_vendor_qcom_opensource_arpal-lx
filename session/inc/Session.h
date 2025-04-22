@@ -200,6 +200,8 @@ public:
                                  Stream *s, bool is_enable);
     virtual void AdmRoutingChange(Stream *s __unused) {  };
     virtual uint32_t getLatency(Stream *s, uint32_t *latency) {return -EINVAL;};
+    virtual int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) {return 0;};
+    virtual int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) {return 0;};
 private:
     uint32_t getModuleInfo(const char *control, uint32_t tagId, uint32_t *miid, struct mixer_ctl **ctl, int *device);
     int setEffectParametersTKV(Stream *s, effect_pal_payload_t *effectPayload);
