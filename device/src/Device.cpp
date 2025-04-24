@@ -176,6 +176,7 @@ int32_t Device::initHdrRoutine(const char *hdr_custom_key)
     handle = dlopen("vendor/lib64/libqmp.so", RTLD_NOW);
     if (!handle) {
         PAL_ERR(LOG_TAG, "Failed to open libqmp.so");
+	return -EINVAL;
     }
 
    write_qmp_mode write = reinterpret_cast<write_qmp_mode>(dlsym(handle, "write_qmp_mode"));
