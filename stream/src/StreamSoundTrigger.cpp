@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1156,6 +1156,46 @@ void StreamSoundTrigger::updateStreamAttributes() {
     }
 }
 
+/*
+ * In case of single backend for speaker/handset mic(audio concurrency usecases)
+ * and va_mic(voice_UI), set is_backend_shared_ flag to true
+ * Flag will be true in below cases :
+ * dev_id is handset_mic/speaker_mic or headset_mic
+ * dev_id is va_mic but handset/speaker_mic/va_mic has common backend
+ * dev_id is headset_va_mic but headset_mic/headset_va_mic has common backend
+ */
+bool StreamSoundTrigger::IsCommonBackend(pal_device_id_t dev_id) {
+    std::string curr_dev_be_name, supported_dev_be_name;
+    const std::vector<pal_device_id_t> VA_DevIds = {
+        PAL_DEVICE_IN_SPEAKER_MIC, PAL_DEVICE_IN_HANDSET_MIC};
+    const std::vector<pal_device_id_t> VA_Headset_DevIds = {
+        PAL_DEVICE_IN_WIRED_HEADSET};
+    std::vector<pal_device_id_t> VA_DevIds_list;
+    int32_t list_size = 0;
+
+    if ((dev_id == PAL_DEVICE_IN_HANDSET_MIC) ||
+        (dev_id == PAL_DEVICE_IN_SPEAKER_MIC) ||
+        (dev_id == PAL_DEVICE_IN_WIRED_HEADSET)) {
+        return true;
+    }
+    // check for headset device availability and update dev_list accordingly
+    if (rm->isDeviceAvailable(PAL_DEVICE_IN_WIRED_HEADSET)) {
+        list_size = VA_Headset_DevIds.size();
+        VA_DevIds_list = VA_Headset_DevIds;
+    } else {
+        list_size = VA_DevIds.size();
+        VA_DevIds_list = VA_DevIds;
+    }
+
+    rm->getBackendName(dev_id, curr_dev_be_name);
+    for (int i = 0; i < list_size; i++) {
+        rm->getBackendName(VA_DevIds_list[i], supported_dev_be_name);
+        if (!strcmp(supported_dev_be_name.c_str(), curr_dev_be_name.c_str()))
+            return true;
+    }
+    return false;
+}
+
 int32_t StreamSoundTrigger::UpdateDeviceConfig() {
     std::shared_ptr<Device> dev = nullptr;
     pal_device_id_t dev_id;
@@ -1170,9 +1210,7 @@ int32_t StreamSoundTrigger::UpdateDeviceConfig() {
         return 0;
     }
     dev_id = cap_prof_->GetDevId();
-    is_backend_shared_= (dev_id == PAL_DEVICE_IN_HANDSET_MIC) ||
-        (dev_id == PAL_DEVICE_IN_SPEAKER_MIC) ||
-        (dev_id == PAL_DEVICE_IN_WIRED_HEADSET);
+    is_backend_shared_ = IsCommonBackend(dev_id);
     mDevPPSelector = cap_prof_->GetName();
     PAL_DBG(LOG_TAG, "devicepp selector: %s", mDevPPSelector.c_str());
 
