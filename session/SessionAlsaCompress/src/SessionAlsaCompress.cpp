@@ -47,6 +47,7 @@
 #include <fstream>
 #include <agm/agm_api.h>
 #include "PluginManager.h"
+#include "Utils.h"
 
 #define CHS_2 2
 #define AACObjHE_PS 29
@@ -1368,6 +1369,7 @@ int SessionAlsaCompress::start(Stream * s)
             }
             /** create an offload thread for posting callbacks */
             worker_thread = std::make_unique<std::thread>(offloadThreadLoop, this);
+            setThreadName(*worker_thread, "PALOffloadLoop_1");
 
             if (SND_AUDIOCODEC_AAC == codec.id &&
                 codec.ch_in < CHS_2 &&
