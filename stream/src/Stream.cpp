@@ -1772,6 +1772,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
     std::vector <Stream *> tempMutedStreams;
+    bool hasNoneDevice = false;
 
     rm->lockActiveStream();
     mStreamMutex.lock();
@@ -1785,6 +1786,12 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
     streamHandle->getStreamAttributes(&strAttr);
 
+    for (int i = 0; i < numDev; i++) {
+         if (newDevices[i].id == PAL_DEVICE_NONE) {
+             hasNoneDevice = true;
+             break;
+         }
+    }
     for (int i = 0; i < mDevices.size(); i++) {
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
         /*
@@ -1800,7 +1807,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                  PAL_ERR(LOG_TAG, "Silence Detection disable failed \n");
         }
 
-        if (curDevId < PAL_DEVICE_OUT_MAX &&
+        if (hasNoneDevice && (curDevId < PAL_DEVICE_OUT_MAX) &&
             (((rm->isBtA2dpDevice(curDevId) || rm->isBtScoDevice(curDevId))
             && (!rm->isDeviceReady(curDevId))) ||
             curDevId == PAL_DEVICE_OUT_PROXY ||
