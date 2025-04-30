@@ -81,6 +81,10 @@ AM_CPPFLAGS += -DCONFIG_GSL
 AM_CPPFLAGS += -DPAL_SP_TEMP_PATH=\"/etc/acdbdata/audio.cal\"
 AM_CPPFLAGS += -DWSA_V883X_ADDR
 
+if USE_VERSIONED_SO
+AM_CPPFLAGS += -DUSE_VERSIONED_SO
+endif
+
 pal_sources = ${top_srcdir}/Pal.cpp \
               ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamCompress.cpp \

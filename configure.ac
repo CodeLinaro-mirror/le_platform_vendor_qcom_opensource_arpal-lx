@@ -46,6 +46,13 @@ AC_ARG_WITH([openwrt],
     [with_openwrt=no])
 AM_CONDITIONAL([BUILDSYSTEM_OPENWRT], [test "x${with_openwrt}" = "xyes"])
 
+
+AC_ARG_WITH([versioned-lib],
+    AS_HELP_STRING([use versioned (default is no)]),
+    [with_versioned_lib=$withval],
+    [with_versioned_lib=no])
+AM_CONDITIONAL([USE_VERSIONED_SO], [test "x${with_versioned_lib}" = "xyes"])
+
 AC_ARG_WITH([glib],
       AS_HELP_STRING([--with-glib],
          [enable glib, Build against glib. Use this when building for HLOS systems which use glib]))
