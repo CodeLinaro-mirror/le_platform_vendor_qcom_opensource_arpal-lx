@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -159,6 +159,8 @@ public:
                             std::string backEndName, void *payload, size_t size);
     int setMediaConfig(std::shared_ptr<ResourceManager> rmHandle,
                             std::string backEndName, struct pal_device *dAttr);
+    int enableCodecRoute(std::string backEndName, std::string sndDevice);
+    int disableCodecRoute(std::string backEndName, std::string sndDevice);
     void setSndName (std::string snd_name) { UpdatedSndName = snd_name;}
     void clearSndName () { UpdatedSndName.clear();}
     virtual ~Device();

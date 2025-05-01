@@ -241,6 +241,7 @@ struct deviceCap {
     int playback;
     int record;
     sess_mode_t sess_mode;
+    bool is_backend;
 };
 
 typedef enum {
@@ -638,6 +639,7 @@ protected:
     static std::vector<int> listAllPcmInCallRecordFrontEnds;
     static std::vector<int> listAllPcmInCallMusicFrontEnds;
     static std::vector<int> listAllPcmContextProxyFrontEnds;
+    static std::unordered_map<std::string, bool> listAllNonAlsaBackEnds;
     static std::vector<std::pair<int32_t, std::string>> listAllBackEndIds;
     static std::vector<std::pair<int32_t, std::string>> sndDeviceNameLUT;
     static std::vector<deviceCap> devInfo;
@@ -1026,7 +1028,7 @@ public:
     void handleDeferredSwitch();
     int32_t handleBTDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend);
     int32_t handleBTDeviceNotReady(Stream *s, bool& a2dpSuspend);
-
+    bool isNonAlsaBackend(std::string &backendName);
 };
 
 #endif

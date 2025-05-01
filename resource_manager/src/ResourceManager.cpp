@@ -83,7 +83,7 @@
 #endif
 
 #if defined(ADSP_SLEEP_MONITOR)
-#include <adsp_sleepmon.h>
+#include <misc/adsp_sleepmon.h>
 #endif
 
 #if LINUX_ENABLED
@@ -422,6 +422,7 @@ std::vector <int> ResourceManager::listAllPcmInCallRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallMusicFrontEnds = {0};
 std::vector <int> ResourceManager::listAllNonTunnelSessionIds = {0};
 std::vector <int> ResourceManager::listAllPcmContextProxyFrontEnds = {0};
+std::unordered_map<std::string, bool> ResourceManager::listAllNonAlsaBackEnds;
 std::vector <std::string> ResourceManager::usb_vendor_uuid_list = {""};
 struct audio_mixer* ResourceManager::audio_virt_mixer = NULL;
 struct audio_mixer* ResourceManager::audio_hw_mixer = NULL;
@@ -864,6 +865,9 @@ ResourceManager::ResourceManager()
     memset(in_stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
 
     for (int i=0; i < devInfo.size(); i++) {
+
+        if (devInfo[i].is_backend)
+            continue;
 
         if (devInfo[i].type == PCM) {
             if (devInfo[i].sess_mode == HOSTLESS && devInfo[i].playback == 1) {
@@ -1497,6 +1501,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
+                    strstr(snd_card_name, "vienna") ||
                     strstr(snd_card_name, "sun")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
@@ -8640,6 +8645,10 @@ void ResourceManager::processDeviceCapability(struct xml_userdata *data, const X
     } else if (strcmp(tag_name,"session_mode") == 0) {
         val = atoi(data->data_buf);
         devInfo[size].sess_mode = (sess_mode_t) val;
+    } else if (strcmp(tag_name,"backend") == 0) {
+        bool val = atoi(data->data_buf);
+        listAllNonAlsaBackEnds[devInfo[size].name] = val;
+        devInfo[size].is_backend = val;
     }
 }
 
@@ -10210,4 +10219,9 @@ std::map<pal_stream_type_t, std::list <Stream*>> ResourceManager::getActiveStrea
 
 std::list <Stream*> ResourceManager::getActiveStreamList() {
     return mActiveStreams;
+}
+
+bool ResourceManager::isNonAlsaBackend(std::string &backendName)
+{
+    return listAllNonAlsaBackEnds[backendName];
 }

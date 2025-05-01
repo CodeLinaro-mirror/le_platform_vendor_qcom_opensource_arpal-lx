@@ -419,5 +419,62 @@
         </mixer_plugin>
     </mixer>
 
+    <!--Range of PCM IDs -->
+    <!--virtual  RX PCM IDs      0-50 -->
+    <!--virtual  TX PCM IDs      51-99 -->
+
+    <!--list of virtual rx backends-->
+    <pcm-device>
+        <id>0</id>
+        <name>CODEC_DMA-LPAIF_WSA-RX-3</name>
+        <pcm_plugin>
+            <so-name>libcodec_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>1</playback>
+            <capture>0</capture>
+            <backend>1</backend>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>1</id>
+        <name>CODEC_DMA-LPAIF_AUD-RX-0</name>
+        <pcm_plugin>
+            <so-name>libcodec_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>1</playback>
+            <capture>0</capture>
+            <backend>1</backend>
+        </props>
+    </pcm-device>
+
+    <!--list of virtual tx backends-->
+    <pcm-device>
+        <id>51</id>
+        <name>CODEC_DMA-LPAIF_RXTX-TX-4</name>
+        <pcm_plugin>
+            <so-name>libcodec_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <backend>1</backend>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>52</id>
+        <name>CODEC_DMA-LPAIF_AUD-TX-0</name>
+        <pcm_plugin>
+            <so-name>libcodec_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <backend>1</backend>
+        </props>
+    </pcm-device>
 </card>
 </defs>
