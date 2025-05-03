@@ -80,6 +80,7 @@ public:
     uint32_t GetSampleRate() const { return sample_rate_; }
     uint32_t GetBitWidth() const { return bit_width_; }
     uint32_t GetChannels() const { return channels_; }
+    uint32_t GetProcFrameSize() const { return proc_frame_size_; }
 
 private:
     st_sound_model_type_t detection_type_;
@@ -88,6 +89,7 @@ private:
     uint32_t sample_rate_;
     uint32_t bit_width_;
     uint32_t channels_;
+    uint32_t proc_frame_size_;
 };
 
 class VUIFirstStageConfig : public SoundTriggerXml
@@ -164,6 +166,7 @@ public:
     void GetDetectionPropertyList(std::vector<uint32_t> &list);
     void ReadDetectionPropertyList(const char *prop_string);
     bool IsDetPropSupported(uint32_t prop) const;
+    bool GetStreamLPIFlag() const { return lpi_enable_; }
 
 private:
     std::string name_;
@@ -184,6 +187,7 @@ private:
     uint32_t out_channels_;
     uint32_t supported_first_stage_engine_count_;
     bool enable_intra_concurrent_detection_;
+    bool lpi_enable_;
     st_op_modes_t vui_op_modes_;
     std::shared_ptr<SoundTriggerXml> curr_child_;
     std::map<uint32_t, std::shared_ptr<VUISecondStageConfig>> vui_2nd_stage_cfg_list_;

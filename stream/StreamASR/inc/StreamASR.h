@@ -78,6 +78,12 @@ enum {
     ASR_EV_EC_REF,
 };
 
+struct eventPayload {
+    eventType type;
+    uint32_t payloadSize;
+    void *payload;
+};
+
 class ASREngine;
 
 extern "C" Stream* CreateASRStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
@@ -94,6 +100,7 @@ class StreamASR : public Stream {
     int32_t close() override;
     int32_t prepare() override { return 0; }
     int32_t start() override;
+    int32_t start_l() override;
     int32_t stop() override;
 
     int32_t isSampleRateSupported(uint32_t sampleRate) override;
@@ -146,7 +153,7 @@ class StreamASR : public Stream {
 
     void TransitTo(int32_t stateId);
     void GetUUID(class SoundTriggerUUID *uuid, const struct st_uuid *vendorUuid);
-    void HandleEventData(struct pal_asr_event *event, size_t eventSize);
+    void HandleEventData(struct eventPayload event);
     void sendAbort();
     bool compareConfig(struct pal_asr_config *oldConfig, struct pal_asr_config *newConfig);
     int32_t GetCurrentStateId();
@@ -154,6 +161,7 @@ class StreamASR : public Stream {
     param_id_asr_config_t* GetSpeechConfig() { return recConfig;}
     param_id_asr_output_config_t* GetOutputConfig() { return outputConfig; }
     param_id_asr_input_threshold_t* GetInputBufConfig() { return inputConfig; }
+    bool ConfigSupportLPI() override;
 
  private:
     class ASREventData {
@@ -423,5 +431,6 @@ class StreamASR : public Stream {
     asrStateIdT stateToRestore;
 
     std::condition_variable cv;
+    bool conc_notified_;
 };
 #endif // STREAMASR_H_

@@ -84,6 +84,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_HIFI_FILTER "hifi_filter"
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
+#define AUDIO_PARAMETER_KEY_UPD_SET_CUSTOM_GAIN "upd_set_custom_gain"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
 #define AUDIO_PARAMETER_KEY_SIGNAL_HANDLER "signal_handler"
 #define AUDIO_PARAMETER_KEY_DEVICE_MUX "device_mux_config"
@@ -495,6 +496,7 @@ private:
     int checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_dev, Stream *tx_stream, bool ec_enable);
     int checkandEnableECForRXStream_l(std::shared_ptr<Device> rx_dev, Stream *rx_stream, bool ec_enable);
     int checkandEnableEC_l(std::shared_ptr<Device> d, Stream *s, bool enable);
+    int setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s);
     bool checkDeviceSwitchForHaptics(struct pal_device *inDevAttr, struct pal_device *curDevAttr);
     int rwParameterDummyStream(custom_payload_uc_info_t* uc_info,
                         char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
@@ -540,6 +542,8 @@ private:
     pal_haptics_payload mHapticsModeValue;
     /* Variable to store the device orientation for Speaker*/
     int mOrientation = 0;
+    /* Variable to store the wnr module state */
+    bool wnrEnableStatus = false;
     uint32_t num_proxy_channels = 0;
     /* Flag to store the state of VI record */
     static bool isVIRecordStarted;
@@ -549,12 +553,18 @@ private:
     static bool isUpdDutyCycleEnabled;
     /* Flag to indicate if virtual port is enabled for UPD */
     static bool isUPDVirtualPortEnabled;
+    /* Flag to indicate whether to send custom gain commands to UPD modules or not? */
+    static bool isUpdSetCustomGainEnabled;
     /* Flag to indicate if Haptics isdriven thorugh WSA */
     static bool isHapticsthroughWSA;
     /* Variable to store max volume index for voice call */
     static int max_voice_vol;
-    /* Variable to store if Silence Detection is enabled */
-    static bool isSilenceDetectionEnabled;
+    /*Silence Detection Enable flag for PCM session*/
+    static bool isSilenceDetectionEnabledPcm;
+    /*Silence Detection Enable flag for Voice session*/
+    static bool isSilenceDetectionEnabledVoice;
+    /*Silence Detection Duration Configuration*/
+    static uint32_t silenceDetectionDuration;
     /*variable to store MSPP linear gain*/
     pal_param_mspp_linear_gain_t linear_gain;
 #ifdef SOC_PERIPHERAL_PROT
@@ -796,7 +806,8 @@ public:
     int getActiveStreamByType_l(std::list<Stream*> &activestreams, pal_stream_type_t type);
     int getOrphanStream(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
     int getOrphanStream_l(std::vector<Stream*> &orphanstreams, std::vector<Stream*> &retrystreams);
-    int getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
+    void getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList);
+    void getActiveDevices_l(std::vector<std::shared_ptr<Device>> &deviceList);
     int getSndDeviceName(int deviceId, char *device_name);
     int getDeviceEpName(int deviceId, std::string &epName);
     int getBackendName(int deviceId, std::string &backendName);
@@ -840,6 +851,7 @@ public:
     bool IsDedicatedBEForUPDEnabled();
     bool IsDutyCycleForUPDEnabled();
     bool IsVirtualPortForUPDEnabled();
+    bool IsCustomGainEnabledForUPD();
     uint32_t getHapticsPriority();
     static bool IsHapticsThroughWSA();
     bool getChargerOnlineState(void) const { return is_charger_online_; }
@@ -849,9 +861,7 @@ public:
     bool isCallbackRegistered() { return (mixerEventRegisterCount > 0); }
     int handleMixerEvent(struct mixer *mixer, char *mixer_str);
     bool isAnyStreamBuffering();
-    void ConcurrentStreamStatus(pal_stream_type_t type,
-                            pal_stream_direction_t dir,
-                            bool active);
+    void ConcurrentStreamStatus(Stream* s, bool active);
     std::shared_ptr<Device> getActiveEchoReferenceRxDevices(Stream *tx_str);
     std::shared_ptr<Device> getActiveEchoReferenceRxDevices_l(Stream *tx_str);
     std::vector<Stream*> getConcurrentTxStream(
@@ -865,6 +875,7 @@ public:
     void disableInternalECRefs(Stream *s);
     void restoreInternalECRefs();
     bool isStreamActive(Stream *s);
+    bool isStStream(pal_stream_type_t type);
 
     static void endTag(void *userdata __unused, const XML_Char *tag_name);
     static void snd_reset_data_buf(struct xml_userdata *data);
@@ -884,6 +895,7 @@ public:
     static void processSpkrTempCtrls(const XML_Char **attr);
     static void process_max_sessions(struct xml_userdata *data, const XML_Char *tag_name, const XML_Char **attr);
     static void processPerfLockConfig(const XML_Char **attr);
+    static void processSilenceDetectionConfig(const XML_Char **attr);
     static void startTag(void *userdata __unused, const XML_Char *tag_name, const XML_Char **attr);
     static void snd_data_handler(void *userdata, const XML_Char *s, int len);
     static void processDeviceIdProp(struct xml_userdata *data, const XML_Char *tag_name);
@@ -900,6 +912,7 @@ public:
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setUpdDutyCycleEnableParam(struct str_parms *parms,char *value, int len);
     static int setUpdVirtualPortParam(struct str_parms *parms, char *value, int len);
+    static int setUpdCustomGainParam(struct str_parms *parms,char *value, int len);
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
     static int setSignalHandlerEnableParam(struct str_parms *parms,char *value, int len);
     static int setMuxconfigEnableParam(struct str_parms *parms,char *value, int len);
@@ -1014,10 +1027,13 @@ public:
     bool IsVIRecordStarted();
     bool IsCRSCallEnabled();
     bool IsQmpEnabled();
-    bool IsSilenceDetectionEnabled();
+    bool IsSilenceDetectionEnabledPcm();
+    bool IsSilenceDetectionEnabledVoice();
+    int SilenceDetectionDuration();
     int getCpsMode();
     int getSpQuickCalTime();
     int getOrientation();
+    bool isWNRModuleEnabled();
     uint32_t getProxyChannels();
     static bool IsSoundDoseEnabled() { return isSoundDoseEnabled; }
     void* getAdmData();

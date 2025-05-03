@@ -90,7 +90,6 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
                                         const std::shared_ptr<ResourceManager> rm) {
 
     class SoundTriggerUUID uuid;
-    int32_t enable_concurrency_count = 0;
     int32_t disable_concurrency_count = 0;
     reader_ = nullptr;
     detection_state_ = ENGINE_IDLE;
@@ -120,6 +119,7 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
     vui_intf_ = nullptr;
     sm_cfg_ = nullptr;
     ec_rx_dev_ = nullptr;
+    conc_notified_ = false;
     mDevices.clear();
     std::list<Stream*> activeSTStreams;
 
@@ -209,9 +209,7 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
         vui_ptfm_info_->GetConcurrentCaptureEnable(), vui_ptfm_info_->GetConcurrentVoiceCallEnable(),
         vui_ptfm_info_->GetConcurrentVoipCallEnable());
 
-    // check concurrency count from rm
-    GetSoundTriggerConcurrencyCount(PAL_STREAM_VOICE_UI, &enable_concurrency_count,
-        &disable_concurrency_count);
+    GetSTDisableConcurrencyCount(PAL_STREAM_VOICE_UI, &disable_concurrency_count);
 
     /*
      * When voice/voip/record is active and concurrency is not
@@ -303,20 +301,27 @@ int32_t StreamSoundTrigger::close() {
 
     PAL_DBG(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
 
-    std::unique_lock<std::mutex> lck(mStreamMutex);
-    if (is_abort_event_notifying_)
-        abort_event_cond_.wait(lck);
+    {
+        std::unique_lock<std::mutex> lck(mStreamMutex);
+        if (is_abort_event_notifying_)
+            abort_event_cond_.wait(lck);
 
-    std::shared_ptr<StEventConfig> ev_cfg(new StUnloadEventConfig());
-    status = cur_state_->ProcessEvent(ev_cfg);
+        std::shared_ptr<StEventConfig> ev_cfg(new StUnloadEventConfig());
+        status = cur_state_->ProcessEvent(ev_cfg);
 
-    if (sm_config_) {
-        free(sm_config_);
-        sm_config_ = nullptr;
+        if (sm_config_) {
+            free(sm_config_);
+            sm_config_ = nullptr;
+        }
+
+        currentState = STREAM_IDLE;
+        palStateEnqueue(this, PAL_STATE_CLOSED, status);
     }
 
-    currentState = STREAM_IDLE;
-    palStateEnqueue(this, PAL_STATE_CLOSED, status);
+    if (conc_notified_) {
+        rm->ConcurrentStreamStatus(this, false);
+        conc_notified_ = false;
+    }
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -337,9 +342,19 @@ void StreamSoundTrigger::UpdateCaptureHandleInfo(bool start) {
 
 int32_t StreamSoundTrigger::start() {
     int32_t status = 0;
-    stream_state_t prev_state;
 
     PAL_DBG(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
+
+    /*
+     * If LPI to NLPI is deferred such as when another ST stream is buffering,
+     * and if this stream is configured to run in NLPI, defer start of the stream
+     * until the buffering is stopped.
+     */
+    if (!sm_cfg_->GetStreamLPIFlag() &&
+        (getSTDeferedSwitchState() == DEFER_LPI_NLPI_SWITCH)) {
+        updateDeferredSTStreams(this, true);
+        return status;
+    }
 
     /*
      * Guard with mActiveStreamMutex to avoid concurrent
@@ -347,6 +362,15 @@ int32_t StreamSoundTrigger::start() {
      */
     rm->lockActiveStream();
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    status  = start_l();
+    rm->unlockActiveStream();
+
+    return status;
+}
+
+int32_t StreamSoundTrigger::start_l() {
+    int32_t status = 0;
+    stream_state_t prev_state;
 
     // cache current state after mutex locked
     prev_state = currentState;
@@ -363,7 +387,7 @@ int32_t StreamSoundTrigger::start() {
         UpdateCaptureHandleInfo(true);
     }
     palStateEnqueue(this, PAL_STATE_STARTED, status);
-    rm->unlockActiveStream();
+
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -372,6 +396,16 @@ int32_t StreamSoundTrigger::stop() {
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
+
+    /*
+     * Remove stream from start deferred stream if it hasn't been
+     * scheduled yet. If it's already started during handling
+     * deferred stream, it can be removed there.
+     */
+    if (!sm_cfg_->GetStreamLPIFlag()) {
+        updateDeferredSTStreams(this, false);
+        return status;
+    }
 
     /*
      * Guard with mActiveStreamMutex to avoid concurrent
@@ -588,7 +622,7 @@ int32_t StreamSoundTrigger::setParameters(uint32_t param_id, void *payload) {
 
     PAL_DBG(LOG_TAG, "Enter, param id %d", param_id);
 
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
     switch (param_id) {
         case PAL_PARAM_ID_LOAD_SOUND_MODEL: {
             std::shared_ptr<StEventConfig> ev_cfg(
@@ -625,6 +659,12 @@ int32_t StreamSoundTrigger::setParameters(uint32_t param_id, void *payload) {
             PAL_ERR(LOG_TAG, "Unsupported param %u", param_id);
             break;
         }
+    }
+    mStreamMutex.unlock();
+
+    if (!status && param_id == PAL_PARAM_ID_LOAD_SOUND_MODEL) {
+        rm->ConcurrentStreamStatus(this, true);
+        conc_notified_ = true;
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
@@ -1351,7 +1391,8 @@ int32_t StreamSoundTrigger::LoadSoundModel(
         } else {
             if (sm_data->type & ST_SM_ID_SVA_S_STAGE_KWD) {
                 notification_state_ |= KEYWORD_DETECTION_SUCCESS;
-            } else if (sm_data->type == ST_SM_ID_SVA_S_STAGE_USER) {
+            } else if (sm_data->type == ST_SM_ID_SVA_S_STAGE_USER ||
+                       sm_data->type == ST_SM_ID_SVA_S_STAGE_CTIUV) {
                 notification_state_ |= USER_VERIFICATION_SUCCESS;
             }
         }
@@ -3482,9 +3523,10 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
 
                 for (auto& eng : st_stream_.engines_) {
                     if ((data->det_type_ == USER_VERIFICATION_REJECT &&
-                        eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_KWD) ||
+                         eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_KWD) ||
                         (data->det_type_ == KEYWORD_DETECTION_REJECT &&
-                        eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_USER)) {
+                         (eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_USER ||
+                          eng->GetEngineId() & ST_SM_ID_SVA_S_STAGE_CTIUV))) {
 
                         status = eng->GetEngine()->StopRecognition(&st_stream_);
                         if (status) {
@@ -3789,7 +3831,8 @@ bool StreamSoundTrigger::ConfigSupportLPI() {
         config_support_lpi =
                sm_cfg_->GetVUIFirstStageConfig(model_type_)->IsLpiSupported();
 
-    if (!config_support_lpi || !vui_ptfm_info_->GetLpiEnable())
+    if (!config_support_lpi ||
+        (sm_cfg_ && !sm_cfg_->GetStreamLPIFlag()))
         lpi = false;
 
     return lpi;

@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -47,6 +47,7 @@
 #include "ConfigSessionAlsaCompress.h"
 #include "ConfigSessionUtils.h"
 #include "ar_osal_mem_op.h"
+#include "apm_api.h"
 #include <agm/agm_api.h>
 #include <gapless_api.h>
 
@@ -66,6 +67,9 @@ extern "C" int compressPluginConfig(Stream* stream, plugin_config_name_t config,
         case PAL_PLUGIN_CONFIG_STOP:
             status = compressPluginConfigSetConfigStop(stream);
             break;
+        case PAL_PLUGIN_PRE_RECONFIG:
+            status = compressPluginPreReconfig(stream, pluginPayload);
+            break;
         case PAL_PLUGIN_RECONFIG:
             status = reconfigCommon(stream, pluginPayload);
             break;
@@ -75,6 +79,22 @@ extern "C" int compressPluginConfig(Stream* stream, plugin_config_name_t config,
         default:
             PAL_ERR(LOG_TAG, "config type %d, is unsupported",config);
             status = -EINVAL;
+    }
+    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    return status;
+}
+
+int32_t compressPluginPreReconfig(Stream* s, void* pluginPayload) {
+    int status = 0;
+    struct ReconfigPluginPayload* reconfigPld = nullptr;
+    PluginPayload* ppld = nullptr;
+    reconfigPld = reinterpret_cast<ReconfigPluginPayload*>(pluginPayload);
+
+    PAL_DBG(LOG_TAG,"Enter");
+    if (!reconfigPld->config_ctrl.compare("silence_detection")) {
+        ppld->builder = reconfigPld->builder;
+        ppld->session = reconfigPld->session;
+        status = compressSilenceDetectionConfig(SD_DISCONNECT, &reconfigPld->dAttr, ppld);
     }
     PAL_DBG(LOG_TAG,"Exit status: %d", status);
     return status;
@@ -443,6 +463,11 @@ int32_t compressPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                 {
                     PAL_DBG(LOG_TAG,"HDR record setting device orientation failed");
                 }
+                if (rm->isWNRModuleEnabled())
+                {
+                    status = session->enableDisableWnrModule(s);
+                    PAL_DBG(LOG_TAG, "Enabling WNR module status: %d", status);
+                }
             }
             if (dAttr.id == PAL_DEVICE_IN_PROXY || dAttr.id == PAL_DEVICE_IN_RECORD_PROXY)
             {
@@ -462,6 +487,38 @@ int32_t compressPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     goto exit;
                 }
+            }
+
+            if (rm->IsSilenceDetectionEnabledPcm() &&
+                       sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
+                status = s->getAssociatedDevices(associatedDevices);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"getAssociatedDevices Failed for Silence Detection\n");
+                    goto silence_det_setup_done;
+                }
+                for (int i = 0; i < associatedDevices.size();i++) {
+                    status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG,"get Device Attributes Failed for Silence Detection\n");
+                        goto silence_det_setup_done;
+                    }
+                }
+
+                if (dAttr.id == PAL_DEVICE_IN_HANDSET_MIC || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) {
+                    (void) enableSilenceDetection(rm, mxr, compressDevIds,
+                              txAifBackEnds[0].second.data(), (uint64_t)session);
+                              ppld->session = session;
+                    ppld->builder = reinterpret_cast<void*>(builder);
+                    status = compressSilenceDetectionConfig(SD_SETPARAM, nullptr, ppld);
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG, "Enable param failed for Silence Detection\n");
+                        (void) disableSilenceDetection(rm, mxr, compressDevIds,
+                                        txAifBackEnds[0].second.data(), (uint64_t)session);
+                        goto silence_det_setup_done;
+                    }
+                }
+silence_det_setup_done:
+            status = 0;
             }
             break;
         default:
@@ -524,7 +581,10 @@ int32_t compressPluginConfigSetConfigStop(Stream* s)
     struct pal_stream_attributes sAttr = {};
     std::shared_ptr<ResourceManager> rm = nullptr;
     std::vector<std::pair<int32_t, std::string>> rxAifBackEnds;
+    std::vector<std::pair<int32_t, std::string>> txAifBackEnds;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
     std::vector<int> compressDevIds;
+    struct pal_device dAttr = {};
     Session* sess = nullptr;
     SessionAlsaCompress* session = nullptr;
     struct mixer* mxr = nullptr;
@@ -551,6 +611,7 @@ int32_t compressPluginConfigSetConfigStop(Stream* s)
 
     session = static_cast<SessionAlsaCompress*>(sess);
     rxAifBackEnds = session->getRxBEVecRef();
+    txAifBackEnds = session->getTxBEVecRef();
     status = session->getFrontEndIds(compressDevIds);
     if (status) {
         PAL_ERR(LOG_TAG, "getFrontEndIds failed %d", status);
@@ -589,6 +650,29 @@ int32_t compressPluginConfigSetConfigStop(Stream* s)
             }
             break;
         case PAL_AUDIO_INPUT:
+            if (rm->IsSilenceDetectionEnabledPcm() && sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
+                status = s->getAssociatedDevices(associatedDevices);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "getAssociatedDevices Failed for Silence Detection\n");
+                    goto silence_det_setup_done;
+                }
+
+                for (int i=0; i < associatedDevices.size(); i++) {
+                    status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG, "getDeviceAttributes failed for Silence Detection\n");
+                        goto silence_det_setup_done;
+                    }
+                }
+
+                if (dAttr.id == PAL_DEVICE_IN_HANDSET_MIC || dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) {
+                    (void) disableSilenceDetection(rm, mxr, compressDevIds,
+                                 txAifBackEnds[0].second.data(), (uint64_t)session);
+                }
+silence_det_setup_done:
+                status = 0;
+            }
+            break;
         case PAL_AUDIO_INPUT_OUTPUT:
             break;
     }
@@ -686,5 +770,79 @@ int setCustomFormatParam(pal_audio_fmt_t audio_fmt, PayloadBuilder* builder,
     }
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int compressSilenceDetectionConfig(uint8_t config, pal_device *dAttr,  void * pluginPayload) {
+    int status = 0;
+    uint32_t miid = 0;
+    size_t pad_bytes = 0, payloadSize = 0;
+    uint8_t* payload = NULL;
+    struct apm_module_param_data_t* header = NULL;
+    param_id_silence_detection_t *silence_detection_cfg = NULL;
+    PluginPayload* ppld = nullptr;
+    SessionAlsaCompress* session = nullptr;
+    struct mixer* mxr = nullptr;
+    std::vector<int> pcmDevIds;
+    PayloadBuilder* builder = nullptr;
+    std::vector<std::pair<int32_t, std::string>> txAifBackEnds;
+    std::shared_ptr<ResourceManager> rm = nullptr;
+
+    ppld = reinterpret_cast<PluginPayload*>(pluginPayload);
+    builder = reinterpret_cast<PayloadBuilder*>(ppld->builder);
+    session = static_cast<SessionAlsaCompress*>(ppld->session);
+    rm = ResourceManager::getInstance();
+    status = rm->getVirtualAudioMixer(&mxr);
+
+    if (!rm->IsSilenceDetectionEnabledPcm())
+        return 0;
+
+    if (config != SD_SETPARAM) {
+        PAL_ERR(LOG_TAG, "Invalid config to enable Silence Detection \n");
+        return -EINVAL;
+    }
+
+    status = session->getFrontEndIds(pcmDevIds, TX_HOSTLESS);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getFrontEndIds failed %d", status);
+        goto exit;
+    }
+
+    txAifBackEnds = session->getTxBEVecRef();
+
+    status =  SessionAlsaUtils::getModuleInstanceId(mxr,
+        pcmDevIds.at(0), txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, &miid);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "Error retriving MIID for HW_ENDPOINT_TX\n");
+        return -SD_ENABLE;
+    }
+    payloadSize = sizeof(struct apm_module_param_data_t)+sizeof(param_id_silence_detection_t);
+    pad_bytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+
+    payload = (uint8_t *)calloc(1, payloadSize+pad_bytes);
+    if (!payload){
+        PAL_ERR(LOG_TAG, "payload info calloc failed \n");
+        return -SD_ENABLE;
+    }
+
+    header = (struct apm_module_param_data_t *)payload;
+    header->module_instance_id = miid;
+    header->param_id =  PARAM_ID_SILENCE_DETECTION;
+    header->error_code = 0x0;
+    header->param_size = payloadSize - sizeof(struct apm_module_param_data_t);
+
+    silence_detection_cfg = (param_id_silence_detection_t *)(payload +
+        sizeof(struct apm_module_param_data_t));
+    silence_detection_cfg->enable_detection = 1;
+    silence_detection_cfg->detection_duration_ms = rm->SilenceDetectionDuration();
+    status = SessionAlsaUtils::setMixerParameter(mxr, pcmDevIds.at(0),
+                                                 payload, payloadSize);
+    if (status) {
+        PAL_ERR(LOG_TAG, "Silence Detection enable param failed\n");
+        builder->freeCustomPayload(&payload, &payloadSize);
+        return -SD_ENABLE;
+    }
+    builder->freeCustomPayload(&payload, &payloadSize);
+exit:
     return status;
 }

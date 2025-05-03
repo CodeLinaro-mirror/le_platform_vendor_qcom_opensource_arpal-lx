@@ -71,6 +71,7 @@ StreamASR::StreamASR(const struct pal_stream_attributes *sattr, struct pal_devic
     curState = nullptr;
     prevState = nullptr;
     engine = nullptr;
+    conc_notified_ = false;
     stateToRestore = ASR_STATE_NONE;
 
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
@@ -168,7 +169,7 @@ int32_t StreamASR::close()
 
     PAL_INFO(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
 
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
 
     if (recConfig) {
         free(recConfig);
@@ -190,6 +191,12 @@ int32_t StreamASR::close()
     }
 
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
+    mStreamMutex.unlock();
+
+    if (conc_notified_) {
+        rm->ConcurrentStreamStatus(this, false);
+        conc_notified_ = false;
+    }
     PAL_INFO(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -200,7 +207,24 @@ int32_t StreamASR::start()
 
     PAL_INFO(LOG_TAG, "Enter, stream direction %d", mStreamAttr->direction);
 
+    /*
+     * If LPI to NLPI is deferred such as when another ST stream is buffering,
+     * and if this stream is configured to run in NLPI, defer start of the stream
+     * until the buffering is stopped.
+     */
+    if (!smCfg->GetStreamLPIFlag() &&
+        (getSTDeferedSwitchState() == DEFER_LPI_NLPI_SWITCH)) {
+        updateDeferredSTStreams(this, true);
+        return status;
+    }
     std::lock_guard<std::mutex> lck(mStreamMutex);
+    return start_l();
+}
+
+int32_t StreamASR::start_l()
+{
+    int32_t status = 0;
+
     std::shared_ptr<ASREventConfig> ev_cfg(
        new ASRStartRecognitionEventConfig());
     status = curState->ProcessEvent(ev_cfg);
@@ -217,6 +241,16 @@ int32_t StreamASR::stop()
     int32_t status = 0;
 
     PAL_INFO(LOG_TAG, "Enter.");
+
+    /*
+     * Remove stream from start deferred stream if it hasn't been
+     * scheduled yet. If it's already started during handling
+     * deferred stream, it can be removed there.
+     */
+    if (!smCfg->GetStreamLPIFlag()) {
+        updateDeferredSTStreams(this, false);
+        return status;
+    }
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
     std::shared_ptr<ASREventConfig> ev_cfg(
@@ -264,7 +298,7 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
         return status;
     }
 
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
     switch (paramId) {
         case PAL_PARAM_ID_ASR_MODEL: {
             PAL_VERBOSE(LOG_TAG, "Currently model loading is not supported");
@@ -292,23 +326,54 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
         }
     }
 
+    mStreamMutex.unlock();
+    if (!status && paramId == PAL_PARAM_ID_ASR_CONFIG) {
+        rm->ConcurrentStreamStatus(this, true);
+        conc_notified_ = true;
+    }
+
     PAL_INFO(LOG_TAG, "Exit, status %d", status);
     return status;
 }
 
-void StreamASR::HandleEventData(pal_asr_event *event, size_t eventSize) {
+void StreamASR::HandleEventData(eventPayload engEvent) {
 
-    PAL_INFO(LOG_TAG, "Enter. event status : %d, num events : %d",
-             event->status, event->num_events);
-    for (int i = 0; i < event->num_events; ++i) {
-        PAL_INFO(LOG_TAG, "Event no : %d, is_final : %d, confidence : %d,\
-                          text_size : %d, text : %s", i, event->event[i].is_final,
-                          event->event[i].confidence, event->event[i].text_size,
-                          event->event[i].text);
+    uint32_t eventId = 0;
+
+    if (engEvent.type == TIMESTAMP_BASED_TEXT) {
+        eventId = 1;
+        pal_asr_ts_event *event = (pal_asr_ts_event *)engEvent.payload;
+        PAL_INFO(LOG_TAG, "Timestamp event, event status : %d, num events : %d",
+                 event->status, event->num_events);
+         for (int i = 0; i < event->num_events; ++i) {
+             PAL_INFO(LOG_TAG, "Event no : %d, is_final : %d, confidence : %d",
+                       i, event->event[i].is_final, event->event[i].confidence);
+             PAL_INFO(LOG_TAG,"Text_size : %d, text : %s,", event->event[i].text_size,
+                       event->event[i].text);
+             PAL_INFO(LOG_TAG,"start timestamp: %lld, end timestamp : %lld",
+                       event->event[i].start_ts, event->event[i].end_ts);
+             PAL_INFO(LOG_TAG, "Number of words : %d", event->event[i].num_words);
+             for (int j = 0; j < event->event[i].num_words; j++) {
+                 PAL_INFO(LOG_TAG, "\tword : %s", event->event[i].word[j].word);
+                 PAL_INFO(LOG_TAG, "\tWord's start timestamp : %lld, end timestamp : %lld",
+                        event->event[i].word[j].start_ts, event->event[i].word[j].end_ts);
+             }
+        }
+    } else {
+        pal_asr_event *event = (pal_asr_event *)engEvent.payload;
+        PAL_INFO(LOG_TAG, "Plain text event status : %d, num events : %d",
+                 event->status, event->num_events);
+        for (int i = 0; i < event->num_events; ++i) {
+            PAL_INFO(LOG_TAG, "Event no : %d, is_final : %d, confidence : %d,",
+                      i, event->event[i].is_final, event->event[i].confidence);
+            PAL_INFO(LOG_TAG, "Text_size : %d, text : %s", event->event[i].text_size,
+                       event->event[i].text);
+        }
     }
 
     if (callback) {
-        callback((pal_stream_handle_t *)this, 0, (uint32_t *)event, eventSize, cookie);
+        callback((pal_stream_handle_t *)this, eventId, (uint32_t *)engEvent.payload,
+                  engEvent.payloadSize, cookie);
     }
     PAL_INFO(LOG_TAG, "Exit.");
 }
@@ -418,7 +483,7 @@ std::shared_ptr<CaptureProfile> StreamASR::GetCurrentCaptureProfile()
         inputMode = ST_INPUT_MODE_HEADSET;
 
     if (!UseLpiCaptureProfile())
-        setForceNLPI(true);
+        registerNLPIStream(this);
 
     if (getLPIUsage())
         operatingMode = ST_OPERATING_MODE_LOW_POWER;
@@ -585,7 +650,7 @@ int32_t StreamASR::SetupDetectionEngine()
     if (getLPIUsage() &&
        !UseLpiCaptureProfile()) {
         mStreamMutex.unlock();
-        setForceNLPI(true);
+        registerNLPIStream(this);
         forceSwitchSoundTriggerStreams(true);
         mStreamMutex.lock();
     }
@@ -694,6 +759,20 @@ int32_t StreamASR::SetRecognitionConfig(struct pal_asr_config *asrRecCfg)
                                  outputConfig->output_mode;
     outputConfig->out_buf_size = cmCfg->GetOutputBufferSize(outputConfig->output_mode);
     outputConfig->num_bufs     = 2;
+    if (asrRecCfg->enable_timestamp) {
+        switch (outputConfig->output_mode) {
+            case BUFFERED:
+                outputConfig->output_mode = TS_BUFFERED;
+                break;
+            case NON_BUFFERED:
+                outputConfig->output_mode = TS_NON_BUFFERED;
+                break;
+            case LOGGER:
+                outputConfig->output_mode = TS_LOGGER;
+                break;
+            default : PAL_ERR(LOG_TAG, "Invalid output mode!!!");
+        }
+    }
 
     inputConfig->buf_duration_ms = cmCfg->GetInputBufferSize(outputConfig->output_mode);
 
@@ -915,7 +994,7 @@ int32_t StreamASR::ASRActive::ProcessEvent(
         case ASR_EV_STOP_SPEECH_RECOGNITION: {
             bool backendUpdate = false;
 
-            setForceNLPI(false);
+            deregisterNLPIStream(&asrStream);
 
             backendUpdate = UpdateSoundTriggerCaptureProfile(&asrStream, false);
 
@@ -1363,4 +1442,13 @@ int32_t StreamASR::isBitWidthSupported(uint32_t bitWidth) {
             break;
     }
     return rc;
+}
+
+bool StreamASR::ConfigSupportLPI() {
+    if (!smCfg) {
+        PAL_ERR(LOG_TAG, "stream config not available, return LPI by default");
+        return true;
+    }
+
+    return smCfg->GetStreamLPIFlag();
 }

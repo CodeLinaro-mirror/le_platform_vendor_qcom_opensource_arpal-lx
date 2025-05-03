@@ -46,6 +46,7 @@
         <param key="lpi_logging_enable" value ="false" />
         <!-- change PAL_DEVICE_OUT_ULTRASOUND_DEDICATED backend name when set it to true -->
         <param key="upd_dedicated_be" value ="false" />
+        <param key="upd_set_custom_gain" value ="false" />
         <param key="signal_handler" value ="true" />
         <param key="device_mux_config" value ="false" />
         <param key="upd_duty_cycle_enable" value="false" />
@@ -95,6 +96,7 @@
         <avoid_vote_stream_type>PAL_STREAM_CONTEXT_PROXY</avoid_vote_stream_type>
     </sleep_monitor_vote_streams>
     <perf_lock library="libqti-perfd-client.so" config="0x40400000, 0x1, 0x40800000, 0x514" />
+    <silence_detection_config pcm="1" voice="1" duration="3000"/>
     <group_device_cfg>
         <upd_rx>
             <snd_device name="handset" />
@@ -162,7 +164,6 @@
             <samplerate>48000</samplerate>
             <snd_device_name>handset-mic</snd_device_name>
             <ec_enable>0</ec_enable>
-            <silence_detection_enabled>1</silence_detection_enabled>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
             </usecase>
@@ -289,7 +290,6 @@
             <samplerate>48000</samplerate>
             <channels>1</channels>
             <ec_enable>0</ec_enable>
-            <silence_detection_enabled>1</silence_detection_enabled>
             <snd_device_name>speaker-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -399,7 +399,7 @@
         <in-device>
             <id>PAL_DEVICE_IN_WIRED_HEADSET</id>
             <back_end_name>CODEC_DMA-LPAIF_RXTX-TX-3</back_end_name>
-            <max_channels>1</max_channels>
+            <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>headset-mic</snd_device_name>
             <ec_enable>0</ec_enable>
@@ -409,6 +409,10 @@
             <usecase>
                 <name>PAL_STREAM_DEEP_BUFFER</name>
                 <ec_enable>1</ec_enable>
+                <custom-config key="headset-single-amic-dual-adc-hdr">
+                    <channels>2</channels>
+                    <snd_device_name>headset-single-amic-dual-adc-hdr</snd_device_name>
+                </custom-config>
             </usecase>
         <!--Uncomment these lines instead of above lines if needing to enable EC per custom key
             <usecase>
@@ -421,6 +425,10 @@
             <usecase>
                 <name>PAL_STREAM_COMPRESSED</name>
                 <ec_enable>1</ec_enable>
+                <custom-config key="headset-single-amic-dual-adc-hdr">
+                    <channels>2</channels>
+                    <snd_device_name>headset-single-amic-dual-adc-hdr</snd_device_name>
+                </custom-config>
             </usecase>
             <usecase>
                 <name>PAL_STREAM_VOIP_TX</name>
@@ -722,6 +730,18 @@
             <snd_device_name>dummy-dev</snd_device_name>
             <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
+        </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_BLUETOOTH_HFP</id>
+            <back_end_name>BTFM_PROXY-TX-1</back_end_name>
+            <max_channels>1</max_channels>
+            <channels>1</channels>
+            <samplerate>8000</samplerate>
+            <bit_width>16</bit_width>
+            <snd_device_name>bt-hfp-mic</snd_device_name>
+            <ec_rx_device>
+                <id>PAL_DEVICE_OUT_BLUETOOTH_HFP</id>
+            </ec_rx_device>
         </in-device>
         <out-device>
             <id>PAL_DEVICE_OUT_SOUND_DOSE</id>
@@ -1145,6 +1165,15 @@
             <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
         </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_BLUETOOTH_HFP</id>
+            <back_end_name>BTFM_PROXY-RX-1</back_end_name>
+            <max_channels>1</max_channels>
+            <channels>1</channels>
+            <snd_device_name>bt-hfp</snd_device_name>
+            <samplerate>8000</samplerate>
+            <bit_width>16</bit_width>
+        </out-device>
     </device_profile>
     <in_streams>
         <in_stream>
@@ -1229,7 +1258,6 @@
     <sound_trigger_platform_info>
         <common_config>
             <!-- Sound trigger streams common params -->
-            <param lpi_enable="true" />
             <param support_nlpi_switch="true" />
             <param support_device_switch="true" />
             <param enable_debug_dumps="false" />
@@ -1626,6 +1654,9 @@
                 <param bit_width="16" />
                 <!-- Module output channels -->
                 <param out_channels="1" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!-- move stream container in ACDB to NLPI when this is uncommented -->
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_LPI" />
                     <high_performance capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
@@ -1701,12 +1732,27 @@
                 <param bit_width="16" />
                 <!-- Module output channels -->
                 <param out_channels="1" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <low_power_ns capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFNS" />
                     <low_power_tx_macro capture_profile_handset="DUAL_MIC_48KHZ_16BIT_RAW_LPI_NO_BUFFER_TX_MACRO" />
                     <high_performance capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFEC" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFEC" />
                     <high_performance_ns capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
+                </operating_modes>
+            </stream_config>
+            <!-- SDZ -->
+            <stream_config>
+                <name>QC_SDZ</name>
+                <param vendor_uuid="38661a34-c17a-45c6-86ab-1bc3f2c079a1" />
+                <param sample_rate="16000" />
+                <param bit_width="16" />
+                <!-- Module output channels -->
+                <param out_channels="1" />
+                <operating_modes>
+                    <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_LPI" />
+                    <high_performance capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
             </stream_config>
         </acd_platform_info>
@@ -1726,6 +1772,8 @@
             <stream_config>
                 <name>QC_ASR</name>
                 <param vendor_uuid = "018ebfb8-1364-7417-b92e-f6ab16b55431" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!--param lpi_enable="false" /-->
                 <module_Info>
                     <!-- List the SPF module params Ids -->
                     <param asr_input_config_id = "0xC0000057, 0x08001AA4" />
@@ -1785,6 +1833,8 @@
                 <param bit_width="16" />
                 <!-- Module output channels -->
                 <param out_channels="1" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
@@ -1856,6 +1906,8 @@
                 <param bit_width="16" />
                 <!-- Module output channels -->
                 <param out_channels="1" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_RAW_NLPI" />
@@ -1892,6 +1944,8 @@
                 <param bit_width="16" />
                 <!-- Module output channels -->
                 <param out_channels="1" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="DUAL_MIC_16KHZ_16BIT_CUSTOM_NS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_CUSTOM_NS" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_CUSTOM_ECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_CUSTOM_ECNS" />
@@ -1920,6 +1974,8 @@
                 <param bit_width="16" />
                 <!-- Module output channels -->
                 <param out_channels="1" />
+                <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="DUAL_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
@@ -1934,6 +1990,15 @@
                         <param buffering_config_ids="0xC0000008, 0x08001ACF" />
                         <param engine_reset_ids="0xC0000008, 0x08001AD0" />
                     </first_stage_module_params>
+                    <arm_ss_module_params>
+                        <param sm_detection_type= "USER_VERIFICATION" />
+                        <param sm_id="0x80" />
+                        <param module_lib="libcapiv2uvvendor.so" />
+                        <param sample_rate="16000" />
+                        <param bit_width="16" />
+                        <param channel_count="1" />
+                        <param proc_frame_size="120" /> <!-- Processing frame size(in ms) -->
+                    </arm_ss_module_params>
                 </sound_model_info>
             </stream_config>
         </vui_platform_info>

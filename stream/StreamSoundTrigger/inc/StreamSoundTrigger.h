@@ -129,6 +129,7 @@ public:
 
     int32_t close() override;
     int32_t start() override;
+    int32_t start_l() override;
     int32_t stop() override;
 
     int32_t prepare() override { return 0; }
@@ -639,5 +640,6 @@ private:
      * from resourcemanager xml.
      */
     struct pal_device *dattr_specified_;
+    bool conc_notified_;
 };
 #endif // STREAMSOUNDTRIGGER_H_

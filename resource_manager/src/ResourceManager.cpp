@@ -173,6 +173,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
     {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_HFP,        {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "none" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "tdm-pri" }}},
@@ -202,6 +203,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_DUMMY,                 {std::string{ "" }}},
     {PAL_DEVICE_IN_CPS2_FEEDBACK,         {std::string{ "" }}},
     {PAL_DEVICE_IN_RECORD_PROXY,          {std::string{ "" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_HFP,         {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -233,6 +235,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, 1},
     {PAL_DEVICE_OUT_DUMMY,                0},
     {PAL_DEVICE_OUT_SOUND_DOSE,           0},
+    {PAL_DEVICE_OUT_BLUETOOTH_HFP,        0},
     {PAL_DEVICE_OUT_MAX,                  0},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           0},
@@ -262,6 +265,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_DUMMY,                 0},
     {PAL_DEVICE_IN_CPS2_FEEDBACK,         0},
     {PAL_DEVICE_IN_RECORD_PROXY,          0},
+    {PAL_DEVICE_IN_BLUETOOTH_HFP,         0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -294,6 +298,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
     {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_HFP,        {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "" }}},
@@ -323,6 +328,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_DUMMY,                 {std::string{ "" }}},
     {PAL_DEVICE_IN_CPS2_FEEDBACK,         {std::string{ "" }}},
     {PAL_DEVICE_IN_RECORD_PROXY,          {std::string{ "" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_HFP,         {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -477,11 +483,14 @@ bool ResourceManager::isUpdDedicatedBeEnabled = false;
 bool ResourceManager::isDeviceMuxConfigEnabled = false;
 bool ResourceManager::isUpdDutyCycleEnabled = false;
 bool ResourceManager::isUPDVirtualPortEnabled = false;
+bool ResourceManager::isUpdSetCustomGainEnabled = false;
 bool ResourceManager::isCPEnabled = false;
 bool ResourceManager::isDummyDevEnabled = false;
 bool ResourceManager::isProxyRecordActive = false;
-bool ResourceManager::isSilenceDetectionEnabled = false;
+bool ResourceManager::isSilenceDetectionEnabledPcm = false;
+bool ResourceManager::isSilenceDetectionEnabledVoice = false;
 pal_audio_event_callback ResourceManager::callback_event = nullptr;
+uint32_t ResourceManager::silenceDetectionDuration = 3000;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 bool ResourceManager::isSignalHandlerEnabled = false;
 static int haptics_priority;
@@ -560,6 +569,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_OUT_ULTRASOUND_DEDICATED, {std::string{ "" }}},
     {PAL_DEVICE_OUT_DUMMY,                {std::string{ "" }}},
     {PAL_DEVICE_OUT_SOUND_DOSE,           {std::string{ "" }}},
+    {PAL_DEVICE_OUT_BLUETOOTH_HFP,        {std::string{ "" }}},
     {PAL_DEVICE_OUT_MAX,                  {std::string{ "" }}},
 
     {PAL_DEVICE_IN_HANDSET_MIC,           {std::string{ "none" }}},
@@ -589,6 +599,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_DUMMY,                 {std::string{ "" }}},
     {PAL_DEVICE_IN_CPS2_FEEDBACK,         {std::string{ "" }}},
     {PAL_DEVICE_IN_RECORD_PROXY,          {std::string{ "" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_HFP,         {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -949,11 +960,6 @@ ResourceManager::ResourceManager()
         throw std::runtime_error("Failed to allocate ContextManager");
 
     }
-
-#ifndef SOUND_TRIGGER_FEATURES_DISABLED
-    // init use_lpi_ flag
-    setLPISupported();
-#endif
 
 #ifdef SOC_PERIPHERAL_PROT
     socPerithread = std::thread(loadSocPeripheralLib);
@@ -2795,6 +2801,19 @@ bool ResourceManager::isStreamActive(Stream *s)
     return ret;
 }
 
+bool ResourceManager::isStStream(pal_stream_type_t type)
+{
+    switch (type) {
+        case PAL_STREAM_VOICE_UI:
+        case PAL_STREAM_ACD:
+        case PAL_STREAM_ASR:
+        case PAL_STREAM_SENSOR_PCM_DATA:
+            return true;
+        default:
+            return false;
+    }
+}
+
 int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
     for (auto &s : mActiveStreams) {
         if (handle == reinterpret_cast<uint64_t *>(s)) {
@@ -3069,7 +3088,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
     pal_device_id_t deviceId;
     std::string key = "";
     struct pal_stream_attributes curStrAttr;
-    PAL_DBG(TAG_LOG," : Enter");
+    PAL_DBG(LOG_TAG," : Enter");
 
     if (tx_dev == nullptr || ec_enable == nullptr || streamHandle == nullptr) {
         PAL_ERR(LOG_TAG, "invalid input");
@@ -3088,7 +3107,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
     }
     deviceId = (pal_device_id_t)tx_dev->getSndDeviceId();
 
-    PAL_DBG(TAG_LOG, "stream type: %d, deviceid: %d, custom key: %s",
+    PAL_DBG(LOG_TAG, "stream type: %d, deviceid: %d, custom key: %s",
                       curStrAttr.type, deviceId, key.c_str());
     if (deviceInfo.empty()) {
         PAL_ERR(LOG_TAG, "deviceInfo empty");
@@ -3103,7 +3122,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
                 continue;
             *ec_enable = usecaseInfo.ec_enable;
             for (auto custom_config : usecaseInfo.config) {
-                PAL_DBG(TAG_LOG,"existing custom config key = %s", custom_config.key.c_str());
+                PAL_DBG(LOG_TAG,"existing custom config key = %s", custom_config.key.c_str());
                 if (!custom_config.key.compare(key)) {
                     *ec_enable = custom_config.ec_enable;
                     break;
@@ -3114,7 +3133,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
         break;
     }
 exit:
-    PAL_DBG(TAG_LOG,"ec_enable_setting:%d, status:%d", ec_enable ? *ec_enable : 0, status);
+    PAL_DBG(LOG_TAG,"ec_enable_setting:%d, status:%d", ec_enable ? *ec_enable : 0, status);
     return status;
 }
 
@@ -3361,6 +3380,17 @@ int ResourceManager::registerDevice(std::shared_ptr<Device> d, Stream *s)
     } else {
         checkandEnableEC_l(d, s, true);
     }
+
+    if (IsCustomGainEnabledForUPD() &&
+            (1 == d->getDeviceCount())) {
+        /* Try to set Ultrasound Gain if needed */
+        if (PAL_DEVICE_OUT_SPEAKER == d->getSndDeviceId()) {
+            setUltrasoundGain(PAL_ULTRASOUND_GAIN_HIGH, s);
+        } else if ((PAL_DEVICE_OUT_HANDSET == d->getSndDeviceId()) ||
+                (PAL_DEVICE_OUT_ULTRASOUND_DEDICATED == d->getSndDeviceId())) {
+            setUltrasoundGain(PAL_ULTRASOUND_GAIN_LOW, s);
+        }
+    }
     mResourceManagerMutex.unlock();
 
     PAL_DBG(LOG_TAG, "Exit.");
@@ -3396,6 +3426,15 @@ int ResourceManager::deregisterDevice(std::shared_ptr<Device> d, Stream *s)
     } else {
         checkandEnableEC_l(d, s, false);
     }
+
+    if (IsCustomGainEnabledForUPD() &&
+            (1 == d->getDeviceCount()) &&
+            ((PAL_DEVICE_OUT_SPEAKER == d->getSndDeviceId()) ||
+             (PAL_DEVICE_OUT_HANDSET == d->getSndDeviceId()) ||
+             (PAL_DEVICE_OUT_ULTRASOUND_DEDICATED == d->getSndDeviceId()))) {
+        setUltrasoundGain(PAL_ULTRASOUND_GAIN_MUTE, s);
+    }
+
     mResourceManagerMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit.");
     return 0;
@@ -3490,14 +3529,17 @@ int ResourceManager::removePlugInDevice(pal_device_id_t device_id,
     return ret;
 }
 
-int ResourceManager::getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList)
+void ResourceManager::getActiveDevices_l(std::vector<std::shared_ptr<Device>> &deviceList)
 {
-    int ret = 0;
+     for (int i = 0; i < active_devices.size(); i++)
+         deviceList.push_back(active_devices[i].first);
+}
+
+void ResourceManager::getActiveDevices(std::vector<std::shared_ptr<Device>> &deviceList)
+{
     mResourceManagerMutex.lock();
-    for (int i = 0; i < active_devices.size(); i++)
-        deviceList.push_back(active_devices[i].first);
+    getActiveDevices_l(deviceList);
     mResourceManagerMutex.unlock();
-    return ret;
 }
 
 int ResourceManager::getAudioRoute(struct audio_route** ar)
@@ -3546,6 +3588,11 @@ bool ResourceManager::IsDutyCycleForUPDEnabled()
 bool ResourceManager::IsVirtualPortForUPDEnabled()
 {
     return ResourceManager::isUPDVirtualPortEnabled;
+}
+
+bool ResourceManager::IsCustomGainEnabledForUPD()
+{
+    return ResourceManager::isUpdSetCustomGainEnabled;
 }
 
 uint32_t ResourceManager::getHapticsPriority()
@@ -3735,6 +3782,14 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
             prefix_idx = event_str.find(voicemmod_prefix);
             voice_id =  true;
             if (prefix_idx == event_str.npos) {
+                /* search for Events with VoiceModel.. pattern */
+                std::string voicemodel_searched =  event_str.substr(0,(event_str.size()-event_suffix.size()-1));
+                for (std::vector<deviceCap>::iterator it = devInfo.begin() ; it != devInfo.end(); ++it){
+                    if (!strcmp(it->name, voicemodel_searched.c_str())) {
+                        pcm_id = it->deviceId;
+                        goto acquire_event_callback;
+                    }
+                }
                 PAL_ERR(LOG_TAG, "Invalid mixer event");
                 status = -EINVAL;
                 goto exit;
@@ -3766,6 +3821,7 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
         pcm_id = std::stoi(event_str.substr(prefix_idx, length));
     }
 
+acquire_event_callback:
     // acquire callback/cookie with pcm dev id
     it = mixerEventCallbackMap.find(pcm_id);
     if (it != mixerEventCallbackMap.end()) {
@@ -4826,7 +4882,8 @@ int ResourceManager::getSndDeviceName(int deviceId, char *device_name)
                                 !strstr(device_name, VBAT_BCL_SUFFIX)) {
             if (deviceId == PAL_DEVICE_OUT_ULTRASOUND) {
                 getBackendName(deviceId, backEndName);
-                if (!(strstr(backEndName.c_str(), "CODEC_DMA-LPAIF_WSA-RX")))
+                if (!(strstr(backEndName.c_str(), "CODEC_DMA-LPAIF_WSA-RX")) ||
+                     strstr(device_name, "handset"))
                     return 0;
             }
             strlcat(device_name, VBAT_BCL_SUFFIX, DEVICE_NAME_MAX_SIZE);
@@ -6146,6 +6203,7 @@ error:
 int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList){
     int status = 0;
     std::vector <std::tuple<Stream *, struct pal_device *>>::iterator sIter;
+    std::set<Stream *> connected_streams;
 
     PAL_DBG(LOG_TAG, "Enter");
     /* connect active list from the current devices they are attached to */
@@ -6159,7 +6217,9 @@ int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, st
                 PAL_DBG(LOG_TAG,"connected stream %pK from device %d",
                         std::get<0>(*sIter), (std::get<1>(*sIter))->id);
             }
-            std::get<0>(*sIter)->unlockStreamMutex();
+            auto result = connected_streams.insert(std::get<0>(*sIter));
+            if (result.second)
+                std::get<0>(*sIter)->unlockStreamMutex();
         }
     }
 
@@ -6836,6 +6896,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setContextManagerEnableParam(parms, value, len);
 
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
+    ret = setUpdCustomGainParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
     ret = setSignalHandlerEnableParam(parms, value, len);
     ret = setMuxconfigEnableParam(parms, value, len);
@@ -7051,6 +7112,27 @@ int ResourceManager::setUpdVirtualPortParam(struct str_parms *parms, char *value
         str_parms_del(parms, AUDIO_PARAMETER_KEY_UPD_VIRTUAL_PORT);
     }
 
+    return ret;
+}
+
+int ResourceManager::setUpdCustomGainParam(struct str_parms *parms,
+                                 char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return ret;
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_UPD_SET_CUSTOM_GAIN,
+                            value, len);
+    PAL_VERBOSE(LOG_TAG," value %s", value);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            ResourceManager::isUpdSetCustomGainEnabled = true;
+
+        str_parms_del(parms, AUDIO_PARAMETER_KEY_UPD_SET_CUSTOM_GAIN);
+    }
     return ret;
 }
 
@@ -7881,6 +7963,18 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_WNR_MODE:
+        {
+            pal_param_payload *payload = (pal_param_payload *) param_payload;
+            PAL_DBG(LOG_TAG, "wnr module enable state received is %d", payload->payload[0]);
+            if(rm->wnrEnableStatus == (bool)payload->payload[0]) {
+                PAL_ERR(LOG_TAG, "wnr module is already in this state : %d", rm->wnrEnableStatus);
+                goto exit;
+            }
+            rm->wnrEnableStatus = (bool)(payload->payload[0]);
+            PAL_DBG(LOG_TAG, "wnr module enable state updated to %d", rm->wnrEnableStatus);
+        }
+        break;
         default:
     #ifndef SOUND_TRIGGER_FEATURES_DISABLED
             mResourceManagerMutex.unlock();
@@ -8588,7 +8682,9 @@ bool ResourceManager::isBtA2dpDevice(pal_device_id_t id)
 bool ResourceManager::isBtScoDevice(pal_device_id_t id)
 {
     if (id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
-        id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
+        id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
+        id == PAL_DEVICE_IN_BLUETOOTH_HFP ||
+        id == PAL_DEVICE_OUT_BLUETOOTH_HFP)
         return true;
     else
         return false;
@@ -8608,6 +8704,23 @@ bool ResourceManager::isBtDevice(pal_device_id_t id)
         default:
             return false;
     }
+}
+
+void ResourceManager::processSilenceDetectionConfig(const XML_Char **attr)
+{
+    if (!strcmp(attr[0], "pcm")) {
+        ResourceManager::isSilenceDetectionEnabledPcm = atoi(attr[1])?true:false;
+    }
+
+    if (!strcmp(attr[2], "voice")) {
+        ResourceManager::isSilenceDetectionEnabledVoice = atoi(attr[3])?true:false;
+    }
+
+    if (!strcmp(attr[4], "duration")) {
+        ResourceManager::silenceDetectionDuration = atoi(attr[5]);
+    }
+
+    return;
 }
 
 void ResourceManager::processPerfLockConfig(const XML_Char **attr)
@@ -9097,9 +9210,6 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
             std::string snddevname(data->data_buf);
             deviceInfo[size].sndDevName = snddevname;
             updateSndName(deviceInfo[size].deviceId, snddevname);
-        } else if (!strcmp(tag_name, "silence_detection_enabled")) {
-            if (atoi(data->data_buf))
-                isSilenceDetectionEnabled = true;
         } else if (!strcmp(tag_name, "qmp_enable")) {
             if (atoi(data->data_buf))
                 isQmpEnabled = true;
@@ -9543,6 +9653,9 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
         return;
     } else if (strcmp(tag_name, "config_sound_dose") == 0) {
         setSoundDose(attr);
+        return;
+    } else if (!strcmp(tag_name, "silence_detection_config")){
+        processSilenceDetectionConfig(attr);
         return;
     }
 
@@ -10150,11 +10263,10 @@ bool ResourceManager::tryLockActiveStream() {
     return mActiveStreamMutex.try_lock();
 }
 
-void ResourceManager::ConcurrentStreamStatus(pal_stream_type_t type,
-                                            pal_stream_direction_t dir, bool active) {
+void ResourceManager::ConcurrentStreamStatus(Stream* s, bool active) {
 
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
-    HandleConcurrencyForSoundTriggerStreams(type, dir, active);
+    HandleConcurrencyForSoundTriggerStreams(s, active);
 #else
     PAL_DBG(LOG_TAG, "Invalid operation, soundtrigger not enabled");
 #endif
@@ -10270,8 +10382,16 @@ bool ResourceManager::IsQmpEnabled() {
     return ResourceManager::isQmpEnabled;
 }
 
-bool ResourceManager::IsSilenceDetectionEnabled() {
-    return ResourceManager::isSilenceDetectionEnabled;
+bool ResourceManager::IsSilenceDetectionEnabledPcm() {
+    return ResourceManager::isSilenceDetectionEnabledPcm;
+}
+
+bool ResourceManager::IsSilenceDetectionEnabledVoice() {
+    return ResourceManager::isSilenceDetectionEnabledVoice;
+}
+
+int ResourceManager::SilenceDetectionDuration() {
+    return ResourceManager::silenceDetectionDuration;
 }
 
 int ResourceManager::getCpsMode() {
@@ -10280,6 +10400,10 @@ int ResourceManager::getCpsMode() {
 
 int ResourceManager::getSpQuickCalTime() {
     return ResourceManager::spQuickCalTime;
+}
+
+bool ResourceManager::isWNRModuleEnabled() {
+    return wnrEnableStatus;
 }
 
 int ResourceManager::getOrientation() {
@@ -10348,4 +10472,129 @@ std::map<pal_stream_type_t, std::list <Stream*>> ResourceManager::getActiveStrea
 
 std::list <Stream*> ResourceManager::getActiveStreamList() {
     return mActiveStreams;
+}
+
+int ResourceManager::setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s)
+{
+    int32_t status = 0;
+
+    struct pal_device dAttr;
+    Stream *updStream = NULL;
+    std::vector<Stream*> activeStreams;
+    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr1;
+    std::vector<std::shared_ptr<Device>> activeDeviceList;
+    pal_ultrasound_gain_t gain_final = PAL_ULTRASOUND_GAIN_MUTE;
+    bool is_stream_ultrasound = false;
+
+    PAL_INFO(LOG_TAG, "Entered. Gain = %d", gain);
+
+    if (!IsCustomGainEnabledForUPD()) {
+        PAL_ERR(LOG_TAG,"Custom Gain not enabled for UPD, returning");
+        return status;
+    }
+
+    if (s) {
+        status = s->getStreamAttributes(&sAttr);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG,"stream get attributes failed");
+            return -ENOENT;
+        }
+    }
+
+    if (PAL_STREAM_ULTRASOUND == sAttr.type) {
+        updStream =  s;
+    } else {
+        status = getActiveStream_l(activeStreams, NULL);
+        if ((0 != status) || (activeStreams.size() == 0)) {
+            PAL_DBG(LOG_TAG, "No active stream available, status = %d, nStream = %d",
+                    status, activeStreams.size());
+            return -ENOENT;
+        }
+
+        for (int i = 0; i < activeStreams.size(); i++) {
+            status = (static_cast<Stream *> (activeStreams[i]))->getStreamAttributes(&sAttr1);
+            if (0 != status) {
+                PAL_DBG(LOG_TAG, "Fail to get Stream Attributes, status = %d", status);
+                continue;
+            }
+
+            if (PAL_STREAM_ULTRASOUND == sAttr1.type) {
+                updStream = static_cast<Stream *> (activeStreams[i]);
+                /* Found UPD stream, break here */
+                PAL_INFO(LOG_TAG, "Found UPD Stream = %p", updStream);
+                break;
+            }
+        }
+    }
+    /* Skip if we do not found upd stream or UPD stream is not active*/
+    if (!updStream || !updStream->isActive()) {
+        PAL_INFO(LOG_TAG, "Either UPD Stream not found or not active, returning");
+        return 0;
+    }
+
+    if (!isDeviceSwitch && (PAL_STREAM_ULTRASOUND != sAttr.type))
+        status = updStream->setParameters(PAL_PARAM_ID_ULTRASOUND_SET_GAIN, (void *)&gain);
+    else
+        status = updStream->setParameters_l(PAL_PARAM_ID_ULTRASOUND_SET_GAIN, (void *)&gain);
+
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "SetParameters failed, status = %d", status);
+        return status;
+    }
+
+    PAL_INFO(LOG_TAG, "Ultrasound gain(%d) set, status = %d", gain, status);
+
+    /* If provided gain is MUTE then in some cases we may need to set new gain LOW/HIGH based on
+     * concurrencies.
+     *
+     * Skip setting new gain if,
+     * - currently set gain is not Mute
+     * - or if device switch is active (new gain will be set once new device is active)
+     *
+     * This should avoid multiple set gain calls while stream is being closed/in middle of device switch
+     */
+
+    if ((PAL_ULTRASOUND_GAIN_MUTE != gain) || isDeviceSwitch) {
+        return 0;
+    }
+
+    /* Find new GAIN value based on currently active devices */
+    getActiveDevices_l(activeDeviceList);
+    for (int i = 0; i < activeDeviceList.size(); i++) {
+        status = activeDeviceList[i]->getDeviceAttributes(&dAttr);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Fail to get device attribute for device %p, status = %d",
+                    &activeDeviceList[i], status);
+            continue;
+        }
+        if (PAL_DEVICE_OUT_SPEAKER == dAttr.id) {
+            gain_final = PAL_ULTRASOUND_GAIN_HIGH;
+            /* Only breaking here as we want to give priority to speaker device */
+            break;
+        } else if ((PAL_DEVICE_OUT_ULTRASOUND == dAttr.id) ||
+                   (PAL_DEVICE_OUT_HANDSET == dAttr.id) ||
+                   (PAL_DEVICE_OUT_ULTRASOUND_DEDICATED == dAttr.id)) {
+            gain_final = PAL_ULTRASOUND_GAIN_LOW;
+        }
+    }
+
+    if (PAL_ULTRASOUND_GAIN_MUTE != gain_final) {
+        /* Currently configured value is 20ms which allows 3 to 4 process call
+         * to handle this value at ADSP side.
+         * Increase or decrease this dealy based on requirements */
+        usleep(20000);
+        if (PAL_STREAM_ULTRASOUND != sAttr.type)
+            status = updStream->setParameters(PAL_PARAM_ID_ULTRASOUND_SET_GAIN, (void *)&gain_final);
+        else
+            status = updStream->setParameters_l(PAL_PARAM_ID_ULTRASOUND_SET_GAIN, (void *)&gain_final);
+
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "SetParameters failed, status = %d", status);
+            return status;
+        }
+        PAL_INFO(LOG_TAG, "Ultrasound gain(%d) set, status = %d", gain_final, status);
+    }
+
+    return status;
 }
