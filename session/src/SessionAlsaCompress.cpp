@@ -1360,6 +1360,10 @@ int SessionAlsaCompress::configureEarlyEOSDelay(void)
     uint8_t* payload = NULL;
     size_t payloadSize = 0;
     uint32_t miid;
+    size_t size = 0;
+    uint32_t bt_latency = 0;
+    pal_param_bta2dp_t* param_bt_a2dp_ptr, param_bt_a2dp;
+    param_bt_a2dp_ptr = &param_bt_a2dp;
 
     PAL_DBG(LOG_TAG, "Enter");
     status = SessionAlsaUtils::getModuleInstanceId(mixer,
@@ -1376,7 +1380,26 @@ int SessionAlsaCompress::configureEarlyEOSDelay(void)
         PAL_ERR(LOG_TAG, "failed to allocate memory");
         return -ENOMEM;
     }
-    early_eos_delay->early_eos_delay_ms = EARLY_EOS_DELAY_MS;
+
+    if (rm->isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {
+        param_bt_a2dp_ptr->dev_id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+    } else if (rm->isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE)) {
+        param_bt_a2dp_ptr->dev_id = PAL_DEVICE_OUT_BLUETOOTH_BLE;
+    } else if (rm->isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
+        param_bt_a2dp_ptr->dev_id = PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST;
+    }
+      else {
+      goto update_early_eos_delay;
+    }
+
+    status = rm->getParameter(PAL_PARAM_ID_BT_A2DP_ENCODER_LATENCY,
+           (void**)&param_bt_a2dp_ptr, &size, nullptr);
+    if (!status && size && param_bt_a2dp_ptr && param_bt_a2dp_ptr->latency) {
+        bt_latency = param_bt_a2dp_ptr->latency;
+    }
+
+update_early_eos_delay:
+    early_eos_delay->early_eos_delay_ms = EARLY_EOS_DELAY_MS + bt_latency;
 
     status = builder->payloadCustomParam(&payload, &payloadSize,
                                         (uint32_t *)early_eos_delay,
