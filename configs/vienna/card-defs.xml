@@ -450,6 +450,19 @@
         </props>
     </pcm-device>
 
+    <pcm-device>
+        <id>2</id>
+        <name>CODEC_DMA-LPAIF_WSA-RX-4</name>
+        <pcm_plugin>
+            <so-name>libcodec_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>1</playback>
+            <capture>0</capture>
+            <backend>1</backend>
+        </props>
+    </pcm-device>
+
     <!--list of virtual tx backends-->
     <pcm-device>
         <id>51</id>
