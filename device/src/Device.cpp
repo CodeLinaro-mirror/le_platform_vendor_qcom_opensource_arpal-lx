@@ -780,10 +780,14 @@ int Device::insertStreamDeviceAttr(struct pal_device *inDevAttr,
      */
     for (auto it = mStreamDevAttr.begin(); ; it++) {
         /* get the current stream dev info to be compared with incoming device */
-        struct pal_stream_attributes curStrAttr;
+        struct pal_stream_attributes curStrAttr = {0};
         if (it != mStreamDevAttr.end()) {
             (*it).second.first->getStreamAttributes(&curStrAttr);
             curDevAttr = (*it).second.second;
+            if(curDevAttr == nullptr) {
+                PAL_ERR(LOG_TAG, "curDevAttr is NULL!!!\n");
+                return -EINVAL;
+            }
             rm->getDeviceInfo(curDevAttr->id, curStrAttr.type,
                             curDevAttr->custom_config.custom_key, &curDevInfo);
         }

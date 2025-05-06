@@ -4345,7 +4345,10 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
 {
     std::vector <std::tuple<Stream *, uint32_t>> sharedBEStreamDev;
     std::vector <Stream *> activeHapticsStreams;
-
+    if(sAttr == nullptr) {
+        PAL_ERR(LOG_TAG, "sAttr is NULL!!!\n");
+        return;
+    }
     if (!deviceattr) {
         PAL_ERR(LOG_TAG, "Invalid device attribute");
         return;
