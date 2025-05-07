@@ -218,3 +218,17 @@ bin_PROGRAMS = audioadsprpcd
 audioadsprpcd_SOURCES = $(adsprpc_sources)
 audioadsprpcd_LDADD = -ldl
 audioadsprpcd_la_CFLAGS = -fPIC
+
+bin_PROGRAMS +=  PalTest_main
+pal_test_source = test/PalTest_main.c \
+		  test/PalUsecaseTest.c \
+		  test/PalUsecaseTest.h
+
+PalTest_main_CPPFLAGS := @PALHEADERS_CFLAGS@
+PalTest_main_CPPFLAGS += @GLIB_CFLAGS@ @AGM_CFLAGS@ @SPFHEADERS_CFLAGS@ @AROUTE_CFLAGS@
+PalTest_main_CPPFLAGS += -I${includedir}/inc
+
+PalTest_main_SOURCES = $(pal_test_source)
+PalTest_main_LDADD = libpal.la -lagm $(GLIB_LIBS)
+PalTest_main_CFLAGS = $(PAL_CPPFLAGS)
+

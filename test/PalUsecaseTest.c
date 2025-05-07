@@ -30,10 +30,32 @@
 #include"PalUsecaseTest.h"
 #include <errno.h>
 #include <string.h>
+#include <stdio.h>
 
 static struct pal_stream_attributes *stream_attributes;
 static struct pal_device *pal_devices;
 static pal_stream_handle_t *pal_stream;
+
+int32_t InitPalAgm() {
+    int ret = 0;
+    ret = agm_init();
+    if (ret) {
+        fprintf(stdout, "AGM Init failed\n");
+        return ret;
+    }
+    ret = pal_init();
+    if (ret) {
+        fprintf(stdout, "Pal Init failed\n");
+    }
+    return ret;
+}
+
+void DeInitPalAgm() {
+
+    pal_deinit();
+    agm_deinit();
+    return;
+}
 
 int32_t OpenAndStartUsecase(int usecase_type) {
      pal_stream_type_t usecase = (pal_stream_type_t)usecase_type;
