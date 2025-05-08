@@ -14554,7 +14554,7 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
     }
 
 exit:
-    if (status) {
+     if (plugin && status) {
         dlclose(plugin->handle);
         plugin->handle = NULL;
     }
