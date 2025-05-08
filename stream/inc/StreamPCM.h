@@ -82,6 +82,8 @@ public:
    static int32_t isSampleRateSupported(uint32_t sampleRate);
    static int32_t isChannelSupported(uint32_t numChannels);
    static int32_t isBitWidthSupported(uint32_t bitWidth);
+   int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) override;
+   int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) override;
 };
 
 #endif//STREAMPCM_H_

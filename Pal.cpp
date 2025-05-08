@@ -1551,3 +1551,38 @@ int32_t pal_stream_get_path_delay(pal_stream_handle_t *stream_handle, uint32_t *
     }
     return rc;
 }
+
+int32_t pal_alloc_spr_shared_memory(pal_stream_handle_t *stream_handle, pal_spr_shmem_info_t *info)
+{
+    Stream *s = NULL;
+    int status;
+
+    if (!stream_handle || !info) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = s->allocSprSharedMemory(info);
+    if (0 != status)
+        PAL_ERR(LOG_TAG, "Alloc SPR shared memory failed with status %d", status);
+
+    return status;
+}
+
+int32_t pal_dealloc_spr_shared_memory(pal_stream_handle_t *stream_handle, pal_spr_shmem_info_t *info)
+{
+    Stream *s = NULL;
+    int status;
+
+    if (!stream_handle || !info) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = s->deallocSprSharedMemory(info);
+    if (0 != status)
+        PAL_ERR(LOG_TAG, "Dealloc SPR shared memory failed with status %d", status);
+
+    return status;
+}

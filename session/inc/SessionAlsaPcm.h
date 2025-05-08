@@ -159,6 +159,8 @@ public:
     void retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struct pcm_config *config);
     int reconfigureModule(uint32_t tagID, const char* BE, struct sessionToPayloadParam *data);
     uint32_t getLatency(Stream *s, uint32_t *latency);
+    int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) override;
+    int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) override;
 };
 
 #endif //SESSION_ALSAPCM_H

@@ -1669,6 +1669,17 @@ typedef struct pal_buffer_config {
     size_t max_metadata_size; /** < max metadata size associated with each buffer*/
 } pal_buffer_config_t;
 
+typedef struct pal_spr_shmem_info{
+    void *addr;
+    uint32_t size;
+}pal_spr_shmem_info_t;
+
+typedef struct pal_spr_shmem_payload{
+    void *addr;
+    uint32_t size;
+    uint32_t miid;
+}pal_spr_shmem_payload_t;
+
 #define PAL_GENERIC_PLATFORM_DELAY     (29*1000LL)
 #define PAL_DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)
 #define PAL_SPATIAL_AUDIO_PLATFORM_DELAY (13*1000LL)
