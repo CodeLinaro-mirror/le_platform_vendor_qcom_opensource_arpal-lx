@@ -780,8 +780,9 @@ int Device::insertStreamDeviceAttr(struct pal_device *inDevAttr,
      */
     for (auto it = mStreamDevAttr.begin(); ; it++) {
         /* get the current stream dev info to be compared with incoming device */
-        struct pal_stream_attributes curStrAttr = {0};
-        if (it != mStreamDevAttr.end()) {
+        struct pal_stream_attributes curStrAttr;
+	memset(&curStrAttr, 0, sizeof(struct pal_stream_attributes));
+	if (it != mStreamDevAttr.end()) {
             (*it).second.first->getStreamAttributes(&curStrAttr);
             curDevAttr = (*it).second.second;
             if(curDevAttr == nullptr) {
