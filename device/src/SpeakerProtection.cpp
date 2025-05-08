@@ -1,6 +1,6 @@
 /*
  * Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -4062,15 +4062,26 @@ int32_t SpeakerProtection::getCalibrationData(void **param)
             dr0[i] = ((double)r0t0Array[i].r0_cali_q24)/(1 << 24);
             dt0[i] = ((double)r0t0Array[i].t0_cali_q6)/(1 << 6);
         }
-        PAL_DBG(LOG_TAG, "R0= %lf, %lf, T0= %lf, %lf", dr0[0], dr0[1], dt0[0], dt0[1]);
         fclose(fp);
     }
     else {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "No cal file present");
     }
-    resString << "SpkrCalStatus: " << status << "; R0: " << dr0[0] << ", "
-              << dr0[1] << "; T0: "<< dt0[0] << ", " << dt0[1] << ";";
+
+    resString << "SpkrCalStatus: " << status << "; R0: ";
+    for (int i = 0; i < numberOfChannels; ++i) {
+        if (i > 0) resString << ", ";
+        resString << dr0[i];
+    }
+
+    resString << "; T0: ";
+    for (int i = 0; i < numberOfChannels; ++i) {
+        if (i > 0) resString << ", ";
+        resString << dt0[i];
+    }
+
+    resString << ";";
 
     PAL_DBG(LOG_TAG, "Calibration value %s", resString.str().c_str());
 
