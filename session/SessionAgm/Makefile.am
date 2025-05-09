@@ -24,7 +24,7 @@ library_includedir = $(includedir)/session_agm
 lib_LTLIBRARIES     = libsession_agm.la
 libsession_agm_la_SOURCES   = $(session_agm_sources)
 libsession_agm_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat -ltinyalsa -ltinycompress
-libsession_agm_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal
+libsession_agm_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal -lagm
 libsession_agm_la_LIBADD    += -L${abs_top_builddir}/session/SessionAR/.libs -lsession_ar
 libsession_agm_la_CPPFLAGS := $(AM_CPPFLAGS)
 libsession_agm_la_CPPFLAGS += -std=c++14
