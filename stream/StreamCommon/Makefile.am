@@ -25,6 +25,7 @@ library_includedir = $(includedir)/stream_common
 lib_LTLIBRARIES     = libstream_common.la
 libstream_common_la_SOURCES   = $(stream_common_sources)
 libstream_common_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat -lar-gsl
+libstream_common_la_LIBADD   += -L${abs_top_builddir}/.libs -lpal
 libstream_common_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_common_la_CPPFLAGS += -std=c++14
 libstream_common_la_LDFLAGS   = -shared -avoid-version

@@ -26,6 +26,7 @@ lib_LTLIBRARIES     = libstream_acd.la
 libstream_acd_la_SOURCES   = $(stream_acd_sources)
 libstream_acd_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat -lar-gsl
 libstream_acd_la_LIBADD    += -L${abs_top_builddir}/session/SessionAR/.libs -lsession_ar
+libstream_acd_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal
 libstream_acd_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_acd_la_CPPFLAGS += -std=c++14
 libstream_acd_la_LDFLAGS   = -shared -avoid-version
