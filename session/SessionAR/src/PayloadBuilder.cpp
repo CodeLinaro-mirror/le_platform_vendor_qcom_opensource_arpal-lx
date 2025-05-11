@@ -3399,12 +3399,27 @@ int PayloadBuilder::populateDevicePPKV(Stream* s, int32_t rxBeDevId,
 {
     int status = 0;
     struct pal_device dAttr;
+    struct pal_stream_attributes *sattr = NULL;
     std::shared_ptr<Device> dev = nullptr;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
     std::vector <std::string> selectors;
     std::vector <std::pair<selector_type_t, std::string>> filled_selector_pairs;
 
     PAL_DBG(LOG_TAG, "Enter");
+
+    sattr = new struct pal_stream_attributes;
+    if (!sattr) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG,"sattr malloc failed %s status %d", strerror(errno), status);
+        goto exit;
+    }
+
+    memset(sattr, 0, sizeof(struct pal_stream_attributes));
+    status = s->getStreamAttributes(sattr);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"getStreamAttributes Failed status %d", status);
+        goto free_sattr;
+    }
     /* Populate Rx Device PP KV */
     if (rxBeDevId > 0) {
         PAL_INFO(LOG_TAG, "Rx device id:%d", rxBeDevId);
@@ -3416,6 +3431,18 @@ int PayloadBuilder::populateDevicePPKV(Stream* s, int32_t rxBeDevId,
             selectors = retrieveSelectors(dAttr.id, all_devicepps);
             if (selectors.empty() != true)
                 filled_selector_pairs = getSelectorValues(selectors, s, &dAttr);
+                if (sattr->type == PAL_STREAM_HPCM) {
+                    switch(sattr->info.hpcm_stream_info.hpcm_stream_type) {
+                    case PAL_HPCM_RX_PLAYBACK:
+                        PAL_INFO(LOG_TAG, "HPCM_RX_PLAY DevicePP");
+                        filled_selector_pairs.push_back(std::make_pair(CUSTOM_CONFIG_SEL, "hpcm-rx-play"));
+                        break;
+                    case PAL_HPCM_TX_PLAYBACK:
+                        PAL_INFO(LOG_TAG, "HPCM_TX_Play DevicePP");
+                        filled_selector_pairs.push_back(std::make_pair(CUSTOM_CONFIG_SEL, "hpcm-tx-play"));
+                        break;
+                    }
+                }
             retrieveKVs(filled_selector_pairs, rxBeDevId, all_devicepps,
                 keyVectorRx);
         }
@@ -3435,10 +3462,26 @@ int PayloadBuilder::populateDevicePPKV(Stream* s, int32_t rxBeDevId,
             selectors = retrieveSelectors(dAttr.id, all_devicepps);
             if (selectors.empty() != true)
                 filled_selector_pairs = getSelectorValues(selectors, s, &dAttr);
+                if (sattr->type == PAL_STREAM_HPCM) {
+                    switch(sattr->info.hpcm_stream_info.hpcm_stream_type) {
+                    case PAL_HPCM_RX_CAPTURE:
+                        PAL_INFO(LOG_TAG, "HPCM_RX_REC DevicePP");
+                        filled_selector_pairs.push_back(std::make_pair(CUSTOM_CONFIG_SEL, "hpcm-rx-rec"));
+                        break;
+                    case PAL_HPCM_TX_CAPTURE:
+                        PAL_INFO(LOG_TAG, "HPCM_TX_Rec DevicePP");
+                        filled_selector_pairs.push_back(std::make_pair(CUSTOM_CONFIG_SEL, "hpcm-tx-rec"));
+                        break;
+                    }
+                }
             retrieveKVs(filled_selector_pairs, txBeDevId, all_devicepps,
                 keyVectorTx);
         }
     }
+
+free_sattr:
+    delete sattr;
+exit:
     PAL_DBG(LOG_TAG, "Exit, status: %d", status);
     return 0;
 }

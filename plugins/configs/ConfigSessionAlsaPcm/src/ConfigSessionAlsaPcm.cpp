@@ -109,6 +109,8 @@
 
 #define HPCM_RX 0x4082
 #define HPCM_TX 0x425E
+#define HPCM_RX_SPK 0x4035
+#define HPCM_TX_SPK 0x421D
 
 /*interface implementation*/
 extern "C" int pcmPluginConfig(Stream* stream, plugin_config_name_t config,
@@ -284,15 +286,21 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
 
         switch(sAttr.info.hpcm_stream_info.hpcm_stream_type) {
             case PAL_HPCM_RX_PLAYBACK:
-            case PAL_HPCM_RX_CAPTURE:
-                 PAL_INFO(LOG_TAG, "CONFIGURING HPCM_RX_EVENT");
-                 hpcm_miid = HPCM_RX;
-                 break;
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_PLAY %d.\n", rxAifBackEnds[0].first);
+                hpcm_miid = (rxAifBackEnds[0].first == PAL_DEVICE_OUT_WIRED_HEADSET) ? HPCM_RX: HPCM_RX_SPK;
+                break;
             case PAL_HPCM_TX_PLAYBACK:
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_PLAY %d.\n", rxAifBackEnds[0].first);
+                hpcm_miid = (rxAifBackEnds[0].first == PAL_DEVICE_OUT_WIRED_HEADSET) ? HPCM_TX: HPCM_TX_SPK;
+                break;
+            case PAL_HPCM_RX_CAPTURE:
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_CAP %d.\n", txAifBackEnds[0].first);
+                hpcm_miid = (txAifBackEnds[0].first == PAL_DEVICE_IN_WIRED_HEADSET) ? HPCM_RX: HPCM_RX_SPK;
+                break;
             case PAL_HPCM_TX_CAPTURE:
-                 PAL_INFO(LOG_TAG, "CONFIGURING HPCM_TX_EVENT");
-                 hpcm_miid = HPCM_TX;
-                 break;
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_CAP %d.\n", txAifBackEnds[0].first);
+                hpcm_miid = (txAifBackEnds[0].first == PAL_DEVICE_IN_WIRED_HEADSET) ? HPCM_TX: HPCM_TX_SPK;
+                break;
         }
         event_cfg.module_instance_id = hpcm_miid;
         status = SessionAlsaUtils::registerMixerEvent(mxr, pcmDevIds.at(0),
