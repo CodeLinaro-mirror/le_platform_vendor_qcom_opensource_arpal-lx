@@ -93,7 +93,7 @@
 #define MIXER_XML_BASE_STRING_NAME "mixer_paths"
 #define RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager"
 
-#define MAX_RETRY_CNT 20
+#define MAX_RETRY_CNT 100
 #define LOWLATENCY_PCM_DEVICE 15
 #define DEEP_BUFFER_PCM_DEVICE 0
 #define DEVICE_NAME_MAX_SIZE 128
@@ -1630,7 +1630,7 @@ int ResourceManager::init_audio()
 
         if (!snd_card_found) {
             PAL_INFO(LOG_TAG, "No audio mixer, retry %d", retry++);
-            sleep(1);
+            usleep(10 * 1000);
         }
     } while (!snd_card_found && retry <= MAX_RETRY_CNT);
 
@@ -14554,7 +14554,7 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
     }
 
 exit:
-    if (status) {
+     if (plugin && status) {
         dlclose(plugin->handle);
         plugin->handle = NULL;
     }

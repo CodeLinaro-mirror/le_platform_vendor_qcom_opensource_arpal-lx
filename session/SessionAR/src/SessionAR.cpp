@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -930,8 +930,13 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
         case PAL_PARAM_ID_UIEFFECT:
         case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
-            effect_pal_payload_t *effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
             param_payload = (pal_param_payload*)payload;
+            if (!param_payload) {
+                PAL_ERR(LOG_TAG, "param_payload is NULL");
+                status = -EINVAL;
+                break;
+            }
+            effect_pal_payload_t *effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
 
             if (effectPalPayload->isTKV) {
                 status = this->setTKV(s, MODULE, effectPalPayload);

@@ -28,7 +28,7 @@
 *
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
 *
-* Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 *
 */
@@ -950,6 +950,7 @@ int SessionAlsaUtils::getTimestamp(struct mixer *mixer, const std::vector<int> &
     struct param_id_spr_session_time_t *spr_session_time;
     std::shared_ptr<std::vector<uint8_t>> payload = nullptr;
     size_t payloadSize = 0;
+    PayloadBuilder* builder = nullptr;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
 
     if (DevIds.size() > 0) {
@@ -970,7 +971,12 @@ int SessionAlsaUtils::getTimestamp(struct mixer *mixer, const std::vector<int> &
         return -ENOENT;
     }
 
-    PayloadBuilder* builder = new PayloadBuilder();
+    builder = new PayloadBuilder();
+    if (!builder) {
+        PAL_ERR(LOG_TAG, "Payload Builder creation failed \n");
+        goto exit;
+    }
+
     builder->payloadTimestamp(payload, &payloadSize, spr_miid);
     if (!payload) {
         PAL_ERR(LOG_TAG, "Timestamp payload formation failed");
