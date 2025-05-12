@@ -603,6 +603,7 @@ public:
     static bool isDualMonoEnabled;
     static bool isUHQAEnabled;
     static bool isSignalHandlerEnabled;
+    static bool isDummyDevEnabled;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
@@ -870,9 +871,13 @@ public:
     static bool isBtScoDevice(pal_device_id_t id);
     static bool isBtDevice(pal_device_id_t id);
     int32_t a2dpSuspend(pal_device_id_t dev_id);
+    int32_t a2dpSuspendToDummy(pal_device_id_t dev_id);
     int32_t a2dpResume(pal_device_id_t dev_id);
+    int32_t a2dpResumeFromDummy(pal_device_id_t dev_id);
     int32_t a2dpCaptureSuspend(pal_device_id_t dev_id);
+    int32_t a2dpCaptureSuspendToDummy(pal_device_id_t dev_id);
     int32_t a2dpCaptureResume(pal_device_id_t dev_id);
+    int32_t a2dpCaptureResumeFromDummy(pal_device_id_t dev_id);
     bool isPluginDevice(pal_device_id_t id);
     bool isDpDevice(pal_device_id_t id);
     bool isPluginPlaybackDevice(pal_device_id_t id);
