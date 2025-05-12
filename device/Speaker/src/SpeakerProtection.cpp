@@ -133,7 +133,7 @@ speaker_prot_cal_state SpeakerProtection::spkrCalState;
 struct pcm * SpeakerProtection::rxPcm = NULL;
 struct pcm * SpeakerProtection::txPcm = NULL;
 struct pcm * SpeakerProtection::cpsPcm = NULL;
-struct param_id_sp_th_vi_calib_res_per_spkr_cfg_param_t * SpeakerProtection::callback_data;
+struct param_id_sp_th_vi_calib_res_per_spkr_cfg_param_t * SpeakerProtection::callback_data = nullptr;
 int SpeakerProtection::numberOfChannels;
 struct pal_device_info SpeakerProtection::vi_device;
 struct pal_device_info SpeakerProtection::cps_device;
