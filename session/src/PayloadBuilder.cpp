@@ -2602,6 +2602,13 @@ int PayloadBuilder::populateStreamKV(Stream* s, std::vector<std::pair<int,int>> 
         filled_selector_pairs.push_back(std::make_pair(VSID_SEL,
             vsidLUT.at(sattr->info.voice_call_info.VSID)));
         retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
+    } else if (sattr->type == PAL_STREAM_ULTRASOUND) {
+        filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "RX"));
+        retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorRx);
+
+        filled_selector_pairs.clear();
+        filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "TX"));
+        retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
     } else {
         PAL_DBG(LOG_TAG, "KVs not provided for stream type:%d", sattr->type);
     }

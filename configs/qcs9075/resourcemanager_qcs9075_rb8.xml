@@ -84,6 +84,9 @@
                 <name>PAL_STREAM_VOIP_TX</name>
                 <ec_enable>1</ec_enable>
             </usecase>
+            <usecase>
+                <name>PAL_STREAM_ULTRASOUND</name>
+            </usecase>
             <ec_rx_device>
                 <id>PAL_DEVICE_OUT_SPEAKER</id>
             </ec_rx_device>
@@ -111,6 +114,9 @@
             <quick_cal_time>0</quick_cal_time>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
+            </usecase>
+            <usecase>
+                <name>PAL_STREAM_ULTRASOUND</name>
             </usecase>
         </out-device>
     </device_profile>

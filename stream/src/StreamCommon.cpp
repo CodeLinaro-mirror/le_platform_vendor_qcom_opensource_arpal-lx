@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -117,7 +117,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
     if ((sattr->type == PAL_STREAM_ULTRASOUND) && !rm->IsDedicatedBEForUPDEnabled()) {
         struct pal_device devAttr = {};
         struct pal_device_info inDeviceInfo;
-        pal_device_id_t upd_dev[] = {PAL_DEVICE_OUT_SPEAKER, PAL_DEVICE_OUT_HANDSET};
+        pal_device_id_t upd_dev[] = {PAL_DEVICE_OUT_SPEAKER};
         for (int i = 0; i < sizeof(upd_dev)/sizeof(upd_dev[0]); i++) {
             devAttr.id = upd_dev[i];
             dev = Device::getInstance(&devAttr, rm);
@@ -125,8 +125,6 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
                 continue;
             rm->getDeviceInfo(devAttr.id, sattr->type, "", &inDeviceInfo);
             dev->setSampleRate(inDeviceInfo.samplerate);
-            if (devAttr.id == PAL_DEVICE_OUT_HANDSET)
-                dev->setBitWidth(inDeviceInfo.bit_width);
         }
     }
     for (int i = 0; i < no_of_devices; i++) {
@@ -183,7 +181,7 @@ StreamCommon::~StreamCommon()
     if ((type == PAL_STREAM_ULTRASOUND) && !rm->IsDedicatedBEForUPDEnabled()) {
         std::shared_ptr<Device> dev = nullptr;
         struct pal_device devAttr = {};
-        pal_device_id_t upd_dev[] = {PAL_DEVICE_OUT_SPEAKER, PAL_DEVICE_OUT_HANDSET};
+        pal_device_id_t upd_dev[] = {PAL_DEVICE_OUT_SPEAKER};
         for (int i = 0; i < sizeof(upd_dev)/sizeof(upd_dev[0]); i++) {
             devAttr.id = upd_dev[i];
             dev = Device::getInstance(&devAttr, rm);

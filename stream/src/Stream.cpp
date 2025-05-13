@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -124,9 +124,9 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
                 else if (rm->IsDedicatedBEForUPDEnabled())
                     dAttr[i].id = PAL_DEVICE_OUT_ULTRASOUND_DEDICATED;
                 else
-                    dAttr[i].id = PAL_DEVICE_OUT_HANDSET;
+                    dAttr[i].id = PAL_DEVICE_OUT_SPEAKER;
             } else { // then assign input device
-                dAttr[i].id = PAL_DEVICE_IN_ULTRASOUND_MIC;
+                dAttr[i].id = PAL_DEVICE_IN_SPEAKER_MIC;
             }
         }
 
