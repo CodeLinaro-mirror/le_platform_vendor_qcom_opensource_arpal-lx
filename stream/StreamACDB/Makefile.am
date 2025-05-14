@@ -11,6 +11,7 @@ AM_CPPFLAGS += -I $(srcdir)/../../device/inc
 AM_CPPFLAGS += -I $(srcdir)/../../session/inc
 AM_CPPFLAGS += -I $(srcdir)/../../stream/inc
 AM_CPPFLAGS += -I $(srcdir)/../../session/SessionAR/inc
+AM_CPPFLAGS += -I $(srcdir)/../../session/SessionAlsaPcm/inc
 AM_CPPFLAGS += -I $(srcdir)/../../plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../resource_manager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../context_manager/inc
@@ -29,7 +30,6 @@ libstream_acdb_la_LIBADD    += -L${abs_top_builddir}/session/SessionAR/.libs -ls
 libstream_acdb_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_acdb_la_CPPFLAGS += -std=c++14
 libstream_acdb_la_LDFLAGS   = -shared -avoid-version
-libstream_acdb_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
 libstream_acdb_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libstream_acdb_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
 

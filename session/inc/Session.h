@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -88,10 +87,15 @@ public:
     virtual ~Session();
     static std::shared_ptr<PluginManager> pm;
     static Session* makeSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
+    static Session* makeACDBSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
 
     /*pure virtual intface APIs*/
     virtual int open(Stream * s) = 0;
     virtual int prepare(Stream * s) = 0;
+    virtual int setConfig(Stream * s, configType type, int tag) = 0;
+    virtual int setConfig(Stream * s __unused, configType type __unused, uint32_t tag1 __unused,
+            uint32_t tag2 __unused, uint32_t tag3 __unused) {return 0;};
+    virtual int setConfig(Stream * s __unused, configType type __unused, int tag __unused, int dir __unused) {return 0;};
     virtual int start(Stream * s) = 0;
     virtual int stop(Stream * s) = 0;
     virtual int close(Stream * s) = 0;
@@ -119,6 +123,9 @@ public:
         std::shared_ptr<Device> deviceToCconnect) = 0;
     virtual int disconnectSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToDisconnect) = 0;
+    int rwACDBParamTunnel(void *payload, pal_device_id_t palDeviceId,
+        pal_stream_type_t palStreamType, uint32_t sampleRate, uint32_t instanceId,
+        bool isParamWrite, Stream *s);
     /*Virtual functions*/
     virtual int registerCallBack(session_callback cb __unused, uint64_t cookie __unused) {return 0;};
     virtual int setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable) {return -EINVAL; };
