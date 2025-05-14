@@ -445,6 +445,25 @@ void PayloadBuilder::populateChannelMap(T pcmChannel, uint8_t numChannel)
         pcmChannel[14] = PCM_CHANNEL_RLC;
         pcmChannel[15] = PCM_CHANNEL_RRC;
     }
+    else if (numChannel == 17) {
+        pcmChannel[0] = PCM_CHANNEL_L;
+        pcmChannel[1] = PCM_CHANNEL_R;
+        pcmChannel[2] = PCM_CHANNEL_C;
+        pcmChannel[3] = PCM_CHANNEL_LS;
+        pcmChannel[4] = PCM_CHANNEL_RS;
+        pcmChannel[5] = PCM_CHANNEL_LFE;
+        pcmChannel[6] = PCM_CHANNEL_CS;
+        pcmChannel[7] = PCM_CHANNEL_LB;
+        pcmChannel[8] = PCM_CHANNEL_RB;
+        pcmChannel[9] = PCM_CHANNEL_TS;
+        pcmChannel[10] = PCM_CHANNEL_CVH;
+        pcmChannel[11] = PCM_CHANNEL_MS;
+        pcmChannel[12] = PCM_CHANNEL_FLC;
+        pcmChannel[13] = PCM_CHANNEL_FRC;
+        pcmChannel[14] = PCM_CHANNEL_RLC;
+        pcmChannel[15] = PCM_CHANNEL_RRC;
+        pcmChannel[16] = PCM_CHANNEL_LFE2;
+    }
 }
 
 void PayloadBuilder::payloadUsbAudioConfig(uint8_t** payload, size_t* size,
