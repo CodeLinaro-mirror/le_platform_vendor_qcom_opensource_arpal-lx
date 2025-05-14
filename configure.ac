@@ -34,15 +34,42 @@ AC_ARG_WITH([basemachine],
 AC_MSG_RESULT([$machine_selected])
 AC_SUBST([MACHINE_ENABLED],[$machine_selected])
 
+AC_MSG_CHECKING([if define SPKR cal path])
+AC_ARG_WITH([spkrcalpath],
+            [AS_HELP_STRING([--with-spkrcalpath=PATH],
+            [Specify SPKR cal path])],
+            [spkr_cal_path="$withval"],
+            [spkr_cal_path=none])
+
+AC_MSG_RESULT([$spkr_cal_path])
+AC_SUBST([SPKR_CAL_PATH],[$spkr_cal_path])
+
+if test "$spkr_cal_path" != "none"; then
+  AM_CONDITIONAL([DEF_SPKR_CAL_PATH], [true])
+else
+  AM_CONDITIONAL([DEF_SPKR_CAL_PATH], [false])
+fi
+
 AC_ARG_WITH([openwrt],
     AS_HELP_STRING([use openwrt (default is no)]),
     [with_openwrt=$withval],
     [with_openwrt=no])
 AM_CONDITIONAL([BUILDSYSTEM_OPENWRT], [test "x${with_openwrt}" = "xyes"])
 
+AC_CHECK_FUNCS([strlcpy],[STRLCPY=yes],[STRLCPY=no])
+AC_CHECK_FUNCS([strlcat],[STRLCAT=yes],[STRLCAT=no])
+AM_CONDITIONAL([NO_STRLCPY_STRLCAT], [test "x$STRLCPY" = "xno" && test "x$STRLCAT" = "xno"])
+
 AC_ARG_WITH([glib],
       AS_HELP_STRING([--with-glib],
          [enable glib, Build against glib. Use this when building for HLOS systems which use glib]))
+
+
+AC_ARG_WITH([syslog],
+    AS_HELP_STRING([use syslog (default is no)]),
+        [with_syslog=$withval],
+            [with_syslog=no])
+            AM_CONDITIONAL([USE_SYSLOG], [test "x${with_syslog}" = "xyes"])
 
 if (test "x${with_glib}" = "xyes"); then
         PKG_CHECK_MODULES(GTHREAD, gthread-2.0 >= 2.16, dummy=yes,
@@ -61,6 +88,22 @@ AM_CONDITIONAL([IS_SDXLEMUR], [test x$IS_SDXLEMUR_TARGET = xtrue])
 AM_CONDITIONAL([IS_SA525M], [test x$IS_SA525M_TARGET = xtrue])
 
 # Checks for libraries
+PKG_CHECK_MODULES([AGM], [agm])
+AC_SUBST([AGM_CFLAGS])
+
+PKG_CHECK_MODULES([PALHEADERS], [pal-headers])
+AC_SUBST([PALHEADERS_CFLAGS])
+
+PKG_CHECK_MODULES([SPFHEADERS], [spf])
+AC_SUBST([SPFHEADERS_CFLAGS])
+AC_SUBST([SPFHEADERS_LIBS])
+
+PKG_CHECK_MODULES([AROUTE], [audio_route])
+AC_SUBST([AROUTE_CFLAGS])
+
+PKG_CHECK_MODULES([MMHEADERS], [mm-audio-headers])
+AC_SUBST([MMHEADERS_CFLAGS])
+
 AC_ARG_WITH([spf],
       AC_HELP_STRING([--with-spf],
          [enable spf, Build against spf. Use this when building for HLOS systems which use spf]))
