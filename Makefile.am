@@ -164,6 +164,7 @@ install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_ia.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_ia.xml
+endif
 
 if COMPILE_ADSPRPCD
 adsprpc_sources = adsprpcd/adsprpcd.c
@@ -172,8 +173,6 @@ bin_PROGRAMS = audioadsprpcd
 audioadsprpcd_SOURCES = $(adsprpc_sources)
 audioadsprpcd_LDADD = -ldl
 audioadsprpcd_la_CFLAGS = -fPIC
-endif
-
 endif
 
 SUBDIRS =  plugins . session stream device plugins/configs
