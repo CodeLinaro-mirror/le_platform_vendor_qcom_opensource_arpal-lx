@@ -167,6 +167,9 @@ public:
                                  Stream *s, bool is_enable);
     virtual int getPCMDeviceID(Stream *s, int *devId) = 0;
     virtual uint32_t getLatency(Stream *s, uint32_t *latency) {return -EINVAL;};
+    int handleASRCSetting(Stream *s, asrc_ratio_t *asrc_ratio,
+        int device, struct mixer *mixer, PayloadBuilder* builder,
+        std::vector<std::pair<int32_t, std::string>> rxAifBackEnds);
 };
 
 #endif //SESSION_H
