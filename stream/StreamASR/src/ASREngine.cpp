@@ -212,6 +212,11 @@ int32_t ASREngine::setParameters(Stream *s, asr_param_id_type_t pid, void *param
         case ASR_FORCE_OUTPUT : {
             param_id_asr_force_output_t *param = (param_id_asr_force_output_t *)
                                     calloc(1, sizeof(param_id_asr_force_output_t));
+            if(param == nullptr) {
+                PAL_ERR(LOG_TAG, "No force output available, can't start the engine!!!");
+                status = -EINVAL;
+                goto exit;
+            }
             param->force_output = 1;
             data = (uint8_t *)param;
             dataSize = sizeof(param_id_asr_force_output_t);

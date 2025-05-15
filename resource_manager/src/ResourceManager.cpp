@@ -354,6 +354,7 @@ const std::map<uint32_t, uint32_t> streamPriorityLUT {
     {PAL_STREAM_ULTRASOUND,         4},
     {PAL_STREAM_SPATIAL_AUDIO,      3},
     {PAL_STREAM_SENSOR_PCM_RENDERER,4},
+    {PAL_STREAM_HPCM,               2},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
@@ -775,6 +776,11 @@ ResourceManager::ResourceManager()
     memset(&this->mSpkrProtModeValue, 0, sizeof(pal_spkr_prot_payload));
     mHighestPriorityActiveStream = nullptr;
     mPriorityHighestPriorityActiveStream = 0;
+    is_charger_online_ = false;
+    is_concurrent_boost_state_ = false;
+    current_concurrent_state_ = false;
+    is_ICL_config_ = false;
+    rotation_type_ = PAL_SPEAKER_ROTATION_LR;
 
     ret = memLoggerInitQ(PAL_STATE_Q, MEMLOG_CFG_FILE); //initializes the queue for the debug logger
 
@@ -4339,7 +4345,10 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
 {
     std::vector <std::tuple<Stream *, uint32_t>> sharedBEStreamDev;
     std::vector <Stream *> activeHapticsStreams;
-
+    if(sAttr == nullptr) {
+        PAL_ERR(LOG_TAG, "sAttr is NULL!!!\n");
+        return;
+    }
     if (!deviceattr) {
         PAL_ERR(LOG_TAG, "Invalid device attribute");
         return;
@@ -5068,6 +5077,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
         case PAL_STREAM_SENSOR_PCM_DATA:
         case PAL_STREAM_VOICE_RECOGNITION:
         case PAL_STREAM_SENSOR_PCM_RENDERER:
+        case PAL_STREAM_HPCM:
             switch (sAttr.direction) {
                 case PAL_AUDIO_INPUT:
                     if (lDirection == TX_HOSTLESS) {
@@ -5369,6 +5379,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
         case PAL_STREAM_RAW:
         case PAL_STREAM_VOICE_RECOGNITION:
         case PAL_STREAM_SENSOR_PCM_RENDERER:
+        case PAL_STREAM_HPCM:
             switch (sAttr.direction) {
                 case PAL_AUDIO_INPUT:
                     if (lDirection == TX_HOSTLESS) {
@@ -9754,7 +9765,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
             goto exit;
         }
         dev->getDeviceAttributes(&newDevAttr);
-        checkHapticsConcurrency(&newDevAttr, NULL, streamsToSwitch, NULL);
+        checkHapticsConcurrency(&newDevAttr, &sAttr, streamsToSwitch, NULL);
     }
 
     getSharedBEActiveStreamDevs(sharedBEStreamDev, dev->getSndDeviceId());

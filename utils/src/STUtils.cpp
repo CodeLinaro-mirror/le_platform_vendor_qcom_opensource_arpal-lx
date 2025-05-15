@@ -88,6 +88,10 @@ void getMatchingStreams(std::list<Stream*> &active_streams, std::vector<Stream*>
     for (auto s : active_streams) {
         if (NULL != s) {
             param_payload = (pal_param_payload *)calloc(1, payload_size);
+            if(param_payload == nullptr) {
+                PAL_ERR(LOG_TAG, "param payload is NULL!!!\n");
+                return;
+            }
             param_payload->payload_size = sizeof(struct st_uuid);
             ret = s->getParameters(PAL_PARAM_ID_VENDOR_UUID, (void**)&param_payload);
             if(ret){

@@ -176,6 +176,7 @@ int32_t Device::initHdrRoutine(const char *hdr_custom_key)
     handle = dlopen("vendor/lib64/libqmp.so", RTLD_NOW);
     if (!handle) {
         PAL_ERR(LOG_TAG, "Failed to open libqmp.so");
+	return -EINVAL;
     }
 
    write_qmp_mode write = reinterpret_cast<write_qmp_mode>(dlsym(handle, "write_qmp_mode"));
@@ -780,9 +781,14 @@ int Device::insertStreamDeviceAttr(struct pal_device *inDevAttr,
     for (auto it = mStreamDevAttr.begin(); ; it++) {
         /* get the current stream dev info to be compared with incoming device */
         struct pal_stream_attributes curStrAttr;
-        if (it != mStreamDevAttr.end()) {
+	memset(&curStrAttr, 0, sizeof(struct pal_stream_attributes));
+	if (it != mStreamDevAttr.end()) {
             (*it).second.first->getStreamAttributes(&curStrAttr);
             curDevAttr = (*it).second.second;
+            if(curDevAttr == nullptr) {
+                PAL_ERR(LOG_TAG, "curDevAttr is NULL!!!\n");
+                return -EINVAL;
+            }
             rm->getDeviceInfo(curDevAttr->id, curStrAttr.type,
                             curDevAttr->custom_config.custom_key, &curDevInfo);
         }

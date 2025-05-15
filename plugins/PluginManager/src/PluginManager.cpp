@@ -168,6 +168,7 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
                         }
                     } catch (const std::exception& e) {
                         PAL_ERR(LOG_TAG, "Dll loading of %s failed", key.c_str());
+                        mPluginManagerMutex.unlock();
                         throw std::runtime_error(e.what());
                     }
                 }
