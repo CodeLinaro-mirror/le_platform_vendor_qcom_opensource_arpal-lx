@@ -514,6 +514,7 @@ private:
     static bool isHandsetProtectionEnabled;
     static bool isHapticsProtectionEnabled;
     static bool isChargeConcurrencyEnabled;
+    static int wsaUsed;
     static int cpsMode;
     static bool isVbatEnabled;
     static bool isRasEnabled;
@@ -1032,6 +1033,7 @@ public:
     bool IsSilenceDetectionEnabledVoice();
     int SilenceDetectionDuration();
     int getCpsMode();
+    int getWsaUsed();
     int getSpQuickCalTime();
     int getOrientation();
     bool isWNRModuleEnabled();
