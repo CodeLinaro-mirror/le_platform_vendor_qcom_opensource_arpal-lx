@@ -7,6 +7,8 @@ Build-Depends:
  debhelper-compat (= 13),
  libglib2.0-0,
  libglib2.0-dev,
+ pkgconf,
+ libexpat1-dev,
  qcom-kvh2xml-dev,
  libtinyalsa2,
  libtinyalsa-dev,
