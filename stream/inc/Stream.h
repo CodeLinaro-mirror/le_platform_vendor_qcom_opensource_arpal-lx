@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -115,6 +115,8 @@ protected:
     int mGainLevel;
     int mOrientation = 0;
     std::mutex mStreamMutex;
+    std::mutex mSetParamMutex;
+    std::mutex mGetParamMutex;
     static std::mutex mBaseStreamMutex; //TBD change this. as having a single static mutex for all instances of Stream is incorrect. Replace
     static std::shared_ptr<ResourceManager> rm;
     static std::shared_ptr<PluginManager> pm;
