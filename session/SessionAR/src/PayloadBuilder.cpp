@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2558,6 +2558,24 @@ int PayloadBuilder::populateStreamKV(Stream* s, std::vector<std::pair<int,int>> 
             retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
         } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
            /* no StreamKV for HFP TX */
+        } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_FM) {
+            /* no StreamKV FM TX */
+            PAL_DBG(LOG_TAG, "stream type %d", sattr->type);
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "RX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+                loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs, sattr->type, all_streams, keyVectorRx);
+
+            filled_selector_pairs.clear();
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "TX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+                loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs, sattr->type, all_streams, keyVectorTx);
+        } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_ICC) {
+            filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "RX"));
+            filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
+            loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
+            retrieveKVs(filled_selector_pairs, sattr->type, all_streams, keyVectorRx);
         } else {
             selector_names = retrieveSelectors(sattr->type, all_streams);
             if (selector_names.empty() != true)
@@ -3324,6 +3342,16 @@ int PayloadBuilder::populateStreamCkv(Stream *s,
             keyVector.push_back(std::make_pair(STREAM_CHANNELS,
                 sAttr.in_media_config.ch_info.channels));
             break;
+        case PAL_STREAM_LOOPBACK:
+            PAL_INFO(LOG_TAG, "populate for hfp NB/WB CKV, sample rate=%d", sAttr.in_media_config.sample_rate);
+            if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_16K) {
+                keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
+            } else if (sAttr.in_media_config.sample_rate == SAMPLINGRATE_8K) {
+                keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
+            }
+            keyVector.push_back(std::make_pair(VOLUME, LEVEL_15));
+            PAL_DBG(LOG_TAG, "Entered loopback %x %x", VOLUME, LEVEL_15);
+            break;
         default:
             /*
              * Sending volume minimum as we want to ramp up instead of ramping
@@ -3460,6 +3488,13 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 //keyVector.push_back(std::make_pair(CHANNELS,
                 //                                   dAttr.config.ch_info.channels));
                 break;
+            case PAL_STREAM_LOOPBACK:
+                if (sattr->in_media_config.sample_rate == SAMPLINGRATE_16K) {
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_16K));
+                } else if (sattr->in_media_config.sample_rate == SAMPLINGRATE_8K) {
+                    keyVector.push_back(std::make_pair(SAMPLINGRATE, SAMPLINGRATE_8K));
+                }
+                break;
             default:
                 PAL_VERBOSE(LOG_TAG,"stream type %d doesn't support DevicePP CKV ", sattr->type);
                 goto free_sattr;
@@ -3482,9 +3517,6 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
     int level = -1;
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
-    struct pal_volume_data *voldata = NULL;
-    long voldB = 0;
-    float vol = 0;
 
     memset(&sAttr, 0, sizeof(struct pal_stream_attributes));
     status = s->getStreamAttributes(&sAttr);
@@ -3494,86 +3526,6 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
     }
 
     switch (static_cast<uint32_t>(tag)) {
-    case VOLUME_LVL:
-        voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
-                          (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
-        if (!voldata) {
-            status = -ENOMEM;
-            goto exit;
-        }
-
-        status = s->getVolumeData(voldata);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
-            goto error_1;
-        }
-
-        if (voldata->no_of_volpair == 1) {
-            vol = (voldata->volume_pair[0].vol);
-            PAL_VERBOSE(LOG_TAG,"volume sent:%f \n",(voldata->volume_pair[0].vol));
-        } else {
-            vol = (voldata->volume_pair[0].vol + voldata->volume_pair[1].vol)/2;
-            PAL_VERBOSE(LOG_TAG,"volume sent left:%f , right: %f \n",(voldata->volume_pair[0].vol),
-                      (voldata->volume_pair[1].vol));
-        }
-
-        /*scaling the volume by PLAYBACK_VOLUME_MAX factor*/
-        voldB = (long)((voldata->volume_pair[0].vol) * (PLAYBACK_VOLUME_MAX*1.0));
-
-        if (voldB == 0L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
-        }
-        else if (voldB <= 17L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
-        }
-        else if (voldB <= 38L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
-        }
-        else if (voldB <= 81L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
-        }
-        else if (voldB <= 121L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
-        }
-        else if (voldB <= 193L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
-        }
-        else if (voldB <= 307L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
-        }
-        else if (voldB <= 458L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
-        }
-        else if (voldB <= 728L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
-        }
-        else if (voldB <= 1157L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
-        }
-        else if (voldB <= 1551L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
-        }
-        else if (voldB <= 2185L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
-        }
-        else if (voldB <= 3078L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
-        }
-        else if (voldB <= 4129L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
-        }
-        else if (voldB <= 5816L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
-        }
-        else if (voldB <= 8192L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
-        }
-        else {
-            //Sending LEVEL_0 in default case.
-            PAL_INFO(LOG_TAG, "Setting default volume ckv as LEVEL_0");
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
-        }
-        break;
     case GAIN_LVL:
         level = s->getGainLevel();
         if (level != -1) {
@@ -3697,9 +3649,7 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
     }
 
     PAL_VERBOSE(LOG_TAG,"exit status- %d", status);
-error_1:
-    if (voldata)
-        free(voldata);
+
 exit:
     return status;
 }
@@ -3713,6 +3663,7 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
     int voldB = 0;
     float vol = 0.0f;
     int vol_index = 0;
+    size_t vol_size = 0;
 
     memset(&sAttr, 0, sizeof(struct pal_stream_attributes));
     status = s->getStreamAttributes(&sAttr);
@@ -3723,6 +3674,17 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
     }
 
     switch (tag) {
+    case PUSHPULL_CHMIXER_COEFFICIENT:
+        if (sAttr.in_media_config.ch_info.channels == 3) {
+            tkv.push_back(std::make_pair(PUSH_PULL_CHMIXER_COEFF, PUSH_PULL_CHMIXER_COEFF_3CH));
+        } else if (sAttr.in_media_config.ch_info.channels == 5) {
+            tkv.push_back(std::make_pair(PUSH_PULL_CHMIXER_COEFF, PUSH_PULL_CHMIXER_COEFF_5CH));
+        } else {
+            PAL_ERR(LOG_TAG, "valid out_num_channels for CHMIXER is 3CH and 5CH, returning error\n");
+            status = -EINVAL;
+        }
+        *gsltag = TAG_STREAM_PUSH_PULL_CHMIXER_COEFF;
+        break;
     case CRS_CALL_VOLUME:
        voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
                          (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
@@ -3730,7 +3692,7 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
            status = -ENOMEM;
            break;
        }
-       status = s->getVolumeData(voldata);
+       status = s->getVolumeData(voldata, &vol_size);
        if (0 != status) {
            PAL_ERR(LOG_TAG,"getVolumeData Failed \n");
            goto free_vol;

@@ -62,7 +62,6 @@ public:
     int32_t drain(pal_drain_type_t type) override;
     int32_t flush() override;
     int32_t suspend() override { return 0; };
-    int32_t setVolume( struct pal_volume_data *volume) override;
     int32_t mute(bool state) override;
     int32_t mute_l(bool state) override;
     int32_t getDeviceMute(pal_stream_direction_t dir __unused, bool *state __unused) override {return 0;}

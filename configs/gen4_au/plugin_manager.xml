@@ -91,6 +91,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <device name="PAL_DEVICE_OUT_BLUETOOTH_BLE" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <device name="PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <device name="PAL_DEVICE_IN_BLUETOOTH_BLE" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
+        <!--HFP-->
+        <device name="PAL_DEVICE_OUT_HFP_UPLINK" lib="libdev_hfpuplink.so" entryFunction="CreateHfpUplinkDevice"/>
+        <device name="PAL_DEVICE_IN_HFP_DOWNLINK" lib="libdev_hfpdownlink.so" entryFunction="CreateHfpDownlinkDevice"/>
         <!--FM-->
         <device name="PAL_DEVICE_OUT_FM" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
         <device name="PAL_DEVICE_IN_FM_TUNER" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
@@ -120,6 +123,11 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!--Dummy-->
         <device name="PAL_DEVICE_OUT_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
         <device name="PAL_DEVICE_IN_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
+        <!--A2B-->
+        <device name="PAL_DEVICE_OUT_A2B_SPKR" lib="libdev_a2bspeaker.so" entryFunction="Createa2bspeakerDevice"/>
+        <device name="PAL_DEVICE_IN_A2B_MIC" lib="libdev_a2bmic.so" entryFunction="Createa2bmicDevice"/>
+        <device name="PAL_DEVICE_OUT_A2B2_SPKR" lib="libdev_a2b2speaker.so" entryFunction="Createa2b2speakerDevice"/>
+        <device name="PAL_DEVICE_IN_A2B2_MIC" lib="libdev_a2b2mic.so" entryFunction="Createa2b2micDevice"/>
 
         <device name="PAL_DEVICE_OUT_HAPTICS_DEVICE" lib="libdev_haptics.so" entryFunction="CreateHapticsDevice"/>
         <device name="PAL_DEVICE_IN_EXT_EC_REF" lib="libdev_ext_ec.so" entryFunction="CreateExtEcDevice"/>

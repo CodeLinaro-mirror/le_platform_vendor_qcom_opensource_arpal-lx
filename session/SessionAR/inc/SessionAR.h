@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -107,6 +107,7 @@ typedef enum {
 #define CRS_CALL_VOLUME 51
 #define GAIN_LVL 52
 #define VOLUME_LVL 53
+#define PUSHPULL_CHMIXER_COEFFICIENT 54
 
 #define MSPP_SOFT_PAUSE_DELAY 150
 #define DEFAULT_RAMP_PERIOD 0x28
@@ -135,7 +136,7 @@ public:
     int HDRConfigKeyToDevOrientation(const char* hdr_custom_key);
     void setPmQosMixerCtl(pmQosVote vote);
     virtual int32_t getParameters(Stream *s, uint32_t param_id, void **payload) override;
-    virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) = 0;
+    virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) override { return 0; };
     virtual int setParameters(Stream *s, uint32_t param_id, void *payload) override;
     virtual int setParamWithTag(Stream *s, int tagId __unused, uint32_t param_id, void *payload) = 0;
     virtual int setConfig(Stream * s, configType type, int tag) = 0;

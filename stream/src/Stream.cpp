@@ -156,7 +156,7 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
             rm->isBtDevice(palDevsAttr[count].id)) {
             palDevsAttr[count].address = dAttr[i].address;
         }
-        PAL_VERBOSE(LOG_TAG, "count: %d, i: %d, length of dAttr custom_config: %d", count, i, strlen(dAttr[i].custom_config.custom_key));
+        PAL_VERBOSE(LOG_TAG, "count: %d, i: %d, length of dAttr custom_config: %zu", count, i, strlen(dAttr[i].custom_config.custom_key));
         if (strlen(dAttr[i].custom_config.custom_key)) {
             strlcpy(palDevsAttr[count].custom_config.custom_key, dAttr[i].custom_config.custom_key, PAL_MAX_CUSTOM_KEY_SIZE);
             PAL_DBG(LOG_TAG, "found custom key %s", dAttr[i].custom_config.custom_key);
@@ -563,7 +563,21 @@ exit:
     return status;
 }
 
-int32_t Stream::getVolumeData(struct pal_volume_data *vData)
+/**
+ * Retrieves the current volume data of the audio stream.
+ *
+ * This function takes a pointer to a pal_volume_data struct and a pointer to a size_t
+ * variable as input. It returns the current volume data in the pal_volume_data struct
+ * and the size of the data in the size_t variable.
+ *
+ * If the volume data has not been set yet, the function returns an error code of -EINVAL.
+ *
+ * @param vData A pointer to a pal_volume_data struct to store the volume data.
+ * @param size A pointer to a size_t variable to store the size of the volume data.
+ * @return An int32_t value indicating the result of the function. A value of 0
+ *         indicates success, while a non-zero value indicates an error.
+ */
+int32_t Stream::getVolumeData(struct pal_volume_data *vData, size_t *size)
 {
     int32_t status = 0;
 
@@ -574,10 +588,9 @@ int32_t Stream::getVolumeData(struct pal_volume_data *vData)
     }
 
     if (mVolumeData != NULL) {
-        ar_mem_cpy(vData, sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)),
-                      mVolumeData, sizeof(uint32_t) +
-                      (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)));
+        *size = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
+            (mVolumeData->no_of_volpair));
+        ar_mem_cpy(vData, *size, mVolumeData, *size);
 
         PAL_DBG(LOG_TAG, "num config %x", (mVolumeData->no_of_volpair));
         for(int32_t i=0; i < (mVolumeData->no_of_volpair); i++) {
@@ -1618,7 +1631,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     pal_device_id_t curBtDevId = PAL_DEVICE_NONE;
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
-
+    size_t vol_size = 0;
     rm->lockActiveStream();
     mStreamMutex.lock();
 
@@ -2036,7 +2049,7 @@ done:
             mStreamMutex.unlock();
             return -ENOMEM;
         }
-        status = streamHandle->getVolumeData(volume);
+        status = streamHandle->getVolumeData(volume, &vol_size);
         if (status) {
             PAL_ERR(LOG_TAG, "getVolumeData failed %d", status);
         }
@@ -2332,4 +2345,71 @@ bool Stream::isStreamSSRDownFeasibile()
     PAL_DBG(LOG_TAG, "Exit: is_ssr_down_feasible %d",
             is_ssr_down_feasible);
     return is_ssr_down_feasible;
+}
+
+
+/**
+ * Sets the volume of the audio stream.
+ *
+ * This function takes a pointer to a pal_volume_data struct as input, which contains
+ * information about the volume payload, including the number of volume pairs, channel
+ * mask, and gain values. It uses this information to set the volume of the stream,
+ * using a plugin-based architecture to control the volume.
+ *
+ * @param volume A pointer to a pal_volume_data struct containing the volume payload.
+ * @return An int32_t value indicating the result of the function. A value of 0
+ *         indicates success, while a non-zero value indicates an error.
+ */
+int32_t Stream::setVolume(struct pal_volume_data *volume) {
+    int32_t status = 0;
+    size_t vol_size = 0;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+    if (!volume || volume->no_of_volpair == 0) {
+        if (volume)
+            PAL_ERR(LOG_TAG, "Error no of vol pair is %d", (volume->no_of_volpair));
+        status = -EINVAL;
+        goto exit;
+    }
+
+    /*if already allocated free and reallocate */
+    if (mVolumeData) {
+        free(mVolumeData);
+    }
+
+    vol_size = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) *
+        (volume->no_of_volpair));
+
+    mVolumeData = (struct pal_volume_data*)calloc(1, vol_size);
+    if (!mVolumeData) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "mVolumeData malloc failed %s", strerror(errno));
+        goto exit;
+    }
+
+    //mStreamMutex.lock();
+    ar_mem_cpy(mVolumeData, vol_size, volume, vol_size);
+    //mStreamMutex.unlock();
+    for (int32_t i = 0; i < (mVolumeData->no_of_volpair); i++) {
+        PAL_INFO(LOG_TAG, "Volume payload mask:%x vol:%f",
+            (mVolumeData->volume_pair[i].channel_mask), (mVolumeData->volume_pair[i].vol));
+    }
+    /* Allow caching of stream volume as part of mVolumeData
+     * till the pcm_open is not done or if sound card is
+     * offline.
+     */
+    if (rm->cardState == CARD_STATUS_ONLINE && currentState != STREAM_IDLE
+        && currentState != STREAM_INIT) {
+        status = rm->controlPluginSet(this, PLUGIN_CONTROL_VOLUME,
+            (void*)mVolumeData, vol_size);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Plugin Control Volume failed %d",
+                status);
+            goto exit;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
+        (volume->no_of_volpair), (volume->volume_pair->channel_mask),
+        (volume->volume_pair->vol));
+exit:
+    return status;
 }

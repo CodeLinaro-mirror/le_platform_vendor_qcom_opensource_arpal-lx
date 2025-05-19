@@ -14,6 +14,7 @@ LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/device/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/utils/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/context_manager/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/codecs
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/controls
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/PluginManager/inc
 
 LOCAL_VENDOR_MODULE := true
@@ -85,7 +86,8 @@ LOCAL_SRC_FILES := \
     utils/src/MetadataParser.cpp \
     utils/src/MemLogBuilder.cpp \
     utils/src/PerfLock.cpp \
-    utils/src/STUtils.cpp
+    utils/src/STUtils.cpp \
+    utils/src/SharedMemoryUtils.cpp
 
 LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
@@ -151,13 +153,19 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_bt \
         libdev_fm \
         libdev_usb \
+        libdev_a2bmic \
+        libdev_a2bspeaker \
+        libdev_a2b2mic \
+        libdev_a2b2speaker \
         libdev_ultrasound \
         libdev_proxy \
         libdev_display \
         libdev_dummy \
         libdev_haptics \
         libdev_ext_ec \
-        libdev_ec_ref
+        libdev_ec_ref \
+        libdev_hfpdownlink \
+        libdev_hfpuplink
 endif #end of static compilation
 
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
@@ -195,6 +203,8 @@ LOCAL_CFLAGS += -Wall -Werror -Wno-unused-function -Wno-unused-variable
 LOCAL_SHARED_LIBRARIES += libcutils liblog
 
 LOCAL_C_INCLUDES := $(LOCAL_PATH)/utils/inc
+LOCAL_C_INCLUDES += $(TOP)/system/media/audio/include
+LOCAL_C_INCLUDES += $(TOP)/system/media/audio_route/include
 
 include $(BUILD_SHARED_LIBRARY)
 
@@ -215,7 +225,9 @@ LOCAL_HEADER_LIBRARIES := \
     libarpal_headers
 
 LOCAL_SHARED_LIBRARIES := \
-                          libpalclient
+                          libpalclient \
+                          libcutils
+
 LOCAL_VENDOR_MODULE := true
 
 include $(BUILD_EXECUTABLE)

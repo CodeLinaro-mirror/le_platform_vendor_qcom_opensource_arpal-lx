@@ -367,7 +367,8 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
     }
 
 exit:
-    PAL_INFO(LOG_TAG, "Exit. status %d", status);
+    PAL_INFO(LOG_TAG, "Exit. status %d type %d stream_handle %pK",
+            status, sAttr.type, stream_handle );
     kpiEnqueue(__func__, false);
     return status;
 }

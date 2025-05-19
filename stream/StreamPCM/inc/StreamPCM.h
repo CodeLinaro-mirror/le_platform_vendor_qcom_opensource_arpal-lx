@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -57,7 +57,6 @@ public:
    int32_t start() override;
    int32_t stop() override;
    int32_t prepare() override;
-   int32_t setVolume( struct pal_volume_data *volume) override;
    int32_t mute(bool state) override;
    int32_t mute_l(bool state) override;
    int32_t getDeviceMute(pal_stream_direction_t dir, bool *state) override;
@@ -66,7 +65,7 @@ public:
    int32_t pause_l() override;
    int32_t resume() override;
    int32_t resume_l() override;
-   int32_t drain(pal_drain_type_t type __unused) override { return 0; };
+   int32_t drain(pal_drain_type_t type) override;
    int32_t suspend() { return 0; };
    int32_t flush() override;
    int32_t addRemoveEffect(pal_audio_effect_t effect, bool enable) override;

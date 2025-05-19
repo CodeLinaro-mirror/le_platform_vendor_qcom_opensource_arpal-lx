@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -190,6 +190,7 @@ int32_t Device::initHdrRoutine(const char *hdr_custom_key)
 
 Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
 {
+   if (Rm != NULL) {
     rm = Rm;
     rm->getHwAudioMixer(&hwMixerHandle);
     rm->getVirtualAudioMixer(&virtualMixerHandle);
@@ -203,7 +204,9 @@ Device::Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     strlcpy(mSndDeviceName, "", DEVICE_NAME_MAX_SIZE);
     mCurrentPriority = MIN_USECASE_PRIORITY;
     PAL_DBG(LOG_TAG,"device instance for id %d created", device->id);
-
+   }
+    else
+       PAL_ERR(LOG_TAG, "Rm is NULL");
 }
 
 Device::Device()
@@ -417,8 +420,15 @@ int Device::close()
            disableDevice(audioRoute, mSndDeviceName);
            mCurrentPriority = MIN_USECASE_PRIORITY;
            deviceStartStopCount = 0;
-           if(rm->getProxyChannels() != 0)
-               rm->setProxyChannels(0);
+           if(rm) {
+               if(rm->getProxyChannels() != 0)
+                   rm->setProxyChannels(0);
+           }
+           else {
+                    PAL_ERR(LOG_TAG, "Failed to get proxy channel, rm is null: "
+                           "deviceCount %d for device id %d (%s)",
+                            deviceCount, this->deviceAttr.id, mPALDeviceName.c_str());
+           }
        }
     }
     PAL_INFO(LOG_TAG, "Exit. deviceCount %d for device id %d (%s), exit status %d", deviceCount,
@@ -724,7 +734,7 @@ int Device::insertStreamDeviceAttr(struct pal_device *inDevAttr,
                                  Stream* streamHandle)
 {
     pal_device_info inDevInfo, curDevInfo;
-    struct pal_device *curDevAttr, *newDevAttr;
+    struct pal_device *curDevAttr = nullptr, *newDevAttr = nullptr;
     std::string key = "";
     pal_stream_attributes strAttr;
 
@@ -946,8 +956,9 @@ unsigned int Device::palToSndDriverFormat(uint32_t fmt_id)
             return SNDRV_PCM_FORMAT_S24_3LE;
         case PAL_AUDIO_FMT_PCM_S24_LE:
             return SNDRV_PCM_FORMAT_S24_LE;
-        default:
         case PAL_AUDIO_FMT_PCM_S16_LE:
+            return SNDRV_PCM_FORMAT_S16_LE;
+        default:
             return SNDRV_PCM_FORMAT_S16_LE;
     };
 }
@@ -961,8 +972,9 @@ unsigned int Device::bitsToAlsaFormat(unsigned int bits)
             return SNDRV_PCM_FORMAT_S8;
         case 24:
             return SNDRV_PCM_FORMAT_S24_3LE;
-        default:
         case 16:
+            return SNDRV_PCM_FORMAT_S16_LE;
+        default:
             return SNDRV_PCM_FORMAT_S16_LE;
     };
 }
