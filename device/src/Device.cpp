@@ -732,7 +732,7 @@ int Device::insertStreamDeviceAttr(struct pal_device *inDevAttr,
                                  Stream* streamHandle)
 {
     pal_device_info inDevInfo, curDevInfo;
-    struct pal_device *curDevAttr, *newDevAttr;
+    struct pal_device *curDevAttr = nullptr, *newDevAttr = nullptr;
     std::string key = "";
     pal_stream_attributes strAttr;
 

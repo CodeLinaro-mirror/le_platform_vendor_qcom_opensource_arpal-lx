@@ -328,16 +328,12 @@ int32_t USB::checkAndUpdateSampleRate(unsigned int *sampleRate __unused)
 
 int32_t USB::getParameter(uint32_t param_id, void **inputParam)
 {
-    int *ckv = nullptr;
+    int ckv = 0;
     int32_t status = 0;
     switch(param_id) {
         case PAL_PARAM_ID_VENDOR_UUID:
-            *ckv = getVendorIdCkv();
-            if(ckv == nullptr ) {
-                PAL_ERR(LOG_TAG, "ckv is null!\n");
-                return -EINVAL;
-            }
-            memcpy(*inputParam, ckv, sizeof(int));
+            ckv = getVendorIdCkv();
+            memcpy(*inputParam, &ckv, sizeof(int));
         break;
         default :
             PAL_ERR(LOG_TAG, "Unsupported operation");

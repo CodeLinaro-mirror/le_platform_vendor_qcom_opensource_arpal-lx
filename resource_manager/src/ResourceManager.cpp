@@ -4396,6 +4396,10 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
                 if (switchNeeded)
                     streamsToSwitch.push_back(sharedStream);
 
+                if (!curDevAttr) {
+                    PAL_ERR(LOG_TAG, "Unable to get Device attributes for haptics setup");
+                    return;
+                }
                 curDevAttr->id = (pal_device_id_t)std::get<1>(elem);
                 curDev = Device::getInstance(curDevAttr, rm);
                 if (!curDev) {
