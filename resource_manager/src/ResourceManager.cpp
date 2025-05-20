@@ -2826,21 +2826,34 @@ int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
 int ResourceManager::initStreamUserCounter(Stream *s)
 {
     lockValidStreamMutex();
+<<<<<<< HEAD   (3f6027 PAL: Fix and invalid pointer de-reference while deRegisterde)
     mActiveStreamUserCounter.insert(std::make_pair(s, 0));
+=======
+    mActiveStreamUserCounter.insert(std::make_pair(s, std::pair(0, true)));
+    s->initStreamSmph();
+>>>>>>> CHANGE (f5977f pal: fix deadlock issue for active stream user counter)
     unlockValidStreamMutex();
     return 0;
 }
 
-int ResourceManager::deinitStreamUserCounter(Stream *s)
+int ResourceManager::deactivateStreamUserCounter(Stream *s)
 {
-    std::map<Stream *, uint32_t>::iterator it;
+    std::map<Stream *, std::pair<uint32_t, bool>>::iterator it;
     lockValidStreamMutex();
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
+<<<<<<< HEAD   (3f6027 PAL: Fix and invalid pointer de-reference while deRegisterde)
         PAL_INFO(LOG_TAG, "stream %p is to be erased.", s);
         mActiveStreamUserCounter.erase(it);
+=======
+        PAL_DBG(LOG_TAG, "stream %p is to be deactivated.", s);
+        it->second.second = false;
+>>>>>>> CHANGE (f5977f pal: fix deadlock issue for active stream user counter)
         unlockValidStreamMutex();
+        s->waitStreamSmph();
+        PAL_DBG(LOG_TAG, "stream %p is inactive.", s);
+        s->deinitStreamSmph();
         return 0;
     } else {
         PAL_ERR(LOG_TAG, "stream %p is not found.", s);
@@ -2849,58 +2862,77 @@ int ResourceManager::deinitStreamUserCounter(Stream *s)
     }
 }
 
-int ResourceManager::increaseStreamUserCounter(Stream* s)
+int ResourceManager::eraseStreamUserCounter(Stream *s)
 {
-    std::map<Stream *, uint32_t>::iterator it;
-    printStreamUserCounter(s);
+    std::map<Stream*, std::pair<uint32_t, bool>>::iterator it;
+    lockValidStreamMutex();
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
-        if (0 == it->second) {
+        mActiveStreamUserCounter.erase(it);
+        PAL_DBG(LOG_TAG, "stream counter for %p is erased.", s);
+        unlockValidStreamMutex();
+        return 0;
+    } else {
+        PAL_ERR(LOG_TAG, "stream counter for %p is not found.", s);
+        unlockValidStreamMutex();
+        return -EINVAL;
+    }
+}
+
+int ResourceManager::increaseStreamUserCounter(Stream* s)
+{
+    std::map<Stream *, std::pair<uint32_t, bool>>::iterator it;
+    printStreamUserCounter(s);
+    it = mActiveStreamUserCounter.find(s);
+    if (it != mActiveStreamUserCounter.end() &&
+            it->second.second) {
+        if (0 == it->second.first) {
             s->waitStreamSmph();
             PAL_DBG(LOG_TAG, "stream %p in use", s);
         }
-        PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second);
-        it->second = it->second + 1;
-        PAL_DBG(LOG_TAG, "stream %p counter increased to %d", s, it->second);
+        PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second.first);
+        it->second.first = it->second.first + 1;
+        PAL_DBG(LOG_TAG, "stream %p counter increased to %d", s, it->second.first);
         return 0;
     } else {
-        PAL_ERR(LOG_TAG, "stream %p is not found.",s);
+        PAL_ERR(LOG_TAG, "stream %p is not found or inactive.",s);
         return -EINVAL;
     }
 }
 
 int ResourceManager::decreaseStreamUserCounter(Stream* s)
 {
-    std::map<Stream *, uint32_t>::iterator it;
+    std::map<Stream *, std::pair<uint32_t, bool>>::iterator it;
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
-    if (it != mActiveStreamUserCounter.end()) {
-        PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second);
-        if (0 == it->second) {
+    if (it != mActiveStreamUserCounter.end() &&
+            it->second.second) {
+        PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second.first);
+        if (0 == it->second.first) {
             PAL_ERR(LOG_TAG, "counter of stream %p has already been 0.",s);
             return -EINVAL;
         }
 
-        it->second = it->second - 1;
-        if (0 == it->second) {
+        it->second.first = it->second.first - 1;
+        if (0 == it->second.first) {
             PAL_DBG(LOG_TAG, "stream %p not in use", s);
             s->postStreamSmph();
         }
-        PAL_DBG(LOG_TAG, "stream %p counter decreased to %d", s, it->second);
+        PAL_DBG(LOG_TAG, "stream %p counter decreased to %d", s, it->second.first);
         return 0;
     } else {
-        PAL_ERR(LOG_TAG, "stream %p is not found.",s);
+        PAL_ERR(LOG_TAG, "stream %p is not found or inactive.",s);
         return -EINVAL;
     }
 }
 
 int ResourceManager::getStreamUserCounter(Stream *s)
 {
-    std::map<Stream *, uint32_t>::iterator it;
+    std::map<Stream *, std::pair<uint32_t, bool>>::iterator it;
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
-        return it->second;
+        return it->second.first;
     } else {
         PAL_ERR(LOG_TAG, "stream %p is not found.",s);
         return -EINVAL;
@@ -2909,11 +2941,11 @@ int ResourceManager::getStreamUserCounter(Stream *s)
 
 int ResourceManager::printStreamUserCounter(Stream *s)
 {
-    std::map<Stream *, uint32_t>::iterator it;
+    std::map<Stream *, std::pair<uint32_t, bool>>::iterator it;
     for (it = mActiveStreamUserCounter.begin();
             it != mActiveStreamUserCounter.end(); it++) {
-        PAL_VERBOSE(LOG_TAG, "stream = %p count = %d",
-                    it->first, it->second);
+        PAL_VERBOSE(LOG_TAG, "stream = %p count = %d active = %d",
+                    it->first, it->second.first, it->second.second);
     }
 
     return 0;
