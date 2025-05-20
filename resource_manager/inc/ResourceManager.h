@@ -468,7 +468,7 @@ protected:
     std::vector <std::pair<std::shared_ptr<Device>, Stream*>> active_devices;
     std::vector <std::shared_ptr<Device>> plugin_devices_;
     std::vector <pal_device_id_t> avail_devices_;
-    std::map<Stream*, uint32_t> mActiveStreamUserCounter;
+    std::map<Stream*, std::pair<uint32_t, bool>> mActiveStreamUserCounter;
     bool bOverwriteFlag;
     bool screen_state_;
     bool charging_state_;
@@ -634,7 +634,8 @@ public:
     int deregisterStream(Stream *s);
     int isActiveStream(pal_stream_handle_t *handle);
     int initStreamUserCounter(Stream *s);
-    int deinitStreamUserCounter(Stream *s);
+    int deactivateStreamUserCounter(Stream *s);
+    int eraseStreamUserCounter(Stream *s);
     int increaseStreamUserCounter(Stream* s);
     int decreaseStreamUserCounter(Stream* s);
     int getStreamUserCounter(Stream *s);
