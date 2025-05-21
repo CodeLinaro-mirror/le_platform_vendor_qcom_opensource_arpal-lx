@@ -6,15 +6,9 @@ EXTRA_DIST = $(pkgconfig_DATA)
 if BUILDSYSTEM_OPENWRT
 
 AM_CPPFLAGS := -I $(srcdir)/stream/inc
-AM_CPPFLAGS += -I $(srcdir)/stream/StreamACDB/inc
 AM_CPPFLAGS += -I $(srcdir)/device/inc
 AM_CPPFLAGS += -I $(srcdir)/session/inc
 AM_CPPFLAGS += -I $(srcdir)/session/SessionAR/inc
-AM_CPPFLAGS += -I $(srcdir)/session/SessionAlsaCompress/inc
-AM_CPPFLAGS += -I $(srcdir)/session/SessionAgm/inc
-AM_CPPFLAGS += -I $(srcdir)/session/SessionAlsaVoice/inc
-AM_CPPFLAGS += -I $(srcdir)/session/SessionAlsaPcm/inc
-AM_CPPFLAGS += -I $(srcdir)/session/SessionAR/inc/
 AM_CPPFLAGS += -I $(srcdir)/context_manager/inc
 AM_CPPFLAGS += -I $(srcdir)/plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(srcdir)/resource_manager/inc
@@ -43,14 +37,8 @@ pal_sources = ./stream/src/Stream.cpp \
               ./utils/src/STUtils.cpp
 else
 AM_CPPFLAGS := -I $(top_srcdir)/stream/inc
-AM_CPPFLAGS += -I $(top_srcdir)/stream/StreamACDB/inc
 AM_CPPFLAGS += -I $(top_srcdir)/device/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/inc
-AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAR/inc
-AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAlsaCompress/inc
-AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAgm/inc
-AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAlsaVoice/inc
-AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAlsaPcm/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAR/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
@@ -87,17 +75,7 @@ AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result -Wl,-z,defs
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DFEATURE_IPQ_OPENWRT
 
-h_sources = ${top_srcdir}/utils/inc/MetadataParser.h \
-            ${top_srcdir}/stream/StreamACDB/inc/StreamACDB.h \
-            ${top_srcdir}/session/SessionAR/inc/SessionAlsaUtils.h \
-            ${top_srcdir}/session/SessionAlsaCompress/inc/SessionAlsaCompress.h \
-            ${top_srcdir}/session/SessionAgm/inc/SessionAgm.h \
-            ${top_srcdir}/session/SessionAlsaVoice/inc/SessionAlsaVoice.h \
-            ${top_srcdir}/session/SessionAlsaPcm/inc/SessionAlsaPcm.h \
-            ${top_srcdir}/session/SessionAR/inc/SessionAR.h \
-            ${top_srcdir}/PalCommon.h
 
-library_include_HEADERS = $(h_sources)
 library_includedir = $(includedir)/pal
 lib_LTLIBRARIES     = libpal.la
 libpal_la_SOURCES   = $(pal_sources)

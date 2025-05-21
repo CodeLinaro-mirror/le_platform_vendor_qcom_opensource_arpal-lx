@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -131,6 +131,9 @@ protected:
     pal_device_id_t ecRefDevId;
     bool isPauseRegistrationDone = false;
     int32_t setInitialVolume();
+    int rwACDBParamTunnel(custom_payload_uc_info_t* uc_info, void *payload, Stream *s, bool isWrite);
+    int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
+    int setEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
 public:
     SessionAR();
     static void handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id, void *data, uint32_t event_size);
@@ -172,9 +175,6 @@ public:
     std::vector<std::pair<int32_t, std::string>>& getTxBEVecRef() { return txAifBackEnds; };
     bool getIsPauseRegistrationDone() { return isPauseRegistrationDone; };
     void setIsPauseRegistrationDone(bool isDone) { isPauseRegistrationDone = isDone; };
-    int rwACDBParamTunnel(custom_payload_uc_info_t* uc_info, void *payload, Stream *s, bool isWrite);
-    int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
-    int setEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
 private:
     uint32_t getModuleInfo(const char *control, uint32_t tagId, uint32_t *miid, struct mixer_ctl **ctl, int *device);
     int setEffectParametersTKV(Stream *s, effect_pal_payload_t *effectPayload);
