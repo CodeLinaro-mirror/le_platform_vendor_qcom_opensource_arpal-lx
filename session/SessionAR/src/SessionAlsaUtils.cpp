@@ -886,7 +886,7 @@ exit:
     acdbGKVSet.clear();
     if(builder) {
        delete builder;
-       builder = NULL;
+       builder = nullptr; // prevent double deletion
     }
 
     PAL_DBG(LOG_TAG,"Exit, status %d", status);
@@ -1451,16 +1451,19 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         status = rmHandle->getVsidInfo(&vsidinfo);
         if(status) {
             PAL_ERR(LOG_TAG, "get vsid info failed");
+            goto exit;
         }
 
         status = rmHandle->getSidetoneMode((pal_device_id_t)txBackEnds[0].first, sAttr.type, &sidetoneMode);
         if(status) {
             PAL_ERR(LOG_TAG, "get sidetone mode failed");
+            goto exit;
         }
     }
     // get streamKV
-    if ((status = builder->populateStreamKV(streamHandle, streamRxKV,
-                    streamTxKV, vsidinfo)) != 0) {
+    status = builder->populateStreamKV(streamHandle, streamRxKV,
+                    streamTxKV, vsidinfo);
+    if (status != 0) {
         PAL_ERR(LOG_TAG, "get stream KV for Rx/Tx failed %d", status);
         goto exit;
     }
@@ -1951,19 +1954,31 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
         }
     }
 freeTxMetaData:
-    if (streamDeviceTxMetaData.buf)
+    if (streamDeviceTxMetaData.buf) {
         free(streamDeviceTxMetaData.buf);
-    if (deviceTxMetaData.buf)
+        streamDeviceTxMetaData.buf = NULL;
+    }
+    if (deviceTxMetaData.buf) {
         free(deviceTxMetaData.buf);
-    if (streamTxMetaData.buf)
+        deviceTxMetaData.buf = NULL;
+    }
+    if (streamTxMetaData.buf) {
         free(streamTxMetaData.buf);
+        streamTxMetaData.buf = NULL;
+    }
 freeRxMetaData:
-    if (streamDeviceRxMetaData.buf)
+    if (streamDeviceRxMetaData.buf) {
         free(streamDeviceRxMetaData.buf);
-    if (deviceRxMetaData.buf)
+        streamDeviceRxMetaData.buf = NULL;
+    }
+    if (deviceRxMetaData.buf) {
         free(deviceRxMetaData.buf);
-    if (streamRxMetaData.buf)
+        deviceRxMetaData.buf = NULL;
+    }
+    if (streamRxMetaData.buf) {
         free(streamRxMetaData.buf);
+        streamRxMetaData.buf = NULL;
+    }
 exit:
     return status;
 }
@@ -2478,29 +2493,30 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
         }
     }
 
-    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first))
+    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first)) {
         status = builder->populateStreamDeviceKV(streamHandle,
             aifBackEndsToConnect[0].first, streamDeviceKV, 0, emptyKV, vsidinfo,
                                                  sidetoneMode);
-    else
+    } else {
         status = builder->populateStreamDeviceKV(streamHandle,
             0, emptyKV, aifBackEndsToConnect[0].first, streamDeviceKV, vsidinfo,
                                                  sidetoneMode);
-
+    }
     if (status) {
         PAL_VERBOSE(LOG_TAG, "get stream device KV failed %d", status);
         status = 0; /**< ignore stream device KV failures */
     }
-    if ((status = builder->populateDeviceKV(streamHandle,
-                    aifBackEndsToConnect[0].first, deviceKV)) != 0) {
+
+    status = builder->populateDeviceKV(streamHandle, aifBackEndsToConnect[0].first, deviceKV);
+    if (status != 0) {
         PAL_ERR(LOG_TAG, "get device KV failed %d", status);
         goto exit;
     }
-    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first))
+    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first)) {
         status = builder->populateDevicePPKV(streamHandle,
                 aifBackEndsToConnect[0].first, streamDeviceKV,
                 0, emptyKV);
-    else {
+    } else {
         rmHandle->getDeviceInfo(dAttr.id, streamType,
                                 dAttr.custom_config.custom_key, &devinfo);
         status = builder->populateDevicePPKV(streamHandle, 0, emptyKV,
@@ -2883,7 +2899,7 @@ int SessionAlsaUtils::setSlotMask(const std::shared_ptr<ResourceManager>& rm, st
 {
     int status = 0;
     std::vector <std::pair<int, int>> tkv;
-    struct agm_tag_config* tagConfig = NULL;
+    struct agm_tag_config* tagConfig = nullptr;
     const char *setParamTagControl = " setParamTag";
     const char *streamPcm = "PCM";
     const char *streamComp = "COMPRESS";
