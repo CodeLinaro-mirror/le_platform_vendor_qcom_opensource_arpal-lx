@@ -141,6 +141,11 @@ int32_t voicePostCommonReconfig(Stream* s, void* pluginPayload)
         goto exit;
     }
     session = static_cast<SessionAlsaVoice*>(sess);
+    if (session == nullptr) {
+        PAL_ERR(LOG_TAG, "failed getting Voice Session");
+        status = -EINVAL;
+        goto exit;
+    }
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
         PAL_ERR(LOG_TAG,"stream get attributes failed");

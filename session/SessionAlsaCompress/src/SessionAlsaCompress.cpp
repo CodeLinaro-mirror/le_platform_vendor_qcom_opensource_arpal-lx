@@ -661,7 +661,8 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
                 break; // exit the thread
 
             if (msg && msg->cmd == OFFLOAD_CMD_WAIT_FOR_BUFFER) {
-                if (compressObj->rm->getSoundCardState() == CARD_STATUS_ONLINE) {
+                if (compressObj->rm->getSoundCardState() == CARD_STATUS_ONLINE &&
+                         compressObj->compress != NULL) {
                     PAL_VERBOSE(LOG_TAG, "calling compress_wait");
                     ret = compress_wait(compressObj->compress, -1);
                     PAL_VERBOSE(LOG_TAG, "out of compress_wait, ret %d", ret);
@@ -1384,6 +1385,11 @@ int SessionAlsaCompress::start(Stream * s)
 
             ppld.builder = reinterpret_cast<void*>(builder);
             ppld.payload = reinterpret_cast<void*>(&audio_fmt);
+
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
             //previous logic in config plugin
             ret = pluginConfig(s, PAL_PLUGIN_CONFIG_START, reinterpret_cast<void*>(&ppld), sizeof(ppld));
             if (ret) {
@@ -1420,6 +1426,11 @@ int SessionAlsaCompress::start(Stream * s)
                 goto exit;
             }
             PAL_VERBOSE(LOG_TAG, "capture: compress is ready");
+
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
             //previous logic in config plugin
             ppld.builder = reinterpret_cast<void*>(builder);
             ret = pluginConfig(s, PAL_PLUGIN_CONFIG_START, reinterpret_cast<void*>(&ppld), sizeof(ppld));
@@ -1450,6 +1461,10 @@ int SessionAlsaCompress::start(Stream * s)
                 PAL_ERR(LOG_TAG,"Setting device orientation failed");
             }
         } else {
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
             //call device rotation logic in plugin
             ret = pluginConfig(s, PAL_PLUGIN_CONFIG_POST_START, reinterpret_cast<void*>(this), 0);
             if (ret) {
@@ -1922,6 +1937,10 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 ppld.session = this;
                 ppld.builder = reinterpret_cast<void*>(builder);
                 ppld.payload = reinterpret_cast<void*>(&audio_fmt);
+                if(pluginConfig == nullptr) {
+                    PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                    return -EINVAL;
+                }
                 ret = pluginConfig(s, PAL_PLUGIN_CONFIG_SETPARAM, reinterpret_cast<void*>(&ppld), sizeof(SetParamPluginPayload));
                 if (ret) {
                     PAL_ERR(LOG_TAG, "Config Plugin Unsuccessful.");
