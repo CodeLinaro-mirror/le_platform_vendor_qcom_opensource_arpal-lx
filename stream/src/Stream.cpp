@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -35,6 +35,7 @@
 #include <semaphore.h>
 #include "Stream.h"
 #include "Session.h"
+#include "SessionAR.h"
 #include "ResourceManager.h"
 #include "Device.h"
 #include "mem_logger.h"
@@ -66,7 +67,7 @@ Stream::Stream() {
     if (session) {
         delete session;
         session = nullptr;
-        if (Session::pm)
+        if (Session::pm && mStreamAttr)
             Session::pm->closePlugin(PAL_PLUGIN_MANAGER_SESSION,
                                      streamNameLUT.at(mStreamAttr->type));
     }
@@ -296,6 +297,79 @@ const std::string& Stream::getStreamSelector() const {
 
 const std::string& Stream::getDevicePPSelector() const {
     return mDevPPSelector;
+}
+
+int32_t  Stream::getModifiers(struct modifier_kv *modifiers,uint32_t *noOfModifiers)
+{
+    int32_t status = 0;
+
+    if (!mModifiers || !noOfModifiers) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid modifers pointer, status %d", status);
+        goto exit;
+    }
+    ar_mem_cpy (modifiers, sizeof(modifier_kv), mModifiers,
+                      sizeof(modifier_kv));
+    *noOfModifiers = mNoOfModifiers;
+    PAL_DBG(LOG_TAG, "noOfModifiers %u", *noOfModifiers);
+exit:
+    return status;
+}
+
+int32_t Stream::getEffectParameters(void *effect_query)
+{
+    int32_t status = 0;
+
+    if (!effect_query) {
+        PAL_ERR(LOG_TAG, "invalid query");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+    pal_param_payload *pal_param = (pal_param_payload *)effect_query;
+    effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
+    status = (static_cast<SessionAR*>(session))->getEffectParameters(this, effectPayload);
+    if (status) {
+       PAL_ERR(LOG_TAG, "getParameters failed with %d", status);
+    }
+    mStreamMutex.unlock();
+
+    return status;
+}
+
+int32_t Stream::setEffectParameters(void *effect_param)
+{
+    int32_t status = 0;
+
+    if (!effect_param) {
+        PAL_ERR(LOG_TAG, "invalid query");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+
+    pal_param_payload *pal_param = (pal_param_payload *)effect_param;
+    effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
+    mGetParamMutex.lock();
+    status = (static_cast<SessionAR*>(session))->setEffectParameters(this, effectPayload);
+    mGetParamMutex.unlock();
+    if (status) {
+       PAL_ERR(LOG_TAG, "setEffectParameters failed with %d", status);
+    }
+
+    mStreamMutex.unlock();
+
+    return status;
 }
 
 int32_t Stream::getStreamType (pal_stream_type_t* streamType)

@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -41,11 +40,7 @@
 #include <thread>
 #include <mutex>
 #include <string>
-#ifdef FEATURE_IPQ_OPENWRT
-#include "audio_route.h"
-#else
 #include "audio_route/audio_route.h"
-#endif
 #include <array>
 #include <map>
 #include <set>
@@ -765,6 +760,9 @@ public:
 
     int setParameter(uint32_t param_id, void *param_payload,
                      size_t payload_size);
+    int setParameter(uint32_t param_id, void *param_payload,
+                     size_t payload_size, pal_device_id_t pal_device_id,
+                     pal_stream_type_t pal_stream_type);
     int setCustomParam(custom_payload_uc_info_t* uc_info,
                      const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                      void* param_payload, size_t payload_size);
@@ -775,6 +773,13 @@ public:
     int getCustomParam(custom_payload_uc_info_t* uc_info,
                            const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                            void* param_payload, size_t* payload_size);
+    int rwParameterACDB(uint32_t param_id, void *param_payload,
+                     size_t payload_size, pal_device_id_t pal_device_id,
+                     pal_stream_type_t pal_stream_type, uint32_t sample_rate,
+                     uint32_t instance_id, bool is_param_write, bool is_play);
+    int getParameter(uint32_t param_id, void *param_payload,
+                     size_t payload_size, pal_device_id_t pal_device_id,
+                     pal_stream_type_t pal_stream_type);
     int getVirtualSndCard();
     int getHwSndCard();
     int getPcmDeviceId(int deviceId);

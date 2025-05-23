@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -36,13 +36,16 @@
 
 #include <log/log.h>
 #include "CustomVAInterface.h"
+#include <stdexcept>
 #ifdef FEATURE_IPQ_OPENWRT
 #include <stdexcept>
 #include <cstring>
 #include <memory>
 #endif
+#ifndef PAL_CUTILS_UNSUPPORTED
 #include <cutils/properties.h>
-
+#endif
+#define FEATURE_IPQ_OPENWRT
 #define ST_MAX_FSTAGE_CONF_LEVEL  (100)
 #define CUSTOM_CONFIG_OPAQUE_DATA_SIZE 12
 #define CONF_LEVELS_INTF_VERSION_0002 0x02
