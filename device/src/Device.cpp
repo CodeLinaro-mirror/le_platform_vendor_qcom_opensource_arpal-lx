@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -392,7 +392,12 @@ int Device::open()
                     PAL_ERR(LOG_TAG, "Failed to set QMP hdr config");
             }
         }
-        enableDevice(audioRoute, mSndDeviceName);
+        if (rm->isNonAlsaBackend(backEndName)) {
+            devObj->enableCodecRoute(backEndName, mSndDeviceName);
+        } else {
+            enableDevice(audioRoute, mSndDeviceName);
+        }
+
     }
     ++deviceCount;
 
@@ -413,8 +418,15 @@ int Device::close()
         --deviceCount;
 
        if (deviceCount == 0) {
+           std::string backEndName;
            PAL_DBG(LOG_TAG, "Disabling device %d with snd dev %s", deviceAttr.id, mSndDeviceName);
-           disableDevice(audioRoute, mSndDeviceName);
+           rm->getBackendName(this->deviceAttr.id, backEndName);
+           if (rm->isNonAlsaBackend(backEndName)) {
+               devObj = Device::getInstance(&deviceAttr, rm);
+               devObj->disableCodecRoute(backEndName, mSndDeviceName);
+           } else {
+               disableDevice(audioRoute, mSndDeviceName);
+           }
            mCurrentPriority = MIN_USECASE_PRIORITY;
            deviceStartStopCount = 0;
            if(rm->getProxyChannels() != 0)
@@ -1086,4 +1098,52 @@ int Device::setMediaConfig(std::shared_ptr<ResourceManager> rmHandle,
 
     return mixer_ctl_set_array(ctl, &aif_media_config,
                                sizeof(aif_media_config)/sizeof(aif_media_config[0]));
+}
+
+int Device::enableCodecRoute(std::string backEndName, std::string sndDevice)
+{
+    struct mixer_ctl *ctl = NULL;
+    struct mixer *mixerHandle = NULL;
+    int status = 0;
+
+    status = rm->getVirtualAudioMixer(&mixerHandle);
+    if (status) {
+        PAL_ERR(LOG_TAG, "Error: Failed to get mixer handle\n");
+        return status;
+    }
+
+    ctl = getBeMixerControl(mixerHandle, backEndName , BE_ENABLE_CODEC_ROUTE);
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "invalid mixer control: %s %s", backEndName.c_str(),
+                beCtrlNames[BE_ENABLE_CODEC_ROUTE]);
+        return -EINVAL;
+    }
+
+    PAL_INFO(LOG_TAG, "Apply path: %s", sndDevice.c_str());
+
+    return mixer_ctl_set_enum_by_string(ctl, (const char *)sndDevice.c_str());
+}
+
+int Device::disableCodecRoute(std::string backEndName, std::string sndDevice)
+{
+    struct mixer_ctl *ctl = NULL;
+    struct mixer *mixerHandle = NULL;
+    int status = 0;
+
+    status = rm->getVirtualAudioMixer(&mixerHandle);
+    if (status) {
+        PAL_ERR(LOG_TAG, "Error: Failed to get mixer handle\n");
+        return status;
+    }
+
+    ctl = getBeMixerControl(mixerHandle, backEndName , BE_DISABLE_CODEC_ROUTE);
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "invalid mixer control: %s %s", backEndName.c_str(),
+                beCtrlNames[BE_DISABLE_CODEC_ROUTE]);
+        return -EINVAL;
+    }
+
+    PAL_INFO(LOG_TAG, "Reset path: %s", sndDevice.c_str());
+
+    return mixer_ctl_set_enum_by_string(ctl, (const char *)sndDevice.c_str());
 }

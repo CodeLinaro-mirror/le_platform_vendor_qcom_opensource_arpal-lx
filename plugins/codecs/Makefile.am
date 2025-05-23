@@ -2,6 +2,11 @@ pkgconfigdir = $(libdir)/pkgconfig$
 pkgconfig_DATA = codecs.pc
 EXTRA_DIST = $(pkgconfig_DATA)$
 
+AM_CPPFLAGS = -I $(srcdir)/../customva_intf/inc
+AM_CPPFLAGS = -I $(top_srcdir)
+AM_CPPFLAGS += @MMHEADERS_CFLAGS@
+AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
+
 lib_LTLIBRARIES     = libbt_bundle.la
 
 bt_bundle_sources = \
@@ -15,6 +20,7 @@ libbt_bundle_la_LDFLAGS = -shared -avoid-version
 libbt_bundle_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
 libbt_bundle_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libbt_bundle_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
+libbt_bundle_la_CPPFLAGS += $(AM_CPPFLAGS)
 
 if BUILDSYSTEM_OPENWRT
 libbt_bundle_la_LIBADD += -lglib-2.0
@@ -34,6 +40,7 @@ libbt_ble_la_LDFLAGS = -shared -avoid-version
 libbt_ble_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
 libbt_ble_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libbt_ble_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
+libbt_ble_la_CPPFLAGS += $(AM_CPPFLAGS)
 
 if BUILDSYSTEM_OPENWRT
 libbt_ble_la_LIBADD += -lglib-2.0
@@ -53,6 +60,7 @@ libbt_aptx_la_LDFLAGS = -shared -avoid-version
 libbt_aptx_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
 libbt_aptx_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libbt_aptx_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
+libbt_aptx_la_CPPFLAGS += $(AM_CPPFLAGS)
 
 if BUILDSYSTEM_OPENWRT
 libbt_aptx_la_LIBADD += -lglib-2.0

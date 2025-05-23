@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1129,6 +1129,8 @@ enum BeCtrlsIndex {
     BE_MEDIAFMT,
     BE_SETPARAM,
     BE_GROUP_ATTR,
+    BE_ENABLE_CODEC_ROUTE,
+    BE_DISABLE_CODEC_ROUTE,
     BE_MAX_NUM_MIXER_CONTROLS,
 };
 
@@ -1137,6 +1139,8 @@ static const char *beCtrlNames[] = {
     " rate ch fmt",
     " setParam",
     " grp config",
+    " enableCodecRoute",
+    " disableCodecRoute"
 };
 
 #define PAL_SOUND_TRIGGER_MAX_STRING_LEN 64 /* max length of strings in properties or descriptor structs */

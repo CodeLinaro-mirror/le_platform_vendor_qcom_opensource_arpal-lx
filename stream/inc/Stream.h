@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -100,6 +100,7 @@ class Device;
 class ResourceManager;
 class PluginManager;
 class Session;
+class SessionAR;
 
 class Stream
 {
@@ -114,6 +115,7 @@ protected:
     int mGainLevel;
     int mOrientation = 0;
     std::mutex mStreamMutex;
+    std::mutex mGetParamMutex;
     static std::mutex mBaseStreamMutex; //TBD change this. as having a single static mutex for all instances of Stream is incorrect. Replace
     static std::shared_ptr<ResourceManager> rm;
     static std::shared_ptr<PluginManager> pm;
@@ -156,6 +158,7 @@ public:
     virtual int32_t stop() = 0;
     virtual int32_t prepare() = 0;
     virtual int32_t drain(pal_drain_type_t type __unused) = 0;
+    int32_t setStreamAttributes( struct pal_stream_attributes *sattr __unused) {return 0;};
     virtual int32_t setVolume(struct pal_volume_data *volume) = 0;
     virtual int32_t mute(bool state) = 0;
     virtual int32_t mute_l(bool state) = 0;
@@ -165,8 +168,8 @@ public:
     virtual int32_t pause_l() = 0;
     virtual int32_t resume() = 0;
     virtual int32_t resume_l() = 0;
-    virtual int32_t flush() = 0;
-    virtual int32_t suspend() = 0;
+    virtual int32_t flush() {return 0;}
+    virtual int32_t suspend() {return 0;}
     virtual int32_t read(struct pal_buffer *buf) = 0;
 
     virtual int32_t addRemoveEffect(pal_audio_effect_t effect, bool enable) = 0; //TBD: make this non virtual and prrovide implementation as StreamPCM and StreamCompressed are doing the same things
@@ -186,6 +189,7 @@ public:
     virtual int32_t createMmapBuffer(int32_t min_size_frames __unused,
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int32_t GetMmapPosition(struct pal_mmap_position *position __unused) {return -EINVAL;}
+    virtual int32_t getTagsWithModuleInfo(size_t *size __unused, uint8_t *payload __unused) {return -EINVAL;};
     virtual uint32_t GetNumEvents() { return 0; }
     virtual uint32_t GetOutputToken() { return 0; }
     virtual uint32_t GetPayloadSize() { return 0; }
@@ -197,6 +201,7 @@ public:
     virtual bool checkStreamMatch(Stream *ref);
     virtual bool IsStreamInBuffering() {return false;};
     int32_t getStreamAttributes(struct pal_stream_attributes *sattr);
+    int32_t getModifiers(struct modifier_kv *modifiers,uint32_t *noOfModifiers);
     const std::string& getStreamSelector() const;
     const std::string& getDevicePPSelector() const;
     int32_t getStreamType(pal_stream_type_t* streamType);
@@ -246,6 +251,8 @@ public:
     bool checkStreamMatch(pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type);
     bool isStreamSSRDownFeasibile();
+    int32_t getEffectParameters(void *effect_query);
+    int32_t setEffectParameters(void *effect_param);
     stream_state_t getCurState() { return currentState; }
     virtual bool isActive() { return currentState == STREAM_STARTED; }
     bool isAlive() { return currentState != STREAM_IDLE; }
@@ -268,6 +275,8 @@ public:
         mStreamMutex.unlock();
     };
     bool isMutexLockedbyRm() { return mutexLockedbyRm; }
+    void lockGetParamMutex() { mGetParamMutex.lock(); };
+    void unlockGetParamMutex() { mGetParamMutex.unlock(); };
     void setCachedState(stream_state_t state);
     void clearmDevices();
     void removemDevice(int palDevId);

@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -52,6 +51,7 @@
 #include "VoiceUIPlatformInfo.h"
 #include "PluginManager.h"
 #include "mem_logger.h"
+#include "StreamACDB.h"
 
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
 #include "STUtils.h"
@@ -422,6 +422,7 @@ std::vector <int> ResourceManager::listAllPcmInCallRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallMusicFrontEnds = {0};
 std::vector <int> ResourceManager::listAllNonTunnelSessionIds = {0};
 std::vector <int> ResourceManager::listAllPcmContextProxyFrontEnds = {0};
+std::unordered_map<std::string, bool> ResourceManager::listAllNonAlsaBackEnds;
 std::vector <std::string> ResourceManager::usb_vendor_uuid_list = {""};
 struct audio_mixer* ResourceManager::audio_virt_mixer = NULL;
 struct audio_mixer* ResourceManager::audio_hw_mixer = NULL;
@@ -864,6 +865,9 @@ ResourceManager::ResourceManager()
     memset(in_stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
 
     for (int i=0; i < devInfo.size(); i++) {
+
+        if (devInfo[i].is_backend)
+            continue;
 
         if (devInfo[i].type == PCM) {
             if (devInfo[i].sess_mode == HOSTLESS && devInfo[i].playback == 1) {
@@ -1497,6 +1501,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
+                    strstr(snd_card_name, "vienna") ||
                     strstr(snd_card_name, "sun")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
@@ -7340,6 +7345,44 @@ exit:
 }
 
 
+int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
+                                  size_t payload_size __unused,
+                                  pal_device_id_t pal_device_id,
+                                  pal_stream_type_t pal_stream_type)
+{
+    int status = -EINVAL;
+
+    PAL_DBG(LOG_TAG, "param_id=%d", param_id);
+    switch (param_id) {
+        case PAL_PARAM_ID_UIEFFECT:
+        {
+            bool match = false;
+            std::list<Stream*>::iterator sIter;
+            lockActiveStream();
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
+                if (match) {
+                    if (increaseStreamUserCounter(*sIter) < 0)
+                        continue;
+                    unlockActiveStream();
+                    status = (*sIter)->getEffectParameters(param_payload);
+                    lockActiveStream();
+                    decreaseStreamUserCounter(*sIter);
+                    break;
+                }
+            }
+            unlockActiveStream();
+            break;
+        }
+        default:
+            status = -EINVAL;
+            PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
+            break;
+    }
+
+    return status;
+}
+
 int ResourceManager::getCustomParam(custom_payload_uc_info_t* uc_info,
                                         const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                         void* param_payload, size_t* payload_size)
@@ -7784,6 +7827,127 @@ exit_no_unlock:
     return status;
 }
 
+
+int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
+                                  size_t payload_size __unused,
+                                  pal_device_id_t pal_device_id,
+                                  pal_stream_type_t pal_stream_type)
+{
+    int status = -EINVAL;
+
+    PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
+
+    switch (param_id) {
+        case PAL_PARAM_ID_UIEFFECT:
+        {
+            bool match = false;
+            lockActiveStream();
+            std::list<Stream*>::iterator sIter;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
+                    sIter++) {
+                if ((*sIter) != NULL) {
+                    match = (*sIter)->checkStreamMatch(pal_device_id,
+                                                       pal_stream_type);
+                    if (match) {
+                        if (increaseStreamUserCounter(*sIter) < 0)
+                            continue;
+                        unlockActiveStream();
+                        status = (*sIter)->setEffectParameters(param_payload);
+                        lockActiveStream();
+                        decreaseStreamUserCounter(*sIter);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "failed to set param for pal_device_id=%x stream_type=%x",
+                                   pal_device_id, pal_stream_type);
+                        }
+                    }
+                } else {
+                    PAL_ERR(LOG_TAG, "There is no active stream.");
+                }
+            }
+            unlockActiveStream();
+        }
+        break;
+        default:
+            PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
+            break;
+    }
+
+    PAL_DBG(LOG_TAG, "Exit status: %d",status);
+    return status;
+}
+
+
+int ResourceManager::rwParameterACDB(uint32_t paramId, void *paramPayload,
+                 size_t payloadSize  __unused, pal_device_id_t palDeviceId,
+                 pal_stream_type_t palStreamType, uint32_t sampleRate,
+                 uint32_t instanceId, bool isParamWrite, bool isPlay)
+{
+    int status = -EINVAL;
+    StreamACDB *s = NULL;
+    struct pal_stream_attributes sattr;
+    struct pal_device dattr;
+    bool match = false;
+    uint32_t matchCount = 0;
+    std::list<Stream*>::iterator sIter;
+
+    PAL_DBG(LOG_TAG, "Enter: device=%d type=%d rate=%d instance=%d is_param_write=%d\n",
+            palDeviceId, palStreamType, sampleRate,
+            instanceId, isParamWrite);
+
+    switch (paramId) {
+        case PAL_PARAM_ID_UIEFFECT:
+        {
+            /*
+             * set default stream type (low latency) for device-only effect.
+             * the instance is shared by streams.
+             */
+            if (palStreamType == PAL_STREAM_GENERIC) {
+                palStreamType = PAL_STREAM_LOW_LATENCY;
+                PAL_INFO(LOG_TAG, "change PAL stream from %d to %d for device effect",
+                            PAL_STREAM_GENERIC, palStreamType);
+            }
+
+            /*
+             * set default device (speaker) for stream-only effect.
+             * the instance is shared by devices.
+             */
+            if (palDeviceId == PAL_DEVICE_NONE) {
+                if (isPlay)
+                    palDeviceId = PAL_DEVICE_OUT_SPEAKER;
+                else
+                    palDeviceId = PAL_DEVICE_IN_HANDSET_MIC;
+
+                PAL_INFO(LOG_TAG, "change PAL device id from %d to %d for stream effect",
+                            PAL_DEVICE_NONE, palDeviceId);
+            }
+
+            sattr.type = palStreamType;
+            sattr.out_media_config.sample_rate = sampleRate;
+            sattr.direction = PAL_AUDIO_OUTPUT;
+            dattr.id = palDeviceId;
+            s = new StreamACDB(&sattr, &dattr, instanceId, getInstance());
+            if (!s) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "stream creation failed status %d", status);
+                goto error;
+            }
+
+            status = s->rwACDBParam(palDeviceId, palStreamType, sampleRate,
+                instanceId, paramPayload, isParamWrite);
+
+            delete s;
+        }
+        break;
+        default:
+            PAL_ERR(LOG_TAG, "Unknown ParamID:%d", paramId);
+            break;
+    }
+
+error:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+
+    return status;
+}
 
 int ResourceManager::setCustomParam(custom_payload_uc_info_t* uc_info,
                                     const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
@@ -8640,6 +8804,10 @@ void ResourceManager::processDeviceCapability(struct xml_userdata *data, const X
     } else if (strcmp(tag_name,"session_mode") == 0) {
         val = atoi(data->data_buf);
         devInfo[size].sess_mode = (sess_mode_t) val;
+    } else if (strcmp(tag_name,"backend") == 0) {
+        bool val = atoi(data->data_buf);
+        listAllNonAlsaBackEnds[devInfo[size].name] = val;
+        devInfo[size].is_backend = val;
     }
 }
 
@@ -10210,4 +10378,9 @@ std::map<pal_stream_type_t, std::list <Stream*>> ResourceManager::getActiveStrea
 
 std::list <Stream*> ResourceManager::getActiveStreamList() {
     return mActiveStreams;
+}
+
+bool ResourceManager::isNonAlsaBackend(std::string &backendName)
+{
+    return listAllNonAlsaBackEnds[backendName];
 }
