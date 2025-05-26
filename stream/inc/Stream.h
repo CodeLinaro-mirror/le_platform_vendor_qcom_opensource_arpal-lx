@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -255,6 +255,7 @@ public:
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int32_t GetMmapPosition(struct pal_mmap_position *position __unused) {return -EINVAL;}
     virtual int32_t getTagsWithModuleInfo(size_t *size __unused, uint8_t *payload __unused) {return -EINVAL;};
+    virtual int32_t getAvailableFrameCount(uint32_t *frame_count __unused) {return -EINVAL;}
     virtual bool ConfigSupportLPI() {return true;}; //Only LPI streams can update their vote to NLPI
     int32_t getStreamAttributes(struct pal_stream_attributes *sattr);
     int32_t getModifiers(struct modifier_kv *modifiers,uint32_t *noOfModifiers);
@@ -264,6 +265,7 @@ public:
     int32_t getStreamDirection(pal_stream_direction_t *dir);
     uint32_t getRenderLatency();
     uint32_t getLatency();
+    virtual int32_t getLatency(uint32_t *latency) {return -EINVAL;};
     int32_t getAssociatedDevices(std::vector <std::shared_ptr<Device>> &adevices);
     int32_t getPalDevices(std::vector <std::shared_ptr<Device>> &PalDevices);
     void removePalDevice(Stream *streamHandle, int palDevId);
@@ -344,6 +346,8 @@ public:
     int32_t setTempMute();
     int32_t restoreVolume();
     static void setRampDuration(Stream *stream, uint32_t duration);
+    virtual int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) {return 0;};
+    virtual int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) {return 0;};
 };
 
 class StreamNonTunnel : public Stream

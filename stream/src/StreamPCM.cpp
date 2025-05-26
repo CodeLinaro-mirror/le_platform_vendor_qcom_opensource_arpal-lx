@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1448,6 +1448,7 @@ int32_t StreamPCM::isChannelSupported(uint32_t numChannels)
         case CHANNELS_12:
         case CHANNELS_14:
         case CHANNELS_16:
+        case CHANNELS_17:
             break;
         default:
             rc = -EINVAL;
@@ -1719,5 +1720,87 @@ int32_t StreamPCM::GetMmapPosition(struct pal_mmap_position *position)
         PAL_ERR(LOG_TAG, "GetMmapPosition failed with status = %d", status);
     PAL_DBG(LOG_TAG, "Exit. status - %d", status);
 
+    return status;
+}
+
+int32_t StreamPCM::getAvailableFrameCount(uint32_t *frame_count)
+{
+    int32_t ret = 0;
+    pal_stream_attributes sAttr;
+    if (!frame_count)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    ret = getStreamAttributes(&sAttr);
+    if (ret)
+    {
+        PAL_ERR(LOG_TAG, "getStreamAttributes failed with err %d", ret);
+        goto end;
+    }
+
+    ret = session->getAvailableFrameCount(frame_count, sAttr.direction);
+    if (ret)
+        PAL_ERR(LOG_TAG, "session getAvailableFrameCount failed with err %d", ret);
+
+end:
+    mStreamMutex.unlock();
+    return ret;
+}
+
+int32_t StreamPCM::getLatency(uint32_t *latency)
+{
+    if (!latency) {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    mStreamMutex.lock();
+    uint32_t rc = session->getLatency(this, latency);
+    mStreamMutex.unlock();
+
+    if (rc)
+        PAL_ERR(LOG_TAG, "Session getParameters failed with error %d", rc);
+
+  return rc;
+}
+
+int32_t StreamPCM::allocSprSharedMemory(pal_spr_shmem_info_t *info)
+{
+    int32_t status = 0;
+    if (!info->size) {
+        status = -EINVAL;
+        goto exit;
+    }
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE ");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+    if (NULL != session)
+        status = session->allocSprSharedMemory(info);
+    mStreamMutex.unlock();
+exit:
+    return status;
+}
+
+int32_t StreamPCM::deallocSprSharedMemory(pal_spr_shmem_info_t *info)
+{
+    int32_t status = 0;
+
+    mStreamMutex.lock();
+    if (currentState == STREAM_IDLE) {
+        PAL_ERR(LOG_TAG, "Invalid stream state: IDLE");
+        mStreamMutex.unlock();
+        return -EINVAL;
+    }
+    if (NULL != session)
+        status = session->deallocSprSharedMemory(info);
+    mStreamMutex.unlock();
+exit:
     return status;
 }

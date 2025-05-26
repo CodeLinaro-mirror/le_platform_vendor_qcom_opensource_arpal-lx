@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1070,38 +1070,6 @@ ResourceManager::~ResourceManager()
         PAL_ERR(LOG_TAG, "error in deinitializing KPI queue %d", ret);
     }
 #endif
-    streamTag.clear();
-    streamPpTag.clear();
-    mixerTag.clear();
-    devicePpTag.clear();
-    deviceTag.clear();
-
-    listAllFrontEndIds.clear();
-    listAllPcmPlaybackFrontEnds.clear();
-    listAllPcmRecordFrontEnds.clear();
-    listAllPcmHostlessRxFrontEnds.clear();
-    listAllPcmHostlessTxFrontEnds.clear();
-    listAllCompressPlaybackFrontEnds.clear();
-    listAllCompressRecordFrontEnds.clear();
-    listFreeFrontEndIds.clear();
-    listAllPcmVoice1RxFrontEnds.clear();
-    listAllPcmVoice1TxFrontEnds.clear();
-    listAllPcmVoice2RxFrontEnds.clear();
-    listAllPcmVoice2TxFrontEnds.clear();
-    listAllNonTunnelSessionIds.clear();
-    listAllPcmExtEcTxFrontEnds.clear();
-    usb_vendor_uuid_list.clear();
-    devInfo.clear();
-    deviceInfo.clear();
-    txEcInfo.clear();
-
-    STInstancesLists.clear();
-    listAllBackEndIds.clear();
-    sndDeviceNameLUT.clear();
-    devicePcmId.clear();
-    deviceLinkName.clear();
-    PCMDataInstances.clear();
-
     if (admLibHdl) {
         if (admDeInitFn)
             admDeInitFn(admData);
@@ -1554,6 +1522,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "qcm6490") ||
                     strstr(snd_card_name, "bengal") ||
+                    strstr(snd_card_name, "qcs8275") ||
                     strstr(snd_card_name, "qcs8300") ||
                     strstr(snd_card_name, "qcs9100") ||
                     strstr(snd_card_name, "qcs9075") ||
@@ -6777,8 +6746,9 @@ void ResourceManager::deinit()
     msgQ.push(state);
     cvMutex.unlock();
     cv.notify_all();
+    if(workerThread.joinable())
+        workerThread.join();
 
-    workerThread.join();
     while (!msgQ.empty())
         msgQ.pop();
 

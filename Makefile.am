@@ -81,6 +81,10 @@ AM_CPPFLAGS += -DCONFIG_GSL
 AM_CPPFLAGS += -DPAL_SP_TEMP_PATH=\"/etc/acdbdata/audio.cal\"
 AM_CPPFLAGS += -DWSA_V883X_ADDR
 
+if USE_VERSIONED_SO
+AM_CPPFLAGS += -DUSE_VERSIONED_SO
+endif
+
 pal_sources = ${top_srcdir}/Pal.cpp \
               ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamCompress.cpp \
@@ -161,6 +165,8 @@ libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/usecaseKvManager.xml \
                       ./configs/qcm6490/mixer_paths_qcm6490_rb3_ia.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_rb3_ia.xml \
+                      ./configs/qcs8275/mixer_paths_qcs8275_rb4.xml \
+                      ./configs/qcs8275/resourcemanager_qcs8275_rb4.xml \
                       ./configs/qcs8300/mixer_paths_qcs8300_ridesx.xml \
                       ./configs/qcs8300/resourcemanager_qcs8300_ridesx.xml \
                       ./configs/qcs9075/mixer_paths_qcs9075_rb8.xml \
@@ -194,6 +200,8 @@ endif
 root_etcdir      = "/etc"
 root_etc_SCRIPTS = $(libpal_la_list)
 install-data-hook:
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs8275_rb4.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs8275_rb4.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs8300_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs8300_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs9100_ridesx.xml
@@ -218,3 +226,17 @@ bin_PROGRAMS = audioadsprpcd
 audioadsprpcd_SOURCES = $(adsprpc_sources)
 audioadsprpcd_LDADD = -ldl
 audioadsprpcd_la_CFLAGS = -fPIC
+
+bin_PROGRAMS +=  PalTest_main
+pal_test_source = test/PalTest_main.c \
+		  test/PalUsecaseTest.c \
+		  test/PalUsecaseTest.h
+
+PalTest_main_CPPFLAGS := @PALHEADERS_CFLAGS@
+PalTest_main_CPPFLAGS += @GLIB_CFLAGS@ @AGM_CFLAGS@ @SPFHEADERS_CFLAGS@ @AROUTE_CFLAGS@
+PalTest_main_CPPFLAGS += -I${includedir}/inc
+
+PalTest_main_SOURCES = $(pal_test_source)
+PalTest_main_LDADD = libpal.la -lagm $(GLIB_LIBS)
+PalTest_main_CFLAGS = $(PAL_CPPFLAGS)
+

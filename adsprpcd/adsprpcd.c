@@ -45,7 +45,11 @@
 #include "verify.h"
 #include "AEEStdErr.h"
 
-#define ADSP_DEFAULT_LISTENER_NAME "libadsp_default_listener.so"
+#ifdef USE_VERSIONED_SO
+    #define ADSP_DEFAULT_LISTENER_NAME "libadsp_default_listener.so.1"
+#else
+    #define ADSP_DEFAULT_LISTENER_NAME "libadsp_default_listener.so"
+#endif
 
 typedef int (*adsp_default_listener_start_t)(int argc, char *argv[]);
 

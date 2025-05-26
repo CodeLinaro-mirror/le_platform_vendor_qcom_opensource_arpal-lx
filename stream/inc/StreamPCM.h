@@ -25,6 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef STREAMPCM_H_
@@ -72,10 +77,13 @@ public:
    int32_t createMmapBuffer(int32_t min_size_frames,
                                    struct pal_mmap_buffer *info) override;
    int32_t GetMmapPosition(struct pal_mmap_position *position) override;
-
+   int32_t getAvailableFrameCount(uint32_t *frame_count) override;
+   int32_t getLatency(uint32_t *latency) override;
    static int32_t isSampleRateSupported(uint32_t sampleRate);
    static int32_t isChannelSupported(uint32_t numChannels);
    static int32_t isBitWidthSupported(uint32_t bitWidth);
+   int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) override;
+   int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) override;
 };
 
 #endif//STREAMPCM_H_

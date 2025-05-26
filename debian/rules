@@ -4,7 +4,7 @@
 	dh $@
 
 override_dh_auto_configure:
-	dh_auto_configure -- --with-glib --with-syslog
+	dh_auto_configure -- --with-glib --with-syslog --with-versioned-lib
 
 override_dh_install:
 	dh_install
@@ -32,3 +32,7 @@ override_dh_install:
 
 override_dh_installsystemd:
 	dh_installsystemd --name=audioadsprpcd
+
+override_dh_installudev:
+	dh_installudev
+	dh_installudev --name=audio-node

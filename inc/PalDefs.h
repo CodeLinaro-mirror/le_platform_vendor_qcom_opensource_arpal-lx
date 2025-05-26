@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -719,6 +719,47 @@ const std::set<pal_device_id_t> BTPlaybackDeviceList {
     PAL_DEVICE_OUT_BLUETOOTH_BLE,
     PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST,
     PAL_DEVICE_OUT_BLUETOOTH_SCO
+};
+
+static const std::map<std::string, pal_channel_map> PALChannelMapMap {
+    { std::string{ "PAL_CHMAP_CHANNEL_FL" },   PAL_CHMAP_CHANNEL_FL},
+    { std::string{ "PAL_CHMAP_CHANNEL_FR" },   PAL_CHMAP_CHANNEL_FR},
+    { std::string{ "PAL_CHMAP_CHANNEL_C" },    PAL_CHMAP_CHANNEL_C},
+    { std::string{ "PAL_CHMAP_CHANNEL_LS" },   PAL_CHMAP_CHANNEL_LS},
+    { std::string{ "PAL_CHMAP_CHANNEL_RS" },   PAL_CHMAP_CHANNEL_RS},
+    { std::string{ "PAL_CHMAP_CHANNEL_LFE" },  PAL_CHMAP_CHANNEL_LFE},
+    { std::string{ "PAL_CHMAP_CHANNEL_RC" },   PAL_CHMAP_CHANNEL_RC},
+    { std::string{ "PAL_CHMAP_CHANNEL_CB" },   PAL_CHMAP_CHANNEL_CB},
+    { std::string{ "PAL_CHMAP_CHANNEL_LB" },   PAL_CHMAP_CHANNEL_LB},
+    { std::string{ "PAL_CHMAP_CHANNEL_RB" },   PAL_CHMAP_CHANNEL_RB},
+    { std::string{ "PAL_CHMAP_CHANNEL_TS" },   PAL_CHMAP_CHANNEL_TS},
+    { std::string{ "PAL_CHMAP_CHANNEL_CVH" },  PAL_CHMAP_CHANNEL_CVH},
+    { std::string{ "PAL_CHMAP_CHANNEL_TFC" },  PAL_CHMAP_CHANNEL_TFC},
+    { std::string{ "PAL_CHMAP_CHANNEL_MS" },   PAL_CHMAP_CHANNEL_MS},
+    { std::string{ "PAL_CHMAP_CHANNEL_FLC" },  PAL_CHMAP_CHANNEL_FLC},
+    { std::string{ "PAL_CHMAP_CHANNEL_FRC" },  PAL_CHMAP_CHANNEL_FRC},
+    { std::string{ "PAL_CHMAP_CHANNEL_RLC" },  PAL_CHMAP_CHANNEL_RLC},
+    { std::string{ "PAL_CHMAP_CHANNEL_RRC" },  PAL_CHMAP_CHANNEL_RRC},
+    { std::string{ "PAL_CHMAP_CHANNEL_LFE2" }, PAL_CHMAP_CHANNEL_LFE2},
+    { std::string{ "PAL_CHMAP_CHANNEL_SL" },   PAL_CHMAP_CHANNEL_SL},
+    { std::string{ "PAL_CHMAP_CHANNEL_SR" },   PAL_CHMAP_CHANNEL_SR},
+    { std::string{ "PAL_CHMAP_CHANNEL_TFL" },  PAL_CHMAP_CHANNEL_TFL},
+    { std::string{ "PAL_CHMAP_CHANNEL_LVH" },  PAL_CHMAP_CHANNEL_LVH},
+    { std::string{ "PAL_CHMAP_CHANNEL_TFR" },  PAL_CHMAP_CHANNEL_TFR},
+    { std::string{ "PAL_CHMAP_CHANNEL_RVH" },  PAL_CHMAP_CHANNEL_RVH},
+    { std::string{ "PAL_CHMAP_CHANNEL_TC" },   PAL_CHMAP_CHANNEL_TC},
+    { std::string{ "PAL_CHMAP_CHANNEL_TBL" },  PAL_CHMAP_CHANNEL_TBL},
+    { std::string{ "PAL_CHMAP_CHANNEL_TBR" },  PAL_CHMAP_CHANNEL_TBR},
+    { std::string{ "PAL_CHMAP_CHANNEL_TSL" },  PAL_CHMAP_CHANNEL_TSL},
+    { std::string{ "PAL_CHMAP_CHANNEL_TSR" },  PAL_CHMAP_CHANNEL_TSR},
+    { std::string{ "PAL_CHMAP_CHANNEL_TBC" },  PAL_CHMAP_CHANNEL_TBC},
+    { std::string{ "PAL_CHMAP_CHANNEL_BFC" },  PAL_CHMAP_CHANNEL_BFC},
+    { std::string{ "PAL_CHMAP_CHANNEL_BFL" },  PAL_CHMAP_CHANNEL_BFL},
+    { std::string{ "PAL_CHMAP_CHANNEL_BFR" },  PAL_CHMAP_CHANNEL_BFR},
+    { std::string{ "PAL_CHMAP_CHANNEL_LW" },   PAL_CHMAP_CHANNEL_LW},
+    { std::string{ "PAL_CHMAP_CHANNEL_RW" },   PAL_CHMAP_CHANNEL_RW},
+    { std::string{ "PAL_CHMAP_CHANNEL_LSD" },  PAL_CHMAP_CHANNEL_LSD},
+    { std::string{ "PAL_CHMAP_CHANNEL_RSD" },  PAL_CHMAP_CHANNEL_RSD},
 };
 #endif
 
@@ -1627,6 +1668,17 @@ typedef struct pal_buffer_config {
     size_t buf_size; /**< This would be the size of each buffer*/
     size_t max_metadata_size; /** < max metadata size associated with each buffer*/
 } pal_buffer_config_t;
+
+typedef struct pal_spr_shmem_info{
+    void *addr;
+    uint32_t size;
+}pal_spr_shmem_info_t;
+
+typedef struct pal_spr_shmem_payload{
+    void *addr;
+    uint32_t size;
+    uint32_t miid;
+}pal_spr_shmem_payload_t;
 
 #define PAL_GENERIC_PLATFORM_DELAY     (29*1000LL)
 #define PAL_DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)

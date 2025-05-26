@@ -28,7 +28,7 @@
  */
 /* Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -610,6 +610,47 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
                       pal_stream_type_t pal_stream_type, uint32_t sample_rate,
                       uint32_t instance_id, uint32_t dir, bool is_play);
 
+/**
+* \brief Get the latency from DSP.
+*
+* \param[in] handle - PAL stream handle.
+* \param[out] delay_in_ms - Returned latency.
+*
+* \return 0 on success, error code otherwise
+*/
+
+int32_t pal_stream_get_path_delay(pal_stream_handle_t *handle, uint32_t *delay_in_ms);
+
+/**
+  * \brief Get available frame count for sink or source.
+  *
+  * \param[in] stream_handle - Valid stream handle obtained from pal_stream_open
+  * \param[out] frame_count - Buffer to store the frame count
+  *
+  * \return 0 on success, error code otherwise
+  */
+
+int32_t pal_stream_get_available_frame_count(pal_stream_handle_t *stream_handle, uint32_t *frame_count);
+
+/**
+* \brief Allocate shared memory to get timestamp data from SPR.
+*
+* \param[in] handle - PAL stream handle.
+* \param[out] info - Info required to allocate shared memory.
+*
+* \return 0 on success, error code otherwise
+*/
+int32_t pal_alloc_spr_shared_memory(pal_stream_handle_t *stream_handle, pal_spr_shmem_info_t *info);
+
+/**
+* \brief Deallocate shared memory, shared with SPR.
+*
+* \param[in] handle - PAL stream handle.
+* \param[out] info - Info required to deallocate shared memory.
+*
+* \return 0 on success, error code otherwise
+*/
+int32_t pal_dealloc_spr_shared_memory(pal_stream_handle_t *stream_handle, pal_spr_shmem_info_t *info);
 
 #ifdef __cplusplus
 }  /* extern "C" */

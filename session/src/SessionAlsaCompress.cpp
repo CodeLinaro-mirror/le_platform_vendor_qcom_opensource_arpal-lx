@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2646,4 +2646,49 @@ exit:
     }
     PAL_DBG(LOG_TAG, "Exit, status: %d", status);
     return status;
+}
+
+uint32_t SessionAlsaCompress::getLatency(Stream *s, uint32_t *latency)
+{
+    struct pal_stream_attributes sAttr;
+    int32_t rc = 0;
+    uint32_t srcMiid, dstMiid;
+    int status = 0;
+
+    if (!s || !latency)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    rc = s->getStreamAttributes(&sAttr);
+    if (rc) {
+        PAL_ERR(LOG_TAG, "Stream getStreamAttributes failed with error %d", rc);
+        return rc;
+    }
+
+    if (!compressDevIds.size() || (sAttr.direction == PAL_AUDIO_OUTPUT && !rxAifBackEnds.size()))
+    {
+        PAL_ERR(LOG_TAG, "Device or backends not available");
+        return -EINVAL;
+    }
+
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, compressDevIds.at(0), rxAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &srcMiid);
+    if (0 != status)
+    {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+        return status;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, compressDevIds.at(0), rxAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_RX, &dstMiid);
+    if (0 != status)
+    {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
+        return status;
+    }
+
+    rc = SessionAlsaUtils::getLatency(mixer, latency, srcMiid, dstMiid, compressDevIds);
+
+    if(rc)
+        PAL_ERR(LOG_TAG, "getLatency failed with error %d", rc);
+    return rc;
 }

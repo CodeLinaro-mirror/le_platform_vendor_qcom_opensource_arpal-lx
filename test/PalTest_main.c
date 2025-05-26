@@ -82,6 +82,14 @@ int main(int argc, char *argv[])
     signal(SIGHUP, sigint_handler);
     signal(SIGTERM, sigint_handler);
 
+    status = InitPalAgm();
+    if (status) {
+        fprintf(stdout, "InitPalAgm failed\n");
+        return status;
+    } else {
+        fprintf(stdout, "InitPalAgm success\n");
+    }
+
     if (argc > 2 && !strcmp(argv[2], "-T")) {
        if (argc < 4) {
            fprintf(stdout, "Not enough arguments\nUsage : 'PalTest usecaseId -T <time>'\n");
@@ -101,8 +109,11 @@ int main(int argc, char *argv[])
        sleep(sleep_time);
 
        status =  disable_usecase();
-       if (status)
-          return status;
+       if (status) {
+           fprintf(stdout, "disable_usecase failed with %d\n", status);
+       }
+       DeInitPalAgm();
+       return status;
     }
     else if (argc == 2) {
        fprintf(stdout, "Enter S to start the usecase or C to close the usecase \n");
@@ -117,6 +128,10 @@ int main(int argc, char *argv[])
                 break;
             case 'C'  :
                 status = disable_usecase();
+                if (status) {
+                    fprintf(stdout, "disable_usecase failed with %d\n", status);
+                }
+                DeInitPalAgm();
                 return status;
                 break;
             default:

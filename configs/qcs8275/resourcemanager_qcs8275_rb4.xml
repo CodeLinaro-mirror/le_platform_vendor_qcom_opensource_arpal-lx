@@ -84,9 +84,6 @@
                 <name>PAL_STREAM_VOIP_TX</name>
                 <ec_enable>1</ec_enable>
             </usecase>
-            <usecase>
-                <name>PAL_STREAM_ULTRASOUND</name>
-            </usecase>
             <ec_rx_device>
                 <id>PAL_DEVICE_OUT_SPEAKER</id>
             </ec_rx_device>
@@ -108,15 +105,13 @@
             <!--this should be in the form of pal_audio_fmt_id-->
             <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_LE</supported_bit_format>-->
             <supported_bit_format>PAL_AUDIO_FMT_PCM_S16_LE</supported_bit_format>
+            <is32BitSupported>0</is32BitSupported>
             <!-- RAS should be enabled with speaker protection always -->
             <ras_enabled>0</ras_enabled>
             <!-- Time in seconds for Quick cal. Set 0 to disable -->
             <quick_cal_time>0</quick_cal_time>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
-            </usecase>
-            <usecase>
-                <name>PAL_STREAM_ULTRASOUND</name>
             </usecase>
         </out-device>
     </device_profile>

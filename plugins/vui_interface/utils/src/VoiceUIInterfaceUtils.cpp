@@ -66,7 +66,11 @@
 
 #define LOG_TAG "PAL: SoundTriggerUtils"
 //#define LOG_NDEBUG 0
+#ifdef USE_VERSIONED_SO
+#define SML_LIB "liblistensoundmodel2vendor.so.1"
+#else
 #define SML_LIB "liblistensoundmodel2vendor.so"
+#endif
 
 std::shared_ptr<SoundModelLib> SoundModelLib::sml_ =
     nullptr;

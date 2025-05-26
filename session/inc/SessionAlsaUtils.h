@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  *  Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *  Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -167,7 +167,9 @@ public:
    static int mixerWriteDatapathParams(struct mixer *mixer, int device,
                                         void *payload, int size);
    static int flush(std::shared_ptr<ResourceManager> rm, uint32_t id);
-
+   static uint32_t getLatency(struct mixer *mixer, uint32_t *latency, uint32_t srcMiid, uint32_t dstMiid, const std::vector<int> &pcmDevIds);
+   static int32_t allocSprSharedMemory(struct mixer *mixer, int device, const char *intf_name, pal_spr_shmem_info_t *info);
+   static int32_t deallocSprSharedMemory(struct mixer *mixer, int device, pal_spr_shmem_info_t *info);
 };
 
 #endif //SESSION_ALSA_UTILS

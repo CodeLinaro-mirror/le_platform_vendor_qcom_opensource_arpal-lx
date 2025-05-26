@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -444,6 +444,25 @@ void PayloadBuilder::populateChannelMap(T pcmChannel, uint8_t numChannel)
         pcmChannel[13] = PCM_CHANNEL_FRC;
         pcmChannel[14] = PCM_CHANNEL_RLC;
         pcmChannel[15] = PCM_CHANNEL_RRC;
+    }
+    else if (numChannel == 17) {
+        pcmChannel[0] = PCM_CHANNEL_L;
+        pcmChannel[1] = PCM_CHANNEL_R;
+        pcmChannel[2] = PCM_CHANNEL_C;
+        pcmChannel[3] = PCM_CHANNEL_LS;
+        pcmChannel[4] = PCM_CHANNEL_RS;
+        pcmChannel[5] = PCM_CHANNEL_LFE;
+        pcmChannel[6] = PCM_CHANNEL_CS;
+        pcmChannel[7] = PCM_CHANNEL_LB;
+        pcmChannel[8] = PCM_CHANNEL_RB;
+        pcmChannel[9] = PCM_CHANNEL_TS;
+        pcmChannel[10] = PCM_CHANNEL_CVH;
+        pcmChannel[11] = PCM_CHANNEL_MS;
+        pcmChannel[12] = PCM_CHANNEL_FLC;
+        pcmChannel[13] = PCM_CHANNEL_FRC;
+        pcmChannel[14] = PCM_CHANNEL_RLC;
+        pcmChannel[15] = PCM_CHANNEL_RRC;
+        pcmChannel[16] = PCM_CHANNEL_LFE2;
     }
 }
 
@@ -2601,6 +2620,13 @@ int PayloadBuilder::populateStreamKV(Stream* s, std::vector<std::pair<int,int>> 
         filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "TX"));
         filled_selector_pairs.push_back(std::make_pair(VSID_SEL,
             vsidLUT.at(sattr->info.voice_call_info.VSID)));
+        retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
+    } else if (sattr->type == PAL_STREAM_ULTRASOUND) {
+        filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "RX"));
+        retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorRx);
+
+        filled_selector_pairs.clear();
+        filled_selector_pairs.push_back(std::make_pair(DIRECTION_SEL, "TX"));
         retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
     } else {
         PAL_DBG(LOG_TAG, "KVs not provided for stream type:%d", sattr->type);
@@ -4953,4 +4979,42 @@ void PayloadBuilder::payloadJBMConfig(uint8_t** payload, size_t* size,
 
     PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo,
             *size);
+}
+
+int32_t PayloadBuilder::payloadPathDelay(void** payload, uint32_t *payloadSize, uint32_t srcMiid, uint32_t dstMiid)
+{
+    struct apm_module_param_data_t *header = NULL;
+    uint32_t mPayloadSize;
+    void* payloadInfo;
+    apm_param_id_path_delay_t *path_param;
+    apm_path_defn_for_delay_t *path_data;
+
+    mPayloadSize = sizeof(apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t) + sizeof(apm_path_defn_for_delay_t);
+    payloadInfo = malloc(mPayloadSize);
+
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "Failed to allocate memory for payload");
+        return -ENOMEM;
+    }
+
+    *payloadSize = mPayloadSize;
+    *payload = payloadInfo;
+
+    header = (struct apm_module_param_data_t *)payloadInfo;
+    header->module_instance_id = APM_MODULE_INSTANCE_ID;
+    header->param_id           = APM_PARAM_ID_PATH_DELAY;
+    header->error_code         = 0;
+    header->param_size         = mPayloadSize - sizeof(struct apm_module_param_data_t);
+
+    path_param = (apm_param_id_path_delay_t *)((uint8_t *)payloadInfo + sizeof(apm_module_param_data_t));
+    path_param->num_paths = 1;
+
+    path_data = (apm_path_defn_for_delay_t *)((uint8_t *)path_param + sizeof(apm_param_id_path_delay_t));
+    path_data->src_module_instance_id = srcMiid;
+    path_data->src_port_id = 0;
+    path_data->dst_module_instance_id = dstMiid;
+    path_data->dst_port_id = 0;
+    path_data->delay_us = 0;
+
+    return 0;
 }

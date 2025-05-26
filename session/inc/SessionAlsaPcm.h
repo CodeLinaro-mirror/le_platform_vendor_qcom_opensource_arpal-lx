@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -143,6 +143,7 @@ public:
     int createMmapBuffer(Stream *s, int32_t min_size_frames,
                                    struct pal_mmap_buffer *info) override;
     int GetMmapPosition(Stream *s, struct pal_mmap_position *position) override;
+    int32_t getAvailableFrameCount(uint32_t *frame_count, int dir) override;
     int ResetMmapBuffer(Stream *s) override;
     int openGraph(Stream *s) override;
     void adjustMmapPeriodCount(struct pcm_config *config, int32_t min_size_frames);
@@ -157,6 +158,9 @@ public:
     int getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload);
     void retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struct pcm_config *config);
     int reconfigureModule(uint32_t tagID, const char* BE, struct sessionToPayloadParam *data);
+    uint32_t getLatency(Stream *s, uint32_t *latency);
+    int32_t allocSprSharedMemory(pal_spr_shmem_info_t *info) override;
+    int32_t deallocSprSharedMemory(pal_spr_shmem_info_t *info) override;
 };
 
 #endif //SESSION_ALSAPCM_H

@@ -28,7 +28,7 @@
 *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
@@ -100,7 +100,9 @@ static const char *feCtrlNames[] = {
     " loopback",
     " event",
     " setcal",
-    " flush"
+    " flush",
+    "allocSprSharedMemory",
+    "deallocSprSharedMemory"
 };
 
 static const char *beCtrlNames[] = {
@@ -2829,4 +2831,161 @@ int SessionAlsaUtils::flush(std::shared_ptr<ResourceManager> rmHandle, uint32_t 
     mixer_ctl_set_value(ctl, 0, doFlush);
 
     return status;
+}
+
+uint32_t SessionAlsaUtils::getLatency(struct mixer *mixer, uint32_t *latency, uint32_t srcMiid, uint32_t dstMiid, const std::vector<int> &pcmDevIds)
+{
+    int32_t rc = 0;
+    struct mixer_ctl *ctl;
+    void* payloadData;
+    uint32_t latencyInfo ,payloadSize;
+    apm_path_defn_for_delay_t *ptr = NULL;
+
+    if (!latency)
+    {
+        PAL_ERR(LOG_TAG, "Invalid input parameters");
+        return -EINVAL;
+    }
+
+    std::ostringstream CntrlName;
+    CntrlName << "PCM" << pcmDevIds.at(0) << " getParam";
+    ctl = mixer_get_ctl_by_name(mixer, CntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", CntrlName.str().data());
+        return -ENOENT;
+    }
+    PayloadBuilder* builder = new PayloadBuilder();
+    rc = builder->payloadPathDelay(&payloadData, &payloadSize, srcMiid, dstMiid);
+    if (rc) {
+        PAL_ERR(LOG_TAG, "Builder payloadPathDelay failed with error %d", rc);
+        return rc;
+    }
+
+    rc = mixer_ctl_set_array(ctl, payloadData, payloadSize);
+    if (rc) {
+         PAL_ERR(LOG_TAG, "mixer_ctl_set_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
+         return rc;
+    }
+
+    rc = mixer_ctl_get_array(ctl, payloadData, payloadSize);
+    if (rc) {
+         PAL_ERR(LOG_TAG, "mixer_ctl_get_array failed with error %d", rc);
+         if (payloadData != NULL) {
+             free(payloadData);
+         }
+         return rc;
+    }
+    ptr = (apm_path_defn_for_delay_t *)((uint8_t *)payloadData + sizeof(struct apm_module_param_data_t) + sizeof(apm_param_id_path_delay_t));
+    latencyInfo = ptr->delay_us;
+    *latency = latencyInfo;
+
+    free(payloadData);
+    return 0;
+}
+
+int32_t SessionAlsaUtils::allocSprSharedMemory(struct mixer *mixer, int device,const char *intf_name, pal_spr_shmem_info_t *info)
+{
+    char *mixer_str;
+    char const *control = "allocSprSharedMemory";
+    char *pcmDeviceName = NULL;
+    uint32_t miid = 0;
+    struct mixer_ctl *ctl;
+    int status = 0;
+    int ctl_len = 0,ret = 0;
+    pal_spr_shmem_payload_t *shmem_payload = (pal_spr_shmem_payload_t*)calloc(1, sizeof(pal_spr_shmem_payload_t));
+
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+            intf_name,
+            STREAM_SPR, &miid);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "Error: Failed to get miid \n");
+        return status;
+    }
+
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    pcmDeviceName = rm->getDeviceNameFromID(device);
+    if(!pcmDeviceName){
+        PAL_ERR(LOG_TAG, "Device name from id %d not found", device);
+        return -EINVAL;
+    }
+
+    shmem_payload->addr = NULL;
+    shmem_payload->size = info->size;
+    shmem_payload->miid = miid;
+
+    ctl_len = strlen(pcmDeviceName) + 1 + strlen(control) + 1;
+    mixer_str = (char *)calloc(1, ctl_len);
+    if (!mixer_str) {
+        return -ENOMEM;
+    }
+    snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
+    ctl = mixer_get_ctl_by_name(mixer, mixer_str);
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_str);
+        free(mixer_str);
+        return ENOENT;
+    }
+
+    ret = mixer_ctl_set_array(ctl, (void *)shmem_payload, sizeof(pal_spr_shmem_payload_t));
+    if (0 != ret) {
+        PAL_ERR(LOG_TAG, "Set alloca spr shared memory failed, status = %d", status);
+        return ret;
+    }
+
+    ret = mixer_ctl_get_array(ctl, (void *)shmem_payload, sizeof(pal_spr_shmem_payload_t));
+    info->addr = shmem_payload->addr;
+    free(mixer_str);
+    free(shmem_payload);
+    shmem_payload = NULL;
+
+    return ret;
+}
+
+int32_t SessionAlsaUtils::deallocSprSharedMemory(struct mixer *mixer, int device, pal_spr_shmem_info_t *info)
+{
+    char *mixer_str;
+    struct mixer_ctl *ctl;
+    char const *control = "deallocSprSharedMemory";
+    char *pcmDeviceName = NULL;
+    int ctl_len = 0,ret = 0;
+    int status = 0;
+    pal_spr_shmem_payload_t *shmem_payload = (pal_spr_shmem_payload_t*)calloc(1, sizeof(pal_spr_shmem_payload_t));
+
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    pcmDeviceName = rm->getDeviceNameFromID(device);
+    if(!pcmDeviceName){
+        PAL_ERR(LOG_TAG, "Device name from id %d not found", device);
+        return -EINVAL;
+    }
+
+    shmem_payload->addr = info->addr;
+    shmem_payload->size = info->size;
+    shmem_payload->miid = 0;
+
+    PAL_DBG(LOG_TAG, "- mixer -%s-\n", pcmDeviceName);
+    ctl_len = strlen(pcmDeviceName) + 1 + strlen(control) + 1;
+    mixer_str = (char *)calloc(1, ctl_len);
+    if (!mixer_str) {
+        return -ENOMEM;
+    }
+    snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
+
+    PAL_DBG(LOG_TAG, "- mixer -%s-\n", mixer_str);
+    ctl = mixer_get_ctl_by_name(mixer, mixer_str);
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_str);
+        free(mixer_str);
+        return ENOENT;
+    }
+    ret = mixer_ctl_set_array(ctl, shmem_payload, sizeof(pal_spr_shmem_payload_t));
+
+    PAL_DBG(LOG_TAG, "ret = %d\n", ret);
+    free(mixer_str);
+    free(shmem_payload);
+    shmem_payload = NULL;
+    return ret;
+
 }
