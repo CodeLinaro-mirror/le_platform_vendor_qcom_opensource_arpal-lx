@@ -3,6 +3,7 @@ pkgconfig_DATA = codecs.pc
 EXTRA_DIST = $(pkgconfig_DATA)$
 
 AM_CPPFLAGS = -I $(srcdir)/../customva_intf/inc
+AM_CPPFLAGS += -I $(top_srcdir)
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 
