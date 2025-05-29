@@ -549,10 +549,14 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
     }
 
 exit:
-    if (tagConfig)
+    if (tagConfig) {
         free(tagConfig);
-    if (calConfig)
+        tagConfig = nullptr;
+    }
+    if (calConfig) {
         free(calConfig);
+        calConfig = nullptr;
+    }
 
     PAL_DBG(LOG_TAG, "exit status: %d ", status);
     return status;
@@ -2096,7 +2100,17 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
         {
             pal_effect_custom_payload_t *customPayload;
             pal_param_payload *param_payload = (pal_param_payload *)payload;
+            if(!param_payload) {
+                PAL_ERR(LOG_TAG, "param_payload is null");
+                status = -EINVAL;
+                break;
+            }
             effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+            if (effectPalPayload == nullptr) {
+                PAL_ERR(LOG_TAG, "effectPalPayload is null");
+                status = -EINVAL;
+                break;
+            }
             status = streamHandle->getStreamAttributes(&sAttr);
             if (status != 0) {
                 PAL_ERR(LOG_TAG, "stream get attributes failed");
@@ -2132,6 +2146,11 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 break;
             } else {
                 customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
+                if (!customPayload) {
+                    PAL_ERR(LOG_TAG, "customPayload is null");
+                    status = -EINVAL;
+                    break;
+                }
                 status = builder->payloadCustomParam(&paramData, &paramSize,
                             customPayload->data,
                             effectPalPayload->payloadSize - sizeof(uint32_t),
@@ -2152,6 +2171,11 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
         case PAL_PARAM_ID_BT_A2DP_TWS_CONFIG:
         {
             pal_bt_tws_payload *tws_payload = (pal_bt_tws_payload *)payload;
+            if (!tws_payload) {
+                PAL_ERR(LOG_TAG, "tws_payload is null");
+                status = -EINVAL;
+                break;
+            }
             status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
@@ -2172,6 +2196,11 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
         case PAL_PARAM_ID_BT_A2DP_LC3_CONFIG:
         {
             pal_bt_lc3_payload *lc3_payload = (pal_bt_lc3_payload *)payload;
+            if (!lc3_payload) {
+                PAL_ERR(LOG_TAG, "lc3_payload is null");
+                status = -EINVAL;
+                break;
+            }
             status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
@@ -2242,8 +2271,19 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 goto exit;
             }
             pal_param_payload *param_payload = (pal_param_payload *)payload;
+
+            if (!param_payload) {
+                PAL_ERR(LOG_TAG, "param_payload is NULL");
+                status = -EINVAL;
+                goto exit;
+            }
             struct apm_module_param_data_t* header =
                 (struct apm_module_param_data_t *)param_payload->payload;
+            if (!header) {
+                PAL_ERR(LOG_TAG, "header is NULL");
+                status = -EINVAL;
+                goto exit;
+            }
             header->module_instance_id = miid;
             if (param_payload->payload_size) {
                  status = SessionAlsaUtils::setMixerParameter(mixer, device,
@@ -3113,7 +3153,7 @@ uint32_t SessionAlsaPcm::getLatency(Stream *s, uint32_t *latency)
         return -EINVAL;
     }
 
-    uint32_t srcMiid, dstMiid, payloadSize;
+    uint32_t srcMiid = 0, dstMiid = 0, payloadSize = 0;
     if (sAttr.direction == PAL_AUDIO_INPUT) {
         SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), txAifBackEnds[0].second.data(), DEVICE_HW_ENDPOINT_TX, &srcMiid);
         SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), txAifBackEnds[0].second.data(), SHMEM_ENDPOINT, &dstMiid);

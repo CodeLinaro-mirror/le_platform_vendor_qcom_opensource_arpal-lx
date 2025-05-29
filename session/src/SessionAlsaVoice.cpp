@@ -1683,7 +1683,7 @@ int SessionAlsaVoice::setPopSuppressorMute(Stream *s)
 {
     int status = 0;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    uint8_t* payload = NULL;
+    uint8_t* payload = nullptr;
     size_t payloadSize = 0;
     uint32_t miid = 0;
 
@@ -1721,8 +1721,10 @@ int SessionAlsaVoice::setPopSuppressorMute(Stream *s)
         PAL_ERR(LOG_TAG,"setMixerParameter failed");
     }
 exit:
-    if (payload)
+    if (payload) {
         free(payload);
+        payload = nullptr;
+    }
     return status;
 }
 

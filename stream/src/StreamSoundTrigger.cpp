@@ -1154,7 +1154,7 @@ int32_t StreamSoundTrigger::LoadSoundModel(
             goto exit;
         }
 
-        if (sound_model->type == PAL_SOUND_MODEL_TYPE_KEYPHRASE) {
+        if (sound_model->type == PAL_SOUND_MODEL_TYPE_KEYPHRASE && phrase_sm) {
             ar_mem_cpy(sm_config_, sizeof(*phrase_sm),
                              phrase_sm, sizeof(*phrase_sm));
             ar_mem_cpy((uint8_t *)sm_config_ + common_sm->data_offset,
@@ -1184,7 +1184,7 @@ int32_t StreamSoundTrigger::LoadSoundModel(
     /* Create Sound Model Info for stream */
     sm_info_ = new SoundModelInfo();
 
-    if (sound_model->type == PAL_SOUND_MODEL_TYPE_KEYPHRASE) {
+    if (sound_model->type == PAL_SOUND_MODEL_TYPE_KEYPHRASE && phrase_sm) {
         sm_payload = (uint8_t *)common_sm + common_sm->data_offset;
         global_hdr = (SML_GlobalHeaderType *)sm_payload;
         if (global_hdr->magicNumber == SML_GLOBAL_HEADER_MAGIC_NUMBER) {

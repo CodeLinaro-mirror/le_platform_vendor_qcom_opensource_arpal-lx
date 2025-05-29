@@ -3934,13 +3934,25 @@ bool ResourceManager::UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active
         return false;
     }
 
-    if (sAttr.type == PAL_STREAM_VOICE_UI)
+    if (sAttr.type == PAL_STREAM_VOICE_UI) {
         st_st = dynamic_cast<StreamSoundTrigger*>(s);
-    else if (sAttr.type == PAL_STREAM_ACD)
+        if (!st_st) {
+            PAL_ERR(LOG_TAG, "Failed to cast to StreamSoundTrigger");
+            return false;
+        }
+    } else if (sAttr.type == PAL_STREAM_ACD) {
         st_acd = dynamic_cast<StreamACD*>(s);
-    else if (sAttr.type == PAL_STREAM_SENSOR_PCM_DATA)
+        if (!st_acd) {
+            PAL_ERR(LOG_TAG, "Failed to cast to StreamACD");
+            return false;
+        }
+    } else if (sAttr.type == PAL_STREAM_SENSOR_PCM_DATA) {
         st_sns_pcm_data = dynamic_cast<StreamSensorPCMData*>(s);
-    else {
+        if (!st_sns_pcm_data) {
+            PAL_ERR(LOG_TAG, "Failed to cast to StreamSensorPCMData");
+            return false;
+        }
+    } else {
         PAL_ERR(LOG_TAG, "Error:%d Invalid stream type", -EINVAL);
         return false;
     }
@@ -3960,7 +3972,7 @@ bool ResourceManager::UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active
 
         if (!SoundTriggerCaptureProfile) {
             SoundTriggerCaptureProfile = cap_prof;
-        } else if (SoundTriggerCaptureProfile->ComparePriority(cap_prof) < 0){
+        } else if (SoundTriggerCaptureProfile->ComparePriority(cap_prof) < 0) {
             SoundTriggerCaptureProfile = cap_prof;
             backend_update = true;
         }
@@ -5209,6 +5221,10 @@ int ResourceManager::checkAndUpdateGroupDevConfig(struct pal_device *deviceattr,
                 if (activeStream.empty())
                     continue;
                 for (sIter = activeStream.begin(); sIter != activeStream.end(); sIter++) {
+                    if (!(*sIter)) {
+                        PAL_ERR(LOG_TAG, "Null stream pointer in activeStream");
+                        continue;
+                    }
                     pal_stream_type_t type;
                     (*sIter)->getStreamType(&type);
                     switch (conc_dev[i]) {
@@ -8578,15 +8594,17 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         {
             std::list<StreamPCM*>::iterator sIter;
             pal_stream_attributes st_attr;
-            struct pal_volume_data *volume = NULL;
+            struct pal_volume_data *volume = nullptr;
             size_t vol_size = 0;
-            pal_param_payload *params = NULL;
+            pal_param_payload *params = nullptr;
+            pal_volume_data *vdata = nullptr;
             pal_stream_bus_duck_t *duck_param = (pal_stream_bus_duck_t *) param_payload;
 
             volume = (struct pal_volume_data *)calloc(1, sizeof(uint32_t) +
                         (sizeof(struct pal_channel_vol_kv) * 0xFFFF));
             if (!volume) {
                 status = -ENOMEM;
+                PAL_ERR(LOG_TAG, "Failed to allocate memory for volume");
                 break;
             }
 
@@ -8595,8 +8613,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 (*sIter)->getStreamAttributes(&st_attr);
                 if (!strcmp(st_attr.bus_addr, duck_param->bus_addr)) {
                     status = (*sIter)->getVolumeData(volume, &vol_size);
-                    if (status) {
-                        PAL_ERR(LOG_TAG, "getVolumeData fail on bus %s", duck_param->bus_addr);
+                    if (status || !volume) {
+                        PAL_ERR(LOG_TAG, "getVolumeData failed or volume is null on bus %s", duck_param->bus_addr);
                         break;
                     }
 
@@ -8608,23 +8626,26 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         sizeof(struct pal_channel_vol_kv) * vol_size);
                     if (!params) {
                         status = -ENOMEM;
+                        PAL_ERR(LOG_TAG, "Failed to allocate memory for params");
                         break;
                     }
-                    pal_volume_data *vdata = (struct pal_volume_data *)params->payload;
-                    vdata->no_of_volpair = 1;
-                    vdata->volume_pair[0].channel_mask = volume->volume_pair[0].channel_mask;
+                    vdata = (struct pal_volume_data *)params->payload;
+                    if(vdata) {
+                        vdata->no_of_volpair = 1;
+                        vdata->volume_pair[0].channel_mask = volume->volume_pair[0].channel_mask;
 
-                    if (duck_param->duck) {
-                        vdata->volume_pair[0].vol = duck_param->duck_volume < volume->volume_pair[0].vol?
-                                duck_param->duck_volume: volume->volume_pair[0].vol;
-                        (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
-                    } else {
-                        vdata->volume_pair[0].vol = volume->volume_pair[0].vol;
-                        (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                        if (duck_param->duck) {
+                            vdata->volume_pair[0].vol = duck_param->duck_volume < volume->volume_pair[0].vol?
+                                    duck_param->duck_volume: volume->volume_pair[0].vol;
+                            (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                        } else {
+                            vdata->volume_pair[0].vol = volume->volume_pair[0].vol;
+                            (*sIter)->setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, params);
+                        }
                     }
-
                     if (params) {
                         free(params);
+                        params = nullptr;
                     }
                 }
             }
@@ -8632,6 +8653,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
 
             if (volume) {
                 free(volume);
+                volume = nullptr;
             }
         }
         break;
