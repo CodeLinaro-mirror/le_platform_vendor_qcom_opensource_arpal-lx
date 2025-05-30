@@ -1,3 +1,4 @@
+ifeq ($(TARGET_BOARD_PLATFORM), monaco)
 ifneq ($(AUDIO_USE_STUB_HAL), true)
 
 LOCAL_PATH := $(call my-dir)
@@ -217,3 +218,4 @@ include $(PAL_BASE_PATH)/plugins/Android.mk
 include $(PAL_BASE_PATH)/ipc/aidl/Android.mk
 
 endif #AUDIO_USE_STUB_HAL
+endif #TARGET_BOARD_PLATFORM
