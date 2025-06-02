@@ -4628,7 +4628,7 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
         status = -EINVAL;
         goto exit;
     }
-
+    mActiveStreamMutex.lock();
     for (auto& tx_str: mActiveStreams) {
         tx_device_list.clear();
         tx_str->getStreamAttributes(&tx_attr);
@@ -4656,6 +4656,7 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
             }
         }
     }
+    mActiveStreamMutex.unlock();
 exit:
     return tx_stream_list;
 }
