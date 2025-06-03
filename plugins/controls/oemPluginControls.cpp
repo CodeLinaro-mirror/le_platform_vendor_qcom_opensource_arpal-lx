@@ -75,9 +75,11 @@
 * Following list should be extended by customers if more
   BUS devices are added.
 **/
-#define BUS_MEDIA            "BUS00_MEDIA"
+
 #ifdef RBVM
 #define BUS_MEDIA            "BUS00_WS"
+#else
+#define BUS_MEDIA            "BUS00_MEDIA"
 #endif
 #define BUS_SYS_NOTIFICATION "BUS01_SYS_NOTIFICATION"
 #define BUS_NAV_GUIDANCE     "BUS02_NAV_GUIDANCE"

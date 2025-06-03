@@ -11,7 +11,7 @@ LOCAL_MODULE        := libsession_pcm
 LOCAL_MODULE_OWNER  := qti
 LOCAL_VENDOR_MODULE := true
 
-LOCAL_CPPFLAGS += -fexceptions -frtti
+LOCAL_CPPFLAGS += -fexceptions -frtti -Wno-macro-redefined
 
 LOCAL_SRC_FILES := \
     src/SessionAlsaPcm.cpp
