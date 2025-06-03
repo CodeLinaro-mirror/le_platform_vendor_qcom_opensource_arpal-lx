@@ -127,7 +127,7 @@ int payloadCalKeys(Session* s, uint8_t **payload, size_t *size, float volume)
     apm_module_param_data_t* header;
     uint8_t* payloadInfo = NULL;
     size_t payloadSize = 0, padBytes = 0;
-    uint8_t *vol_pl;
+    uint8_t *vol_pl = nullptr;
     vcpm_param_cal_keys_payload_t cal_keys;
     vcpm_ckv_pair_t cal_key_pair[NUM_OF_CAL_KEYS];
     int vol;

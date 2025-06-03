@@ -1472,7 +1472,7 @@ int32_t StreamSoundTrigger::UpdateSoundModel(
             goto exit;
         }
 
-        if (sound_model->type == PAL_SOUND_MODEL_TYPE_KEYPHRASE) {
+        if (sound_model->type == PAL_SOUND_MODEL_TYPE_KEYPHRASE && phrase_sm) {
             ar_mem_cpy(sm_config_, sizeof(*phrase_sm),
                          phrase_sm, sizeof(*phrase_sm));
             ar_mem_cpy((uint8_t *)sm_config_ + common_sm->data_offset,
