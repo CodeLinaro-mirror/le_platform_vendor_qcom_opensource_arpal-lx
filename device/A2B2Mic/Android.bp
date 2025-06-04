@@ -4,4 +4,75 @@ cc_library_headers {
     export_include_dirs: ["inc"],
     vendor: true,
 
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_library {
+
+    name: "libdev_a2b2mic",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+            "src/A2B2Mic.cpp",
+    ],
+
+    shared_libs: [
+            "liblog",
+            "libcutils",
+            "liblx-osal",
+            "libar-pal",
+            "libexpat",
+            "libutilscallstack",
+            "libsession_ar",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libqti-tinycompress"],
+        }),
+
+    include_dirs: [
+            "vendor/qcom/opensource/pal/device/A2B2Mic/inc",
+            "system/media/audio_route/include",
+            "system/media/audio/include",
+            "vendor/qcom/opensource/pal",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: [],
+            default: ["vendor/qcom/opensource/tinycompress/include"],
+        }),
+
+    cppflags: [
+        "-fexceptions", "-frtti",
+        ],
+
+    rtti: true,
+
+    header_libs: [
+        "libarpal_headers",
+        "libspf-headers",
+        "libagm_headers",
+        "libacdb_headers",
+        "liblisten_headers",
+        "libarosal_headers",
+        "libaudiofeaturestats_headers",
+        "libarvui_intf_headers",
+        "libarmemlog_headers",
+        "libarpal_internalheaders",
+        "libsession_ar_headers",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
 }

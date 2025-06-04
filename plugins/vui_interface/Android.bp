@@ -1,0 +1,42 @@
+cc_library_shared {
+    name: "libvui_intf",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "src/VoiceUIInterface.cpp",
+        "src/SVAInterface.cpp",
+        "src/SoundTriggerUtils.cpp",
+        "src/SVAExtension.cpp",
+    ],
+
+    header_libs: [
+        "libarpal_headers",
+        "libarvui_intf_headers",
+        "libspf-headers",
+        "liblisten_headers",
+        "libarosal_headers",
+    ],
+
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "liblx-osal",
+    ],
+
+    cflags:[
+        "-Wno-ignored-attributes",
+    ],
+
+    include_dirs: ["vendor/qcom/opensource/pal/plugins/vui_interface/inc"],
+    export_include_dirs: ["inc"],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+

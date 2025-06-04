@@ -5,3 +5,59 @@ cc_library_headers {
     vendor: true,
 
 }
+
+cc_library {
+
+    name: "libdev_dummy",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "src/DummyDev.cpp"
+        ],
+
+    shared_libs: [
+            "liblog",
+            "libcutils",
+            "liblx-osal",
+            "libar-pal",
+            "libexpat",
+            "libutilscallstack"
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libtinycompress"],
+        }),
+
+    include_dirs: [
+            "vendor/qcom/opensource/pal/device/DummyDev/inc",
+            "system/media/audio_route/include",
+            "system/media/audio/include",
+            "vendor/qcom/opensource/pal",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: [],
+            default: ["external/tinycompress/include"],
+        }),
+
+    cppflags: [
+        "-fexceptions",
+        "-frtti"
+        ],
+
+    rtti: true,
+
+    header_libs: [
+        "libarpal_headers",
+        "libspf-headers",
+        "libacdb_headers",
+        "liblisten_headers",
+        "libarosal_headers",
+        "libaudiofeaturestats_headers",
+        "libarvui_intf_headers",
+        "libarmemlog_headers",
+        "libarpal_internalheaders"
+        ],
+
+}
+

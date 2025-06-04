@@ -4,4 +4,73 @@ cc_library_headers {
     export_include_dirs: ["inc"],
     vendor: true,
 
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
 }
+
+cc_library {
+
+    name: "libdev_headset_va",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "src/HeadsetVaMic.cpp",
+        ],
+
+    shared_libs: [
+            "liblog",
+            "libcutils",
+            "liblx-osal",
+            "libar-pal",
+            "libexpat",
+            "libutilscallstack",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libtinycompress"],
+        }),
+
+    include_dirs: [
+            "vendor/qcom/opensource/pal/device/HeadsetVaMic/inc",
+            "system/media/audio_route/include",
+            "system/media/audio/include",
+            "vendor/qcom/opensource/pal",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: [],
+            default: ["external/tinycompress/include"],
+        }),
+
+    cppflags: [
+        "-fexceptions",
+        "-frtti",
+        ],
+
+    header_libs: [
+        "libarpal_headers",
+        "libspf-headers",
+        "libagm_headers",
+        "libacdb_headers",
+        "liblisten_headers",
+        "libarosal_headers",
+        "libaudiofeaturestats_headers",
+        "libarvui_intf_headers",
+        "libarmemlog_headers",
+        "libarpal_internalheaders",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+

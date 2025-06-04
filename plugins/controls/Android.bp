@@ -1,0 +1,211 @@
+cc_library_shared {
+
+    name: "lib_default_plugin_controls",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "defaultPluginControls.cpp"
+        ],
+
+    shared_libs: [
+            "libcutils",
+            "liblog",
+            "libdl",
+            "libexpat",
+            "libar-pal",
+            "libsession_ar",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libqti-tinycompress"],
+        }),
+
+    include_dirs: [
+            "vendor/qcom/opensource/pal",
+            "vendor/qcom/opensource/pal/session/inc",
+            "vendor/qcom/opensource/pal/session/SessionAR/inc",
+            "vendor/qcom/opensource/pal/stream/inc",
+            "vendor/qcom/opensource/pal/resource_manager/inc",
+            "vendor/qcom/opensource/pal/device/inc",
+            "vendor/qcom/opensource/pal/utils/inc",
+            "vendor/qcom/opensource/pal/context_manager/inc",
+            "vendor/qcom/opensource/pal/plugins/PluginManager/inc",
+            "system/media/audio_route/include",
+            "system/media/audio/include",
+            "external/expat/lib/expat.h",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: [],
+            default: ["vendor/qcom/opensource/tinycompress/include"],
+        }),
+
+    cflags: [
+        "-O2",
+        "-fvisibility=hidden",
+        ],
+
+    header_libs: [
+        "libspf-headers",
+        "libagm_headers",
+        "libarosal_headers",
+        "libaudiologutils_headers",
+        "libacdb_headers",
+        "liblisten_headers",
+        "libarvui_intf_headers",
+        "libsession_ar_headers",
+        "libaudiofeaturestats_headers",
+        "plugin_manager_headers",
+        "libsession_voice_headers",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_library_shared {
+
+    name: "lib_default_set_param_plugin_controls",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "defaultShmemPluginControls.cpp",
+        ],
+    shared_libs: [
+        "libcutils",
+        "liblog",
+        "libdl",
+        "libexpat",
+        "libar-pal",
+        "libqti-tinyalsa",
+        ],
+
+    include_dirs: [
+        "vendor/qcom/opensource/pal",
+        "vendor/qcom/opensource/pal/session/inc",
+        "vendor/qcom/opensource/pal/stream/inc",
+        "vendor/qcom/opensource/pal/resource_manager/inc",
+        "vendor/qcom/opensource/pal/device/inc",
+        "vendor/qcom/opensource/pal/utils/inc",
+        "vendor/qcom/opensource/pal/context_manager/inc",
+        "vendor/qcom/opensource/pal/plugins/PluginManager/inc",
+        "system/media/audio_route/include",
+        "system/media/audio/include",
+        ],
+
+    cflags: [
+        "-O2",
+        "-fvisibility=hidden",
+        ],
+
+    header_libs: [
+        "libagm_headers",
+        "libarosal_headers",
+        "libaudiologutils_headers",
+        "libacdb_headers",
+        "libaudiofeaturestats_headers",
+        "libspf-headers",
+        "libarvui_intf_headers",
+        "libsession_ar_headers",
+        "plugin_manager_headers",
+        "liblisten_headers",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_library_shared {
+
+    name: "lib_oem_plugin_controls",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "oemPluginControls.cpp",
+        ],
+
+    shared_libs: [
+            "libcutils",
+            "liblog",
+            "libdl",
+            "libexpat",
+            "libar-pal",
+            "libsession_ar",
+            ]
+//if android version is R, refer to qtitinyxx otherwise use upstream ones
+//This assumes we would be using AR code only for Android R and subsequent versions.
+        + select(soong_config_variable("qti", "PLATFORM_VERSION"), {
+            "11": ["libqti-tinyalsa", "libqti-tinycompress"],
+            "R": ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libqti-tinycompress"],
+       }),
+
+    include_dirs: [
+            "vendor/qcom/opensource/pal",
+            "vendor/qcom/opensource/pal/session/inc",
+            "vendor/qcom/opensource/pal/session/SessionAR/inc",
+            "vendor/qcom/opensource/pal/stream/inc",
+            "vendor/qcom/opensource/pal/resource_manager/inc",
+            "vendor/qcom/opensource/pal/device/inc",
+            "vendor/qcom/opensource/pal/utils/inc",
+            "vendor/qcom/opensource/pal/context_manager/inc",
+            "vendor/qcom/opensource/pal/plugins/PluginManager/inc",
+            "system/media/audio_route/include",
+            "system/media/audio/include",
+            "external/expat/lib/expat.h",
+            ]
+
+//if android version is R, refer to qtitinyxx otherwise use upstream ones
+//This assumes we would be using AR code only for Android R and subsequent versions.
+        + select(soong_config_variable("qti", "filter 11 R, PLATFORM_VERSION"), {
+            "11": ["vendor/qcom/opensource/tinyalsa/include", "vendor/qcom/opensource/tinycompress/include"],
+            "R": ["vendor/qcom/opensource/tinyalsa/include", "vendor/qcom/opensource/tinycompress/include"],
+            default: ["vendor/qcom/opensource/tinycompress/include"],
+        }),
+
+    cflags: [
+            "-O2",
+            "-fvisibility=hidden",
+            ]
+        + select(soong_config_variable("qti", "TARGET_BOARD_DERIVATIVE_SUFFIX"), {
+            "_cdcsdv": ["-DRBVM"],
+            "_sdv": ["-DRBVM"],
+            default: [],
+        }),
+
+    header_libs: [
+        "libspf-headers",
+        "libagm_headers",
+        "libarosal_headers",
+        "libaudiologutils_headers",
+        "libacdb_headers",
+        "liblisten_headers",
+        "libarvui_intf_headers",
+        "libsession_ar_headers",
+        "libaudiofeaturestats_headers",
+        "plugin_manager_headers",
+        "libsession_voice_headers",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+
