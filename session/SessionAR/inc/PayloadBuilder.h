@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -246,6 +246,9 @@ public:
                           uint32_t miid, bool isLC3MonoModeOn);
     void payloadRATConfig(uint8_t** payload, size_t* size, uint32_t miid,
                           struct pal_media_config *data);
+    void payloadASRConfig(uint8_t** payload, size_t* size, uint32_t miid, struct pal_asr_config *data);
+    void payloadTTSConfig(uint8_t** payload, size_t* size, uint32_t miid, struct pal_tts_config *data);
+    void payloadNMTConfig(uint8_t** payload, size_t* size, uint32_t miid, struct pal_nmt_config *data);
     void payloadPcmCnvConfig(uint8_t** payload, size_t* size, uint32_t miid,
                              struct pal_media_config *data, bool isRx);
     void payloadCopPackConfig(uint8_t** payload, size_t* size, uint32_t miid,

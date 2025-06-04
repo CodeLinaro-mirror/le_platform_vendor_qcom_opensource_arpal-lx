@@ -431,6 +431,7 @@ std::vector <int> ResourceManager::listAllPcmInCallRecordFrontEnds = {0};
 std::vector <int> ResourceManager::listAllPcmInCallMusicFrontEnds = {0};
 std::vector <int> ResourceManager::listAllNonTunnelSessionIds = {0};
 std::vector <int> ResourceManager::listAllPcmContextProxyFrontEnds = {0};
+std::vector <int> ResourceManager::listAllPcmCallTranslationFrontEnds = {0};
 std::vector <std::string> ResourceManager::usb_vendor_uuid_list = {""};
 struct audio_mixer* ResourceManager::audio_virt_mixer = NULL;
 struct audio_mixer* ResourceManager::audio_hw_mixer = NULL;
@@ -468,6 +469,7 @@ bool ResourceManager::isHapticsProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
 bool ResourceManager::isSoundDoseEnabled = false;
 int ResourceManager::cpsMode = 0;
+int ResourceManager::wsaUsed = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
 bool ResourceManager::isRasEnabled = false;
@@ -876,6 +878,7 @@ ResourceManager::ResourceManager()
     listAllPcmInCallRecordFrontEnds.clear();
     listAllPcmInCallMusicFrontEnds.clear();
     listAllPcmContextProxyFrontEnds.clear();
+    listAllPcmCallTranslationFrontEnds.clear();
     listAllPcmExtEcTxFrontEnds.clear();
     memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
     memset(in_stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
@@ -897,6 +900,10 @@ ResourceManager::ResourceManager()
                 listAllPcmInCallMusicFrontEnds.push_back(devInfo[i].deviceId);
             } else if (devInfo[i].sess_mode == NO_CONFIG && devInfo[i].record == 1) {
                 listAllPcmContextProxyFrontEnds.push_back(devInfo[i].deviceId);
+                // Call Translation TX will also use sess_mode as NO_CONFIG and capture.
+            } else if (devInfo[i].sess_mode == NO_CONFIG && devInfo[i].playback == 1) {
+                listAllPcmCallTranslationFrontEnds.push_back(devInfo[i].deviceId);
+                // Call Translation RX will use sess_mode as NO_CONFIG and playback.
             }
         } else if (devInfo[i].type == COMPRESS) {
             if (devInfo[i].playback == 1) {
@@ -1499,6 +1506,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
                     strstr(snd_card_name, "canoe") ||
+                    strstr(snd_card_name, "alor") ||
                     strstr(snd_card_name, "sun")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
@@ -5372,6 +5380,38 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
             }
             break;
         case PAL_STREAM_CALL_TRANSLATION:
+            if (sAttr.direction == PAL_AUDIO_OUTPUT) {
+                if (howMany > listAllPcmCallTranslationFrontEnds.size()) {
+                        PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
+                                        howMany, listAllPcmCallTranslationFrontEnds.size());
+                        goto error;
+                    }
+                id = (listAllPcmCallTranslationFrontEnds.size() - 1);
+                it = (listAllPcmCallTranslationFrontEnds.begin() + id);
+                for (int i = 0; i < howMany; i++) {
+                    f.push_back(listAllPcmCallTranslationFrontEnds.at(id));
+                    listAllPcmCallTranslationFrontEnds.erase(it);
+                    PAL_ERR(LOG_TAG, "allocateFrontEndIds: front end %d", f[i]);
+                    it -= 1;
+                    id -= 1;
+                }
+            } else if (sAttr.direction == PAL_AUDIO_INPUT) {
+                if (howMany > listAllPcmContextProxyFrontEnds.size()) {
+                        PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
+                                        howMany, listAllPcmContextProxyFrontEnds.size());
+                        goto error;
+                    }
+                id = (listAllPcmContextProxyFrontEnds.size() - 1);
+                it = (listAllPcmContextProxyFrontEnds.begin() + id);
+                for (int i = 0; i < howMany; i++) {
+                    f.push_back(listAllPcmContextProxyFrontEnds.at(id));
+                    listAllPcmContextProxyFrontEnds.erase(it);
+                    PAL_ERR(LOG_TAG, "allocateFrontEndIds: front end %d", f[i]);
+                    it -= 1;
+                    id -= 1;
+                }
+            }
+            break;
         case PAL_STREAM_CONTEXT_PROXY:
         case PAL_STREAM_COMMON_PROXY:
             if (howMany > listAllPcmContextProxyFrontEnds.size()) {
@@ -5568,6 +5608,23 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
             }
             break;
         case PAL_STREAM_CALL_TRANSLATION:
+            switch (sAttr.direction) {
+              case PAL_AUDIO_INPUT:
+                for (int i = 0; i < frontend.size(); i++) {
+                    listAllPcmContextProxyFrontEnds.push_back(frontend.at(i));
+                }
+                removeDuplicates(listAllPcmContextProxyFrontEnds);
+                break;
+              case PAL_AUDIO_OUTPUT:
+                for (int i = 0; i < frontend.size(); i++) {
+                    listAllPcmCallTranslationFrontEnds.push_back(frontend.at(i));
+                }
+                removeDuplicates(listAllPcmCallTranslationFrontEnds);
+                break;
+              default:
+                break;
+            }
+            break;
         case PAL_STREAM_CONTEXT_PROXY:
         case PAL_STREAM_COMMON_PROXY:
             for (int i = 0; i < frontend.size(); i++) {
@@ -7603,6 +7660,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (payload_size == sizeof(pal_haptics_payload)) {
                 switch(hapModeVal->operationMode) {
                     case PAL_HAP_MODE_FACTORY_TEST:
+                    case PAL_HAP_MODE_DYNAMIC_CAL:
                     {
                         struct pal_device dattr;
                         dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
@@ -7616,7 +7674,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         dev = Device::getInstance(&dattr , rm);
                         if (dev) {
                             PAL_DBG(LOG_TAG, "Got Haptics Device Instance");
-                            dev->setParameter(PAL_HAP_MODE_FACTORY_TEST, nullptr);
+                            dev->setParameter(hapModeVal->operationMode, nullptr);
                         }
                         else {
                             PAL_DBG(LOG_TAG, "Unable to get haptics device instance");
@@ -7625,7 +7683,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     break;
                     default:
                     {
-                        PAL_ERR(LOG_TAG, "unsupported hap op mode",
+                        PAL_ERR(LOG_TAG, "unsupported hap op mode = %d",
                                 hapModeVal->operationMode);
                         status = -EINVAL;
                         goto exit;
@@ -9241,6 +9299,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
                 isChargeConcurrencyEnabled = true;
         } else if (!strcmp(tag_name, "cps_mode")) {
             cpsMode = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa_used")) {
+            wsaUsed = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "supported_bit_format")) {
             size = deviceInfo.size() - 1;
             if(!strcmp(data->data_buf, "PAL_AUDIO_FMT_PCM_S24_3LE"))
@@ -10396,6 +10456,10 @@ int ResourceManager::SilenceDetectionDuration() {
 
 int ResourceManager::getCpsMode() {
     return ResourceManager::cpsMode;
+}
+
+int ResourceManager::getWsaUsed() {
+    return ResourceManager::wsaUsed;
 }
 
 int ResourceManager::getSpQuickCalTime() {

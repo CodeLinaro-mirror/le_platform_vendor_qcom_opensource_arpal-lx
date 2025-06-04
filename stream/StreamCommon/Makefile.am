@@ -33,4 +33,4 @@ if BUILDSYSTEM_OPENWRT
 libstream_common_la_LIBADD += -lglib-2.0
 endif
 
-SUBDIRS = . StreamUltrasSound StreamSensorRenderer StreamSensorPCMData StreamContextProxy StreamCommonProxy StreamCallTranslation
+SUBDIRS = . StreamUltrasSound StreamSensorRenderer StreamSensorPCMData StreamContextProxy StreamCommonProxy

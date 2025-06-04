@@ -215,6 +215,10 @@ int32_t ASREngine::setParameters(Stream *s, asr_param_id_type_t pid, void *param
                  */
                 event_id_asr_output_event_t *event = (event_id_asr_output_event_t *)
                                      calloc(1, sizeof(event_id_asr_output_event_t));
+                if (event == nullptr) {
+                    PAL_ERR(LOG_TAG, "Failed to allocate memory for ASR output event");
+                    goto exit;
+                }
                 event->output_token = 0;
                 event->num_outputs = 1;
                 event->payload_size = outputBufSize;
@@ -342,6 +346,7 @@ int32_t ASREngine::StartEngine(Stream *s)
     PAL_DBG(LOG_TAG, "Enter");
 
     int32_t status = 0;
+    int32_t tempStatus = 0;
     uint8_t *eventPayload = NULL;
     size_t eventPayloadSize = sizeof(struct event_id_asr_output_reg_cfg_t);
     struct event_id_asr_output_reg_cfg_t *eventConfig =  NULL;
@@ -431,9 +436,9 @@ int32_t ASREngine::StartEngine(Stream *s)
     goto exit;
 
 err_cleanup:
-    status = session->close(s);
-    if (status)
-        PAL_ERR(LOG_TAG, "Error: %d Failed to close session", status);
+    tempStatus = session->close(s);
+    if (tempStatus)
+        PAL_ERR(LOG_TAG, "Error: %d Failed to close session", tempStatus);
 
 exit:
     if (eventConfig) {

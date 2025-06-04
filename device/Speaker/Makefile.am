@@ -17,7 +17,11 @@ AM_CPPFLAGS += -I ../../context_manager/inc
 
 
 dev_speaker_sources = ./src/Speaker.cpp \
-                      ./src/SpeakerProtection.cpp
+                      ./src/SpeakerProtection.cpp \
+                      ./src/SpeakerProtectionwsa883x.cpp \
+                      ./src/SpeakerProtectionwsa884x.cpp \
+                      ./src/SpeakerProtectionwsa885x.cpp \
+                      ./src/SpeakerProtectionwsa885xI2s.cpp
 
 library_includedir = $(includedir)/dev_speaker
 
