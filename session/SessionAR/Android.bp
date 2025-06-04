@@ -4,4 +4,90 @@ cc_library_headers {
     export_include_dirs: ["inc"],
     vendor: true,
 
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_library{
+    name: "libsession_ar",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "src/SessionAR.cpp",
+        "src/SessionAlsaUtils.cpp",
+        "src/PayloadBuilder.cpp",
+        ],
+
+    shared_libs: [
+            "liblog",
+            "libcutils",
+            "liblx-osal",
+            "libar-pal",
+            "libexpat",
+            "libagmclient",
+            "libaudioroute",
+            "libar-gsl"
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libtinycompress"],
+    })
+
+        + select(soong_config_variable("qti", "is-board-platform-in-list"), {
+            "kalama": ["libPeriphe ralStateUtils"],
+            "pineapple": ["libPeri pheralStateUtils"],
+            "sun": ["libPeripheralStateUtils"],
+            default: [],
+        }),
+
+    include_dirs: [
+            "vendor/qcom/opensource/pal/session/SessionAR/inc",
+            "system/media/audio_route/include",
+            "system/media/audio/include",
+            "vendor/qcom/opensource/pal",
+            ]
+        + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: [],
+            default: ["external/tinycompress/include"],
+        }),
+
+    cppflags: [
+        "-fexceptions", "-frtti"
+    ],
+
+    rtti: true,
+
+    header_libs: [
+            "libarpal_headers",
+            "libspf-headers",
+            "libagm_headers",
+            "libacdb_headers",
+            "liblisten_headers",
+            "libarosal_headers",
+            "libaudiofeaturestats_headers",
+            "libarvui_intf_headers",
+            "libarmemlog_headers",
+            "libarpal_internalheaders"
+            ]
+
+        + select(soong_config_variable("qti", "is-board-platform-in-list"), {
+            "kalama": ["peripheralstate_headers", "vendor_common_inc", "mink_headers"],
+            "pineapple": ["peripheralstate_headers ", "vendor_common_inc", "mink_headers"],
+            "sun": ["peripheralstate_headers ", "vendor_common_inc", "mink_headers"],
+            default: [],
+        }),
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
 }

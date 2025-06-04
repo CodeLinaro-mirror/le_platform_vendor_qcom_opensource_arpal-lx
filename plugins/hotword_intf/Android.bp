@@ -1,0 +1,43 @@
+cc_library_shared {
+
+    name: "libhotword_intf",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "src/HotwordInterface.cpp",
+        ],
+
+    shared_libs: [
+        "liblog",
+        "libcutils",
+        "liblx-osal",
+        ],
+
+    include_dirs: [
+        "vendor/qcom/opensource/pal/plugins/hotword_intf/inc",
+        ],
+
+    cppflags: [
+        "-fexceptions",
+        ],
+
+    header_libs: [
+        "libarpal_headers",
+        "libarvui_intf_headers",
+        "libspf-headers",
+        "liblisten_headers",
+        "libarosal_headers",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+
+

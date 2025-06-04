@@ -1,0 +1,55 @@
+cc_library_shared {
+
+    name: "libpalipcservice",
+    owner: "qti",
+    vendor: true,
+    clang: true,
+    tidy: true,
+
+    srcs: [
+        "Service.cpp",
+        "PalServerWrapper.cpp",
+        ],
+
+    shared_libs: [
+        "liblog",
+        "libbinder_ndk",
+        "libbase",
+        "libcutils",
+        "libutils",
+        "libfmq",
+        "libar-pal",
+        "vendor.qti.hardware.pal-V1-ndk",
+        ], 
+
+    include_dirs: [
+        "vendor/qcom/opensource/pal/inc",
+        "vendor/qcom/opensource/pal/utils/inc",
+        ],
+
+    cflags: [
+        "-v",
+        "-Wall",
+        "-Wthread-safety",
+        ],
+
+    header_libs: [
+        "libspf-headers",
+        "libarosal_headers",
+        "libacdb_headers",
+        ],
+
+    static_libs: [
+        "libpalaidltypeconverter",
+        "libaidlcommonsupport",
+        ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+

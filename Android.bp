@@ -1,7 +1,282 @@
 cc_library_headers {
-
     name: "libarpal_headers",
     export_include_dirs: ["inc"],
     vendor: true,
 
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
 }
+
+cc_library_headers {
+    name: "libarpal_internalheaders",
+    vendor: true,
+    export_include_dirs: [
+        "inc",
+        "stream/inc",
+        "session/inc",
+        "resource_manager/inc",
+        "device/inc",
+        "utils/inc",
+        "context_manager/inc",
+        "plugins/codecs",
+        "plugins/controls",
+        "plugins/PluginManager/inc",
+    ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_library_shared {
+    name: "libar-pal",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+        "Pal.cpp",
+        "PalAR.cpp",
+        "stream/src/Stream.cpp",
+        "device/src/Device.cpp",
+        "session/src/Session.cpp",
+        "context_manager/src/ContextManager.cpp",
+        "resource_manager/src/ResourceManager.cpp",
+        "resource_manager/src/SndCardMonitor.cpp",
+        "utils/src/SoundTriggerPlatformInfo.cpp",
+        "utils/src/ACDPlatformInfo.cpp",
+        "utils/src/ASRPlatformInfo.cpp",
+        "utils/src/VoiceUIPlatformInfo.cpp",
+        "utils/src/SignalHandler.cpp",
+        "utils/src/AudioHapticsInterface.cpp",
+        "utils/src/MetadataParser.cpp",
+        "utils/src/MemLogBuilder.cpp",
+        "utils/src/PerfLock.cpp",
+        "utils/src/STUtils.cpp",
+        "utils/src/SharedMemoryUtils.cpp",
+    ],
+
+    export_include_dirs: ["inc"],
+
+    header_libs: [
+        "libarpal_headers",
+        "libutils_headers",
+        "libspf-headers",
+        "libcapiv2_headers",
+        "libagm_headers",
+        "libacdb_headers",
+        "liblisten_headers",
+        "libarosal_headers",
+        "libvui_dmgr_headers",
+        "libaudiofeaturestats_headers",
+        "libarvui_intf_headers",
+        "libarmemlog_headers",
+        "libarpal_internalheaders",
+    ]  + select(soong_config_variable("qti", "is-board-platform-in-list"), {
+                "kalama": ["peripheralstate_headers", "vendor_common_inc", "mink_headers"],
+                "pineapple": ["peripheralstate_headers", "vendor_common_inc", "mink_headers"],
+                "sun": ["peripheralstate_headers", "vendor_common_inc", "mink_headers"],
+                 default: [],
+        }),
+
+    cflags: [
+        "-D_ANDROID_",
+        "-Wno-macro-redefined",
+        "-Wall", "-Werror",
+        "-Wno-unused-variable", "-Wno-unused-parameter",
+        "-DCONFIG_GSL",
+        "-D_GNU_SOURCE",
+    ] + select(soong_config_variable("qti", "TARGET_BOARD_PLATFORM"), {
+            "anorak": [],
+             default: ["-DA2DP_SINK_SUPPORTED"],
+        }) + select(soong_config_variable("qti", "is-board-platform-in-list"), {
+                "kalama": [DSOC_PERIPHERAL_PROT],
+                "pineapple": [DSOC_PERIPHERAL_PROT],
+                "sun": [DSOC_PERIPHERAL_PROT],
+                 default: [],
+        })  + select(soong_config_variable("qti", "TARGET_KERNEL_VERSION"), {
+            "3.18": [],
+            "4.14": [],
+            "4.19": [],
+            "4.4": [],
+            "4.9": [],
+            "5.4": [],
+            default: ["-DADSP_SLEEP_MONITOR"],
+    }),
+
+
+    cppflags: ["-fexceptions", "-frtti"],
+
+    rtti: true,
+
+    shared_libs: [
+        "libar-gsl",
+        "liblog",
+        "libexpat",
+        "liblx-osal",
+        "libaudioroute",
+        "libcutils",
+        "libutilscallstack",
+        "libagmclient",
+        "libvui_intf",
+        "libarmemlog",
+        "libhidlbase",
+    ]  + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: ["libqti-tinyalsa", "libqti-tinycompress"],
+            default: ["libtinyalsa", "libqti-tinycompress"],
+        }) +  select(soong_config_variable("qti", "is-board-platform-in-list"), {
+                "kalama": ["libPeripheralStateUtils"],
+                "pineapple": ["libPeripheralStateUtils"],
+                "sun": ["libPeripheralStateUtils"],
+                 default: [],
+        }),
+
+    static_libs: ["libplugin_manager",
+    ] + select(soong_config_variable("qti", "USE_PAL_STATIC_LINKING_MODULES"), {
+        true: [
+            "libstream_acd",
+            "libstream_acdb",
+            "libstream_common",
+            "libstream_commonproxy",
+            "libstream_compress",
+            "libstream_contextproxy",
+            "libstream_haptics",
+            "libstream_incall",
+            "libstream_nontunnel",
+            "libstream_pcm",
+            "libstream_sensorpcmdata",
+            "libstream_sensorrenderer",
+            "libstream_soundtrigger",
+            "libstream_ultrasound",
+            "libstream_asr",
+            "libsession_ar",
+            "libsession_compress",
+            "libsession_agm",
+            "libsession_pcm",
+            "libsession_voice",
+            "libdev_handset",
+            "libdev_handset_mic",
+            "libdev_handset_va",
+            "libdev_speaker",
+            "libdev_speaker_mic",
+            "libdev_headphone",
+            "libdev_headset_mic",
+            "libdev_headset_va",
+            "libdev_bt",
+            "libdev_fm",
+            "libdev_usb",
+            "libdev_a2bmi",
+            "libdev_a2bspeaker",
+            "libdev_a2b2mic",
+            "libdev_a2b2speaker",
+            "libdev_ultrasound",
+            "libdev_proxy",
+            "libdev_display",
+            "libdev_dummy",
+            "libdev_haptics",
+            "libdev_ext_ec",
+            "libdev_ec_ref",
+            "libdev_hfpdownlink",
+            "libdev_hfpuplink",
+        ],
+        default: [],
+    }),
+
+    include_dirs: [
+
+        "system/media/audio_route/include",
+        "system/media/audio/include",
+        "vendor/qcom/opensource/pal",
+        ] + select(soong_config_variable("qti", "TARGET_USES_QTI_TINYCOMPRESS"), {
+            true: [],
+            default: [
+                  "vendor/qcom/opensource/tinycompress/include"
+            ],
+        })  + select(soong_config_variable("qti", "TARGET_KERNEL_VERSION"), {
+            "3.18": [],
+            "4.14": [],
+            "4.19": [],
+            "4.4": [],
+            "4.9": [],
+            "5.4": [],
+            default: ["kernel_platform/msm-kernel/include/uapi/misc"],
+    }),
+
+    enabled: select(soong_config_variable("qti", "AUDIO_USE_STUB_HAL"), {
+        true: false,
+        default: true,
+    }),
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_library_shared {
+    name: "libaudiochargerlistener",
+    owner: "qti",
+    vendor: true,
+    srcs: ["utils/src/ChargerListener.cpp"],
+    cflags: ["-Wall", "-Werror", "-Wno-unused-function", "-Wno-unused-variable"],
+    shared_libs: ["libcutils", "liblog"],
+    include_dirs: [
+        "vendor/qcom/opensource/pal/utils/inc",
+        "system/media/audio/include",
+        "system/media/audio_route/include",
+    ],
+   enabled: select(soong_config_variable("qti", "AUDIO_USE_STUB_HAL"), {
+        true: false,
+        default: true,
+    }),
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
+cc_binary {
+    name: "PalTest",
+    owner: "qti",
+    vendor: true,
+    srcs: [
+        "test/PalUsecaseTest.c",
+        "test/PalTest_main.c",
+    ],
+    shared_libs: [
+        "libpalclient",
+        "libcutils",
+    ],
+   enabled: select(soong_config_variable("qti", "AUDIO_USE_STUB_HAL"), {
+        true: false,
+        default: true,
+    }),
+
+}
+
+subdirs=[
+   ] + select(soong_config_variable("qti", "AUDIO_USE_STUB_HAL"), {
+    true: [],
+    default:[ "plugins/Android.bp",
+         "ipc/aidl/Android.bp",
+         "stream/Android.bp",
+         "session/Android.bp",
+         "device/Android.bp",
+        ]
+    })
+

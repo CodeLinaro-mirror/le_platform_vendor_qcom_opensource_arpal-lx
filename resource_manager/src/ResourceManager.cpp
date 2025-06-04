@@ -77,7 +77,7 @@
 #endif
 
 #if defined(ADSP_SLEEP_MONITOR)
-#include <misc/adsp_sleepmon.h>
+#include <adsp_sleepmon.h>
 #endif
 
 #if LINUX_ENABLED

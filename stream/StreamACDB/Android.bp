@@ -4,4 +4,65 @@ cc_library_headers {
     export_include_dirs: ["inc"],
     vendor: true,
 
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
 }
+
+cc_library{
+
+    name: "libstream_acdb",
+    owner: "qti",
+    vendor: true,
+
+    srcs: [
+         "src/StreamACDB.cpp",
+         ],
+
+    shared_libs: [
+         "liblog",
+         "libcutils",
+         "liblx-osal",
+         "libar-pal",
+         "libexpat",
+         "libar-gsl",
+         "libsession_ar",
+         "libaudioroute",
+         ], 
+
+    include_dirs: [
+         "vendor/qcom/opensource/pal/stream/StreamACDB/inc",
+         "system/media/audio_route/include",
+         "vendor/qcom/opensource/pal",
+    ],
+
+    cppflags: [
+         "-fexceptions",
+    ],
+
+    header_libs: [
+         "libarpal_headers",
+         "libspf-headers",
+         "libvui_dmgr_headers",
+         "libarvui_intf_headers",
+         "libaudiofeaturestats_headers",
+         "liblisten_headers",
+         "libacdb_headers",
+         "libarpal_internalheaders",
+         "libarmemlog_headers",
+         "libsession_ar_headers",
+    ],
+
+    apex_available: [
+        "//apex_available:platform",
+        "com.google.display_safety.har",
+        "com.google.display_safety.har.update",
+        "com.google.display_safety.har.stub",
+    ],
+    min_sdk_version: "34",
+}
+
