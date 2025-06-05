@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -11008,6 +11008,12 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 PAL_ERR(LOG_TAG, "set Parameter %d failed\n", param_id);
                 goto exit;
             }
+
+            if (param_bt_sco->bt_sco_on) {
+                mResourceManagerMutex.unlock();
+                reconfigureScoStreams();
+                mResourceManagerMutex.lock();
+            }
         }
         break;
         case PAL_PARAM_ID_BT_SCO_WB:
@@ -14403,4 +14409,53 @@ void ResourceManager::WbSpeechConfig(pal_device_id_t devId,
                 "force device switch for running SCO stream, status: %d, sample rate(%d->%d)",
                 status, curDevAttr.config.sample_rate, newDevAttr.config.sample_rate);
     }
+}
+
+void ResourceManager::reconfigureScoStreams() {
+    int status = 0;
+    std::shared_ptr <Device> dev = nullptr;
+    std::vector <pal_device_id_t> scoDevs;
+    std::vector <Stream *> activeScoStreams;
+    std::vector <Stream *>::iterator sIter;
+    std::vector <std::tuple<Stream*, uint32_t>> streamDevDisconnect;
+    std::vector <std::tuple<Stream*, struct pal_device *>> streamDevConnect;
+    std::vector <pal_device *> palDevices;
+    struct pal_device *dattr = nullptr;
+
+    scoDevs.push_back(PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET);
+    scoDevs.push_back(PAL_DEVICE_OUT_BLUETOOTH_SCO);
+    for (auto devId : scoDevs) {
+        dattr = (pal_device *) malloc(sizeof(struct pal_device));
+        if (!dattr) {
+            PAL_ERR(LOG_TAG, "malloc failed for SCO device %d", devId);
+        }
+        palDevices.push_back(dattr);
+        dattr->id = devId;
+        status = getDeviceConfig(dattr, NULL);
+        if (status) {
+            PAL_ERR(LOG_TAG, "getDeviceConfig failed for SCO device %d", devId);
+                return;
+        }
+        dev = Device::getInstance(dattr, rm);
+        activeScoStreams.clear();
+        mActiveStreamMutex.lock();
+        getActiveStream_l(activeScoStreams, dev);
+        mActiveStreamMutex.unlock();
+        if (activeScoStreams.size() > 0) {
+            for (sIter = activeScoStreams.begin();
+                sIter != activeScoStreams.end(); sIter++) {
+                streamDevDisconnect.push_back({*sIter, devId});
+                streamDevConnect.push_back({*sIter, dattr});
+            }
+        }
+        dattr = nullptr;
+    }
+
+    PAL_DBG(LOG_TAG, "streamDevDisconnect size=%d and streamDevConnect size=%d",
+            streamDevDisconnect.size(), streamDevConnect.size());
+    status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
+    if (status) {
+        PAL_ERR(LOG_TAG, "streamDevSwitch failed %d", status);
+    }
+    for (auto dAttr : palDevices) free(dAttr);
 }
