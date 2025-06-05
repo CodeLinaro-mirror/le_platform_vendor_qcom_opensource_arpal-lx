@@ -4102,7 +4102,13 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
         goto exit;
     }
 
-    if (payloadData && payloadSize <= MAX_PCM_PAYLOAD_SIZE) {
+    if (param_id == PAL_PARAM_ID_PLUGIN_PARAM ) {
+        status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
+            goto exit;
+        }
+    } else if (payloadData && payloadSize <= MAX_PCM_PAYLOAD_SIZE ) {
         status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
@@ -4114,7 +4120,7 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
             status = -ENOMEM;
             goto exit;
         } else {
-            PAL_ERR(LOG_TAG, "Payloadsize exceeds max permissible value");
+            PAL_ERR(LOG_TAG, "Payload size %d exceeds max permissible value %d", payloadSize, MAX_PCM_PAYLOAD_SIZE);
             status = -EINVAL;
             goto exit;
         }
