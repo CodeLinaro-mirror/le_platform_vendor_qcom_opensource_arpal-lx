@@ -1031,6 +1031,9 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
         mStreamMutex.unlock();
         return -EINVAL;
     }
+    mStreamMutex.unlock();
+
+    mSetParamMutex.lock();
     // Call Session for Setting the parameter.
     if (NULL != session) {
         status = session->setParameters(this, param_id, payload);
@@ -1038,8 +1041,8 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
         PAL_ERR(LOG_TAG, "Session is null");
         status = -EINVAL;
     }
+    mSetParamMutex.unlock();
 
-    mStreamMutex.unlock();
 exit:
     PAL_DBG(LOG_TAG, "exit, session parameter %u set with status %d", param_id, status);
     return status;

@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -295,13 +295,18 @@ int32_t Stream::getEffectParameters(void *effect_query)
         mStreamMutex.unlock();
         return -EINVAL;
     }
+
+    mStreamMutex.unlock();
+
+    mGetParamMutex.lock();
     pal_param_payload *pal_param = (pal_param_payload *)effect_query;
     effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
     status = session->getEffectParameters(this, effectPayload);
     if (status) {
        PAL_ERR(LOG_TAG, "getParameters failed with %d", status);
     }
-    mStreamMutex.unlock();
+
+    mGetParamMutex.unlock();
 
     return status;
 }
