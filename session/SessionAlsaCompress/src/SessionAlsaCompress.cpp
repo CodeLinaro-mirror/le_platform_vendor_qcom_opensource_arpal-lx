@@ -564,6 +564,7 @@ bool SessionAlsaCompress::isGaplessFormat(pal_audio_fmt_t fmt)
         case PAL_AUDIO_FMT_WMA_PRO:
         case PAL_AUDIO_FMT_APE:
         case PAL_AUDIO_FMT_WMA_STD:
+        case PAL_AUDIO_FMT_ALAC:
         case PAL_AUDIO_FMT_OPUS:
             isSupported = true;
             break;
@@ -572,8 +573,6 @@ bool SessionAlsaCompress::isGaplessFormat(pal_audio_fmt_t fmt)
         case PAL_AUDIO_FMT_PCM_S24_3LE:
         case PAL_AUDIO_FMT_PCM_S24_LE:
         case PAL_AUDIO_FMT_PCM_S32_LE:
-            break;
-        case PAL_AUDIO_FMT_ALAC:
             break;
         case PAL_AUDIO_FMT_FLAC_OGG:
             break;
