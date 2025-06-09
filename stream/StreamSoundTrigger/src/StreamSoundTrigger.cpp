@@ -112,7 +112,7 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
     ec_rx_dev_ = nullptr;
     mDevices.clear();
     std::list<Stream*> activeSTStreams;
-
+    dattr_specified_ = nullptr;
     // Setting default volume to unity
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
                       +sizeof(struct pal_channel_vol_kv));
