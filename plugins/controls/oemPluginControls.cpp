@@ -610,7 +610,7 @@ int setVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
 
     // Fill the data as per the AVC payload.
     vol_Data->value = -voldB;
-    vol_Data->hard_change = 0;
+    vol_Data->hard_change = 1;// When set to a nonzero value, gains are applied immediately if its a 0 Soft change is applied
 
     size = payloadSize + padBytes;
 
