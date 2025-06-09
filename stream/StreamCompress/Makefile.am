@@ -25,6 +25,7 @@ library_includedir = $(includedir)/stream_compress
 lib_LTLIBRARIES     = libstream_compress.la
 libstream_compress_la_SOURCES   = $(stream_compress_sources)
 libstream_compress_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat
+libstream_compress_la_LIBADD   += -L${abs_top_builddir}/.libs -lpal
 libstream_compress_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_compress_la_CPPFLAGS += -std=c++14
 libstream_compress_la_LDFLAGS   = -shared -avoid-version
