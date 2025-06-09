@@ -681,6 +681,7 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
             mfcData.ch_info = nullptr;
             if (ResourceManager::getBTSinkHFPChParam() &&
                (!strcmp(dAttr.custom_config.custom_key, "btsink-usecase") ||
+                !strcmp(dAttr.custom_config.custom_key, "bt-ac-usecase") ||
                 !strcmp(dAttr.custom_config.custom_key, "hfp-usecase"))) {
                 std::string backEndName;
                 rm->getBackendName(dAttr.id, backEndName);
