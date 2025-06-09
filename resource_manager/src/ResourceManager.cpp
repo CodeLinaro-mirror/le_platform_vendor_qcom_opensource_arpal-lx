@@ -3955,12 +3955,25 @@ bool ResourceManager::UpdateSoundTriggerCaptureProfile(Stream *s, bool is_active
     }
     // backend config update
     if (is_active) {
-        if (sAttr.type == PAL_STREAM_VOICE_UI)
+        if (sAttr.type == PAL_STREAM_VOICE_UI) {
+            if (!st_st) {
+                PAL_ERR(LOG_TAG, "st_st is null before calling GetCurrentCaptureProfile");
+                return false;
+            }
             cap_prof = st_st->GetCurrentCaptureProfile();
-        else if (sAttr.type == PAL_STREAM_ACD)
+        } else if (sAttr.type == PAL_STREAM_ACD) {
+            if (!st_acd) {
+                PAL_ERR(LOG_TAG, "st_acd is null before calling GetCurrentCaptureProfile");
+                return false;
+            }
             cap_prof = st_acd->GetCurrentCaptureProfile();
-        else
+        } else {
+            if (!st_sns_pcm_data) {
+                PAL_ERR(LOG_TAG, "st_sns_pcm_data is null before calling GetCurrentCaptureProfile");
+                return false;
+            }
             cap_prof = st_sns_pcm_data->GetCurrentCaptureProfile();
+        }
 
         if (!cap_prof) {
             PAL_ERR(LOG_TAG, "Failed to get capture profile");

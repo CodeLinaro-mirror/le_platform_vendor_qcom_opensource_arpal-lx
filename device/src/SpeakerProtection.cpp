@@ -1079,6 +1079,7 @@ SpeakerProtection::SpeakerProtection(struct pal_device *device,
     int status = 0;
     struct pal_device_info devinfo = {};
     FILE *fp;
+    spkrProtEnable = true;
 
     if (ResourceManager::spQuickCalTime > 0 &&
         ResourceManager::spQuickCalTime < MIN_SPKR_IDLE_SEC)
