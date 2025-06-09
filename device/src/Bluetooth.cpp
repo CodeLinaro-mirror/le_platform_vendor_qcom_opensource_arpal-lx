@@ -768,15 +768,22 @@ void Bluetooth::startAbr()
     fbDevice.config.bit_width = BITWIDTH_16;
     fbDevice.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
 
+    if (codecFormat == CODEC_TYPE_LC3) {
+        fbDevice.config.sample_rate = SAMPLINGRATE_96K;
+        ALOGI("Setting Sampling Rate 96k for LC3");
+    } else {
+        fbDevice.config.sample_rate = SAMPLINGRATE_8K;
+    }
+
     if (codecType == DEC) { /* Usecase is TX, feedback device will be RX */
-        fbDevice.id = ((deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ?
+        fbDevice.id = ((deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP || (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST)) ?
             PAL_DEVICE_OUT_BLUETOOTH_A2DP :
             PAL_DEVICE_OUT_BLUETOOTH_SCO);
         dir = RX_HOSTLESS;
         flags = PCM_OUT;
     } else {
         fbDevice.id = ((deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ?
-                       PAL_DEVICE_IN_BLUETOOTH_A2DP :
+                       PAL_DEVICE_IN_BLUETOOTH_BROADCAST :
                        PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET);
         dir = TX_HOSTLESS;
         flags = PCM_IN;
@@ -1169,8 +1176,8 @@ BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
       : Bluetooth(device, Rm),
         a2dpState(A2DP_STATE_DISCONNECTED)
 {
-    a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ? SINK : SOURCE;
-    codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ? DEC : ENC;
+    a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? SINK : SOURCE;
+    codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? DEC : ENC;
     pluginHandler = NULL;
     pluginCodec = NULL;
 
@@ -1294,7 +1301,7 @@ void BtA2dp::init_a2dp_sink()
         PAL_DBG(LOG_TAG, "Requesting for BT lib handle");
         bt_lib_sink_handle = dlopen(BT_IPC_SINK_LIB, RTLD_NOW);
 
-        if (bt_lib_sink_handle == nullptr) {
+        if (bt_lib_sink_handle == nullptr || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP) {
 #ifndef LINUX_ENABLED
             // On Mobile LE VoiceBackChannel implemented as A2DPSink Profile.
             // However - All the BT-Host IPC calls are exposed via Source LIB itself.
