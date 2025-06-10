@@ -1330,11 +1330,16 @@ int SessionAlsaUtils::registerMixerEvent(struct mixer *mixer, int device, const 
     uint32_t miid;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
 
+    if (!payload || !intf_name){
+        PAL_ERR(LOG_TAG, "Payload or interface name is invalid");
+        return -EINVAL;
+    }
+
     // get module instance id
     status = SessionAlsaUtils::getModuleInstanceId(mixer, device, intf_name, tag_id, &miid);
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to get tage info %x, status = %d", tag_id, status);
-        return EINVAL;
+        return -EINVAL;
     }
 
     event_cfg = (struct agm_event_reg_cfg *)payload;
