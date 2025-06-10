@@ -10,15 +10,18 @@ AM_CPPFLAGS := -DVUI_USE_SYSLOG @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_st
 AM_CPPFLAGS += -I $(top_srcdir)/src/
 AM_CPPFLAGS += -I $(top_srcdir)/inc/
 
-library_include_HEADERS = $(h_sources)
-library_includedir = $(includedir)/
-
 AM_CPPFLAGS += @PALHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADER_CFLAGS@
 AM_CPPFLAGS += @KVH2XML_CFLAGS@
 AM_CPPFLAGS += @AUDIOLISTEN_CFLAGS@
 AM_CPPFLAGS += @AROSAL_CFLAGS@
 AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\)
+
+AM_CPPFLAGS += -Wno-macro-redefined
+
+library_include_HEADERS = $(h_sources)
+library_includedir = $(includedir)/
+
 
 
 c_sources := $(top_srcdir)/src/SoundTriggerUtils.cpp
