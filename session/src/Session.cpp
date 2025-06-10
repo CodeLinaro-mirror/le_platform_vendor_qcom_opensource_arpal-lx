@@ -874,6 +874,39 @@ exit:
     return status;
 }
 
+int Session::handleASRCSetting(Stream *s, asrc_ratio_t *asrc_ratio,
+        int device, struct mixer *mixer, PayloadBuilder* builder,
+        std::vector<std::pair<int32_t, std::string>> rxAifBackEnds)
+{
+    int status = 0;
+    uint32_t miid = 0;
+    uint8_t* alsaParamData = NULL;
+    size_t alsaPayloadSize = 0;
+
+    if (rxAifBackEnds.empty()) {
+        PAL_ERR(LOG_TAG, "ASRC rxAifBackEnds is NULL");
+        status = -1;
+        return status;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device, rxAifBackEnds[0].second.data(),
+        TAG_MODULE_ASRC, &miid);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed, status=%d", status);
+        return status;
+    }
+
+    PAL_DBG(LOG_TAG, "getModuleInstanceId done, id = %u", miid);
+    builder->payloadASRCConfig(&alsaParamData, &alsaPayloadSize, miid, asrc_ratio);
+
+    status = SessionAlsaUtils::setMixerParameter(mixer, device, alsaParamData, alsaPayloadSize);
+    freeCustomPayload(&alsaParamData, &alsaPayloadSize);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+        return status;
+    }
+    return 0;
+}
+
 #if 0
 int setConfig(Stream * s, pal_stream_type_t sType, configType type, uint32_t tag1,
         uint32_t tag2, uint32_t tag3)

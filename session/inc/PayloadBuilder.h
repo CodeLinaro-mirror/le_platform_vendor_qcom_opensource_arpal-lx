@@ -163,6 +163,13 @@ struct user_xml_data{
     bool is_parsing_devices;
     bool is_parsing_devicepps;
 };
+
+typedef struct {
+    uint32_t effective;
+    uint32_t ratio;
+    uint32_t ramp;
+} asrc_ratio_t;
+
 class SessionGsl;
 
 class PayloadBuilder
@@ -273,6 +280,8 @@ public:
     static bool compareNumSelectors(struct kvInfo info_1, struct kvInfo info_2);
     static int payloadDualMono(uint8_t **payloadInfo);
     int32_t payloadPathDelay(void** payload, uint32_t *payloadSize, uint32_t srcMiid, uint32_t dstMiid);
+    int32_t payloadASRCConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, asrc_ratio_t *asrc_params);
     PayloadBuilder();
     ~PayloadBuilder();
 };
