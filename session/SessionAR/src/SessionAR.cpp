@@ -161,7 +161,18 @@ int SessionAR::setEffectParametersTKV(Stream *s __unused, effect_pal_payload_t *
 
     PAL_DBG(LOG_TAG, "Enter.");
 
+    if (!effectPayload) {
+        status = -EINVAL;
+        goto exit;
+    }
+
     palKVPair = (pal_key_vector_t *)effectPayload->payload;
+
+    if (!palKVPair) {
+        status = -EINVAL;
+        goto exit;
+    }
+
     nTkvs =  palKVPair->num_tkvs;
     tkv.clear();
     for (int i = 0; i < nTkvs; i++) {
