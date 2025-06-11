@@ -4955,7 +4955,7 @@ void ResourceManager::deinit()
        chargerListenerDeinit();
 
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
-    voiceuiDmgrManagerDeInit();
+    STUtilsDeinit();
 #endif
     AudioFeatureStatsDeInit();
 
