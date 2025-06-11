@@ -35,10 +35,14 @@
 #include "AudioHapticsInterface.h"
 
 #define LOG_TAG "PAL: AudioHapticsInterface"
+#ifdef LINUX_ENABLED
+#define HAPTICS_XML_FILE "/etc/Hapticsconfig.xml"
+#else
 #define HAPTICS_XML_FILE "/vendor/etc/Hapticsconfig.xml"
+#endif
 #include "rx_haptics_api.h"
 #include "wsa_haptics_vi_api.h"
-#ifdef FEATURE_IPQ_OPENWRT
+#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #include <stdexcept>
 #endif
 
