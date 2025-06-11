@@ -697,7 +697,6 @@ protected:
     std::array<std::shared_ptr<nonTunnelInstMap_t>, DEFAULT_NT_SESSION_TYPE_COUNT> mNTStreamInstancesList;
     std::shared_ptr<SignalHandler> mSigHandler;
     static std::vector<int> spViChannelMapCfg;
-    std::map<int, bool> PCMDataInstances;
 
 public:
     ~ResourceManager();
