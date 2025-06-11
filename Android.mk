@@ -15,6 +15,7 @@ LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/utils/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/context_manager/inc
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/codecs
 LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/plugins/PluginManager/inc
+LOCAL_EXPORT_C_INCLUDE_DIRS += $(LOCAL_PATH)/sounddose/inc/
 
 LOCAL_VENDOR_MODULE := true
 
@@ -62,6 +63,13 @@ LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/tech
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
 LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc \
+
+# add for gcov dump
+ifeq ($(AUDIO_FEATURE_ENABLED_GCOV), true)
+LOCAL_CFLAGS += -DAUDIO_FEATURE_ENABLED_GCOV -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_CPPFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_LDFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+endif
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
@@ -151,7 +159,12 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_dummy \
         libdev_haptics \
         libdev_ext_ec \
-        libdev_ec_ref
+        libdev_ec_ref \
+        libpal_sounddose \
+        libsession_pcm_config \
+        libsession_compress_config \
+        libsession_voice_config \
+        libsession_config_utils
 endif #end of static compilation
 
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun canoe), true)
@@ -214,6 +227,13 @@ LOCAL_MODULE_OWNER := qti
 LOCAL_MODULE_TAGS := optional
 LOCAL_VENDOR_MODULE := true
 
+# add for gcov dump
+ifeq ($(AUDIO_FEATURE_ENABLED_GCOV), true)
+LOCAL_CFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_CPPFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_LDFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+endif
+
 LOCAL_SRC_FILES:= sounddose/src/SoundDoseUtility.cpp
 
 LOCAL_EXPORT_C_INCLUDE_DIRS := $(LOCAL_PATH)/sounddose/inc
@@ -248,14 +268,17 @@ LOCAL_HEADER_LIBRARIES := \
     libsession_ar_headers
 
 # Use flag based selection to use QTI vs open source tinycompress project
-
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
 endif
 
-include $(BUILD_SHARED_LIBRARY)
+ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
+    include $(BUILD_STATIC_LIBRARY)
+else
+    include $(BUILD_SHARED_LIBRARY)
+endif
 
 include $(CLEAR_VARS)
 

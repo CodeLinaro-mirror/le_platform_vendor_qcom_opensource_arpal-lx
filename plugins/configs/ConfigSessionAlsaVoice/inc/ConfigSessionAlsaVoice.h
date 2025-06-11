@@ -6,6 +6,9 @@
 #ifndef CONFIG_SESSION_ALSA_VOICE_H
 #define CONFIG_SESSION_ALSA_VOICE_H
 
+extern "C" int voicePluginConfig(Stream* stream, plugin_config_name_t config,
+                 void *pluginPayload, size_t ppldSize);
+
 int populateRatPayload(Stream* s, SessionAlsaVoice *session, PayloadBuilder* builder);
 int setPopSuppressorMute(Stream* s);
 int getDeviceData(Stream* s, struct sessionToPayloadParam* deviceData);

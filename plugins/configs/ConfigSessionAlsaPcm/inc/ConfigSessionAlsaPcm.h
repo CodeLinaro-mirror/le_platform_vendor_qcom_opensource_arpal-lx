@@ -6,6 +6,9 @@
 #ifndef CONFIG_SESSION_ALSA_PCM_H
 #define CONFIG_SESSION_ALSA_PCM_H
 
+extern "C" int pcmPluginConfig(Stream* stream, plugin_config_name_t config,
+                 void *pluginPayload, size_t ppldSize);
+
 void handleSilenceDetectionCb(uint64_t hdl __unused,
                 uint32_t event_id, void *event_data, uint32_t event_size);
 int dump_silence_event_status(char *out_file, uint32_t channel_group, uint32_t status_ch_mask);

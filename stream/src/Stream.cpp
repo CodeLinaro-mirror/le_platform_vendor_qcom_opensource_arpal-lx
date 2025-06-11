@@ -47,6 +47,18 @@ std::shared_ptr<PluginManager> Stream::pm = nullptr;
 std::mutex Stream::mBaseStreamMutex;
 std::mutex Stream::pauseMutex;
 
+#ifdef AUDIO_FEATURE_ENABLED_GCOV
+extern "C" void __gcov_dump(void);
+#define GCOV_DUMP() \
+    do { \
+        PAL_DBG(LOG_TAG, "Stream: start dump gcov"); \
+        __gcov_dump(); \
+        PAL_DBG(LOG_TAG, "Stream: end dump gcov"); \
+    } while(0)
+#else
+#define GCOV_DUMP()
+#endif
+
 Stream::Stream() {
     rm = ResourceManager::getInstance();
     if (PAL_CARD_STATUS_DOWN(rm->getSoundCardState())) {
@@ -76,6 +88,8 @@ Stream::Stream() {
         free(mStreamAttr);
         mStreamAttr = (struct pal_stream_attributes *)NULL;
     }
+
+    GCOV_DUMP();
  }
 
 Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *dAttr,

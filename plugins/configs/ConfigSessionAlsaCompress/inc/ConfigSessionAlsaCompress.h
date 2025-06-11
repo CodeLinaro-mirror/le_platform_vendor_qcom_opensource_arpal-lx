@@ -6,6 +6,9 @@
 #ifndef CONFIG_SESSION_ALSA_COMPRESS_H
 #define CONFIG_SESSION_ALSA_COMPRESS_H
 
+extern "C" int compressPluginConfig(Stream* stream, plugin_config_name_t config,
+                 void *pluginPayload, size_t pluginPayloadSize);
+
 int32_t compressPluginConfigSetConfigStart(Stream* s, void* pluginConfigPayload);
 int32_t compressPluginConfigSetConfigPostStart(Stream* s, void* pluginConfigPayload);
 int32_t compressPluginPreReconfig(Stream* s, void* pluginPayload);
