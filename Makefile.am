@@ -54,6 +54,7 @@ AM_CPPFLAGS += -I $(top_srcdir)/plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
+AM_CPPFLAGS += -I $(top_srcdir)/api/vui-interface
 AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/inc
 AM_CPPFLAGS += -I $(top_srcdir)/
