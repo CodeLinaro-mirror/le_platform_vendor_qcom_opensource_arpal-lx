@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -450,6 +450,13 @@ int Device::getSndDeviceId()
 
 void Device::getCurrentSndDevName(char *name){
     strlcpy(name, mSndDeviceName, DEVICE_NAME_MAX_SIZE);
+}
+
+int Device::getDeviceCount(){
+    mDeviceMutex.lock();
+    int devCount = deviceCount;
+    mDeviceMutex.unlock();
+    return devCount;
 }
 
 std::string Device::getPALDeviceName()
