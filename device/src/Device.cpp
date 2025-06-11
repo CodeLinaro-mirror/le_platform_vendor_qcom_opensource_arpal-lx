@@ -70,7 +70,7 @@
 #include <agm/agm_api.h>
 #include <sound/asound.h>
 #include "PalAudioRoute.h"
-#ifdef FEATURE_IPQ_OPENWRT
+#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #include <sstream>
 #endif
 #define MAX_CHANNEL_SUPPORTED 2
