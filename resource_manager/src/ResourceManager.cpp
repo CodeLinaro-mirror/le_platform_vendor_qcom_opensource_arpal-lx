@@ -2827,6 +2827,7 @@ int ResourceManager::initStreamUserCounter(Stream *s)
 {
     lockValidStreamMutex();
     mActiveStreamUserCounter.insert(std::make_pair(s, 0));
+    s->initStreamSmph();
     unlockValidStreamMutex();
     return 0;
 }
@@ -2839,7 +2840,9 @@ int ResourceManager::deinitStreamUserCounter(Stream *s)
     it = mActiveStreamUserCounter.find(s);
     if (it != mActiveStreamUserCounter.end()) {
         PAL_INFO(LOG_TAG, "stream %p is to be erased.", s);
+        s->waitStreamSmph();
         mActiveStreamUserCounter.erase(it);
+        s->deinitStreamSmph();
         unlockValidStreamMutex();
         return 0;
     } else {
@@ -4652,7 +4655,7 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
         status = -EINVAL;
         goto exit;
     }
-
+    mActiveStreamMutex.lock();
     for (auto& tx_str: mActiveStreams) {
         tx_device_list.clear();
         tx_str->getStreamAttributes(&tx_attr);
@@ -4680,6 +4683,7 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
             }
         }
     }
+    mActiveStreamMutex.unlock();
 exit:
     return tx_stream_list;
 }
@@ -7721,7 +7725,8 @@ int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
                 match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                 if (match) {
-                    increaseStreamUserCounter(*sIter);
+                    if (increaseStreamUserCounter(*sIter) < 0)
+                        continue;
                     unlockValidStreamMutex();
                     status = (*sIter)->getEffectParameters(param_payload);
                     lockValidStreamMutex();
@@ -8626,6 +8631,33 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_ASRC:
+        {
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes sAttr;
+
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+
+                status = (*sIter)->getStreamAttributes(&sAttr);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "Failed to get attributes, status= %d", status);
+                    return status;
+                }
+
+                if(strcmp(sAttr.bus_addr, "BUS00_MEDIA") == 0){
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_ASRC, param_payload);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set ASRC");
+                        goto exit;
+                    }
+                    goto exit;
+                }
+            }
+            PAL_ERR(LOG_TAG, "Failed to find the BUS00_MEDIA stream");
+            status = -EIO;
+            goto exit;
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
@@ -8665,7 +8697,8 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
                     }
                     if (match) {
-                        increaseStreamUserCounter(*sIter);
+                        if (increaseStreamUserCounter(*sIter) < 0)
+                            continue;
                         unlockValidStreamMutex();
                         status = (*sIter)->setParameters(param_id, param_payload);
                         lockValidStreamMutex();
