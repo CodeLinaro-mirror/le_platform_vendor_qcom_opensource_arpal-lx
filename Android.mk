@@ -38,6 +38,11 @@ LOCAL_CFLAGS        += -DSOC_PERIPHERAL_PROT
 endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
+ifeq ($(call is-board-platform-in-list,lahaina), true)
+LOCAL_CFLAGS        += -DWSA_V883X_ADDR
+LOCAL_CFLAGS        += -DUSE_CUSTOM_SPK_CTRL
+endif
+
 LOCAL_C_INCLUDES := \
     $(TOP)/system/media/audio_route/include \
     $(TOP)/system/media/audio/include
