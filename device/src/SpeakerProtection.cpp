@@ -90,7 +90,7 @@ struct mixer *SpeakerProtection::hwMixer;
 speaker_prot_cal_state SpeakerProtection::spkrCalState;
 struct pcm * SpeakerProtection::rxPcm = NULL;
 struct pcm * SpeakerProtection::txPcm = NULL;
-struct param_id_sp_th_vi_calib_res_cfg_t * SpeakerProtection::callback_data;
+struct param_id_sp_th_vi_calib_res_cfg_t * SpeakerProtection::callback_data = nullptr;
 int SpeakerProtection::numberOfChannels;
 struct pal_device_info SpeakerProtection::vi_device;
 int SpeakerProtection::calibrationCallbackStatus;
@@ -324,7 +324,7 @@ int SpeakerProtection::spkrStartCalibration()
 {
     FILE *fp;
     struct pal_device device, deviceRx;
-    struct pal_channel_info ch_info;
+    struct pal_channel_info ch_info = {};
     struct pal_stream_attributes sAttr;
     struct pcm_config config;
     struct mixer_ctl *connectCtrl = NULL;
@@ -1286,7 +1286,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
     size_t payloadSize = 0;
     struct pal_device device;
     struct pal_channel_info ch_info;
-    struct pal_stream_attributes sAttr;
+    struct pal_stream_attributes sAttr = {};
     struct pcm_config config;
     struct mixer_ctl *connectCtrl = NULL;
     struct audio_route *audioRoute = NULL;
