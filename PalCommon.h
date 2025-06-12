@@ -32,7 +32,9 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#ifndef LOG_NDEBUG
 #define LOG_NDEBUG 0
+#endif
 #include "ar_osal_mem_op.h"
 #include <stdlib.h>
 #include <string.h>

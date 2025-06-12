@@ -75,9 +75,11 @@
 * Following list should be extended by customers if more
   BUS devices are added.
 **/
-#define BUS_MEDIA            "BUS00_MEDIA"
+
 #ifdef RBVM
 #define BUS_MEDIA            "BUS00_WS"
+#else
+#define BUS_MEDIA            "BUS00_MEDIA"
 #endif
 #define BUS_SYS_NOTIFICATION "BUS01_SYS_NOTIFICATION"
 #define BUS_NAV_GUIDANCE     "BUS02_NAV_GUIDANCE"
@@ -610,7 +612,7 @@ int setVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
 
     // Fill the data as per the AVC payload.
     vol_Data->value = -voldB;
-    vol_Data->hard_change = 0;
+    vol_Data->hard_change = 1;// When set to a nonzero value, gains are applied immediately if its a 0 Soft change is applied
 
     size = payloadSize + padBytes;
 

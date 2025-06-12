@@ -105,7 +105,9 @@
 #define DEFAULT_PERIOD_COUNT 4
 
 //TODO : remove this and add proper file
+#ifndef EVENT_ID_VI_CALIBRATION
 #define EVENT_ID_VI_CALIBRATION 0x08001511
+#endif
 
 #define NORMAL_MODE 0
 #define CALIBRATION_MODE 1
