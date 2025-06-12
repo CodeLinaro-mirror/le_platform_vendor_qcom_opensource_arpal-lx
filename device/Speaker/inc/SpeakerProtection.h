@@ -165,6 +165,10 @@ public:
     void spkrCalibrationThread();
     int getSpeakerTemperature(int spkr_pos);
     void spkrCalibrateWait();
+#ifdef LINUX_ENABLED
+    void spkrCalibrateSignalExit();
+    int deinit(pal_param_device_connection_t device_conn) override;
+#endif
     int spkrStartCalibration();
     void speakerProtectionInit();
     void speakerProtectionDeinit();

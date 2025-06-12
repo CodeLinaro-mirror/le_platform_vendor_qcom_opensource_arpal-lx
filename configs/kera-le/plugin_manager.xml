@@ -69,7 +69,7 @@
         <device name="PAL_DEVICE_IN_HANDSET_MIC" lib="libdev_handset_mic.so" entryFunction="CreateHandsetMicDevice"/>
         <device name="PAL_DEVICE_IN_HANDSET_VA_MIC" lib="libdev_handset_va.so" entryFunction="CreateHandsetVaDevice"/>
         <!--Speaker-->
-        <device name="PAL_DEVICE_OUT_SPEAKER" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
+        <device name="PAL_DEVICE_OUT_SPEAKER" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice" exitFunction="ExitSpeakerDevice"/>
         <device name="PAL_DEVICE_IN_SPEAKER_MIC" lib="libdev_speaker_mic.so" entryFunction="CreateSpeakerMicDevice"/>
         <device name="PAL_DEVICE_IN_CPS_FEEDBACK" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
         <device name="PAL_DEVICE_IN_CPS2_FEEDBACK" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
@@ -119,7 +119,7 @@
         <device name="PAL_DEVICE_OUT_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
         <device name="PAL_DEVICE_IN_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
 
-        <device name="PAL_DEVICE_OUT_HAPTICS_DEVICE" lib="libdev_haptics.so" entryFunction="CreateHapticsDevice"/>
+        <device name="PAL_DEVICE_OUT_HAPTICS_DEVICE" lib="libdev_haptics.so" entryFunction="CreateHapticsDevice" exitFunction="ExitHapticsDevice"/>
         <device name="PAL_DEVICE_IN_EXT_EC_REF" lib="libdev_ext_ec.so" entryFunction="CreateExtEcDevice"/>
         <device name="PAL_DEVICE_IN_ECHO_REF" lib="libdev_ec_ref.so" entryFunction="CreateECRefDevice"/>
     </devices>

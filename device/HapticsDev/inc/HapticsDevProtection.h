@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -113,6 +114,10 @@ public:
     void HapticsDevFTMThread();
     int getDevTemperature(int haptics_dev_pos);
     void HapticsDevCalibrateWait();
+#ifdef LINUX_ENABLED
+    void hapticsDevCalibrateSignalExit();
+    int deinit(pal_param_device_connection_t device_conn) override;
+#endif
     int HapticsDevStartCalibration(int32_t operation_mode);
     void HapticsDevProtectionInit();
     void HapticsDevProtectionDeinit();

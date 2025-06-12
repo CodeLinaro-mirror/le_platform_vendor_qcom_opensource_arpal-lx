@@ -4885,6 +4885,10 @@ void ResourceManager::deinit()
         socPerithread.join();
     }
 #endif
+
+#ifdef LINUX_ENABLED
+    PluginManager::deinit();
+#endif
     deviceInfo.clear();
     listAllBackEndIds.clear();
     sndDeviceNameLUT.clear();

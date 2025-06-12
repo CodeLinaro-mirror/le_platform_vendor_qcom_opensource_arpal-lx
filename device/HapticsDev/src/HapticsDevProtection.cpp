@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -221,6 +222,23 @@ void HapticsDevProtection::HapticsDevCalibrateWait()
     cv.wait_for(lock,
             std::chrono::milliseconds(WAKEUP_MIN_IDLE_CHECK));
 }
+
+#ifdef LINUX_ENABLED
+void HapticsDevProtection::hapticsDevCalibrateSignalExit()
+{
+    if (calThrdCreated) {
+        std::unique_lock<std::mutex> lock(cvMutex);
+        threadExit = true;
+        cv.notify_all();
+    }
+}
+
+int HapticsDevProtection::deinit(pal_param_device_connection_t device_conn)
+{
+    hapticsDevCalibrateSignalExit();
+    return 0;
+}
+#endif
 
 // Callback from DSP for Resistance value
 void HapticsDevProtection::handleHPCallback(uint64_t hdl __unused, uint32_t event_id,
@@ -1069,10 +1087,16 @@ HapticsDevProtection::HapticsDevProtection(struct pal_device *device,
     mCalThread = std::thread(&HapticsDevProtection::HapticsDevCalibrationThread,
                              this);
     calThrdCreated = true;
+#ifdef LINUX_ENABLED
+    mCalThread.detach();
+#endif
 }
 
 HapticsDevProtection::~HapticsDevProtection()
 {
+#ifdef LINUX_ENABLED
+    hapticsDevCalibrateSignalExit();
+#endif
 }
 
 /*
