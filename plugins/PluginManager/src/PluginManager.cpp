@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -56,19 +56,31 @@ PluginManager::~PluginManager() {
 }
 
 void PluginManager::deinitStreamPlugins(){
+#ifdef LINUX_ENABLED
+    deinitPlugins(registeredStreams);
+#else
     for (const auto& item : registeredStreams) {
         dlclose(item.handle);
     }
+#endif
 }
 
 void PluginManager::deinitSessionPlugins() {
+#ifdef LINUX_ENABLED
+    deinitPlugins(registeredSessions);
+#else
     for (const auto& item : registeredSessions)
         dlclose(item.handle);
+#endif
 }
 
 void PluginManager::deinitDevicePlugins() {
+#ifdef LINUX_ENABLED
+    deinitPlugins(registeredDevices);
+#else
     for (const auto& item : registeredDevices)
         dlclose(item.handle);
+#endif
 }
 
 int32_t PluginManager::getRegisteredPluginList(pal_plugin_manager_t type, std::vector<pm_item_t> **pluginList){
@@ -154,6 +166,10 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
                                 status = -EINVAL;
                                 goto exit;
                             }
+#ifdef LINUX_ENABLED
+                            if (item.exitFunction != "")
+                                item.exitPlugin = (dlsym(item.handle, item.exitFunction.c_str()));
+#endif
                         } else {
                             PAL_ERR(LOG_TAG, "dlopen failed : %s", dlerror());
                         }
@@ -229,6 +245,7 @@ void PluginManager::startElement(void* userData, const char* name, const char** 
             || strcmp(name, "device") == 0 || strcmp(name, "config") == 0)
     {
         pm_item_t item;
+        memset(&item, 0, sizeof(pm_item_t));
         // std::string stream;
         PAL_DBG(LOG_TAG, "enter");
 
@@ -241,6 +258,10 @@ void PluginManager::startElement(void* userData, const char* name, const char** 
                 item.libName = attrs[i + 1];
             else if (strcmp(attrs[i], "entryFunction") == 0)
                 item.entryFunction = attrs[i + 1];
+#ifdef LINUX_ENABLED
+            else if (strcmp(attrs[i], "exitFunction") == 0)
+                item.exitFunction = attrs[i + 1];
+#endif
         }
         if (item.keyNames[0].length() && item.libName.length() && item.entryFunction.length())
             registeredPlugin(item, PmNameToType.at(name));
@@ -356,3 +377,27 @@ std::shared_ptr<PluginManager> PluginManager::getInstance()
     return pm;
 }
 
+#ifdef LINUX_ENABLED
+void PluginManager::deinitPlugins(std::vector<pm_item_t>& plugins)
+{
+    for (auto& item : plugins) {
+        if (item.handle && item.refCount) {
+            if (item.exitPlugin) {
+                (reinterpret_cast<ExitPlugin>(item.exitPlugin))();
+            }
+            dlclose(item.handle);
+
+            item.handle = nullptr;
+            item.refCount = 0;
+        }
+    }
+}
+
+void PluginManager::deinit() {
+    deinitPlugins(registeredStreams);
+    deinitPlugins(registeredSessions);
+    deinitPlugins(registeredDevices);
+    deinitPlugins(registeredConfigs);
+    deinitPlugins(registeredConfigs);
+}
+#endif

@@ -196,6 +196,23 @@ void SpeakerProtection::spkrCalibrateWait()
             std::chrono::milliseconds(WAKEUP_MIN_IDLE_CHECK));
 }
 
+#ifdef LINUX_ENABLED
+void SpeakerProtection::spkrCalibrateSignalExit()
+{
+    if (calThrdCreated) {
+        std::unique_lock<std::mutex> lock(cvMutex);
+        threadExit = true;
+        cv.notify_all();
+    }
+}
+
+int SpeakerProtection::deinit(pal_param_device_connection_t device_conn)
+{
+    spkrCalibrateSignalExit();
+    return 0;
+}
+#endif
+
 // Callback from DSP for Ressistance value
 void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_id,
                                             void *event_data, uint32_t event_size)
@@ -1257,6 +1274,9 @@ SpeakerProtection::SpeakerProtection(struct pal_device *device,
         mCalThread = std::thread(&SpeakerProtection::spkrCalibrationThread,
                             this);
         calThrdCreated = true;
+#ifdef LINUX_ENABLED
+        mCalThread.detach();
+#endif
     }
 exit:
     PAL_DBG(LOG_TAG, "exit. calThrdCreated :%d", calThrdCreated);
@@ -1264,6 +1284,9 @@ exit:
 
 SpeakerProtection::~SpeakerProtection()
 {
+#ifdef LINUX_ENABLED
+    spkrCalibrateSignalExit();
+#endif
     if (spkerTempList)
         delete[] spkerTempList;
 
