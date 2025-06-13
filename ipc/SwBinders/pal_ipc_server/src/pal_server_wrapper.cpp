@@ -4,6 +4,7 @@
  */
 
 #include <PalApi.h>
+#include <PalCommon.h>
 #include <memory>
 #include <mutex>
 #include <map>
@@ -274,7 +275,9 @@ int32_t PalService::ipc_pal_stream_get_buffer_size(pal_stream_handle_t *stream_h
 
 int32_t PalService::ipc_pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
                                                             size_t *size ,uint8_t *payload) {
-    return pal_stream_get_tags_with_module_info(stream_handle, size, payload);
+    return pal_stream_get_custom_param(stream_handle,
+                                       PAL_CUSTOM_PARAM_AR_TAG_MODULE_INFO,
+                                       (void*)payload, size);
 }
 
 int32_t PalService::ipc_pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
@@ -378,14 +381,14 @@ int32_t PalService::ipc_pal_register_global_callback(pal_global_callback cb, uin
 int32_t PalService::ipc_pal_gef_rw_param(uint32_t param_id, void *param_payload,
                             size_t payload_size, pal_device_id_t pal_device_id,
                             pal_stream_type_t pal_stream_type, unsigned int dir) {
-    return pal_gef_rw_param(param_id, param_payload, payload_size, pal_device_id, pal_stream_type, dir);
+    return 0;
 }
 
 int32_t PalService::ipc_pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
                                 size_t payload_size, pal_device_id_t pal_device_id,
                                 pal_stream_type_t pal_stream_type, uint32_t sample_rate,
                                 uint32_t instance_id, uint32_t dir, bool is_play) {
-    return pal_gef_rw_param_acdb(param_id, param_payload, payload_size, pal_device_id, pal_stream_type, sample_rate, instance_id, dir, is_play);
+    return 0;
 }
 
 class BpPalService : public ::android::BpInterface<IPalService> {
@@ -1018,12 +1021,10 @@ android::status_t BnPalService::onTransact(uint32_t code,
             PalReadWriteTool::read_pal_buffer(&p_buffer, data);
 
             if (p_buffer) {
-                int input_fd = -1;
                 if (p_buffer->alloc_info.alloc_size > 0 && p_buffer->alloc_info.alloc_handle > 0) {
-                    input_fd = data.readFileDescriptor();
-                    input_fd = dup(input_fd);
-
-                    pal_add_shared_fd((uint64_t)stream_handle, input_fd);
+                    int binder_fd = data.readFileDescriptor();
+                    int input_fd = pal_add_shared_fd((uint64_t)stream_handle, p_buffer->alloc_info.alloc_handle, binder_fd);
+                    PAL_DBG(LOG_TAG, "read: client_fd: %d, binder fd: %d, dup_fd: %d, frame_id: %d\n", p_buffer->alloc_info.alloc_handle, binder_fd, input_fd, p_buffer->frame_index);
                     p_buffer->alloc_info.alloc_handle = input_fd;
                 }
 
@@ -1047,11 +1048,10 @@ android::status_t BnPalService::onTransact(uint32_t code,
             PalReadWriteTool::read_pal_buffer(&p_buffer, data);
 
             if (p_buffer) {
-                int input_fd = -1;
                 if (p_buffer->alloc_info.alloc_size > 0 && p_buffer->alloc_info.alloc_handle > 0) {
-                    input_fd = data.readFileDescriptor();
-                    input_fd = dup(input_fd);
-                    pal_add_shared_fd((uint64_t)stream_handle, input_fd);
+                    int binder_fd = data.readFileDescriptor();
+                    int input_fd = pal_add_shared_fd((uint64_t)stream_handle, p_buffer->alloc_info.alloc_handle, binder_fd);
+                    PAL_DBG(LOG_TAG, "write: client_fd: %d, binder fd: %d, dup_fd: %d, frame_id: %d\n", p_buffer->alloc_info.alloc_handle, binder_fd, input_fd, p_buffer->frame_index);
                     p_buffer->alloc_info.alloc_handle = input_fd;
                 }
 

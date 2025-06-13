@@ -4,6 +4,7 @@
  */
 
 #include <vector>
+#include <map>
 #include <binder/IInterface.h>
 #include <binder/IBinder.h>
 #include <binder/ProcessState.h>
@@ -49,7 +50,7 @@ typedef struct {
     uint64_t stream_handle;
     struct pal_stream_attributes stream_attr;
     pal_stream_callback cb_func;
-    std::vector<int> shared_fd_list;
+    std::map<int, int> shared_fd_list;
  } pal_client_stream_handle;
 
 typedef struct {
@@ -63,6 +64,6 @@ typedef struct {
 void pal_register_client(android::sp<android::IBinder> binder, android::sp<android::IBinder> cb_binder, IPalService* server);
 void pal_unregister_client(android::sp<android::IBinder> binder);
 void pal_add_stream_handle(uint64_t stream_handle, struct pal_stream_attributes* attr, pal_stream_callback cb);
-void pal_add_shared_fd(uint64_t stream_handle, int dup_fd);
+int pal_add_shared_fd(uint64_t stream_handle, int client_fd, int binder_fd);
 void get_client_stream_handle(uint64_t stream_handle, client_info ** pal_client, pal_client_stream_handle** client_stream_handle);
 void pal_remove_stream_handle(uint64_t stream_handle);
