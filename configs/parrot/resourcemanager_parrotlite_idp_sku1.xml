@@ -902,7 +902,8 @@
             <sound_models>
                 <model>
                     <name>ACD_SOUND_MODEL_ID_EVENT</name>
-                    <bin>event.eai</bin>
+                    <!-- Using non-NPU models for target where NPU capabilities not present -->
+                    <bin>event_nonenpu.eai</bin>
                     <uuid>0x0B001007</uuid>
                     <contexts>
                         <context id="0x0800132D"/> <!-- EVENT_ALARM -->
@@ -917,7 +918,8 @@
                 </model>
                 <model>
                     <name>ACD_SOUND_MODEL_ID_SPEECH</name>
-                    <bin>speech.eai</bin>
+                    <!-- Using non-NPU models for target where NPU capabilities not present -->
+                    <bin>speech_nonenpu.eai</bin>
                     <uuid>0x0B001008</uuid>
                     <contexts>
                         <context id="0x08001335"/> <!-- AMBIENCE_SPEECH -->
@@ -925,7 +927,8 @@
                 </model>
                 <model>
                     <name>ACD_SOUND_MODEL_ID_MUSIC</name>
-                    <bin>music.eai</bin>
+                    <!-- Using non-NPU models for target where NPU capabilities not present -->
+                    <bin>music_nonenpu.eai</bin>
                     <uuid>0x0B001009</uuid>
                     <contexts>
                         <context id="0x08001336"/> <!-- AMBIENCE_MUSIC -->
