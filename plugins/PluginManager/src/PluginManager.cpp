@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -13,6 +13,7 @@
 #include "PalCommon.h"
 #include <cutils/properties.h>
 
+std::shared_ptr<PluginManager> PluginManager::pm = nullptr;
 std::mutex PluginManager::mPluginManagerMutex;
 std::vector<pm_item_t> PluginManager::registeredStreams = {};
 std::vector<pm_item_t> PluginManager::registeredSessions = {};
@@ -347,8 +348,11 @@ done:
 
 std::shared_ptr<PluginManager> PluginManager::getInstance()
 {
-    static std::shared_ptr<PluginManager> instance{ new PluginManager() };
-    return instance;
-
+    if (!pm) {
+        std::lock_guard<std::mutex> lock(PluginManager::mPluginManagerMutex);
+        std::shared_ptr<PluginManager> sp(new PluginManager());
+        pm = sp;
+    }
+    return pm;
 }
 

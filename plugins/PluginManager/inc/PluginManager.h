@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -25,6 +25,7 @@ class PluginManager
 {
     private:
         static std::mutex mPluginManagerMutex;
+        static std::shared_ptr<PluginManager> pm;
         static std::vector<pm_item_t> registeredStreams;
         static std::vector<pm_item_t> registeredSessions;
         static std::vector<pm_item_t> registeredDevices;
@@ -40,8 +41,6 @@ class PluginManager
         void getVendorConfigPath (char* config_file_path, int path_size);
         static void data_handler(void *userdata, const XML_Char *s, int len);
         int XmlParser(std::string xmlFile);
-        PluginManager(const PluginManager&) = delete;
-        PluginManager& operator=(const PluginManager&) = delete;
 
     public:
         static std::shared_ptr<PluginManager> getInstance();
