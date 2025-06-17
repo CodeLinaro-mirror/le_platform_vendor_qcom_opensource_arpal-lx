@@ -3,7 +3,7 @@ pkgconfig_DATA = codecs.pc
 EXTRA_DIST = $(pkgconfig_DATA)$
 
 AM_CPPFLAGS = -I $(srcdir)/../customva_intf/inc
-AM_CPPFLAGS = -I $(top_srcdir)
+AM_CPPFLAGS += -I $(top_srcdir)
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 
@@ -15,7 +15,7 @@ bt_bundle_sources = \
 
 libbt_bundle_la_CPPFLAGS = -I ./inc
 libbt_bundle_la_SOURCES   = $(bt_bundle_sources)
-libbt_bundle_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat -ldl
+libbt_bundle_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat
 libbt_bundle_la_LDFLAGS = -shared -avoid-version
 libbt_bundle_la_CPPFLAGS += @GLIB_CFLAGS@ -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
 libbt_bundle_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"

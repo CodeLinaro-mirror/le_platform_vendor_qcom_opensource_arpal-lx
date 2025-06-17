@@ -6,7 +6,6 @@ EXTRA_DIST = $(pkgconfig_DATA)
 if BUILDSYSTEM_OPENWRT
 
 AM_CPPFLAGS := -I $(srcdir)/stream/inc
-AM_CPPFLAGS += -I $(srcdir)/stream/StreamACDB/inc
 AM_CPPFLAGS += -I $(srcdir)/device/inc
 AM_CPPFLAGS += -I $(srcdir)/session/inc
 AM_CPPFLAGS += -I $(srcdir)/session/SessionAR/inc
@@ -43,7 +42,6 @@ pal_sources = ./stream/src/Stream.cpp \
               ./utils/src/STUtils.cpp
 else
 AM_CPPFLAGS := -I $(top_srcdir)/stream/inc
-AM_CPPFLAGS += -I $(top_srcdir)/stream/StreamACDB/inc
 AM_CPPFLAGS += -I $(top_srcdir)/device/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAR/inc
@@ -53,6 +51,7 @@ AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAlsaVoice/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAlsaPcm/inc
 AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAR/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/PluginManager/inc
+AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
 AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
 AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
@@ -71,6 +70,12 @@ pal_sources = $(top_srcdir)/stream/src/Stream.cpp \
               $(top_srcdir)/utils/src/VoiceUIPlatformInfo.cpp \
               $(top_srcdir)/utils/src/AudioHapticsInterface.cpp \
               $(top_srcdir)/utils/src/ACDPlatformInfo.cpp \
+              $(top_srcdir)/utils/src/ASRPlatformInfo.cpp \
+              $(top_srcdir)/utils/src/MemLogBuilder.cpp \
+              $(top_srcdir)/utils/src/BTUtils.cpp \
+              $(top_srcdir)/utils/src/ChargerListener.cpp \
+              $(top_srcdir)/utils/src/PerfLock.cpp \
+              $(top_srcdir)/utils/src/SignalHandler.cpp \
               $(top_srcdir)/utils/src/STUtils.cpp
 
 endif
@@ -88,7 +93,6 @@ AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
 AM_CPPFLAGS += -DFEATURE_IPQ_OPENWRT
 
 h_sources = ${top_srcdir}/utils/inc/MetadataParser.h \
-            ${top_srcdir}/stream/StreamACDB/inc/StreamACDB.h \
             ${top_srcdir}/session/SessionAR/inc/SessionAlsaUtils.h \
             ${top_srcdir}/session/SessionAlsaCompress/inc/SessionAlsaCompress.h \
             ${top_srcdir}/session/SessionAgm/inc/SessionAgm.h \
@@ -105,7 +109,7 @@ if BUILDSYSTEM_OPENWRT
 libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar-osal -lexpat -ltinycompress -lagmclientwrapper
 libpal_la_LIBADD   += -lar-gsl -lacdbdata
 else
-libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar-osal -lexpat -ltinycompress
+libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar-osal -lexpat -ltinycompress -larmemlog
 endif
 if IS_SDXLEMUR
 libpal_la_LIBADD    += -lagmclientwrapper
@@ -115,7 +119,7 @@ libpal_la_LIBADD    += -lagmclientwrapper
 endif
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
-libpal_la_LDFLAGS   = -shared -avoid-version
+libpal_la_LDFLAGS   = -shared -avoid-version -lbinder
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 
 if USE_GLIB
@@ -141,4 +145,4 @@ endif
 libpal_la_LIBADD   += -L${abs_top_builddir}/plugins/vui_interface/.libs -lvui_intf
 libpal_la_LIBADD   += -L${abs_top_builddir}/plugins/PluginManager/.libs -lplugin_manager
 
-SUBDIRS = plugins . session stream device
+SUBDIRS = plugins . session stream device plugins/configs

@@ -26,8 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -51,7 +52,6 @@
 #include "VoiceUIPlatformInfo.h"
 #include "PluginManager.h"
 #include "mem_logger.h"
-#include "StreamACDB.h"
 
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
 #include "STUtils.h"
@@ -1568,9 +1568,9 @@ int ResourceManager::init_audio()
     PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file);
     if (!audio_route) {
         PAL_ERR(LOG_TAG, "audio route init failed trying with mixer without variant name");
-	audio_route = audio_route_init(snd_hw_card, mixer_xml_file_wo_variant);
+        audio_route = audio_route_init(snd_hw_card, mixer_xml_file_wo_variant);
         PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file_wo_variant);
-	if (!audio_route) {
+        if (!audio_route) {
             PAL_ERR(LOG_TAG, "audio route init failed ");
             mixer_close(audio_virt_mixer);
             mixer_close(audio_hw_mixer);
@@ -7324,6 +7324,25 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             memcpy((char*)param_payload, isProxyRecordActive ? "true" : "false", *payload_size);
         }
         break;
+        case PAL_PARAM_ID_HAPTICS_MODE:
+        {
+            PAL_VERBOSE(LOG_TAG, "get parameter for FTM mode");
+            std::shared_ptr<Device> dev = nullptr;
+            struct pal_device dattr;
+            dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
+            dev = Device::getInstance(&dattr , rm);
+            if (dev) {
+                status = dev->getParameter(PAL_PARAM_ID_HAPTICS_MODE,
+                                    param_payload);
+                if (status > 0) {
+                    *payload_size = status;
+                    status = 0;
+                } else {
+                    *payload_size = 0;
+                }
+            }
+        }
+        break;
         default:
         #ifndef SOUND_TRIGGER_FEATURES_DISABLED
             status = getSTParameter(param_id, param_payload, payload_size, query);
@@ -7344,44 +7363,6 @@ exit:
     return status;
 }
 
-
-int ResourceManager::getParameter(uint32_t param_id, void *param_payload,
-                                  size_t payload_size __unused,
-                                  pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
-{
-    int status = -EINVAL;
-
-    PAL_DBG(LOG_TAG, "param_id=%d", param_id);
-    switch (param_id) {
-        case PAL_PARAM_ID_UIEFFECT:
-        {
-            bool match = false;
-            std::list<Stream*>::iterator sIter;
-            lockActiveStream();
-            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
-                match = (*sIter)->checkStreamMatch(pal_device_id, pal_stream_type);
-                if (match) {
-                    if (increaseStreamUserCounter(*sIter) < 0)
-                        continue;
-                    unlockActiveStream();
-                    status = (*sIter)->getEffectParameters(param_payload);
-                    lockActiveStream();
-                    decreaseStreamUserCounter(*sIter);
-                    break;
-                }
-            }
-            unlockActiveStream();
-            break;
-        }
-        default:
-            status = -EINVAL;
-            PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
-            break;
-    }
-
-    return status;
-}
 
 int ResourceManager::getCustomParam(custom_payload_uc_info_t* uc_info,
                                         const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
@@ -7475,6 +7456,47 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                       sizeof(pal_param_device_rotation_t), payload_size);
                 status = -EINVAL;
                 goto exit;
+            }
+        }
+        break;
+        case PAL_PARAM_ID_HAPTICS_MODE:
+        {
+            pal_haptics_payload *hapModeVal =
+                (pal_haptics_payload *) param_payload;
+
+            if (payload_size == sizeof(pal_haptics_payload)) {
+                switch(hapModeVal->operationMode) {
+                    case PAL_HAP_MODE_FACTORY_TEST:
+                    case PAL_HAP_MODE_DYNAMIC_CAL:
+                    {
+                        struct pal_device dattr;
+                        dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
+                        std::shared_ptr<Device> dev = nullptr;
+
+                        memset (&mHapticsModeValue, 0,
+                                        sizeof(pal_haptics_payload));
+                        mHapticsModeValue.operationMode =
+                                hapModeVal->operationMode;
+
+                        dev = Device::getInstance(&dattr , rm);
+                        if (dev) {
+                            PAL_DBG(LOG_TAG, "Got Haptics Device Instance, mode:%d",
+                                                          hapModeVal->operationMode);
+                            dev->setParameter(hapModeVal->operationMode, nullptr);
+                        }
+                        else {
+                            PAL_DBG(LOG_TAG, "Unable to get haptics device instance");
+                        }
+                    }
+                    break;
+                    default:
+                    {
+                        PAL_ERR(LOG_TAG, "unsupported hap op mode = %d",
+                                hapModeVal->operationMode);
+                        status = -EINVAL;
+                        goto exit;
+                    }
+                }
             }
         }
         break;
@@ -7827,127 +7849,6 @@ exit_no_unlock:
     return status;
 }
 
-
-int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
-                                  size_t payload_size __unused,
-                                  pal_device_id_t pal_device_id,
-                                  pal_stream_type_t pal_stream_type)
-{
-    int status = -EINVAL;
-
-    PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
-
-    switch (param_id) {
-        case PAL_PARAM_ID_UIEFFECT:
-        {
-            bool match = false;
-            lockActiveStream();
-            std::list<Stream*>::iterator sIter;
-            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end();
-                    sIter++) {
-                if ((*sIter) != NULL) {
-                    match = (*sIter)->checkStreamMatch(pal_device_id,
-                                                       pal_stream_type);
-                    if (match) {
-                        if (increaseStreamUserCounter(*sIter) < 0)
-                            continue;
-                        unlockActiveStream();
-                        status = (*sIter)->setEffectParameters(param_payload);
-                        lockActiveStream();
-                        decreaseStreamUserCounter(*sIter);
-                        if (status) {
-                            PAL_ERR(LOG_TAG, "failed to set param for pal_device_id=%x stream_type=%x",
-                                   pal_device_id, pal_stream_type);
-                        }
-                    }
-                } else {
-                    PAL_ERR(LOG_TAG, "There is no active stream.");
-                }
-            }
-            unlockActiveStream();
-        }
-        break;
-        default:
-            PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
-            break;
-    }
-
-    PAL_DBG(LOG_TAG, "Exit status: %d",status);
-    return status;
-}
-
-
-int ResourceManager::rwParameterACDB(uint32_t paramId, void *paramPayload,
-                 size_t payloadSize  __unused, pal_device_id_t palDeviceId,
-                 pal_stream_type_t palStreamType, uint32_t sampleRate,
-                 uint32_t instanceId, bool isParamWrite, bool isPlay)
-{
-    int status = -EINVAL;
-    StreamACDB *s = NULL;
-    struct pal_stream_attributes sattr;
-    struct pal_device dattr;
-    bool match = false;
-    uint32_t matchCount = 0;
-    std::list<Stream*>::iterator sIter;
-
-    PAL_DBG(LOG_TAG, "Enter: device=%d type=%d rate=%d instance=%d is_param_write=%d\n",
-            palDeviceId, palStreamType, sampleRate,
-            instanceId, isParamWrite);
-
-    switch (paramId) {
-        case PAL_PARAM_ID_UIEFFECT:
-        {
-            /*
-             * set default stream type (low latency) for device-only effect.
-             * the instance is shared by streams.
-             */
-            if (palStreamType == PAL_STREAM_GENERIC) {
-                palStreamType = PAL_STREAM_LOW_LATENCY;
-                PAL_INFO(LOG_TAG, "change PAL stream from %d to %d for device effect",
-                            PAL_STREAM_GENERIC, palStreamType);
-            }
-
-            /*
-             * set default device (speaker) for stream-only effect.
-             * the instance is shared by devices.
-             */
-            if (palDeviceId == PAL_DEVICE_NONE) {
-                if (isPlay)
-                    palDeviceId = PAL_DEVICE_OUT_SPEAKER;
-                else
-                    palDeviceId = PAL_DEVICE_IN_HANDSET_MIC;
-
-                PAL_INFO(LOG_TAG, "change PAL device id from %d to %d for stream effect",
-                            PAL_DEVICE_NONE, palDeviceId);
-            }
-
-            sattr.type = palStreamType;
-            sattr.out_media_config.sample_rate = sampleRate;
-            sattr.direction = PAL_AUDIO_OUTPUT;
-            dattr.id = palDeviceId;
-            s = new StreamACDB(&sattr, &dattr, instanceId, getInstance());
-            if (!s) {
-                status = -EINVAL;
-                PAL_ERR(LOG_TAG, "stream creation failed status %d", status);
-                goto error;
-            }
-
-            status = s->rwACDBParam(palDeviceId, palStreamType, sampleRate,
-                instanceId, paramPayload, isParamWrite);
-
-            delete s;
-        }
-        break;
-        default:
-            PAL_ERR(LOG_TAG, "Unknown ParamID:%d", paramId);
-            break;
-    }
-
-error:
-    PAL_DBG(LOG_TAG, "Exit status: %d", status);
-
-    return status;
-}
 
 int ResourceManager::setCustomParam(custom_payload_uc_info_t* uc_info,
                                     const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],

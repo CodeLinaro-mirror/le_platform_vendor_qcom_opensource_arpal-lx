@@ -26,6 +26,7 @@ lib_LTLIBRARIES     = libdev_headset_mic.la
 libdev_headset_mic_la_SOURCES   = $(dev_headset_mic_sources)
 libdev_headset_mic_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat -ltinyalsa -ltinycompress
 libdev_headset_mic_la_LIBADD    += -L${abs_top_builddir}/plugins/vui_interface/.libs -lvui_intf
+libdev_headset_mic_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal
 libdev_headset_mic_la_CPPFLAGS := $(AM_CPPFLAGS)
 libdev_headset_mic_la_CPPFLAGS += -std=c++14
 libdev_headset_mic_la_LDFLAGS   = -shared -avoid-version
