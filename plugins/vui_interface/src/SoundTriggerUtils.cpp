@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -63,7 +62,10 @@
 #include <algorithm>
 #include "SoundTriggerUtils.h"
 
+#ifndef LOG_TAG
 #define LOG_TAG "PAL: SoundTriggerUtils"
+#endif
+
 //#define LOG_NDEBUG 0
 #define SML_LIB "liblistensoundmodel2vendor.so"
 
