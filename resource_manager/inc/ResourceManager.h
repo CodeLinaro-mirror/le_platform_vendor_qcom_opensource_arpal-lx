@@ -110,6 +110,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
 #define AUDIO_PARAMETER_KEY_DUAL_MONO "dual_mono"
 #define AUDIO_PARAMETER_KEY_SIGNAL_HANDLER "signal_handler"
+#define AUDIO_PARAMETER_KEY_DUMMY_DEV_ENABLE "dummy_dev_enable"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -603,6 +604,7 @@ public:
     static bool isDualMonoEnabled;
     static bool isUHQAEnabled;
     static bool isSignalHandlerEnabled;
+    static bool isDummyDevEnabled;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
@@ -853,6 +855,7 @@ public:
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setDualMonoEnableParam(struct str_parms *parms,char *value, int len);
     static int setSignalHandlerEnableParam(struct str_parms *parms,char *value, int len);
+    static void setDummyDevEnableParam(struct str_parms *parms,char *value, int len);
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
     static bool isValidDevId(int deviceId);
@@ -869,10 +872,15 @@ public:
     bool isDeviceReady(pal_device_id_t id);
     static bool isBtScoDevice(pal_device_id_t id);
     static bool isBtDevice(pal_device_id_t id);
+    static bool isBtA2dpDevice(pal_device_id_t id);
     int32_t a2dpSuspend(pal_device_id_t dev_id);
+    int32_t a2dpSuspendToDummy(pal_device_id_t dev_id);
     int32_t a2dpResume(pal_device_id_t dev_id);
+    int32_t a2dpResumeFromDummy(pal_device_id_t dev_id);
     int32_t a2dpCaptureSuspend(pal_device_id_t dev_id);
+    int32_t a2dpCaptureSuspendToDummy(pal_device_id_t dev_id);
     int32_t a2dpCaptureResume(pal_device_id_t dev_id);
+    int32_t a2dpCaptureResumeFromDummy(pal_device_id_t dev_id);
     bool isPluginDevice(pal_device_id_t id);
     bool isDpDevice(pal_device_id_t id);
     bool isPluginPlaybackDevice(pal_device_id_t id);

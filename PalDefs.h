@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -531,6 +531,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_OUT_HAPTICS_DEVICE" },       PAL_DEVICE_OUT_HAPTICS_DEVICE},
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND" },           PAL_DEVICE_OUT_ULTRASOUND},
     {std::string{ "PAL_DEVICE_OUT_ULTRASOUND_DEDICATED" }, PAL_DEVICE_OUT_ULTRASOUND_DEDICATED},
+    {std::string{ "PAL_DEVICE_OUT_DUMMY" },                PAL_DEVICE_OUT_DUMMY},
     {std::string{ "PAL_DEVICE_OUT_MAX" },                  PAL_DEVICE_OUT_MAX},
     {std::string{ "PAL_DEVICE_IN_HANDSET_MIC" },           PAL_DEVICE_IN_HANDSET_MIC},
     {std::string{ "PAL_DEVICE_IN_SPEAKER_MIC" },           PAL_DEVICE_IN_SPEAKER_MIC},
@@ -555,6 +556,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_ULTRASOUND_MIC" },        PAL_DEVICE_IN_ULTRASOUND_MIC},
     {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
     {std::string{ "PAL_DEVICE_IN_ECHO_REF" },              PAL_DEVICE_IN_ECHO_REF},
+    {std::string{ "PAL_DEVICE_IN_DUMMY" },                 PAL_DEVICE_IN_DUMMY},
 };
 
 //reverse mapping

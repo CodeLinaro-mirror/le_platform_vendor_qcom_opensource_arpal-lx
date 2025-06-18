@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Device"
@@ -56,6 +59,8 @@
 #ifdef EC_REF_CAPTURE_ENABLED
 #include "ECRefDevice.h"
 #endif
+#include "DummyDev.h"
+
 #define MAX_CHANNEL_SUPPORTED 2
 
 std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
@@ -153,6 +158,10 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         PAL_VERBOSE(LOG_TAG, "Echo ref device");
         return ECRefDevice::getInstance(device, Rm);
 #endif
+    case PAL_DEVICE_OUT_DUMMY:
+    case PAL_DEVICE_IN_DUMMY:
+        PAL_VERBOSE(LOG_TAG, "Dummy device");
+        return DummyDev::getInstance(device, Rm);
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",device->id);
         return nullptr;
@@ -236,6 +245,10 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         PAL_VERBOSE(LOG_TAG, "Echo ref device %d", dev_id);
         return ECRefDevice::getObject();
 #endif
+    case PAL_DEVICE_OUT_DUMMY:
+    case PAL_DEVICE_IN_DUMMY:
+        PAL_VERBOSE(LOG_TAG, "Dummy device %d", dev_id);
+        return DummyDev::getObject(dev_id);
     default:
         PAL_ERR(LOG_TAG,"Unsupported device id %d",dev_id);
         return nullptr;

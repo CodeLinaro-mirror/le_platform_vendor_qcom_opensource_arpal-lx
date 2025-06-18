@@ -28,7 +28,7 @@
 
 <!-- Changes from Qualcomm Innovation Center are provided under the following license:    -->
 <!--                                                                                      -->
-<!-- Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.       -->
+<!-- Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.       -->
 <!--                                                                                      -->
 <!-- Redistribution and use in source and binary forms, with or without                   -->
 <!-- modification, are permitted (subject to the limitations in the                       -->
@@ -710,6 +710,18 @@
             <keys_and_values>
                 <!-- DEVICETX - ECHO_REF_TX -->
                 <graph_kv key="0xA3000000" value="0xA300000D"/>
+            </keys_and_values>
+        </device>
+        <device id="PAL_DEVICE_OUT_DUMMY">
+            <keys_and_values>
+                <!-- DEVICERX - DUMMY_RX -->
+                <graph_kv key="0xA2000000" value="0xA200000B"/>
+            </keys_and_values>
+        </device>
+        <device id="PAL_DEVICE_IN_DUMMY">
+            <keys_and_values>
+                <!-- DEVICETX - DUMMY_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000010"/>
             </keys_and_values>
         </device>
     </devices>

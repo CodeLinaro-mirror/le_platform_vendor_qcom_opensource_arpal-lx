@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -26,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef STREAM_H_
@@ -223,6 +226,7 @@ public:
     int32_t getAssociatedDevices(std::vector <std::shared_ptr<Device>> &adevices);
     int32_t getAssociatedPalDevices(std::vector <struct pal_device> &palDevices);
     int32_t getPalDevices(std::vector <std::shared_ptr<Device>> &PalDevices);
+    void removePalDevice(Stream *streamHandle, int palDevId);
     void clearOutPalDevices(Stream *streamHandle);
     void addPalDevice(Stream* streamHandle, struct pal_device *dattr);
     int32_t updatePalDevice(struct pal_device *dattr, pal_device_id_t dev_id);
@@ -241,6 +245,7 @@ public:
          uint32_t no_of_devices, struct modifier_kv *modifiers, uint32_t no_of_modifiers);
     bool isStreamAudioOutFmtSupported(pal_audio_fmt_t format);
     int32_t getTimestamp(struct pal_session_time *stime);
+    int32_t handleBTDeviceNotReadyToDummy(bool& a2dpSuspend);
     int32_t handleBTDeviceNotReady(bool& a2dpSuspend);
     int disconnectStreamDevice(Stream* streamHandle,  pal_device_id_t dev_id);
     int disconnectStreamDevice_l(Stream* streamHandle,  pal_device_id_t dev_id);
