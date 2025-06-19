@@ -19,6 +19,13 @@ ifneq ($(TARGET_BOARD_PLATFORM), anorak)
 LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
 endif
 
+# add for gcov dump
+ifeq ($(AUDIO_FEATURE_ENABLED_GCOV), true)
+LOCAL_CFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_CPPFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+LOCAL_LDFLAGS += -g --coverage -fprofile-arcs -ftest-coverage
+endif
+
 LOCAL_SRC_FILES := \
     src/Bluetooth.cpp
 

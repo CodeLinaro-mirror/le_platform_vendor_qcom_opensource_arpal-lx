@@ -26,8 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -45,6 +46,18 @@ std::shared_ptr<ResourceManager> Stream::rm = nullptr;
 std::shared_ptr<PluginManager> Stream::pm = nullptr;
 std::mutex Stream::mBaseStreamMutex;
 std::mutex Stream::pauseMutex;
+
+#ifdef AUDIO_FEATURE_ENABLED_GCOV
+extern "C" void __gcov_dump(void);
+#define GCOV_DUMP() \
+    do { \
+        PAL_DBG(LOG_TAG, "Stream: start dump gcov"); \
+        __gcov_dump(); \
+        PAL_DBG(LOG_TAG, "Stream: end dump gcov"); \
+    } while(0)
+#else
+#define GCOV_DUMP()
+#endif
 
 Stream::Stream() {
     rm = ResourceManager::getInstance();
@@ -75,6 +88,8 @@ Stream::Stream() {
         free(mStreamAttr);
         mStreamAttr = (struct pal_stream_attributes *)NULL;
     }
+
+    GCOV_DUMP();
  }
 
 Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *dAttr,
@@ -205,6 +220,13 @@ stream_create:
                                 modifiers,
                                 noOfModifiers,
                                 rm);
+                if (sAttr->type == PAL_STREAM_COMPRESSED && stream == nullptr) {
+                    PAL_ERR(LOG_TAG, "StreamCompress create failed");
+                    if (palDevsAttr) {
+                        free(palDevsAttr);
+                    }
+                    return nullptr;
+                }
             } else {
                 PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s", streamNameLUT.at(sAttr->type).c_str());
             }

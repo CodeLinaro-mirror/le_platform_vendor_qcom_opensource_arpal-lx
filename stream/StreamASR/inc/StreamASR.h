@@ -406,6 +406,9 @@ class StreamASR : public Stream {
     int32_t SetRecognitionConfig(struct pal_asr_config *config);
     int32_t GenerateCallbackEvent(struct pal_asr_event **event,
                                   uint32_t *eventSize);
+
+    int32_t storeModelToFile(int32_t fd, uint32_t size);
+    int32_t deleteModelFile();
     /* Currently model is not loaded from HLOS, hence using this hardcoded UUID,
      * Later when loading is supported, we need to remove it from here, and
      * get it from model, to check which sm_config it supports to
@@ -421,6 +424,7 @@ class StreamASR : public Stream {
     bool paused;
     bool deviceOpened;
     bool enableSpeakerDiarization;
+    bool enableEc;
     uint64_t cookie;
     std::map<uint32_t, ASRState*> asrStates;
     struct pal_asr_config *palRecConfig;
@@ -430,6 +434,7 @@ class StreamASR : public Stream {
     param_id_sdz_output_config_t *sdzOutputConfig;
     param_id_sdz_input_threshold_t *sdzInputConfig;
     pal_stream_callback callback;
+    std::shared_ptr<Device> ecDev;
 
     ASRState *asrIdle;
     ASRState *asrLoaded;

@@ -76,6 +76,20 @@ void STUtilsInit() {
     voiceuiDmgrManagerInit();
 }
 
+void STUtilsDeinit() {
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    if (rm && IsLowLatencyBargeinSupported()) {
+        vui_switch_mutex_.lock();
+        vui_switch_thread_exit_ = true;
+        vui_switch_cv_.notify_all();
+        vui_switch_mutex_.unlock();
+        if (vui_deferred_switch_thread_.joinable())
+            vui_deferred_switch_thread_.join();
+        PAL_DBG(LOG_TAG, "VoiceUI deferred switch thread joined");
+    }
+    voiceuiDmgrManagerDeInit();
+}
+
 void getMatchingStreams(std::list<Stream*> &active_streams, std::vector<Stream*> &streams, vui_dmgr_uuid_t &uuid)
 {
     int ret = 0;
@@ -705,6 +719,7 @@ bool checkAndUpdateDeferSwitchState(bool stream_active)
 {
     std::unique_lock<std::mutex> lck(vui_switch_mutex_);
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    std::list<Stream*> activeSTStreams;
 
     /*
      * When switching from NLPI to LPI:
@@ -722,7 +737,8 @@ bool checkAndUpdateDeferSwitchState(bool stream_active)
      *    and exit the sleep in voiceUIDeferredSwitchLoop.
      */
     if (!stream_active) {
-        if (IsLowLatencyBargeinSupported()) {
+        rm->getActiveStreamByType_l(activeSTStreams, PAL_STREAM_VOICE_UI);
+        if (IsLowLatencyBargeinSupported() && activeSTStreams.size()) {
             deferredSwitchState =
                 (deferredSwitchState == DEFER_LPI_NLPI_SWITCH) ? NO_DEFER :
                  DEFER_NLPI_LPI_SWITCH;
@@ -767,12 +783,26 @@ bool checkAndUpdateDeferSwitchState(bool stream_active)
 
 void voiceUIDeferredSwitchLoop(std::shared_ptr<ResourceManager> rm)
 {
+    bool is_wake_lock_acquired = false;
     PAL_INFO(LOG_TAG, "Enter");
     std::unique_lock<std::mutex> lck(vui_switch_mutex_);
 
     while (!vui_switch_thread_exit_) {
-        if (deferred_switch_cnt_ < 0)
+        if (deferred_switch_cnt_ < 0) {
+            if (is_wake_lock_acquired) {
+                rm->releaseWakeLock();
+                is_wake_lock_acquired = false;
+            }
             vui_switch_cv_.wait(lck);
+            rm->acquireWakeLock();
+            is_wake_lock_acquired = true;
+        }
+
+        if (vui_switch_thread_exit_) {
+            if (is_wake_lock_acquired)
+                rm->releaseWakeLock();
+            break;
+        }
 
         if (deferred_switch_cnt_ > 0) {
             deferred_switch_cnt_--;

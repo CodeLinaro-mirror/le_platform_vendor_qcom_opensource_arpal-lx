@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1019,7 +1019,6 @@ ResourceManager::~ResourceManager()
 
     STInstancesLists.clear();
     devicePcmId.clear();
-    PCMDataInstances.clear();
 
     if (admLibHdl) {
         if (admDeInitFn)
@@ -4955,7 +4954,7 @@ void ResourceManager::deinit()
        chargerListenerDeinit();
 
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
-    voiceuiDmgrManagerDeInit();
+    STUtilsDeinit();
 #endif
     AudioFeatureStatsDeInit();
 
@@ -8175,6 +8174,8 @@ int ResourceManager::rwParameterDummyStream(custom_payload_uc_info_t* uc_info,
     }
 
     delete s;
+    if(pm)
+        pm->closePlugin(PAL_PLUGIN_MANAGER_STREAM, "PAL_STREAM_DUMMY");
 
 error:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
@@ -8503,17 +8504,6 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
             str->setInstanceId(0);
             break;
         }
-        case PAL_STREAM_SENSOR_PCM_DATA: {
-            for (auto instance : PCMDataInstances) {
-                if (sInstanceID == instance.first) {
-                    PAL_DBG(LOG_TAG, "Reset Sensor PCM Data instance: %d to false", sInstanceID);
-                    PCMDataInstances[instance.first] = false;
-                    break;
-                }
-            }
-            str->setInstanceId(0);
-            break;
-        }
         default: {
             if (StrAttr.direction == PAL_AUDIO_INPUT) {
                 in_stream_instances[StrAttr.type - 1] &= ~(1 << (sInstanceID - 1));
@@ -8603,32 +8593,6 @@ int ResourceManager::getStreamInstanceID(Stream *str) {
                 str->setInstanceId(instanceId);
                 PAL_DBG(LOG_TAG, "NT instance id %d", instanceId);
             }
-            break;
-        }
-        case PAL_STREAM_SENSOR_PCM_DATA: {
-            int instanceId = str->getInstanceId();
-            uint32_t num_instances = PCMDataInstances.size();
-
-            if (!instanceId) {
-                for (auto instance : PCMDataInstances) {
-                    if (false == instance.second) {
-                        PAL_DBG(LOG_TAG,
-                                "Found an available instance id: %d in PCMDataInstances",
-                                instance.first);
-                        instanceId = instance.first;
-                        PCMDataInstances[instance.first] = true;
-                        goto done;
-                    }
-                }
-                instanceId = num_instances + 1;
-                PCMDataInstances.insert(std::make_pair(instanceId, true));
-done:
-                str->setInstanceId(instanceId);
-                PAL_DBG(LOG_TAG,
-                        "Sensor PCM Data instance id: %d, number of instances: %d",
-                        instanceId, PCMDataInstances.size());
-            }
-            status = instanceId;
             break;
         }
         default: {

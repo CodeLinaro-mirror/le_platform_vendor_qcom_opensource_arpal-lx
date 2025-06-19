@@ -34,6 +34,10 @@
 #define LOG_TAG "PAL: StreamASR"
 
 #include <unistd.h>
+#include <sys/stat.h>
+#include <sys/mman.h>
+#include <cutils/ashmem.h>
+#include <fstream>
 
 #include "StreamASR.h"
 #include "ResourceManager.h"
@@ -41,6 +45,8 @@
 #include "kvh2xml.h"
 #include "MemLogBuilder.h"
 #include "STUtils.h"
+
+#define ASR_MODEL_FILE_NAME "/data/vendor/audio/asr_model.bin"
 
 extern "C" Stream* CreateASRStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                    const uint32_t no_of_devices, const struct modifier_kv *modifiers,
@@ -62,6 +68,7 @@ StreamASR::StreamASR(const struct pal_stream_attributes *sattr, struct pal_devic
     cmCfg = nullptr;
     deviceOpened = false;
     enableSpeakerDiarization = false;
+    enableEc = false;
     currentState = STREAM_IDLE;
     asrIdle = nullptr;
     asrActive = nullptr;
@@ -191,6 +198,7 @@ int32_t StreamASR::close()
         engine->releaseEngine();
         engine = nullptr;
     }
+    deleteModelFile();
 
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
     mStreamMutex.unlock();
@@ -286,6 +294,68 @@ int32_t StreamASR::HandleConcurrentStream(bool active) {
     return status;
 }
 
+int32_t StreamASR::storeModelToFile(int32_t fd, uint32_t size) {
+
+    void* mapAddr = nullptr;
+    int32_t outFd;
+
+    PAL_INFO(LOG_TAG, "Enter, fd %d size %d", fd, size);
+    if (fd < 0) {
+        PAL_ERR(LOG_TAG, " Invalid FD, value of Fd is %d", fd);
+        return -errno;
+    } else if(!ashmem_valid(fd)) {
+        PAL_ERR(LOG_TAG, "ashmem_valid(fd) validation failed");
+        return -errno;
+    } else if(size != ashmem_get_size_region(fd)) {
+        PAL_ERR(LOG_TAG, "Size passed not same as memory region, passed size: %d, memory size: %d",
+               size, ashmem_get_size_region(fd));
+        return -errno;
+    }
+
+    mapAddr = mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0);
+    if (mapAddr == MAP_FAILED) {
+        PAL_ERR(LOG_TAG, "Failed to map the model fd %s", strerror(errno));
+        return -errno;
+    }
+
+    outFd = ::open(ASR_MODEL_FILE_NAME, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
+    if (outFd == -1) {
+        PAL_ERR(LOG_TAG, "Failed to open output file %s", strerror(errno));
+        munmap(mapAddr, size);
+        return -errno;
+    }
+
+    if (::write(outFd, mapAddr, size) != size) {
+        PAL_ERR(LOG_TAG, "Failed to write to output file");
+        munmap(mapAddr, size);
+        ::close(outFd);
+        return -errno;
+    }
+
+    munmap(mapAddr, size);
+    ::close(outFd);
+    PAL_INFO(LOG_TAG, "Exit");
+    return 0;
+}
+
+int32_t StreamASR::deleteModelFile() {
+
+    struct stat stats;
+
+    PAL_DBG(LOG_TAG, "Enter");
+    if (stat(ASR_MODEL_FILE_NAME, &stats) == 0) {
+        if (::remove(ASR_MODEL_FILE_NAME) != 0) {
+            PAL_ERR(LOG_TAG, "Failed to delete the file %s", strerror(errno));
+            return -EINVAL;
+        }
+    } else {
+        PAL_ERR(LOG_TAG, "Failed to delete the file %s", strerror(errno));
+        return -EINVAL;
+    }
+    PAL_DBG(LOG_TAG, "Exit");
+    return 0;
+}
+
 int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
 {
     PAL_INFO(LOG_TAG, "Enter, param id %d", paramId);
@@ -304,6 +374,13 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
     switch (paramId) {
         case PAL_PARAM_ID_ASR_MODEL: {
             PAL_VERBOSE(LOG_TAG, "Currently model loading is not supported");
+            if (paramPayload->payload_size != sizeof (struct pal_asr_model)) {
+                PAL_ERR(LOG_TAG, "wrong payload size %d", paramPayload->payload_size);
+                return -EINVAL;
+            }
+            struct pal_asr_model *model = (struct pal_asr_model *)paramPayload->payload;
+            PAL_INFO(LOG_TAG, "model size %d", model->size);
+            status = storeModelToFile(model->fd, model->size);
             break;
         }
         case PAL_PARAM_ID_ASR_CONFIG: {
@@ -476,6 +553,7 @@ int32_t StreamASR::setECRef_l(std::shared_ptr<Device> dev, bool isEnable)
         PAL_ERR(LOG_TAG, "Error:%d Failed to handle ec ref event", status);
     }
 
+    ecDev = dev;
 exit:
     PAL_INFO(LOG_TAG, "Exit, status %d", status);
     return status;
@@ -986,6 +1064,13 @@ int32_t StreamASR::ASRIdle::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Error:%d Start asr engine failed", status);
                 goto err_exit;
             }
+            if (asrStream.enableEc) {
+                status = asrStream.engine->setECRef(&asrStream, asrStream.ecDev, true, true);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Error:%d Failed to set EC Ref in engine", status);
+                }
+                asrStream.enableEc = false;
+            }
             TransitTo(ASR_STATE_ACTIVE);
             break;
         err_exit:
@@ -1036,6 +1121,13 @@ int32_t StreamASR::ASRIdle::ProcessEvent(
             asrStream.mDevices.push_back(dev);
         connect_err:
             break;
+        }
+        case ASR_EV_EC_REF: {
+             ASRECRefEventData *data = (ASRECRefEventData *)evCfg->data.get();
+             Stream *s = static_cast<Stream *>(&asrStream);
+             PAL_INFO(LOG_TAG, "EC enable : %d", data->isEnable);
+             asrStream.enableEc = data->isEnable;
+             PAL_INFO(LOG_TAG, "EC will be handled after engine start!!!");
         }
         case ASR_EV_PAUSE: {
             asrStream.paused = true;
@@ -1241,8 +1333,9 @@ int32_t StreamASR::ASRActive::ProcessEvent(
         case ASR_EV_EC_REF: {
             ASRECRefEventData *data = (ASRECRefEventData *)evCfg->data.get();
             Stream *s = static_cast<Stream *>(&asrStream);
-            PAL_ERR(LOG_TAG, "EC enable : %d", data->isEnable);
-            status = asrStream.engine->setECRef(s, data->dev, data->isEnable);
+            PAL_INFO(LOG_TAG, "EC enable : %d", data->isEnable);
+            status = asrStream.engine->setECRef(s, data->dev, data->isEnable,
+                                                asrStream.ecDev == data->dev);
             if (status) {
                 PAL_ERR(LOG_TAG, "Error:%d Failed to set EC Ref in engine", status);
             }

@@ -53,10 +53,12 @@
 #include "SpeakerMic.h"
 #include "UltrasoundDevice.h"
 #include "USBAudio.h"
-
+/*include all configs*/
+#include "ConfigSessionAlsaPcm.h"
+#include "ConfigSessionAlsaCompress.h"
+#include "ConfigSessionAlsaVoice.h"
 
 std::shared_ptr<PluginManager> PluginManager::pm = nullptr;
-std::mutex PluginManager::mPluginManagerMutex;
 
 PluginManager::PluginManager() {
 }
@@ -131,7 +133,7 @@ int32_t getStreamFunc(void** func, std::string name) {
             *reinterpret_cast<StreamCreate*>(func) = &CreateASRStream;
             break;
         case PAL_STREAM_DUMMY:
-             *reinterpret_cast<StreamCreate*>(func) = &CreateDummyStream;
+             *reinterpret_cast<StreamDummyCreate*>(func) = &CreateDummyStream;
             break;
         default:
             PAL_ERR(LOG_TAG, "unsupported stream type %s", name.c_str());
@@ -295,12 +297,53 @@ int32_t getDeviceFunc(void** func, std::string name) {
     return status;
 }
 
+int32_t getConfigFunc(void** func, std::string name) {
+    int32_t status = 0;
+
+    switch(usecaseIdLUT.at(name)) {
+        case PAL_STREAM_DEEP_BUFFER:
+        case PAL_STREAM_LOW_LATENCY:
+        case PAL_STREAM_SPATIAL_AUDIO:
+        case PAL_STREAM_GENERIC:
+        case PAL_STREAM_VOIP_TX:
+        case PAL_STREAM_VOIP_RX:
+        case PAL_STREAM_PCM_OFFLOAD:
+        case PAL_STREAM_LOOPBACK:
+        case PAL_STREAM_ULTRA_LOW_LATENCY:
+        case PAL_STREAM_PROXY:
+        case PAL_STREAM_RAW:
+        case PAL_STREAM_VOICE_RECOGNITION:
+        case PAL_STREAM_VOICE_UI:
+        case PAL_STREAM_VOICE_CALL_RECORD:
+        case PAL_STREAM_VOICE_CALL_MUSIC:
+        case PAL_STREAM_ACD:
+        case PAL_STREAM_HAPTICS:
+        case PAL_STREAM_CONTEXT_PROXY:
+        case PAL_STREAM_ULTRASOUND:
+        case PAL_STREAM_SENSOR_PCM_DATA:
+        case PAL_STREAM_COMMON_PROXY:
+        case PAL_STREAM_SENSOR_PCM_RENDERER:
+            *reinterpret_cast<PluginConfig*>(func) = &pcmPluginConfig;
+            break;
+        case PAL_STREAM_COMPRESSED:
+            *reinterpret_cast<PluginConfig*>(func) = &compressPluginConfig;
+            break;
+        case PAL_STREAM_VOICE_CALL:
+            *reinterpret_cast<PluginConfig*>(func) = &voicePluginConfig;
+            break;
+         default:
+            PAL_ERR(LOG_TAG, "unsupported device type %s", name.c_str());
+            status = -EINVAL;
+            break;
+    }
+    return status;
+}
+
 int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName, void* &plugin){
     int32_t status = 0;
     std::vector<pm_item_t> *pluginList = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter");
-    mPluginManagerMutex.lock();
     switch (type) {
         case PAL_PLUGIN_MANAGER_STREAM:
             status = getStreamFunc(&plugin, keyName);
@@ -310,6 +353,9 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
             break;
         case PAL_PLUGIN_MANAGER_DEVICE:
             status = getDeviceFunc(&plugin, keyName);
+            break;
+        case PAL_PLUGIN_MANAGER_CONFIG:
+            status = getConfigFunc(&plugin, keyName);
             break;
         default:
             PAL_ERR(LOG_TAG, "unsupported Plugin type %d", type);
@@ -326,7 +372,6 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
     }
     exit:
     PAL_DBG(LOG_TAG, "exit status: %d", status);
-    mPluginManagerMutex.unlock();
     return status;
 }
 
@@ -339,7 +384,6 @@ int32_t  PluginManager::closePlugin(pal_plugin_manager_t type, std::string keyNa
 std::shared_ptr<PluginManager> PluginManager::getInstance()
 {
     if (!pm) {
-        std::lock_guard<std::mutex> lock(PluginManager::mPluginManagerMutex);
         std::shared_ptr<PluginManager> sp(new PluginManager());
         pm = sp;
     }

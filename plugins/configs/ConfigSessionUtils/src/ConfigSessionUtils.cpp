@@ -448,7 +448,14 @@ int setSlotMask(const std::shared_ptr<ResourceManager>& rm, struct pal_stream_at
     rm->getVirtualAudioMixer(&mixer);
 
     if (groupDevConfig) {
-        tkv.push_back(std::make_pair(TAG_KEY_SLOT_MASK, groupDevConfig->grp_dev_hwep_cfg.slot_mask));
+        if (0 == groupDevConfig->grp_dev_hwep_cfg.slot_mask) {
+            slot_mask = slotMaskLUT.at(dAttr.config.ch_info.channels) |
+                         slotMaskBwLUT.at(dAttr.config.bit_width);
+            tkv.push_back(std::make_pair(TAG_KEY_SLOT_MASK, slot_mask));
+        } else {
+            tkv.push_back(std::make_pair(TAG_KEY_SLOT_MASK,
+                               groupDevConfig->grp_dev_hwep_cfg.slot_mask));
+        }
     } else if (rm->IsDeviceMuxConfigEnabled()) {
          slot_mask = slotMaskLUT.at(dAttr.config.ch_info.channels) |
                          slotMaskBwLUT.at(dAttr.config.bit_width);
@@ -660,10 +667,12 @@ int handleDeviceRotation(const std::shared_ptr<ResourceManager>& rm, Stream *s,
                  /* This has to be done after sending all mixer controls and
                   * before connect
                   */
+                std::string aifBackendName;
+                rm->getBackendName(dAttr.id, aifBackendName);
                 status =
                         SessionAlsaUtils::getModuleInstanceId(mixer,
                                                               device,
-                                                              rxAifBackEnds[i].second.data(),
+                                                              aifBackendName.c_str(),
                                                               mfc_tag, &miid);
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
@@ -700,6 +709,7 @@ int handleDeviceRotation(const std::shared_ptr<ResourceManager>& rm, Stream *s,
                     PAL_ERR(LOG_TAG, "setMixerParameter failed");
                     return status;
                 }
+                break;
             }
         }
     }
