@@ -274,7 +274,7 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
             (void *)asr_event_cfg, payload_size);
     } else if (sAttr.type == PAL_STREAM_HPCM) {
         PAL_INFO(LOG_TAG, "CONFIGURING HPCM_EVENT");
-        uint32_t hpcm_miid;
+        uint32_t hpcm_miid = 0;
         payload_size = sizeof(struct agm_event_reg_cfg);
         memset(&event_cfg, 0, sizeof(event_cfg));
         event_cfg.event_id = EVENT_ID_HPCM_HOST_BUF_DONE;
@@ -1435,7 +1435,7 @@ int32_t pcmPluginConfigSetConfigStop(Stream* s, void* pluginPayload)
                 payload_size);
     } else if (sAttr.type == PAL_STREAM_HPCM) {
         PAL_ERR(LOG_TAG, "De-registering HPCM_EVENT");
-        uint32_t hpcm_miid;
+        uint32_t hpcm_miid = 0;
         payload_size = sizeof(struct agm_event_reg_cfg);
         memset(&event_cfg, 0, sizeof(event_cfg));
         event_cfg.event_id = EVENT_ID_HPCM_HOST_BUF_DONE;

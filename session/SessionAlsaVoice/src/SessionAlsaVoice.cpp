@@ -692,7 +692,7 @@ int SessionAlsaVoice::start(Stream * s)
     }
 
     if (rm->IsChargeConcurrencyEnabled()) {
-        if (PAL_DEVICE_OUT_SPEAKER == rxDevice->getSndDeviceId()) {
+        if ((rxDevice != nullptr) && (PAL_DEVICE_OUT_SPEAKER == rxDevice->getSndDeviceId())) {
             status = NotifyChargerConcurrency(rm, true);
             if (0 == status) {
                 status = EnableChargerConcurrency(rm, s);
@@ -1620,6 +1620,10 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
     if (rxAifBackEnds.size() > 0) {
         /*config mute on pop suppressor*/
         if (streamHandle->getCurState() != STREAM_INIT) {
+            if(pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "pluginConfig is NULL..\n");
+                return -EINVAL;
+            }
             //pop suppressor call now in plugin config.
             ret = pluginConfig(streamHandle, PAL_PLUGIN_CONFIG_STOP, nullptr, 0);
             if (ret) {
@@ -1795,6 +1799,11 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
         //if CRSCall enabled, populate rx mfc coeff payload, in plugin.
         if (rm->IsCRSCallEnabled()) {
             ppld.payload = reinterpret_cast<void*>(&deviceToConnect);
+            if (pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "plugin config is null!!");
+                status = -EINVAL;
+                goto exit;
+            }
             ret = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
                                     reinterpret_cast<void*>(&ppld), sizeof(ReconfigPluginPayload));
             if (ret) {
@@ -1830,6 +1839,11 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
         //if CRSCall enabled, populate rx mfc coeff payload, in plugin.
         if (rm->IsCRSCallEnabled()) {
             ppld.payload = reinterpret_cast<void*>(&rxDevice);
+            if (pluginConfig == nullptr) {
+                PAL_ERR(LOG_TAG, "plugin config is null!!");
+                status = -EINVAL;
+                goto exit;
+            }
             ret = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
                         reinterpret_cast<void*>(&ppld), sizeof(ReconfigPluginPayload));
             if (ret) {
