@@ -84,7 +84,7 @@ std::shared_ptr<SignalHandler> SignalHandler::getInstance() {
 }
 
 // static
-#ifdef FEATURE_IPQ_OPENWRT
+#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 void SignalHandler::invokeDefaultHandler(std::shared_ptr<struct sigaction> sAct,
             int code, siginfo_t *si, void *sc) {
 #else
@@ -124,7 +124,7 @@ void SignalHandler::invokeDefaultHandler(std::shared_ptr<struct sigaction> sAct,
 }
 
 // static
-#ifdef FEATURE_IPQ_OPENWRT
+#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 void SignalHandler::customSignalHandler(
             int code, siginfo_t *si, void *sc) {
 #else

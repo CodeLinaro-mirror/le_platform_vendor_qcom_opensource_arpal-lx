@@ -91,7 +91,6 @@ AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @PALHEADERS_CFLAGS@
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result -Wl,-z,defs
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
-AM_CPPFLAGS += -DFEATURE_IPQ_OPENWRT
 
 h_sources = ${top_srcdir}/utils/inc/MetadataParser.h \
             ${top_srcdir}/session/SessionAR/inc/SessionAlsaUtils.h \
@@ -119,7 +118,7 @@ if IS_SA525M
 libpal_la_LIBADD    += -lagmclientwrapper
 endif
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
-libpal_la_CPPFLAGS += -std=c++14
+libpal_la_CPPFLAGS += -std=c++17
 libpal_la_LDFLAGS   = -shared -avoid-version -lbinder
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 

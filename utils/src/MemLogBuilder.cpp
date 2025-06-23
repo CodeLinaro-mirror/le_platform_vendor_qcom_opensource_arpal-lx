@@ -5,7 +5,7 @@
 
 #include "MemLogBuilder.h"
 #include "Device.h"
-#ifdef FEATURE_IPQ_OPENWRT
+#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #include <binder/IPCThreadState.h>
 #include <binder/ProcessState.h>
 #include <binder/IServiceManager.h>
@@ -127,7 +127,7 @@ void kpiEnqueue(const char name[], bool isEnter)
     struct kpi_queue que;
 
     strlcpy(que.func_name, name, sizeof(que.func_name));
-#ifdef FEATURE_IPQ_OPENWRT
+#if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
     que.pid = IPCThreadState::self()->getCallingPid();
 #else
     que.pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
