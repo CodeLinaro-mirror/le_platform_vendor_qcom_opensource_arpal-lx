@@ -416,6 +416,7 @@ int SpeakerProtection::spkrStartCalibration()
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
     int ret = 0, status = 0, dir = 0, i = 0, flags = 0, payload_size = 0;
     uint32_t miid = 0;
+    uint32_t param_sp_op_mode = 0;
     char mSndDeviceName_rx[128] = {0};
     char mSndDeviceName_vi[128] = {0};
     uint8_t* payload = NULL;
@@ -423,6 +424,7 @@ int SpeakerProtection::spkrStartCalibration()
     uint32_t devicePropId[] = {0x08000010, 1, 0x2};
     bool isTxStarted = false, isRxStarted = false;
     bool isTxFeandBeConnected = false, isRxFeandBeConnected = false;
+    bool dspEventReceived = false;
     std::string backEndNameTx, backEndNameRx;
     std::vector <std::pair<int, int>> keyVector, calVector;
     std::vector<int> pcmDevIdsRx, pcmDevIdsTx;
@@ -883,8 +885,13 @@ int SpeakerProtection::spkrStartCalibration()
     }
 
     payloadSize = 0;
+    if (rm->GetSpeakerProtectionVersion() == SPV7)
+        param_sp_op_mode = PARAM_ID_SP_OP_MODE;
+    else
+        param_sp_op_mode = PARAM_ID_SP_OP_MODE_V5;
+
     builder->payloadSPConfig(&payload, &payloadSize, miid,
-            PARAM_ID_SP_OP_MODE,(void *)&spModeConfg);
+            param_sp_op_mode, (void *)&spModeConfg);
     if (payloadSize) {
         if (customPayloadSize) {
             free(customPayload);
@@ -1080,6 +1087,13 @@ void SpeakerProtection::spkrCalibrationThread()
     bool proceed = false;
     int i;
     int retryCount = 0;
+    std::shared_ptr<ResourceManager> rm;
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Error: %d Failed to get resource manager instance", -EINVAL);
+        return;
+    }
 
     while (!threadExit) {
         PAL_DBG(LOG_TAG, "Inside calibration while loop");
@@ -1104,31 +1118,35 @@ void SpeakerProtection::spkrCalibrationThread()
             proceed = true;
         }
 retry:
-        if (proceed) {
-            PAL_DBG(LOG_TAG, "Getting temperature of speakers");
-            getSpeakerTemperatureList();
+        // WSA884X can't read temperature before power on
+        // WSA884X handles temperature reading after DSP callback in derived class
+        if (rm->getWsaUsed() != WSA884X) {
+            if (proceed) {
+                PAL_DBG(LOG_TAG, "Getting temperature of speakers");
+                getSpeakerTemperatureList();
 
-            for (i = 0; i < numberOfChannels; i++) {
-                if ((spkerTempList[i] != -EINVAL) &&
-                    (spkerTempList[i] < TZ_TEMP_MIN_THRESHOLD ||
-                     spkerTempList[i] > TZ_TEMP_MAX_THRESHOLD)) {
-                    PAL_ERR(LOG_TAG, "Temperature out of range. Retry");
-                    spkrCalibrateWait();
-                    if (retryCount < MAX_RETRY) {
-                        retryCount++;
-                        goto retry;
+                for (i = 0; i < numberOfChannels; i++) {
+                    if ((spkerTempList[i] != -EINVAL) &&
+                        (spkerTempList[i] < TZ_TEMP_MIN_THRESHOLD ||
+                         spkerTempList[i] > TZ_TEMP_MAX_THRESHOLD)) {
+                         PAL_ERR(LOG_TAG, "Temperature out of range. Retry");
+                         spkrCalibrateWait();
+                         if (retryCount < MAX_RETRY) {
+                             retryCount++;
+                             goto retry;
+                         }
+                         else
+                             continue;
                     }
-                    else
-                        continue;
                 }
-            }
-            for (i = 0; i < numberOfChannels; i++) {
-                // Converting to Q6 format
-                spkerTempList[i] = (spkerTempList[i]*(1<<6));
-            }
-        }
-        else {
-            continue;
+                for (i = 0; i < numberOfChannels; i++) {
+                    // Converting to Q6 format
+                    spkerTempList[i] = (spkerTempList[i]*(1<<6));
+                }
+             }
+             else {
+                 continue;
+             }
         }
 
         // Check whether speaker was in use in the meantime when temperature
@@ -1925,6 +1943,8 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
     uint8_t* payload = NULL;
     uint32_t devicePropId[] = {0x08000010, 1, 0x2};
     uint32_t miid = 0;
+    uint32_t param_sp_op_mode = 0;
+    uint32_t param_cps_ch_map = 0;
     bool isTxFeandBeConnected = true;
     bool isCPSFeandBeConnected = true;
     size_t payloadSize = 0;
@@ -2071,8 +2091,13 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
         }
 
         payloadSize = 0;
+        if (rm->GetSpeakerProtectionVersion() == SPV7)
+            param_sp_op_mode = PARAM_ID_SP_OP_MODE;
+        else
+            param_sp_op_mode = PARAM_ID_SP_OP_MODE_V5;
+
         builder->payloadSPConfig(&payload, &payloadSize, miid,
-                PARAM_ID_SP_OP_MODE,(void *)&spModeConfg);
+                param_sp_op_mode, (void *)&spModeConfg);
         if (payloadSize) {
             if (customPayload) {
                 free (customPayload);
@@ -2275,9 +2300,13 @@ cps_dev_setup:
         // TODO: Move this to ACDB file
         cpsChannelMapConfg.num_ch = cps_device.channels;
         payloadSize = 0;
+        if (rm->GetSpeakerProtectionVersion() == SPV7)
+            param_cps_ch_map = PARAM_ID_CPS_CHANNEL_MAP;
+        else
+            param_cps_ch_map = PARAM_ID_CPS_CHANNEL_MAP_V5;
 
         builder->payloadSPConfig(&payload, &payloadSize, miid,
-                PARAM_ID_CPS_CHANNEL_MAP,(void *)&cpsChannelMapConfg);
+                param_cps_ch_map, (void *)&cpsChannelMapConfg);
         if (payloadSize) {
             ret = updateCustomPayload(payload, payloadSize);
             free(payload);
@@ -2446,6 +2475,7 @@ void SpeakerProtection::updateSPcustomPayload()
     std::vector<Stream*> activeStreams;
     uint32_t miid = 0, ret;
     param_id_sp_op_mode_t spModeConfg;
+    uint32_t param_sp_op_mode = 0;
 
     rm->getBackendName(mDeviceAttr.id, backEndName);
     dev = Device::getInstance(&mDeviceAttr, rm);
@@ -2469,8 +2499,13 @@ void SpeakerProtection::updateSPcustomPayload()
 
     spModeConfg.operation_mode = NORMAL_MODE;
     payloadSize = 0;
+    if (rm->GetSpeakerProtectionVersion() == SPV7)
+        param_sp_op_mode = PARAM_ID_SP_OP_MODE;
+    else
+        param_sp_op_mode = PARAM_ID_SP_OP_MODE_V5;
+
     builder->payloadSPConfig(&payload, &payloadSize, miid,
-                    PARAM_ID_SP_OP_MODE,(void *)&spModeConfg);
+                    param_sp_op_mode, (void *)&spModeConfg);
     if (payloadSize) {
         ret = updateCustomPayload(payload, payloadSize);
         free(payload);
