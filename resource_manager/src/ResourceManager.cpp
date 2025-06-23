@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -114,7 +113,7 @@
 #define MAX_SESSIONS_DEEP_BUFFER 10
 #define MAX_SESSIONS_COMPRESSED 10
 #define MAX_SESSIONS_GENERIC 2
-#define MAX_SESSIONS_PCM_OFFLOAD 2
+#define MAX_SESSIONS_PCM_OFFLOAD 4
 #define MAX_SESSIONS_VOICE_UI 8
 #define MAX_SESSIONS_ASR 1
 #define MAX_SESSIONS_RAW 1

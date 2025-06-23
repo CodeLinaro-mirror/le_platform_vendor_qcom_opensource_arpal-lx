@@ -1298,11 +1298,11 @@ int32_t StreamPCM::isBitWidthSupported(uint32_t bitWidth)
 int32_t StreamPCM::addRemoveEffect(pal_audio_effect_t effect, bool enable)
 {
     int32_t status = 0;
-
+    PAL_DBG(LOG_TAG, "Enter - effect %d enable %d", effect, enable);
     mStreamMutex.lock();
     status = session->addRemoveEffect(this, effect, enable);
     mStreamMutex.unlock();
-
+    PAL_DBG(LOG_TAG, "Exit - status: %d", status);
     return status;
 }
 

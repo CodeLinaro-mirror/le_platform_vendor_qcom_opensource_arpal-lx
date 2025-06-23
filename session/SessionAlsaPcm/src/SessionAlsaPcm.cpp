@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -4955,13 +4954,14 @@ int SessionAlsaPcm::addRemoveEffect(Stream *s, pal_audio_effect_t effect, bool e
         status = -EINVAL;
         goto exit;
     }
+    PAL_INFO(LOG_TAG, "Effect : %d, enable : %d", effect, enable);
     status = this->setConfig(s, MODULE, tag);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "session setConfig for addRemoveEffect failed with status %d",
                 status);
         goto exit;
     }
-    PAL_DBG(LOG_TAG, "session setConfig successful");
+    PAL_DBG(LOG_TAG, "session setConfig for addRemoveEffect successful");
 exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
