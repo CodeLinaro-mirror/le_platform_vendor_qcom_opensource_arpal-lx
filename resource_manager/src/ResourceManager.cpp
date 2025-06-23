@@ -468,6 +468,7 @@ bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isHapticsProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
 bool ResourceManager::isSoundDoseEnabled = false;
+uint8_t ResourceManager::speakerProtectionVersion;
 int ResourceManager::cpsMode = 0;
 int ResourceManager::wsaUsed = 0;
 bool ResourceManager::isVbatEnabled = false;
@@ -9244,6 +9245,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "haptics_protection_enabled")) {
             if (atoi(data->data_buf))
                 isHapticsProtectionEnabled = true;
+        } else if (!strcmp(tag_name, "sp_op_mode")) {
+                speakerProtectionVersion = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "ext_ec_ref_enabled")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].isExternalECRefEnabled = atoi(data->data_buf);
@@ -10368,6 +10371,10 @@ bool ResourceManager::IsHandsetProtectionEnabled() {
 
 bool ResourceManager::IsHapticsProtectionEnabled() {
     return ResourceManager::isHapticsProtectionEnabled;
+}
+
+uint8_t ResourceManager::GetSpeakerProtectionVersion() {
+    return ResourceManager::speakerProtectionVersion;
 }
 
 bool ResourceManager::IsChargeConcurrencyEnabled() {
