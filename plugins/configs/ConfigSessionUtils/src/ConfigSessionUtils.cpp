@@ -172,7 +172,10 @@ int reconfigCommon(Stream* streamHandle, void* pluginPayload)
         /* This has to be done after sending all mixer controls and before connect */
         if (PAL_STREAM_VOICE_CALL != sAttr.type) {
             if (sAttr.direction == PAL_AUDIO_OUTPUT) {
-                if (sess) {
+                if (sAttr.info.opt_stream_info.isBitPerfect) {
+                    PAL_INFO(LOG_TAG, "configure MFC not needed for BitPerfect");
+                    goto exit;
+                } else if (sess) {
                     status = configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                         aifBackEndsToConnect[0].second.data(), builder);
                     if (status != 0) {
@@ -223,8 +226,8 @@ int reconfigCommon(Stream* streamHandle, void* pluginPayload)
                         status = configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                         aifBackEndsToConnect[0].second.data(), builder);
                         if (status != 0) {
-                            PAL_ERR(LOG_TAG, "build MFC payload failed");
-                            goto exit;
+                            PAL_INFO(LOG_TAG, "build MFC payload failed, overwriting status to 0");
+                            status = 0;
                         }
                     } else {
                         PAL_ERR(LOG_TAG, "invalid session audio object");
