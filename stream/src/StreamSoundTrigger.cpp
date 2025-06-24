@@ -560,6 +560,7 @@ release:
                 PAL_ERR(LOG_TAG, "Device close failed, status %d", ret);
                 status = ret;
             }
+            mDevices[0]->setSndName("");
         }
     } else if (gsl_engine_) {
         status = gsl_engine_->GetParameters(param_id, payload);
