@@ -22,6 +22,11 @@ void getMatchingStreams(std::vector<Stream*> &active_streams, std::vector<Stream
     for (auto s : active_streams) {
         if (NULL != s) {
             param_payload = (pal_param_payload *)calloc(1, payload_size);
+            if (!param_payload) {
+                PAL_ERR(LOG_TAG, "Memory allocation failed for param_payload");
+                continue;
+            }
+
             param_payload->payload_size = sizeof(struct st_uuid);
             ret = s->getParameters(PAL_PARAM_ID_VENDOR_UUID, (void**)&param_payload);
             if(ret){
