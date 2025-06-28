@@ -1530,7 +1530,12 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
         opaque_data, param_hdr->payload_size);
 
     if (sm_info->model_id > 0) {
-        num_models = det_ev_info_pdk->num_detected_models;
+        if (det_ev_info_pdk) {
+            num_models = det_ev_info_pdk->num_detected_models;
+        } else {
+            ALOGE("%s: %d: det_ev_info_pdk is null", __func__, __LINE__);
+            return -EINVAL;
+        }
         for (int i = 0; i < num_models; ++i) {
             det_model_stat = &det_ev_info_pdk->detected_model_stats[i];
             if (sm_info->model_id == det_model_stat->detected_model_id) {
@@ -1548,11 +1553,16 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
         FillCallbackConfLevels(sm_info, opaque_data,
             det_keyword_id, best_conf_level);
     } else {
-        detection_timestamp_lsw =
-            (uint64_t)det_ev_info->detection_timestamp_lsw;
-        detection_timestamp_msw =
-            (uint64_t)det_ev_info->detection_timestamp_msw;
-        PackEventConfLevels(sm_info, opaque_data);
+        if (det_ev_info) {
+            detection_timestamp_lsw =
+                (uint64_t)det_ev_info->detection_timestamp_lsw;
+            detection_timestamp_msw =
+                (uint64_t)det_ev_info->detection_timestamp_msw;
+            PackEventConfLevels(sm_info, opaque_data);
+        } else {
+            ALOGE("%s: %d: det_ev_info is null", __func__, __LINE__);
+            return -EINVAL;
+        }
     }
     opaque_data += param_hdr->payload_size;
 

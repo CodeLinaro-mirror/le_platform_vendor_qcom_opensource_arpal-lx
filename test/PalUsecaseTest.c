@@ -93,9 +93,12 @@ int32_t setup_usecase_ultrasound()
 
      //setting stream attributes
      stream_attributes = (struct pal_stream_attributes *)
-                          calloc (1, sizeof(struct pal_stream_attributes));
-     if (!stream_attributes)
-        goto exit;
+                          calloc(1, sizeof(struct pal_stream_attributes));
+     if (!stream_attributes) {
+         fprintf(stderr, "Memory allocation failed for stream_attributes\n");
+         status = -ENOMEM;
+         goto exit;
+     }
 
      stream_attributes->type = PAL_STREAM_ULTRASOUND;
      stream_attributes->direction = PAL_AUDIO_INPUT_OUTPUT;
@@ -103,6 +106,12 @@ int32_t setup_usecase_ultrasound()
      // setting device attriutes
      //  device attributes for UPD will be set based on BE used.
      pal_devices = (struct pal_device *) calloc(no_of_devices, sizeof(struct pal_device));
+
+     if (!pal_devices) {
+         fprintf(stderr, "Memory allocation failed for pal_devices\n");
+         status = -ENOMEM;
+         goto exit;
+     }
 
      status = pal_stream_open(stream_attributes, no_of_devices, pal_devices, 0, NULL,
                             (pal_stream_callback)&HandleCallbackForUPD, 0, &pal_stream);
@@ -115,8 +124,11 @@ int32_t setup_usecase_ultrasound()
      param_payload = (pal_param_payload *) calloc (1,
                                  sizeof(pal_param_payload) +
                                  sizeof(pal_param_upd_event_detection_t));
-     if (!param_payload)
-        goto exit;
+     if (!param_payload) {
+         fprintf(stderr, "Memory allocation failed for param_payload\n");
+         status = -ENOMEM;
+         goto exit;
+     }
 
      payload.register_status = 1;
      param_payload->payload_size = sizeof(pal_param_upd_event_detection_t);
@@ -143,6 +155,8 @@ exit:
         free(stream_attributes);
         stream_attributes = NULL;
      }
+     if (pal_devices)
+        free(pal_devices);
      return status;
 }
 

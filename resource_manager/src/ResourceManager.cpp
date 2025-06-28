@@ -6504,6 +6504,10 @@ int ResourceManager::checkAndUpdateGroupDevConfig(struct pal_device *deviceattr,
                 if (activeStream.empty())
                     continue;
                 for (sIter = activeStream.begin(); sIter != activeStream.end(); sIter++) {
+                    if (!(*sIter)) {
+                        PAL_ERR(LOG_TAG, "Null stream pointer in activeStream");
+                        continue;
+                    }
                     pal_stream_type_t type;
                     (*sIter)->getStreamType(&type);
                     switch (conc_dev[i]) {

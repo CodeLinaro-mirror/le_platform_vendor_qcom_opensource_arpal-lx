@@ -2228,8 +2228,10 @@ int SessionAlsaVoice::setPopSuppressorMute(Stream *s)
         PAL_ERR(LOG_TAG,"setMixerParameter failed");
     }
 exit:
-    if (payload)
+    if (payload) {
         free(payload);
+	payload = nullptr;
+    }
     return status;
 }
 
