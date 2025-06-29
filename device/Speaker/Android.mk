@@ -15,6 +15,11 @@ LOCAL_CPPFLAGS += -fexceptions -frtti
 
 LOCAL_CFLAGS   += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 
+ifeq ($(call is-board-platform-in-list,lahaina), true)
+LOCAL_CFLAGS        += -DWSA_V883X_ADDR
+LOCAL_CFLAGS        += -DUSE_CUSTOM_SPK_CTRL
+endif
+
 LOCAL_SRC_FILES := \
     src/Speaker.cpp \
     src/SpeakerProtection.cpp
