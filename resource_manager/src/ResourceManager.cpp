@@ -12367,13 +12367,19 @@ int ResourceManager::resetStreamInstanceID(Stream *str, uint32_t sInstanceID) {
             break;
         }
         default: {
-            if (StrAttr.direction == PAL_AUDIO_INPUT) {
-                in_stream_instances[StrAttr.type - 1] &= ~(1 << (sInstanceID - 1));
-                str->setInstanceId(0);
+            if (StrAttr.type > PAL_STREAM_INVALID && StrAttr.type < PAL_STREAM_MAX) {
+                if (StrAttr.direction == PAL_AUDIO_INPUT) {
+                    in_stream_instances[StrAttr.type - 1] &= ~(1 << (sInstanceID - 1));
+                    str->setInstanceId(0);
+                } else {
+                    stream_instances[StrAttr.type - 1] &= ~(1 << (sInstanceID - 1));
+                    str->setInstanceId(0);
+                }
             } else {
-                stream_instances[StrAttr.type - 1] &= ~(1 << (sInstanceID - 1));
-                str->setInstanceId(0);
+                PAL_ERR(LOG_TAG, "Invalid stream type (%d) for instance reset", StrAttr.type);
+                status = -EINVAL;
             }
+            break;
         }
     }
 
@@ -12490,41 +12496,47 @@ done:
         }
         default: {
             status = str->getInstanceId();
-            if (StrAttr.direction == PAL_AUDIO_INPUT && !status) {
-                PAL_DBG(LOG_TAG, "Did not find instance id %d for input stream", status);
-                if (in_stream_instances[StrAttr.type - 1] ==  -1) {
-                    PAL_ERR(LOG_TAG, "All stream instances taken");
-                    status = -EINVAL;
-                    break;
+            if (StrAttr.type > PAL_STREAM_INVALID && StrAttr.type <= PAL_STREAM_MAX) {
+                if (StrAttr.direction == PAL_AUDIO_INPUT && !status) {
+                    PAL_DBG(LOG_TAG, "Did not find instance id %d for input stream", status);
+                    if (in_stream_instances[StrAttr.type - 1] ==  -1) {
+                        PAL_ERR(LOG_TAG, "All stream instances taken");
+                        status = -EINVAL;
+                        break;
+                    }
+                    for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
+                        if (!(in_stream_instances[StrAttr.type - 1] & (1 << i))) {
+                            in_stream_instances[StrAttr.type - 1] |= (1 << i);
+                            status = i + 1;
+                            break;
+                        }
+                    str->setInstanceId(status);
+                } else if (StrAttr.direction == PAL_AUDIO_INPUT && status) {
+                    PAL_DBG(LOG_TAG, "Found instance id %d for input stream", status);
+                    for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
+                        if (!(in_stream_instances[StrAttr.type - 1] & (1 << (status - 1)))) {
+                            in_stream_instances[StrAttr.type - 1] |= (1 << (status - 1));
+                            break;
+                        }
+                } else if (!status) {
+                    if (stream_instances[StrAttr.type - 1] ==  -1) {
+                        PAL_ERR(LOG_TAG, "All stream instances taken");
+                        status = -EINVAL;
+                        break;
+                    }
+                    for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
+                        if (!(stream_instances[StrAttr.type - 1] & (1 << i))) {
+                            stream_instances[StrAttr.type - 1] |= (1 << i);
+                            status = i + 1;
+                            break;
+                        }
+                    str->setInstanceId(status);
                 }
-                for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
-                    if (!(in_stream_instances[StrAttr.type - 1] & (1 << i))) {
-                        in_stream_instances[StrAttr.type - 1] |= (1 << i);
-                        status = i + 1;
-                        break;
-                    }
-                str->setInstanceId(status);
-            } else if (StrAttr.direction == PAL_AUDIO_INPUT && status) {
-                PAL_DBG(LOG_TAG, "Found instance id %d for input stream", status);
-                for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
-                    if (!(in_stream_instances[StrAttr.type - 1] & (1 << (status - 1)))) {
-                        in_stream_instances[StrAttr.type - 1] |= (1 << (status - 1));
-                        break;
-                    }
-            } else if (!status) {
-                if (stream_instances[StrAttr.type - 1] ==  -1) {
-                    PAL_ERR(LOG_TAG, "All stream instances taken");
-                    status = -EINVAL;
-                    break;
-                }
-                for (i = 0; i < MAX_STREAM_INSTANCES; ++i)
-                    if (!(stream_instances[StrAttr.type - 1] & (1 << i))) {
-                        stream_instances[StrAttr.type - 1] |= (1 << i);
-                        status = i + 1;
-                        break;
-                    }
-                str->setInstanceId(status);
+            } else {
+                PAL_ERR(LOG_TAG, "Invalid stream type index: %d", StrAttr.type);
+                status = -EINVAL;
             }
+            break;
         }
     }
 
@@ -12898,7 +12910,7 @@ void ResourceManager::processDeviceIdProp(struct xml_userdata *data, const XML_C
         devInfo.push_back(dev);
     } else if (!strcmp(tag_name, "name")) {
         size = devInfo.size() - 1;
-        strlcpy(devInfo[size].name, data->data_buf, strlen(data->data_buf)+1);
+        strlcpy(devInfo[size].name, data->data_buf, sizeof(devInfo[size].name));
         if(strstr(data->data_buf,"PCM")) {
             devInfo[size].type = PCM;
         } else if (strstr(data->data_buf,"COMP")) {
@@ -14554,7 +14566,7 @@ int ResourceManager::openControlPlugin(plugin_t *plugin, plugin_control_name_t c
     }
 
 exit:
-     if (plugin && status) {
+     if (plugin && status && plugin->handle) {
         dlclose(plugin->handle);
         plugin->handle = NULL;
     }

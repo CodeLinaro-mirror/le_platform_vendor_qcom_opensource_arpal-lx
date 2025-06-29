@@ -161,7 +161,18 @@ int SessionAR::setEffectParametersTKV(Stream *s __unused, effect_pal_payload_t *
 
     PAL_DBG(LOG_TAG, "Enter.");
 
+    if (!effectPayload) {
+        status = -EINVAL;
+        goto exit;
+    }
+
     palKVPair = (pal_key_vector_t *)effectPayload->payload;
+
+    if (!palKVPair) {
+        status = -EINVAL;
+        goto exit;
+    }
+
     nTkvs =  palKVPair->num_tkvs;
     tkv.clear();
     for (int i = 0; i < nTkvs; i++) {
@@ -796,6 +807,11 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
 
     PAL_DBG(LOG_TAG, "set parameter %u", param_id);
     status = s->getStreamAttributes(&sAttr);
+    if (!payload) {
+        PAL_ERR(LOG_TAG, "payload is null");
+        return -EINVAL;
+    }
+
     switch (param_id) {
         case PAL_PARAM_ID_VOLUME_USING_SET_PARAM:
             status = this->setParamWithTag(s, TAG_STREAM_VOLUME, param_id, payload);
@@ -860,6 +876,20 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
         case PAL_PARAM_ID_SLOW_TALK:
         {
             bool slow_talk = false;
+            if (payload) {
+                param_payload = (pal_param_payload *)payload;
+                if (param_payload != nullptr) {
+                    slow_talk = *((bool *)param_payload->payload);
+                } else {
+                    PAL_ERR(LOG_TAG, "param_payload->payload is NULL");
+                    status = -EINVAL;
+                    break;
+                }
+            } else {
+                PAL_ERR(LOG_TAG, "payload is NULL");
+                status = -EINVAL;
+                break;
+            }
             param_payload = (pal_param_payload *)payload;
             slow_talk = *((bool *)param_payload->payload);
 
