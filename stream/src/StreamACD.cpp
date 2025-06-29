@@ -826,10 +826,16 @@ int32_t StreamACD::UpdateRecognitionConfig(struct acd_recognition_cfg *acd_recog
     int32_t status = 0;
     struct acd_per_context_cfg *context_cfg = NULL;
     uint32_t i, num_contexts = 0;
-    uint8_t *opaque_ptr = (uint8_t *)acd_recog_cfg;
+    uint8_t *opaque_ptr = nullptr;
     size_t len = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
+
+    if (!acd_recog_cfg) {
+        PAL_ERR(LOG_TAG, "acd_recog_cfg is NULL");
+        goto exit;
+    }
+    opaque_ptr = (uint8_t *)acd_recog_cfg;
 
     opaque_ptr += sizeof(struct acd_recognition_cfg);
     context_cfg = (struct acd_per_context_cfg *)opaque_ptr;

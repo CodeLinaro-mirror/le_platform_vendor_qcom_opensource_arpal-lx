@@ -2596,13 +2596,15 @@ int32_t StreamSoundTrigger::FillConfLevels(
 exit:
     if (status && conf_levels) {
         free(conf_levels);
+        conf_levels = nullptr;
         *out_conf_levels = nullptr;
         *out_num_conf_levels = 0;
     }
 
-    if (user_id_tracker)
+    if (user_id_tracker) {
         free(user_id_tracker);
-
+        user_id_tracker = nullptr;
+    }
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
     return status;
@@ -3035,6 +3037,10 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
             }
 
             cap_prof = st_stream_.GetCurrentCaptureProfile();
+            if (cap_prof == nullptr) {
+                PAL_ERR(LOG_TAG, "Failed to GetCurrentCaptureProfile, cap_prof is null");
+                goto err_exit;
+            }
             st_stream_.cap_prof_ = cap_prof;
             st_stream_.mDevPPSelector = cap_prof->GetName();
             PAL_DBG(LOG_TAG, "devicepp selector: %s", st_stream_.mDevPPSelector.c_str());
