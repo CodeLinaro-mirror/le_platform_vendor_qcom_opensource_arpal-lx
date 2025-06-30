@@ -2097,7 +2097,7 @@ void SessionAlsaPcm::setEventPayload(uint32_t event_id, void *payload, size_t pa
 {
     eventPayload *event = NULL;
 
-    event = (struct eventPayload *)calloc(1, sizeof(struct eventPayload));
+    event = (eventPayload *)calloc(1, sizeof(eventPayload));
     if (!event) {
         PAL_ERR(LOG_TAG, "Memory alloc failed for eventPayload struct");
         return;
