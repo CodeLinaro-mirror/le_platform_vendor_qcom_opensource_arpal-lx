@@ -19,7 +19,7 @@ uint32_t shmem_size = 0;
 uint32_t number_write = 1, number_read = 1;
 uint32_t floodtest = 0;
 uint32_t validate_full = 0;
-capi_irq_comm_config_t irq_info = {0, 0};
+capi_irq_comm_config_t irq_info = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 int32_t shmem_buff_load_parameter(pal_stream_handle_t *stream_handle, pal_shmem_info buff_info, uint32_t write_read)
 {
