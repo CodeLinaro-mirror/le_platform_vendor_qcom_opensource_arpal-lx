@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -795,7 +795,11 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
     pal_param_payload *param_payload = NULL;
     pal_device_mute_t *deviceMutePayload = nullptr;
     struct pal_stream_attributes sAttr = {};
-
+    if (!payload) {
+        PAL_ERR(LOG_TAG, "Error null payload");
+        status = -EINVAL;
+        return status;
+    }
     PAL_DBG(LOG_TAG, "set parameter %u", param_id);
     status = s->getStreamAttributes(&sAttr);
     switch (param_id) {
@@ -932,9 +936,8 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
         case PAL_PARAM_ID_UIEFFECT:
         case PAL_PARAM_ID_VOLUME_SOFT_PARAMS:
         {
-            effect_pal_payload_t *effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
             param_payload = (pal_param_payload*)payload;
-
+            effect_pal_payload_t *effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
             if (effectPalPayload->isTKV) {
                 status = this->setTKV(s, MODULE, effectPalPayload);
             } else {
