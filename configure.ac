@@ -26,10 +26,10 @@ PKG_PROG_PKG_CONFIG
 #basemachine
 AC_MSG_CHECKING([which base machine to use])
 AC_ARG_WITH([basemachine],
-            [AS_HELP_STRING([--with-basemachine],
-            [Specify the base machine])],
-            [machine_selected="$withval"],
-            [machine_selected=none])
+    [AS_HELP_STRING([--with-basemachine],
+    [Specify the base machine])],
+    [machine_selected="$withval"],
+    [machine_selected=none])
 
 AC_MSG_RESULT([$machine_selected])
 AC_SUBST([MACHINE_ENABLED],[$machine_selected])
@@ -82,11 +82,21 @@ AC_SUBST([SPF_CFLAGS])
 AC_CHECK_FUNCS([strlcpy])
 AM_CONDITIONAL(USE_G_STR_FUNC, ! test "x$ac_cv_func_strlcpy" = "xyes")
 
+if (test "x${with_openwrt}" = "xno"); then
+
 PKG_CHECK_MODULES([PALHEADERS], [pal-headers])
 AC_SUBST([PALHEADERS_CFLAGS])
 
 PKG_CHECK_MODULES([CAPIV2HEADERS], [capiv2-api-headers])
 AC_SUBST([CAPIV2HEADERS_CFLAGS])
+
+PKG_CHECK_MODULES([KVH2XML], [kvh2xml])
+AC_SUBST([KVH2XML_CFLAGS])
+
+PKG_CHECK_MODULES([AROUTE], [audioroute])
+AC_SUBST([AROUTE_CFLAGS])
+
+fi
 
 AC_ARG_WITH([acdbdata],
       AC_HELP_STRING([--with-acdbdata],
@@ -97,11 +107,7 @@ AS_IF([test "x$with_acdbdata" != "xno"], [ACDBDATA_CFLAGS="-I$with_acdbdata"])
 
 AC_SUBST(ACDBDATA_CFLAGS)
 
-PKG_CHECK_MODULES([KVH2XML], [kvh2xml])
-AC_SUBST([KVH2XML_CFLAGS])
 
-PKG_CHECK_MODULES([AROUTE], [audioroute])
-AC_SUBST([AROUTE_CFLAGS])
 
 AC_ARG_WITH([qli],
     AS_HELP_STRING([use qli (default is no)]),
@@ -202,14 +208,14 @@ device/RTProxy/dev_proxy.pc \
 plugins/Makefile plugins/plugins.pc \
 plugins/configs/Makefile \
 plugins/configs/session_configs.pc \
-plugins/configs/ConfigSessionUtils/Makefile \
-plugins/configs/ConfigSessionUtils/session_utils_config.pc \
-plugins/configs/ConfigSessionAlsaPcm/Makefile \
-plugins/configs/ConfigSessionAlsaPcm/session_pcm_config.pc \
-plugins/configs/ConfigSessionAlsaCompress/Makefile \
-plugins/configs/ConfigSessionAlsaCompress/session_compress_config.pc \
-plugins/configs/ConfigSessionAlsaVoice/Makefile \
-plugins/configs/ConfigSessionAlsaVoice/session_voice_config.pc \
+plugins/configs/qcom/mbb/default/ConfigSessionUtils/Makefile \
+plugins/configs/qcom/mbb/default/ConfigSessionUtils/session_utils_config.pc \
+plugins/configs/qcom/mbb/default/ConfigSessionAlsaPcm/Makefile \
+plugins/configs/qcom/mbb/default/ConfigSessionAlsaPcm/session_pcm_config.pc \
+plugins/configs/qcom/mbb/default/ConfigSessionAlsaCompress/Makefile \
+plugins/configs/qcom/mbb/default/ConfigSessionAlsaCompress/session_compress_config.pc \
+plugins/configs/qcom/mbb/default/ConfigSessionAlsaVoice/Makefile \
+plugins/configs/qcom/mbb/default/ConfigSessionAlsaVoice/session_voice_config.pc \
 plugins/PluginManager/Makefile \
 plugins/PluginManager/plugin_manager.pc \
 plugins/codecs/Makefile \
