@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -72,7 +72,7 @@ class VUISecondStageConfig : public SoundTriggerXml
 public:
     VUISecondStageConfig();
 
-    void HandleStartTag(const std::string& tag, const char **attribs) override;
+    void HandleStartTag(const char *tag, const char **attribs) override;
 
     st_sound_model_type_t GetDetectionType() const { return detection_type_; }
     std::string GetLibName() const { return module_lib_; }
@@ -81,7 +81,6 @@ public:
     uint32_t GetBitWidth() const { return bit_width_; }
     uint32_t GetChannels() const { return channels_; }
     uint32_t GetProcFrameSize() const { return proc_frame_size_; }
-    int32_t GetDetectionType(const std::string& tag);
 
 private:
     st_sound_model_type_t detection_type_;
@@ -98,7 +97,7 @@ class VUIFirstStageConfig : public SoundTriggerXml
 public:
     VUIFirstStageConfig();
 
-    void HandleStartTag(const std::string& tag, const char **attribs) override;
+    void HandleStartTag(const char *tag, const char **attribs) override;
 
     st_module_type_t GetModuleType() const { return module_type_; }
     std::string GetModuleName() const { return module_name_; }
@@ -109,8 +108,6 @@ public:
     uint32_t GetParamId(st_param_id_type_t param_id) const {
         return param_ids_[param_id];
     }
-    int32_t GetIndex(std::string param_name);
-    int32_t GetModuleType(std::string tag);
 
 private:
     bool lpi_supported_;
@@ -127,8 +124,8 @@ public:
     VUIStreamConfig(VUIStreamConfig &rhs) = delete;
     VUIStreamConfig & operator=(VUIStreamConfig &rhs) = delete;
 
-    void HandleStartTag(const std::string& tag, const char **attribs) override;
-    void HandleEndTag(struct xml_userdata *data, const std::string& tag) override;
+    void HandleStartTag(const char *tag, const char **attribs) override;
+    void HandleEndTag(struct xml_userdata *data, const char *tag) override;
 
     UUID GetUUID() const { return vendor_uuid_; }
     std::string GetVUIIntfPluginLib() const { return vui_intf_plugin_lib_name_; }
@@ -153,7 +150,6 @@ public:
     uint32_t GetSupportedEngineCount() const {
                         return supported_first_stage_engine_count_; }
     bool GetEnableIntraConcurrentDetection() const { return enable_intra_concurrent_detection_; }
-    int32_t GetOperatingMode(std::string tag);
     st_module_type_t GetVUIModuleType();
     std::shared_ptr<VUISecondStageConfig> GetVUISecondStageConfig(
         const listen_model_indicator_enum& sm_type) const;
@@ -207,8 +203,8 @@ public:
     VoiceUIPlatformInfo(VUIStreamConfig &rhs) = delete;
     VoiceUIPlatformInfo & operator=(VoiceUIPlatformInfo &rhs) = delete;
 
-    void HandleStartTag(const std::string& tag, const char **attribs) override;
-    void HandleEndTag(struct xml_userdata *data, const std::string& tag) override;
+    void HandleStartTag(const char *tag, const char **attribs) override;
+    void HandleEndTag(struct xml_userdata *data, const char *tag) override;
 
     static std::shared_ptr<VoiceUIPlatformInfo> GetInstance();
     std::string GetSoundModelLib() const { return sound_model_lib_; }

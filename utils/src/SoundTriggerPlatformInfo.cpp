@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -110,15 +110,15 @@ bool SoundTriggerUUID::CompareUUID(const struct st_uuid uuid) const {
     return true;
 }
 
-int SoundTriggerUUID::StringToUUID(const std::string& str,
+int SoundTriggerUUID::StringToUUID(const char* str,
                                    SoundTriggerUUID& UUID) {
-    if (str.empty()) {
+    int tmp[10];
+
+    if (str == NULL) {
         return -EINVAL;
     }
 
-    int tmp[10];
-
-    if (sscanf(str.c_str(), "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
+    if (sscanf(str, "%08x-%04x-%04x-%04x-%02x%02x%02x%02x%02x%02x",
                tmp, tmp + 1, tmp + 2, tmp + 3, tmp + 4, tmp + 5, tmp + 6,
                tmp + 7, tmp + 8, tmp + 9) < 10) {
         return -EINVAL;
@@ -137,7 +137,7 @@ int SoundTriggerUUID::StringToUUID(const std::string& str,
     return 0;
 }
 
-CaptureProfile::CaptureProfile(const std::string& name) :
+CaptureProfile::CaptureProfile(const std::string name) :
     name_(name),
     device_id_(PAL_DEVICE_IN_MIN),
     sample_rate_(16000),
@@ -150,40 +150,41 @@ CaptureProfile::CaptureProfile(const std::string& name) :
 {
 }
 
-void CaptureProfile::HandleStartTag(const std::string& tag, const char** attribs)
+void CaptureProfile::HandleStartTag(const char* tag, const char** attribs)
 {
-    PAL_VERBOSE(LOG_TAG, "Got start tag %s", tag.c_str());
+    PAL_DBG(LOG_TAG, "Got start tag %s", tag);
 
-    if (tag == "param") {
+    if (!strcmp(tag, "param")) {
         uint32_t i = 0;
-        std::string key = attribs[0];
-        std::string value = attribs[1];
 
-        if (key == "device_id") {
-            auto itr = deviceIdLUT.find(value);
-            if (itr == deviceIdLUT.end()) {
-                PAL_ERR(LOG_TAG, "could not find key %s in lookup table",
-                        value.c_str());
+        while (attribs[i]) {
+            if (!strcmp(attribs[i], "device_id")) {
+                auto itr = deviceIdLUT.find(attribs[++i]);
+                if (itr == deviceIdLUT.end()) {
+                    PAL_ERR(LOG_TAG, "could not find key %s in lookup table",
+                            attribs[i]);
+                } else {
+                    device_id_ = itr->second;
+                }
+            } else if (!strcmp(attribs[i], "sample_rate")) {
+                sample_rate_ = std::stoi(attribs[++i]);
+            } else if (!strcmp(attribs[i], "bit_width")) {
+                bitwidth_ = std::stoi(attribs[++i]);
+            } else if (!strcmp(attribs[i], "channels")) {
+                channels_ = std::stoi(attribs[++i]);
+            } else if (!strcmp(attribs[i], "snd_name")) {
+                snd_name_ = attribs[++i];
+            } else if (!strcmp(attribs[i], "ec_ref")) {
+                is_ec_req_ = !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "backend")) {
+                backend_ = attribs[++i];
             } else {
-                device_id_ = itr->second;
+                PAL_ERR(LOG_TAG, "Invalid attribute %s", attribs[i++]);
             }
-        } else if (key == "sample_rate") {
-            sample_rate_ = std::stoi(value);
-        } else if (key == "bit_width") {
-            bitwidth_ = std::stoi(value);
-        } else if (key == "channels") {
-            channels_ = std::stoi(value);
-        } else if (key == "snd_name") {
-            snd_name_ = value;
-        } else if (key == "ec_ref") {
-            is_ec_req_ = (value == "true");
-        } else if (key == "backend") {
-            backend_ = value;
-        } else {
-            PAL_ERR(LOG_TAG, "Invalid attribute %s", key.c_str());
+            ++i; /* move to next attribute */
         }
     } else {
-        PAL_ERR(LOG_TAG, "Invalid tag %s", tag.c_str());
+        PAL_ERR(LOG_TAG, "Invalid tag %s", (char *)tag);
     }
 }
 
@@ -207,7 +208,7 @@ int32_t CaptureProfile::ComparePriority(std::shared_ptr<CaptureProfile> cap_prof
          * and bitwidth together to check priority.
          */
         if (backend_.compare(cap_prof->GetBackend()) != 0) {
-            PAL_VERBOSE(LOG_TAG, "Skip priority comparison between %s and %s",
+            PAL_DBG(LOG_TAG, "Skip priority comparison between %s and %s",
                     backend_.c_str(), cap_prof->GetBackend().c_str());
             priority_check = -EINVAL;
             goto exit;
@@ -271,7 +272,7 @@ void SoundTriggerPlatformInfo::ReadCapProfileNames(StOperatingModes mode,
     }
 }
 
-void SoundTriggerPlatformInfo::HandleStartTag(const std::string& tag, const char** attribs)
+void SoundTriggerPlatformInfo::HandleStartTag(const char* tag, const char** attribs)
 {
     /* Delegate to child element if currently active */
     if (curr_child_) {
@@ -279,75 +280,86 @@ void SoundTriggerPlatformInfo::HandleStartTag(const std::string& tag, const char
         return;
     }
 
-    PAL_VERBOSE(LOG_TAG, "Got start tag %s", tag.c_str());
+    PAL_DBG(LOG_TAG, "Got start tag %s", tag);
 
-    if (tag == "vui_platform_info") {
+    if (!strcmp(tag, "vui_platform_info")) {
         curr_child_ = std::static_pointer_cast<SoundTriggerXml>(
                         VoiceUIPlatformInfo::GetInstance());
         return;
     }
 
-    if (tag == "acd_platform_info") {
+    if (!strcmp(tag, "acd_platform_info")) {
         curr_child_ = std::static_pointer_cast<SoundTriggerXml>(
                         ACDPlatformInfo::GetInstance());
         return;
     }
 
-    if (tag == "asr_platform_info") {
+    if (!strcmp(tag, "asr_platform_info")) {
         curr_child_ = std::static_pointer_cast<SoundTriggerXml>(
                           ASRPlatformInfo::GetInstance());
         return;
     }
 
-    if (tag == "capture_profile") {
+    if (!strcmp(tag, "capture_profile")) {
         if (attribs[0] && !strcmp(attribs[0], "name")) {
             curr_child_ = std::static_pointer_cast<SoundTriggerXml>(
                     std::make_shared<CaptureProfile>(attribs[1]));
             return;
         } else {
-            PAL_ERR(LOG_TAG,"missing name attrib for tag %s", tag.c_str());
+            PAL_ERR(LOG_TAG,"missing name attrib for tag %s", tag);
             return;
         }
     }
 
-    if (tag == "common_config" || tag == "capture_profile_list") {
-        PAL_VERBOSE(LOG_TAG, "tag:%s appeared, nothing to do", tag.c_str());
+    if (!strcmp(tag, "common_config") || !strcmp(tag, "capture_profile_list")) {
+        PAL_VERBOSE(LOG_TAG, "tag:%s appeared, nothing to do", tag);
         return;
     }
 
-    if (tag == "param") {
-        std::string key = attribs[0];
-        bool value = ((std::string)attribs[1] == "true");
+    if (!strcmp(tag, "param")) {
+        uint32_t i = 0;
 
-        if (key == "support_nlpi_switch") {
-            support_nlpi_switch_ = value;
-        } else if (key == "support_device_switch") {
-            support_device_switch_ = value;
-        } else if (key == "enable_debug_dumps") {
-            enable_debug_dumps_ = value;
-        } else if (key == "concurrent_capture") {
-            concurrent_capture_ = value;
-        } else if (key == "concurrent_voice_call" &&
-                   concurrent_capture_) {
-            concurrent_voice_call_ = value;
-        } else if (key == "concurrent_voip_call" &&
-                   concurrent_capture_) {
-            concurrent_voip_call_ = value;
-        } else if (key == "low_latency_bargein_enable") {
-            low_latency_bargein_enable_ = value;
-        } else {
-            PAL_ERR(LOG_TAG, "Invalid attribute %s", key.c_str());
+        while (attribs[i]) {
+            if (!attribs[i]) {
+                PAL_ERR(LOG_TAG,"missing attrib value for tag %s", tag);
+            } else if (!strcmp(attribs[i], "support_nlpi_switch")) {
+                support_nlpi_switch_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "support_device_switch")) {
+                support_device_switch_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "enable_debug_dumps")) {
+                enable_debug_dumps_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "concurrent_capture")) {
+                concurrent_capture_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "concurrent_voice_call") &&
+                       concurrent_capture_) {
+                concurrent_voice_call_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "concurrent_voip_call") &&
+                       concurrent_capture_) {
+                concurrent_voip_call_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "low_latency_bargein_enable")) {
+                low_latency_bargein_enable_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else {
+                PAL_ERR(LOG_TAG, "Invalid attribute %s", attribs[i++]);
+            }
+            ++i; /* move to next attribute */
         }
     } else {
-        PAL_ERR(LOG_TAG, "Invalid tag %s", tag.c_str());
+        PAL_ERR(LOG_TAG, "Invalid tag %s", tag);
     }
 }
 
-void SoundTriggerPlatformInfo::HandleEndTag(struct xml_userdata *data, const std::string& tag)
+void SoundTriggerPlatformInfo::HandleEndTag(struct xml_userdata *data, const char* tag)
 {
-    PAL_VERBOSE(LOG_TAG, "Got end tag %s", tag.c_str());
+    PAL_DBG(LOG_TAG, "Got end tag %s", tag);
 
-    if (tag == "capture_profile") {
+    if (!strcmp(tag, "capture_profile")) {
         std::shared_ptr<CaptureProfile> cap_prof(
             std::static_pointer_cast<CaptureProfile>(curr_child_));
 
@@ -356,9 +368,9 @@ void SoundTriggerPlatformInfo::HandleEndTag(struct xml_userdata *data, const std
         if (!res.second)
             PAL_ERR(LOG_TAG, "Failed to insert to map");
         curr_child_ = nullptr;
-    } else if (tag == "acd_platform_info" ||
-               tag == "vui_platform_info" ||
-               tag == "asr_platform_info") {
+    } else if (!strcmp(tag, "acd_platform_info") ||
+               !strcmp(tag, "vui_platform_info") ||
+               !strcmp(tag, "asr_platform_info")) {
         curr_child_ = nullptr;
     }
 
