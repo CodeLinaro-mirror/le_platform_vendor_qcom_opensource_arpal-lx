@@ -26,38 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *     * Redistributions of source code must retain the above copyright
- *       notice, this list of conditions and the following disclaimer.
- *
- *     * Redistributions in binary form must reproduce the above
- *       copyright notice, this list of conditions and the following
- *       disclaimer in the documentation and/or other materials provided
- *       with the distribution.
- *
- *     * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *       contributors may be used to endorse or promote products derived
- *       from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef VOICE_UI_PLATFORM_INFO_H
@@ -72,7 +43,7 @@ class VUISecondStageConfig : public SoundTriggerXml
 public:
     VUISecondStageConfig();
 
-    void HandleStartTag(const char *tag, const char **attribs) override;
+    void HandleStartTag(const std::string& tag, const char **attribs) override;
 
     st_sound_model_type_t GetDetectionType() const { return detection_type_; }
     std::string GetLibName() const { return module_lib_; }
@@ -81,6 +52,7 @@ public:
     uint32_t GetBitWidth() const { return bit_width_; }
     uint32_t GetChannels() const { return channels_; }
     uint32_t GetProcFrameSize() const { return proc_frame_size_; }
+    int32_t GetDetectionType(const std::string& tag);
 
 private:
     st_sound_model_type_t detection_type_;
@@ -97,7 +69,7 @@ class VUIFirstStageConfig : public SoundTriggerXml
 public:
     VUIFirstStageConfig();
 
-    void HandleStartTag(const char *tag, const char **attribs) override;
+    void HandleStartTag(const std::string& tag, const char **attribs) override;
 
     st_module_type_t GetModuleType() const { return module_type_; }
     std::string GetModuleName() const { return module_name_; }
@@ -108,6 +80,8 @@ public:
     uint32_t GetParamId(st_param_id_type_t param_id) const {
         return param_ids_[param_id];
     }
+    int32_t GetIndex(std::string param_name);
+    int32_t GetModuleType(std::string tag);
 
 private:
     bool lpi_supported_;
@@ -124,8 +98,8 @@ public:
     VUIStreamConfig(VUIStreamConfig &rhs) = delete;
     VUIStreamConfig & operator=(VUIStreamConfig &rhs) = delete;
 
-    void HandleStartTag(const char *tag, const char **attribs) override;
-    void HandleEndTag(struct xml_userdata *data, const char *tag) override;
+    void HandleStartTag(const std::string& tag, const char **attribs) override;
+    void HandleEndTag(struct xml_userdata *data, const std::string& tag) override;
 
     UUID GetUUID() const { return vendor_uuid_; }
     std::string GetVUIIntfPluginLib() const { return vui_intf_plugin_lib_name_; }
@@ -150,6 +124,7 @@ public:
     uint32_t GetSupportedEngineCount() const {
                         return supported_first_stage_engine_count_; }
     bool GetEnableIntraConcurrentDetection() const { return enable_intra_concurrent_detection_; }
+    int32_t GetOperatingMode(std::string tag);
     st_module_type_t GetVUIModuleType();
     std::shared_ptr<VUISecondStageConfig> GetVUISecondStageConfig(
         const listen_model_indicator_enum& sm_type) const;
@@ -203,8 +178,8 @@ public:
     VoiceUIPlatformInfo(VUIStreamConfig &rhs) = delete;
     VoiceUIPlatformInfo & operator=(VoiceUIPlatformInfo &rhs) = delete;
 
-    void HandleStartTag(const char *tag, const char **attribs) override;
-    void HandleEndTag(struct xml_userdata *data, const char *tag) override;
+    void HandleStartTag(const std::string& tag, const char **attribs) override;
+    void HandleEndTag(struct xml_userdata *data, const std::string& tag) override;
 
     static std::shared_ptr<VoiceUIPlatformInfo> GetInstance();
     std::string GetSoundModelLib() const { return sound_model_lib_; }
