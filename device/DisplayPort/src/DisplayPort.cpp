@@ -25,8 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *
+ * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -41,8 +43,12 @@
 
 extern "C" void CreateDisplayDevice(struct pal_device *device,
                                     const std::shared_ptr<ResourceManager> rm,
+                                    pal_device_id_t id, bool createDevice,
                                     std::shared_ptr<Device> *dev) {
-    *dev = DisplayPort::getInstance(device, rm);
+    if (createDevice)
+        *dev = DisplayPort::getInstance(device, rm);
+    else
+        *dev = DisplayPort::getObject(id);
 
 }
 
@@ -86,31 +92,44 @@ std::shared_ptr<Device> DisplayPort::getInstance(struct pal_device *device,
     if ((device->id == PAL_DEVICE_OUT_AUX_DIGITAL) ||
         (device->id == PAL_DEVICE_OUT_HDMI)) {
         if (!objRx) {
-            std::lock_guard<std::mutex> lock(Device::mInstMutex);
-            if (!objRx) {
-                std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
-                objRx = sp;
-            }
+            std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
+            objRx = sp;
         }
         return objRx;
     } else if (device->id == PAL_DEVICE_OUT_AUX_DIGITAL_1) {
         if (!objRx1) {
-            std::lock_guard<std::mutex> lock(Device::mInstMutex);
-            if (!objRx1) {
-                std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
-                objRx1 = sp;
-            }
+            std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
+            objRx1 = sp;
         }
         return objRx1;
     } else if (device->id == PAL_DEVICE_IN_AUX_DIGITAL) {
         if (!objTx) {
-            std::lock_guard<std::mutex> lock(Device::mInstMutex);
-            if (!objTx) {
-                std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
-                objTx = sp;
-            }
+            std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
+            objTx = sp;
         }
         return objTx;
+    }
+    return NULL;
+}
+
+std::shared_ptr<Device> DisplayPort::getObject(pal_device_id_t id)
+{
+    if ((id == PAL_DEVICE_OUT_AUX_DIGITAL) ||
+        (id == PAL_DEVICE_OUT_HDMI)) {
+        if (objRx) {
+            if (objRx->getSndDeviceId() == id)
+                return objRx;
+        }
+    } else if (id == PAL_DEVICE_OUT_AUX_DIGITAL_1) {
+        if (objRx1) {
+            if (objRx1->getSndDeviceId() == id)
+                return objRx1;
+        }
+    } else if (id == PAL_DEVICE_IN_AUX_DIGITAL) {
+        if (objTx) {
+            if (objTx->getSndDeviceId() == id)
+                return objTx;
+        }
     }
     return NULL;
 }

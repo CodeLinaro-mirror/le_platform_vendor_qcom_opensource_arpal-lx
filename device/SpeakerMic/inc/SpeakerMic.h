@@ -25,9 +25,6 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SPEAKERMIC_H
@@ -38,6 +35,7 @@
 
 extern "C" void CreateSpeakerMicDevice(struct pal_device *device,
                                         const std::shared_ptr<ResourceManager> rm,
+                                        pal_device_id_t id, bool createDevice,
                                         std::shared_ptr<Device> *dev);
 
 class SpeakerMic : public Device
@@ -52,6 +50,7 @@ public:
     int32_t isChannelSupported(uint32_t numChannels);
     int32_t isBitWidthSupported(uint32_t bitWidth) override;
     virtual ~SpeakerMic();
+    static std::shared_ptr<Device> getObject();
 };
 
 
