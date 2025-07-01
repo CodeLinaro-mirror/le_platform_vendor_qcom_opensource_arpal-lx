@@ -49,25 +49,43 @@ PluginManager::PluginManager() {
 }
 
 PluginManager::~PluginManager() {
+   std::lock_guard<std::mutex> lock(mPluginManagerMutex);
    deinitStreamPlugins();
    deinitSessionPlugins();
    deinitDevicePlugins();
+   deinitControlPlugins();
+   deinitConfigPlugins();
 }
 
-void PluginManager::deinitStreamPlugins(){
-    for (const auto& item : registeredStreams) {
-        dlclose(item.handle);
+void PluginManager::deinitPluginItems(std::vector<pm_item_t>& items) {
+    for (auto& item : items) {
+        if (item.handle != nullptr)
+            dlclose(item.handle);
+        item.handle = nullptr;
+        if (item.plugin != nullptr)
+            item.plugin = nullptr;
+        item.refCount = 0;
     }
 }
 
+void PluginManager::deinitStreamPlugins() {
+    deinitPluginItems(registeredStreams);
+}
+
 void PluginManager::deinitSessionPlugins() {
-    for (const auto& item : registeredSessions)
-        dlclose(item.handle);
+    deinitPluginItems(registeredSessions);
 }
 
 void PluginManager::deinitDevicePlugins() {
-    for (const auto& item : registeredDevices)
-        dlclose(item.handle);
+    deinitPluginItems(registeredDevices);
+}
+
+void PluginManager::deinitControlPlugins() {
+    deinitPluginItems(registeredControls);
+}
+
+void PluginManager::deinitConfigPlugins() {
+    deinitPluginItems(registeredConfigs);
 }
 
 int32_t PluginManager::getRegisteredPluginList(pal_plugin_manager_t type, std::vector<pm_item_t> **pluginList){
@@ -127,6 +145,7 @@ int32_t PluginManager::registeredPlugin(pm_item_t item, pal_plugin_manager_t typ
 
 int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName, void* &plugin){
     int32_t status = 0;
+    bool found = false;
     std::vector<pm_item_t> *pluginList = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter plugin type:%d keyName:%s", type, keyName.c_str());
@@ -165,13 +184,14 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
                 plugin = item.plugin;
                 PAL_DBG(LOG_TAG, "found plugin object for %s refCount:%d"
                         , keyName.c_str(), item.refCount);
+                found = true;
                 break;
             }
-            if (plugin)
-                break;
         }
+        if (found)
+            break;
     }
-    if (!plugin) {
+    if (!found) {
         PAL_ERR(LOG_TAG, "cannot find a registered plugin for key type %s",
                 keyName.c_str());
         status = -EINVAL;
@@ -218,7 +238,7 @@ int32_t  PluginManager::closePlugin(pal_plugin_manager_t type, std::string keyNa
             break;
     }
     if (!found) {
-        PAL_ERR(LOG_TAG, "could not find a registered plugin for key %s cannot close", keyName.c_str())
+        PAL_ERR(LOG_TAG, "could not find a registered plugin for key %s cannot close", keyName.c_str());
         status = -EINVAL;
     }
     exit:
