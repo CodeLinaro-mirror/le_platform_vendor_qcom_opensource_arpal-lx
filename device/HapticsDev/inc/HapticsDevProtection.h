@@ -1,5 +1,5 @@
 /*
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -86,7 +86,7 @@ protected :
     int minIdleTime;
     static haptics_dev_prot_cal_state hapticsDevCalState;
     haptics_dev_prot_proc_state hapticsDevProcessingState;
-    int devTempList[2];
+    int *devTempList;
     static bool isHapDevInUse;
     static bool calThrdCreated;
     static std::atomic<bool> ftmThrdCreated;
