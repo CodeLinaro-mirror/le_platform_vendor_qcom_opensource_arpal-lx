@@ -468,6 +468,7 @@ bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isHapticsProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
 bool ResourceManager::isSoundDoseEnabled = false;
+uint8_t ResourceManager::speakerProtectionVersion;
 int ResourceManager::cpsMode = 0;
 int ResourceManager::wsaUsed = 0;
 bool ResourceManager::isVbatEnabled = false;
@@ -5646,12 +5647,14 @@ void ResourceManager::getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream
     std::vector <Stream *> activeStreams;
     std::vector <std::tuple<Stream *, uint32_t>>::iterator sIter;
     bool dup = false;
+    struct pal_device dattr;
 
     if (isValidDevId(dev_id) && (dev_id != PAL_DEVICE_NONE))
         backEndName = listAllBackEndIds[dev_id].second;
     for (int i = PAL_DEVICE_OUT_MIN; i < PAL_DEVICE_IN_MAX; i++) {
         if (backEndName == listAllBackEndIds[i].second) {
-            dev = Device::getObject((pal_device_id_t) i);
+            dattr.id = (pal_device_id_t) i;
+            dev = Device::getInstance(&dattr , rm);
             if(dev) {
                 std::list<Stream*>::iterator it;
                 for(it = mActiveStreams.begin(); it != mActiveStreams.end(); it++) {
@@ -6146,7 +6149,9 @@ int ResourceManager::restoreDeviceConfigForUPD(
 
     if (sAttr.type == PAL_STREAM_ULTRASOUND &&
         devId == PAL_DEVICE_OUT_HANDSET) {
-        hs_dev = Device::getObject(PAL_DEVICE_OUT_HANDSET);
+        struct pal_device dattr;
+        dattr.id = PAL_DEVICE_OUT_HANDSET;
+        hs_dev = Device::getInstance(&dattr, rm);
         if (hs_dev)
             hs_dev->getDeviceAttributes(&curDevAttr);
 
@@ -9244,6 +9249,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "haptics_protection_enabled")) {
             if (atoi(data->data_buf))
                 isHapticsProtectionEnabled = true;
+        } else if (!strcmp(tag_name, "sp_op_mode")) {
+                speakerProtectionVersion = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "ext_ec_ref_enabled")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].isExternalECRefEnabled = atoi(data->data_buf);
@@ -9624,7 +9631,8 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
     static std::shared_ptr<SoundTriggerPlatformInfo> st_info = nullptr;
 
     if (st_info && data->is_parsing_sound_trigger) {
-        st_info->HandleStartTag((const char *)tag_name, (const char **)attr);
+        PAL_INFO(LOG_TAG, "Parsing sound trigger tags");
+        st_info->HandleStartTag((const std::string)tag_name, (const char **)attr);
         snd_reset_data_buf(data);
         return;
     }
@@ -10370,6 +10378,10 @@ bool ResourceManager::IsHapticsProtectionEnabled() {
     return ResourceManager::isHapticsProtectionEnabled;
 }
 
+uint8_t ResourceManager::GetSpeakerProtectionVersion() {
+    return ResourceManager::speakerProtectionVersion;
+}
+
 bool ResourceManager::IsChargeConcurrencyEnabled() {
     return ResourceManager::isChargeConcurrencyEnabled;
 }
@@ -10528,6 +10540,9 @@ int ResourceManager::setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s)
             PAL_ERR(LOG_TAG,"stream get attributes failed");
             return -ENOENT;
         }
+    } else {
+        PAL_ERR(LOG_TAG, "Invalid stream handle");
+        return -EINVAL;
     }
 
     if (PAL_STREAM_ULTRASOUND == sAttr.type) {

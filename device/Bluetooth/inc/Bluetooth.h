@@ -25,10 +25,8 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -141,7 +139,6 @@ typedef int (*audio_sink_close_t)(void);
 
 extern "C" void CreateBtDevice(struct pal_device *device,
                                 const std::shared_ptr<ResourceManager> rm,
-                                pal_device_id_t id, bool createDevice,
                                 std::shared_ptr<Device> *dev);
 // Abstract base class
 class Bluetooth : public Device
@@ -149,25 +146,25 @@ class Bluetooth : public Device
 protected:
     Bluetooth(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
 
-    codec_type                 codecType;
-    struct pal_media_config    codecConfig;
-    codec_format_t             codecFormat;
-    void                       *codecInfo;
-    void                       *pluginHandler;
-    bt_codec_t                 *pluginCodec;
-    bool                       isAbrEnabled;
-    bool                       isConfigured;
-    bool                       isLC3MonoModeOn;
-    bool                       isTwsMonoModeOn;
-    bool                       isScramblingEnabled;
-    bool                       isDummySink;
-    struct pcm                 *fbPcm;
-    std::vector<int>           fbpcmDevIds;
-    std::shared_ptr<Bluetooth> fbDev;
-    int                        abrRefCnt;
+    codec_type                 mCodecType;
+    struct pal_media_config    mCodecConfig;
+    codec_format_t             mCodecFormat;
+    void                       *mCodecInfo;
+    void                       *mPluginHandler;
+    bt_codec_t                 *mPluginCodec;
+    bool                       mIsAbrEnabled;
+    bool                       mIsConfigured;
+    bool                       mIsLC3MonoModeOn;
+    bool                       mIsTwsMonoModeOn;
+    bool                       mIsScramblingEnabled;
+    bool                       mIsDummySink;
+    struct pcm                 *mFBPcm;
+    std::vector<int>           mFBPcmDevIds;
+    std::shared_ptr<Bluetooth> mFBDev;
+    int                        mAbrRefCnt;
     std::mutex                 mAbrMutex;
-    int                        totalActiveSessionRequests;
-    codec_version_t            codecVersion;
+    int                        mTotalActiveSessionRequests;
+    codec_version_t            mCodecVersion;
 
     int32_t getPCMId();
     int checkAndUpdateCustomPayload(uint8_t **paramData, size_t *paramSize);
@@ -193,14 +190,14 @@ public:
 class BtA2dp : public Bluetooth
 {
 protected:
-    static std::shared_ptr<Device> objRx;
-    static std::shared_ptr<Device> objTx;
-    static std::shared_ptr<Device> objBleRx;
-    static std::shared_ptr<Device> objBleTx;
-    static std::shared_ptr<Device> objBleBroadcastRx;
+    static std::shared_ptr<Device> sObjRx;
+    static std::shared_ptr<Device> sObjTx;
+    static std::shared_ptr<Device> sObjBleRx;
+    static std::shared_ptr<Device> sObjBleTx;
+    static std::shared_ptr<Device> sObjBleBroadcastRx;
     BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
-    pal_param_bta2dp_t param_bt_a2dp;
-    pal_sound_dose_info_t sound_dose_info;
+    pal_param_bta2dp_t mParamBtA2dp;
+    pal_sound_dose_info_t mSoundDoseInfo;
 
 private:
     /* BT IPC related members */
@@ -248,11 +245,11 @@ private:
     static audio_sink_close_t                   audio_sink_close;
 
     /* member variables */
-    uint8_t         a2dpRole;  // source or sink
-    enum A2DP_STATE a2dpState;
-    bool            isA2dpOffloadSupported;
-    uint32_t        a2dpLatencyMode;
-    uint32_t        codecLatency;
+    uint8_t         mA2dpRole;  // source or sink
+    enum A2DP_STATE mA2dpState;
+    bool            mIsA2dpOffloadSupported;
+    uint32_t        mA2dpLatencyMode;
+    uint32_t        mCodecLatency;
     std::unique_ptr<SoundDoseUtility> mSoundDose;
 
     uint32_t getLatency(uint32_t slatency);
@@ -283,7 +280,6 @@ public:
     int32_t getDeviceConfig(struct pal_device *deviceattr,
                             struct pal_stream_attributes *sAttr) override;
 
-    static std::shared_ptr<Device> getObject(pal_device_id_t id);
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     virtual ~BtA2dp();
@@ -294,18 +290,18 @@ public:
 class BtSco : public Bluetooth
 {
 protected:
-    static std::shared_ptr<Device> objRx;
-    static std::shared_ptr<Device> objTx;
-    static std::shared_ptr<Device> objHfpRx;
-    static std::shared_ptr<Device> objHfpTx;
+    static std::shared_ptr<Device> sObjRx;
+    static std::shared_ptr<Device> sObjTx;
+    static std::shared_ptr<Device> sObjHfpRx;
+    static std::shared_ptr<Device> sObjHfpTx;
     BtSco(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
-    bool isScoOn = false;
-    bool isHfpOn = false;
-    static bool isWbSpeechEnabled;
-    static int  swbSpeechMode;
-    static bool isSwbLc3Enabled;
-    static audio_lc3_codec_cfg_t lc3CodecInfo;
-    static bool isNrecEnabled;
+    bool mIsScoOn = false;
+    bool mIsHfpOn = false;
+    static bool sIsWbSpeechEnabled;
+    static int  sSwbSpeechMode;
+    static bool sIsSwbLc3Enabled;
+    static audio_lc3_codec_cfg_t sLc3CodecInfo;
+    static bool sIsNrecEnabled;
     int startSwb();
 
 public:
@@ -320,7 +316,6 @@ public:
     int32_t getDeviceConfig(struct pal_device *deviceattr,
                             struct pal_stream_attributes *sAttr) override;
 
-    static std::shared_ptr<Device> getObject(pal_device_id_t id);
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     virtual ~BtSco();

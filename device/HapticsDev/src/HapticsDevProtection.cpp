@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -1091,7 +1092,7 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
 }
 
 HapticsDevProtection::HapticsDevProtection(struct pal_device *device,
-                        std::shared_ptr<ResourceManager> Rm):HapticsDev(device, Rm)
+                        std::shared_ptr<ResourceManager> Rm):HapticsDev(device, Rm), deviceMutex()
 {
     int status = 0;
     struct pal_device_info devinfo = {};
@@ -1111,6 +1112,12 @@ HapticsDevProtection::HapticsDevProtection(struct pal_device *device,
     hapticsDevProcessingState = HAPTICS_DEV_PROCESSING_IN_IDLE;
 
     isHapDevInUse = false;
+    hapticsdevProtEnable = false;
+    memset(devTempList, 0, sizeof(devTempList));
+    VIscale = nullptr;
+    pcmDevIdTx.clear();
+    fresHzQ20 = 0;
+    lraF0CalState = false;
 
     rm->getDeviceInfo(PAL_DEVICE_OUT_HAPTICS_DEVICE, PAL_STREAM_PROXY, "", &devinfo);
     numberOfChannels = (devinfo.channels >= 2) ? CHANNELS_2 : CHANNELS_1;
@@ -1785,7 +1792,7 @@ void HapticsDevProtection::PMICHapticsVIScaling(wsa_haptics_ex_lra_param_t *VIpe
     char vgain[8];
     char igain[8];
     int fd, ret;
-    int32_t Vscale_err_trim, Iscale_err_trim;
+    int32_t Vscale_err_trim = 0, Iscale_err_trim = 0;
     float Vscale = 0, Iscale = 0;
     std::shared_ptr<ResourceManager> rm;
     char payload[80];
@@ -2149,6 +2156,11 @@ int32_t HapticsDevProtection::getAndsetPersistentParameter(bool flag)
     PayloadBuilder* builder = new PayloadBuilder();
     param_id_haptics_ex_vi_persistent *VIpeValue;
 
+    if (pcmDevIdTx.empty()) {
+        PAL_ERR(LOG_TAG, "No usecase active as pcmDevIdTx is empty \n");
+        ret = -EINVAL;
+        goto exit;
+    }
     pcmDeviceName = rm->getDeviceNameFromID(pcmDevIdTx.at(0));
     if (pcmDeviceName) {
         cntrlName << pcmDeviceName << " " << getParamControl;

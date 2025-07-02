@@ -27,8 +27,8 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -59,6 +59,9 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: USB"
@@ -77,12 +80,8 @@
 
 extern "C" void CreateUsbDevice(struct pal_device *device,
                                 const std::shared_ptr<ResourceManager> rm,
-                                pal_device_id_t id, bool createDevice,
                                 std::shared_ptr<Device> *dev) {
-    if (createDevice)
-        *dev = USB::getInstance(device, rm);
-    else
-        *dev = USB::getObject(id);
+    *dev = USB::getInstance(device, rm);
 
 }
 std::shared_ptr<Device> USB::objRx = nullptr;
@@ -97,37 +96,25 @@ std::shared_ptr<Device> USB::getInstance(struct pal_device *device,
     if ((device->id == PAL_DEVICE_OUT_USB_DEVICE) ||
         (device->id == PAL_DEVICE_OUT_USB_HEADSET)){
         if (!objRx) {
-            std::shared_ptr<Device> sp(new USB(device, Rm));
-            objRx = sp;
+            std::lock_guard<std::mutex> lock(Device::mInstMutex);
+            if (!objRx) {
+                std::shared_ptr<Device> sp(new USB(device, Rm));
+                objRx = sp;
+            }
         }
         return objRx;
     } else if ((device->id == PAL_DEVICE_IN_USB_DEVICE) ||
                (device->id == PAL_DEVICE_IN_USB_HEADSET)){
         if (!objTx) {
-            std::shared_ptr<Device> sp(new USB(device, Rm));
-            objTx = sp;
+            std::lock_guard<std::mutex> lock(Device::mInstMutex);
+            if (!objTx) {
+                std::shared_ptr<Device> sp(new USB(device, Rm));
+                objTx = sp;
+            }
         }
         return objTx;
     }
 
-    return NULL;
-}
-
-std::shared_ptr<Device> USB::getObject(pal_device_id_t id)
-{
-    if ((id == PAL_DEVICE_OUT_USB_DEVICE) ||
-        (id == PAL_DEVICE_OUT_USB_HEADSET)) {
-        if (objRx) {
-            if (objRx->getSndDeviceId() == id)
-                return objRx;
-        }
-    } else if ((id == PAL_DEVICE_IN_USB_DEVICE) ||
-               (id == PAL_DEVICE_IN_USB_HEADSET)) {
-        if (objTx) {
-            if (objTx->getSndDeviceId() == id)
-                return objTx;
-        }
-    }
     return NULL;
 }
 
@@ -353,12 +340,12 @@ int32_t USB::checkAndUpdateSampleRate(unsigned int *sampleRate __unused)
 
 int32_t USB::getParameter(uint32_t param_id, void **inputParam)
 {
-    int *ckv;
+    int ckv;
     int32_t status = 0;
     switch(param_id) {
         case PAL_PARAM_ID_VENDOR_UUID:
-            *ckv = getVendorIdCkv();
-            memcpy(*inputParam, ckv, sizeof(int));
+            ckv = getVendorIdCkv();
+            memcpy(*inputParam, &ckv, sizeof(int));
         break;
         default :
             PAL_ERR(LOG_TAG, "Unsupported operation");

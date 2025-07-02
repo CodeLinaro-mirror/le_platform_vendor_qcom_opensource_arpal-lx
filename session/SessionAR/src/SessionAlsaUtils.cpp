@@ -26,11 +26,9 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
-* Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-*
-* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* Changes from Qualcomm Technologies, Inc. are provided under the following license:
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
-*
 */
 
 #define LOG_TAG "PAL: SessionAlsaUtils"
@@ -1080,7 +1078,7 @@ int SessionAlsaUtils::getModuleInstanceId(struct mixer *mixer, int device, const
     }
     tag_info = (struct gsl_tag_module_info *)payload;
     PAL_DBG(LOG_TAG, "num of tags associated with stream %d is %d\n", device, tag_info->num_tags);
-    ret = -1;
+    ret = -EINVAL;
     tag_entry = (struct gsl_tag_module_info_entry *)(&tag_info->tag_module_entry[0]);
     offset = 0;
     for (i = 0; i < tag_info->num_tags; i++) {
@@ -1101,8 +1099,7 @@ int SessionAlsaUtils::getModuleInstanceId(struct mixer *mixer, int device, const
         }
     }
 
-    if (*miid == 0) {
-         ret = -EINVAL;
+    if (ret) {
          PAL_ERR(LOG_TAG, "No matching MIID found for tag: 0x%x, error:%d", tag_id, ret);
     }
 
@@ -1333,11 +1330,16 @@ int SessionAlsaUtils::registerMixerEvent(struct mixer *mixer, int device, const 
     uint32_t miid;
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
 
+    if (!payload || !intf_name){
+        PAL_ERR(LOG_TAG, "Payload or interface name is invalid");
+        return -EINVAL;
+    }
+
     // get module instance id
     status = SessionAlsaUtils::getModuleInstanceId(mixer, device, intf_name, tag_id, &miid);
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to get tage info %x, status = %d", tag_id, status);
-        return EINVAL;
+        return -EINVAL;
     }
 
     event_cfg = (struct agm_event_reg_cfg *)payload;
@@ -2502,11 +2504,13 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
         PAL_ERR(LOG_TAG, "get device KV failed %d", status);
         goto exit;
     }
-    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first))
-        status = builder->populateDevicePPKV(streamHandle,
-                aifBackEndsToConnect[0].first, streamDeviceKV,
-                0, emptyKV);
-    else {
+    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first)) {
+        if (!(sAttr.info.opt_stream_info.isBitPerfect)) {
+            status = builder->populateDevicePPKV(streamHandle,
+                     aifBackEndsToConnect[0].first, streamDeviceKV,
+                     0, emptyKV);
+        }
+    } else {
         rmHandle->getDeviceInfo(dAttr.id, streamType,
                                 dAttr.custom_config.custom_key, &devinfo);
         status = builder->populateDevicePPKV(streamHandle, 0, emptyKV,
