@@ -25,8 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -38,8 +40,12 @@
 
 extern "C" void CreateHeadphoneDevice(struct pal_device *device,
                                         const std::shared_ptr<ResourceManager> rm,
+                                        pal_device_id_t id, bool createDevice,
                                         std::shared_ptr<Device> *dev) {
-    *dev = Headphone::getInstance(device, rm);
+    if (createDevice)
+        *dev = Headphone::getInstance(device, rm);
+    else
+        *dev = Headphone::getObject(id);
 
 }
 
@@ -49,13 +55,19 @@ std::shared_ptr<Device> Headphone::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
 {
     if (!obj) {
-        std::lock_guard<std::mutex> lock(Device::mInstMutex);
-        if (!obj) {
-            std::shared_ptr<Device> sp(new Headphone(device, Rm));
-            obj = sp;
-        }
+        std::shared_ptr<Device> sp(new Headphone(device, Rm));
+        obj = sp;
     }
     return obj;
+}
+
+std::shared_ptr<Device> Headphone::getObject(pal_device_id_t id)
+{
+    if (obj) {
+        if (obj->getSndDeviceId() == id)
+            return obj;
+    }
+    return NULL;
 }
 
 Headphone::Headphone(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :

@@ -25,9 +25,6 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: UltrasoundDevice"
@@ -38,12 +35,25 @@
 
 extern "C" void CreateUltrasoundDevice(struct pal_device *device,
                                         const std::shared_ptr<ResourceManager> rm,
+                                        pal_device_id_t id, bool createDevice,
                                         std::shared_ptr<Device> *dev) {
-    *dev = UltrasoundDevice::getInstance(device, rm);
+    if (createDevice)
+        *dev = UltrasoundDevice::getInstance(device, rm);
+    else
+        *dev = UltrasoundDevice::getObject(id);
 
 }
 std::shared_ptr<Device> UltrasoundDevice::objRx = nullptr;
 std::shared_ptr<Device> UltrasoundDevice::objTx = nullptr;
+
+std::shared_ptr<Device> UltrasoundDevice::getObject(pal_device_id_t id)
+{
+    if (id == PAL_DEVICE_OUT_ULTRASOUND ||
+        id == PAL_DEVICE_OUT_ULTRASOUND_DEDICATED)
+        return objRx;
+    else
+        return objTx;
+}
 
 std::shared_ptr<Device> UltrasoundDevice::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
@@ -51,22 +61,16 @@ std::shared_ptr<Device> UltrasoundDevice::getInstance(struct pal_device *device,
     if (device->id == PAL_DEVICE_OUT_ULTRASOUND ||
         device->id == PAL_DEVICE_OUT_ULTRASOUND_DEDICATED) {
         if (!objRx) {
-            std::lock_guard<std::mutex> lock(Device::mInstMutex);
-            if (!objRx) {
-                PAL_INFO(LOG_TAG, "%s creating instance for  %d\n", __func__, device->id);
-                std::shared_ptr<Device> sp(new UltrasoundDevice(device, Rm));
-                objRx = sp;
-            }
+            PAL_INFO(LOG_TAG, "%s creating instance for  %d\n", __func__, device->id);
+            std::shared_ptr<Device> sp(new UltrasoundDevice(device, Rm));
+            objRx = sp;
         }
         return objRx;
     } else {
         if (!objTx) {
-            std::lock_guard<std::mutex> lock(Device::mInstMutex);
-            if (!objTx) {
-                PAL_INFO(LOG_TAG, "%s creating instance for  %d\n", __func__, device->id);
-                std::shared_ptr<Device> sp(new UltrasoundDevice(device, Rm));
-                objTx = sp;
-            }
+            PAL_INFO(LOG_TAG, "%s creating instance for  %d\n", __func__, device->id);
+            std::shared_ptr<Device> sp(new UltrasoundDevice(device, Rm));
+            objTx = sp;
         }
         return objTx;
     }

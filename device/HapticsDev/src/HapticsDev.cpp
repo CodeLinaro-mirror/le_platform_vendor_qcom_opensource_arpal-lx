@@ -58,8 +58,9 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -72,27 +73,36 @@
 
 extern "C" void CreateHapticsDevice(struct pal_device *device,
                                     const std::shared_ptr<ResourceManager> rm,
+                                    pal_device_id_t id, bool createDevice,
                                     std::shared_ptr<Device> *dev) {
-    *dev = HapticsDev::getInstance(device, rm);
+    if (createDevice)
+        *dev = HapticsDev::getInstance(device, rm);
+    else
+        *dev = HapticsDev::getObject();
 
 }
 
 std::shared_ptr<Device> HapticsDev::obj = nullptr;
+std::mutex HapticsDev::InstMutex;
+
+std::shared_ptr<Device> HapticsDev::getObject()
+{
+    std::lock_guard<std::mutex> guard(InstMutex);
+    return obj;
+}
 
 std::shared_ptr<Device> HapticsDev::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
 {
+    std::lock_guard<std::mutex> guard(InstMutex);
     if (!obj) {
-        std::lock_guard<std::mutex> lock(Device::mInstMutex);
-        if (!obj) {
-            if (ResourceManager::IsHapticsProtectionEnabled() &&
-                ResourceManager::IsHapticsThroughWSA()) {
-                std::shared_ptr<Device> sp(new HapticsDevProtection(device, Rm));
-                obj = sp;
-            } else {
-                std::shared_ptr<Device> sp(new HapticsDev(device, Rm));
-                obj = sp;
-            }
+        if (ResourceManager::IsHapticsProtectionEnabled() &&
+            ResourceManager::IsHapticsThroughWSA()) {
+            std::shared_ptr<Device> sp(new HapticsDevProtection(device, Rm));
+            obj = sp;
+        } else {
+            std::shared_ptr<Device> sp(new HapticsDev(device, Rm));
+            obj = sp;
         }
     }
     return obj;
