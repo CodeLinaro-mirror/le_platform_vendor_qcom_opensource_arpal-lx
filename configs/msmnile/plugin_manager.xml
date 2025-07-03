@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!-- Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+<!-- Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 SPDX-License-Identifier: BSD-3-Clause-Clear
-* -->
+-->
 
 <plugin_manager_info>
     <version>1.0</version>
@@ -9,6 +9,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
     <streams>
         <stream name="PAL_STREAM_DEEP_BUFFER" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_LOW_LATENCY" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
+        <stream name="PAL_STREAM_GENERIC" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
+        <stream name="PAL_STREAM_VOIP_TX" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
+        <stream name="PAL_STREAM_VOIP_RX" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_PCM_OFFLOAD" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_VOICE_CALL" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_LOOPBACK" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
@@ -16,18 +19,23 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <stream name="PAL_STREAM_RAW" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_VOICE_RECOGNITION" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_COMPRESSED" lib="libstream_compress.so" entryFunction="CreateCompressStream"/>
+        <stream name="PAL_STREAM_NON_TUNNEL" lib="libstream_nontunnel.so" entryFunction="CreateNonTunnelStream"/>
         <stream name="PAL_STREAM_PLAYBACK_BUS" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_CAPTURE_BUS" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
     </streams>
     <sessions>
         <session name="PAL_STREAM_DEEP_BUFFER" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_LOW_LATENCY" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
+        <session name="PAL_STREAM_GENERIC" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
+        <session name="PAL_STREAM_VOIP_TX" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
+        <session name="PAL_STREAM_VOIP_RX" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_PCM_OFFLOAD" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_LOOPBACK" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_ULTRA_LOW_LATENCY" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_RAW" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_VOICE_RECOGNITION" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_COMPRESSED" lib="libsession_compress.so" entryFunction="CreateCompressSession"/>
+        <session name="PAL_STREAM_NON_TUNNEL" lib="libsession_agm.so" entryFunction="CreateAgmSession"/>
         <session name="PAL_STREAM_PLAYBACK_BUS" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_CAPTURE_BUS" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
     </sessions>
@@ -48,6 +56,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!--FM-->
         <device name="PAL_DEVICE_OUT_FM" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
         <device name="PAL_DEVICE_IN_FM_TUNER" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
+        <!--Dummy-->
+        <device name="PAL_DEVICE_OUT_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
+        <device name="PAL_DEVICE_IN_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
         <!--A2B-->
         <device name="PAL_DEVICE_OUT_A2B_SPKR" lib="libdev_a2bspeaker.so" entryFunction="Createa2bspeakerDevice"/>
         <device name="PAL_DEVICE_IN_A2B_MIC" lib="libdev_a2bmic.so" entryFunction="Createa2bmicDevice"/>
