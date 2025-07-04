@@ -1491,6 +1491,7 @@ int ResourceManager::init_audio()
                 /* TODO: Needs to extend for new targets */
                 if (strstr(snd_card_name, "kona") ||
                     strstr(snd_card_name, "sm8150") ||
+                    strstr(snd_card_name, "sm6150") ||
                     strstr(snd_card_name, "sdx")||
                     strstr(snd_card_name, "lahaina") ||
                     strstr(snd_card_name, "waipio") ||
