@@ -3633,7 +3633,7 @@ void ResourceManager::mixerEventWaitThreadLoop(
         PAL_VERBOSE(LOG_TAG, "mixer_wait_event returns %d", ret);
         if (ret <= 0) {
             PAL_DBG(LOG_TAG, "mixer_wait_event err! ret = %d", ret);
-        } else if (ret > 0) {
+        } else if (ret > 0 && (!ResourceManager::mixerClosed)) {
             ret = mixer_read_event(mixer, &mixer_event);
             if (ret >= 0) {
                 if (strstr((char *)mixer_event.data.elem.id.name, (char *)"event")) {
