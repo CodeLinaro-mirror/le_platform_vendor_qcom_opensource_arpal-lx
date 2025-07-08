@@ -39,7 +39,6 @@ enum {
     STREAM_DRAIN,
     STREAM_SUSPEND,
     STREAM_GET_BUFFER_SIZE,
-    STREAM_GET_TAGS_WITH_MODULE_INFO,
     STREAM_SET_BUFFER_SIZE,
     STREAM_READ,
     STREAM_WRITE,
@@ -60,8 +59,10 @@ enum {
     STREAM_CREATE_MMAP_BUFFER,
     STREAM_GET_MMAP_POSITION,
     REGISTER_GLOBAL_CALLBACK,
-    GEF_RW_PARAM,
-    GEF_RW_PARAM_ACDB,
+    STREAM_SET_CUSTOM_PARAM,
+    STREAM_GET_CUSTOM_PARAM,
+    SET_CUSTOM_PARAM,
+    GET_CUSTOM_PARAM,
 };
 
 #if 0
@@ -273,13 +274,6 @@ int32_t PalService::ipc_pal_stream_get_buffer_size(pal_stream_handle_t *stream_h
     return -ENOSYS;
 }
 
-int32_t PalService::ipc_pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
-                                                            size_t *size ,uint8_t *payload) {
-    return pal_stream_get_custom_param(stream_handle,
-                                       PAL_CUSTOM_PARAM_AR_TAG_MODULE_INFO,
-                                       (void*)payload, size);
-}
-
 int32_t PalService::ipc_pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
                                                    pal_buffer_config_t *in_buff_cfg,
                                                    pal_buffer_config_t *out_buff_cfg) {
@@ -378,17 +372,24 @@ int32_t PalService::ipc_pal_register_global_callback(pal_global_callback cb, uin
     return pal_register_global_callback(cb, cookie);
 }
 
-int32_t PalService::ipc_pal_gef_rw_param(uint32_t param_id, void *param_payload,
-                            size_t payload_size, pal_device_id_t pal_device_id,
-                            pal_stream_type_t pal_stream_type, unsigned int dir) {
-    return 0;
+int32_t PalService::ipc_pal_stream_set_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size) {
+    return pal_stream_set_custom_param(handle, param_str, param_payload, payload_size);
 }
 
-int32_t PalService::ipc_pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
-                                size_t payload_size, pal_device_id_t pal_device_id,
-                                pal_stream_type_t pal_stream_type, uint32_t sample_rate,
-                                uint32_t instance_id, uint32_t dir, bool is_play) {
-    return 0;
+int32_t PalService::ipc_pal_stream_get_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size) {
+    return pal_stream_get_custom_param(handle, param_str, param_payload, payload_size);
+}
+
+int32_t PalService::ipc_pal_set_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size) {
+    return pal_set_custom_param(uc_info, param_str, param_payload, payload_size);
+}
+
+int32_t PalService::ipc_pal_get_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size) {
+    return pal_get_custom_param(uc_info, param_str, param_payload, payload_size);
 }
 
 class BpPalService : public ::android::BpInterface<IPalService> {
@@ -537,24 +538,6 @@ class BpPalService : public ::android::BpInterface<IPalService> {
             return reply.readInt32();
 #endif
             return -1;
-        }
-
-        virtual int32_t ipc_pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
-                                                                 size_t *size ,uint8_t *payload) override {
-            android::Parcel data, reply;
-            data.writeInterfaceToken(IPalService::getInterfaceDescriptor());
-            data.writeUint64((uint64_t)stream_handle);
-            data.writeUint32((uint32_t)(*size));
-            remote()->transact(STREAM_GET_TAGS_WITH_MODULE_INFO, data, &reply);
-
-            int rc = reply.readInt32();
-            if (rc) return rc;
-
-            uint32_t temp_size = 0;
-            PalReadWriteTool::read_param_payload(temp_size, payload, reply);
-            *size = temp_size;
-
-            return rc;
         }
 
         virtual int32_t ipc_pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
@@ -812,37 +795,53 @@ class BpPalService : public ::android::BpInterface<IPalService> {
             return reply.readInt32();
         }
 
-        virtual int32_t ipc_pal_gef_rw_param(uint32_t param_id, void *param_payload,
-                                    size_t payload_size, pal_device_id_t pal_device_id,
-                                    pal_stream_type_t pal_stream_type, unsigned int dir) override {
+        virtual int32_t ipc_pal_stream_set_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size) {
             android::Parcel data, reply;
             data.writeInterfaceToken(IPalService::getInterfaceDescriptor());
-            data.writeUint32(param_id);
+            data.writeUint64((uint64_t)handle);
+            PalReadWriteTool::write_param_payload(strlen(param_str), (uint8_t *)param_str, data);
             PalReadWriteTool::write_param_payload(payload_size, (uint8_t *)param_payload, data);
-            data.writeUint32((uint32_t)pal_device_id);
-            data.writeUint32((uint32_t)pal_stream_type);
-            data.writeUint32((uint32_t)dir);
-
-            remote()->transact(GEF_RW_PARAM, data, &reply);
+            remote()->transact(STREAM_SET_CUSTOM_PARAM, data, &reply);
             return reply.readInt32();
         }
 
-        virtual int32_t ipc_pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
-                                        size_t payload_size, pal_device_id_t pal_device_id,
-                                        pal_stream_type_t pal_stream_type, uint32_t sample_rate,
-                                        uint32_t instance_id, uint32_t dir, bool is_play) override {
+        virtual int32_t ipc_pal_stream_get_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size) {
+            android::Parcel data, reply;
+            uint32_t p_size = *payload_size;
+            data.writeInterfaceToken(IPalService::getInterfaceDescriptor());
+            data.writeUint64((uint64_t)handle);
+            PalReadWriteTool::write_param_payload(strlen(param_str), (uint8_t *)param_str, data);
+            data.writeUint32(p_size);
+            remote()->transact(STREAM_GET_CUSTOM_PARAM, data, &reply);
+            PalReadWriteTool::read_param_payload(p_size, (uint8_t *)param_payload, reply);
+            *payload_size = p_size;
+            return reply.readInt32();
+        }
+
+        virtual int32_t ipc_pal_set_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size) {
             android::Parcel data, reply;
             data.writeInterfaceToken(IPalService::getInterfaceDescriptor());
-            data.writeUint32(param_id);
+            PalReadWriteTool::write_param_payload(sizeof(custom_payload_uc_info_t), (uint8_t *)uc_info, data);
+            PalReadWriteTool::write_param_payload(strlen(param_str)+1, (uint8_t *)param_str, data);
             PalReadWriteTool::write_param_payload(payload_size, (uint8_t *)param_payload, data);
-            data.writeUint32((uint32_t)pal_device_id);
-            data.writeUint32((uint32_t)pal_stream_type);
-            data.writeUint32(sample_rate);
-            data.writeUint32(instance_id);
-            data.writeUint32(dir);
-            data.write(&is_play, sizeof(bool));
+            remote()->transact(SET_CUSTOM_PARAM, data, &reply);
+            return reply.readInt32();
+        }
 
-            remote()->transact(GEF_RW_PARAM_ACDB, data, &reply);
+        virtual int32_t ipc_pal_get_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size) {
+            android::Parcel data, reply;
+            uint32_t p_size = *payload_size;
+            data.writeInterfaceToken(IPalService::getInterfaceDescriptor());
+            PalReadWriteTool::write_param_payload(sizeof(custom_payload_uc_info_t), (uint8_t *)uc_info, data);
+            PalReadWriteTool::write_param_payload(strlen(param_str)+1, (uint8_t *)param_str, data);
+            data.writeUint32(p_size);
+            remote()->transact(GET_CUSTOM_PARAM, data, &reply);
+            PalReadWriteTool::read_param_payload(p_size, (uint8_t *)param_payload, reply);
+            *payload_size = p_size;
             return reply.readInt32();
         }
 };
@@ -974,23 +973,6 @@ android::status_t BnPalService::onTransact(uint32_t code,
             rc = ipc_pal_stream_get_buffer_size(stream_handle, nullptr, nullptr);
             reply->writeInt32(rc);
 #endif
-            break;
-        }
-        case STREAM_GET_TAGS_WITH_MODULE_INFO: {
-            size_t size = 0;
-            uint8_t *payload = NULL;
-            pal_stream_handle_t* stream_handle = (pal_stream_handle_t*)data.readUint64();
-            size = data.readUint32();
-            if (size) payload = new uint8_t[size];
-
-            rc = ipc_pal_stream_get_tags_with_module_info(stream_handle, &size, payload);
-            reply->writeInt32(rc);
-
-            if (!rc) {
-                PalReadWriteTool::write_param_payload(size, payload, reply);
-            }
-
-            if (payload) delete [] payload;
             break;
         }
         case STREAM_SET_BUFFER_SIZE: {
@@ -1241,47 +1223,76 @@ android::status_t BnPalService::onTransact(uint32_t code,
             reply->writeInt32(rc);
             break;
         }
-        case GEF_RW_PARAM: {
-            uint32_t param_id = data.readUint32();
+        case STREAM_SET_CUSTOM_PARAM : {
+            char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH];
+            uint32_t param_str_size = 0;
             uint32_t payload_size = 0;
-            uint8_t *param_payload = NULL;
-            pal_device_id_t pal_device_id;
-            pal_stream_type_t pal_stream_type;
-            uint32_t dir;
+            uint8_t* payload = NULL;
 
-            PalReadWriteTool::read_param_payload(payload_size, &param_payload, data);
-            pal_device_id = (pal_device_id_t)data.readUint32();
-            pal_stream_type = (pal_stream_type_t)data.readUint32();
-            dir = data.readUint32();
-            rc = ipc_pal_gef_rw_param(param_id, param_payload, (size_t)payload_size, pal_device_id, pal_stream_type, dir);
+            pal_stream_handle_t* stream_handle = (pal_stream_handle_t*)data.readUint64();
+            PalReadWriteTool::read_param_payload(param_str_size, (uint8_t *)param_str, data);
+            param_str[param_str_size] = '\0';
+            PalReadWriteTool::read_param_payload(payload_size, &payload, data);
 
+            rc = ipc_pal_stream_set_custom_param(stream_handle, param_str, payload, payload_size);
             reply->writeInt32(rc);
-            if (param_payload) delete [] param_payload;
+
+            if (payload)
+                delete[] payload;
             break;
         }
-        case GEF_RW_PARAM_ACDB: {
-            uint32_t param_id = data.readUint32();
-            uint32_t payload_size = 0;
-            uint8_t *param_payload = NULL;
-            pal_device_id_t pal_device_id;
-            pal_stream_type_t pal_stream_type;
-            uint32_t sample_rate;
-            uint32_t instance_id;
-            uint32_t dir;
-            bool is_play;
+        case STREAM_GET_CUSTOM_PARAM : {
+            char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH];
+            uint32_t param_str_size = 0;
 
-            PalReadWriteTool::read_param_payload(payload_size, &param_payload, data);
-            pal_device_id = (pal_device_id_t)data.readUint32();
-            pal_stream_type = (pal_stream_type_t)data.readUint32();
-            sample_rate = data.readUint32();
-            instance_id = data.readUint32();
-            dir = data.readUint32();
-            data.read(&is_play, sizeof(bool));
-            rc = ipc_pal_gef_rw_param_acdb(param_id, param_payload, (size_t)payload_size, pal_device_id, pal_stream_type,
-                                           sample_rate, instance_id, dir, is_play);
+            pal_stream_handle_t* stream_handle = (pal_stream_handle_t*)data.readUint64();
+            PalReadWriteTool::read_param_payload(param_str_size, (uint8_t *)param_str, data);
+            param_str[param_str_size] = '\0';
+            uint32_t payload_size = data.readUint32();
+            uint8_t* payload = new uint8_t[payload_size];
 
+            size_t p_size = payload_size;
+            rc = ipc_pal_stream_get_custom_param(stream_handle, param_str, payload, &p_size);
+            PalReadWriteTool::write_param_payload(p_size, payload, reply);
             reply->writeInt32(rc);
-            if (param_payload) delete [] param_payload;
+            delete[] payload;
+            break;
+        }
+        case SET_CUSTOM_PARAM : {
+            char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH];
+            uint32_t param_str_size = 0;
+            uint32_t payload_size = 0;
+            uint8_t* payload = NULL;
+
+            custom_payload_uc_info_t uc_info;
+            uint32_t size_uc_info = sizeof(custom_payload_uc_info_t);
+
+            PalReadWriteTool::read_param_payload(size_uc_info, (uint8_t *)(&uc_info), data);
+            PalReadWriteTool::read_param_payload(param_str_size, (uint8_t *)param_str, data);
+            param_str[param_str_size] = '\0';
+            PalReadWriteTool::read_param_payload(payload_size, &payload, data);
+            rc = ipc_pal_set_custom_param(&uc_info, param_str, payload, payload_size);
+            reply->writeInt32(rc);
+            if (payload)
+                delete[] payload;
+            break;
+        }
+        case GET_CUSTOM_PARAM : {
+            char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH];
+            uint32_t param_str_size = 0;
+            custom_payload_uc_info_t uc_info;
+            uint32_t size_uc_info = sizeof(custom_payload_uc_info_t);
+
+            PalReadWriteTool::read_param_payload(size_uc_info, (uint8_t *)(&uc_info), data);
+            PalReadWriteTool::read_param_payload(param_str_size, (uint8_t *)param_str, data);
+            param_str[param_str_size] = '\0';
+            uint32_t payload_size = data.readUint32();
+            uint8_t* payload = new uint8_t[payload_size];
+            size_t p_size = payload_size;
+            rc = ipc_pal_get_custom_param(&uc_info, param_str, payload, &p_size);
+            PalReadWriteTool::write_param_payload(p_size, payload, reply);
+            reply->writeInt32(rc);
+            delete[] payload;
             break;
         }
         default:
