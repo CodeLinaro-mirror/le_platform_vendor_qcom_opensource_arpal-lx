@@ -606,7 +606,7 @@ int Device::start_l()
     }
     deviceStartStopCount++;
 exit :
-    PAL_DBG(LOG_TAG, "Exit, status %d", status);
+    PAL_DBG(LOG_TAG, "Exit, status %d startStopCount %d", status, deviceStartStopCount);
     return status;
 }
 
@@ -631,6 +631,7 @@ int Device::stop_l()
     if (deviceStartStopCount > 0) {
         --deviceStartStopCount;
     }
+    PAL_DBG(LOG_TAG, "Exit, startStopCount %d", deviceStartStopCount);
 
     return 0;
 }
