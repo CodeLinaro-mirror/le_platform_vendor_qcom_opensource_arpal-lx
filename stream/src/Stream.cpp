@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 #define LOG_TAG "PAL: Stream"
@@ -156,7 +156,7 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
             rm->isBtDevice(palDevsAttr[count].id)) {
             palDevsAttr[count].address = dAttr[i].address;
         }
-        PAL_VERBOSE(LOG_TAG, "count: %d, i: %d, length of dAttr custom_config: %d", count, i, strlen(dAttr[i].custom_config.custom_key));
+        PAL_VERBOSE(LOG_TAG, "count: %d, i: %d, length of dAttr custom_config: %zu", count, i, strlen(dAttr[i].custom_config.custom_key));
         if (strlen(dAttr[i].custom_config.custom_key)) {
             strlcpy(palDevsAttr[count].custom_config.custom_key, dAttr[i].custom_config.custom_key, PAL_MAX_CUSTOM_KEY_SIZE);
             PAL_DBG(LOG_TAG, "found custom key %s", dAttr[i].custom_config.custom_key);
@@ -295,13 +295,18 @@ int32_t Stream::getEffectParameters(void *effect_query)
         mStreamMutex.unlock();
         return -EINVAL;
     }
+
+    mStreamMutex.unlock();
+
+    mGetParamMutex.lock();
     pal_param_payload *pal_param = (pal_param_payload *)effect_query;
     effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
     status = session->getEffectParameters(this, effectPayload);
     if (status) {
        PAL_ERR(LOG_TAG, "getParameters failed with %d", status);
     }
-    mStreamMutex.unlock();
+
+    mGetParamMutex.unlock();
 
     return status;
 }

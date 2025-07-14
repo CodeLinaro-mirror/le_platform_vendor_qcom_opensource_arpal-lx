@@ -404,6 +404,8 @@ int SessionAR::checkAndSetExtEC(const std::shared_ptr<ResourceManager>& rm,
     device.id = PAL_DEVICE_IN_EXT_EC_REF;
     rm->getDeviceConfig(&device, &sAttr);
     dev = Device::getInstance(&device, rm);
+    /* set device attributes to Ext Ec Ref device */
+    dev->setDeviceAttributes(device);
     if (!dev) {
         PAL_ERR(LOG_TAG, "dev get instance failed");
         status = -EINVAL;
@@ -804,7 +806,11 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
     pal_param_payload *param_payload = NULL;
     pal_device_mute_t *deviceMutePayload = nullptr;
     struct pal_stream_attributes sAttr = {};
-
+    if (!payload) {
+        PAL_ERR(LOG_TAG, "Error null payload");
+        status = -EINVAL;
+        return status;
+    }
     PAL_DBG(LOG_TAG, "set parameter %u", param_id);
     status = s->getStreamAttributes(&sAttr);
     if (!payload) {

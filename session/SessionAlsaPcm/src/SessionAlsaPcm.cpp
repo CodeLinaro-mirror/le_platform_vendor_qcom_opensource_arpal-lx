@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -899,12 +898,16 @@ int SessionAlsaPcm::setConfig(Stream * s, configType type, int tag)
             goto exit;
     }
 unlock_kvMutex:
-    if (calConfig)
+    if (calConfig) {
         free(calConfig);
+	calConfig = nullptr;
+    }
     kvMutex.unlock();
 exit:
-    if (tagConfig)
+    if (tagConfig) {
         free(tagConfig);
+	tagConfig = nullptr;
+    }
 
     PAL_DBG(LOG_TAG, "exit status: %d ", status);
     return status;
@@ -3286,7 +3289,17 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
         {
             pal_effect_custom_payload_t *customPayload;
             pal_param_payload *param_payload = (pal_param_payload*)payload;
+            if(!param_payload) {
+                PAL_ERR(LOG_TAG, "param_payload is null");
+                status = -EINVAL;
+                break;
+            }
             effectPalPayload = (effect_pal_payload_t*)(param_payload->payload);
+            if (effectPalPayload == nullptr) {
+                PAL_ERR(LOG_TAG, "effectPalPayload is null");
+                status = -EINVAL;
+                break;
+            }
             status = streamHandle->getStreamAttributes(&sAttr);
             if (status != 0) {
                 PAL_ERR(LOG_TAG, "stream get attributes failed");
@@ -3322,6 +3335,11 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 break;
             } else {
                 customPayload = (pal_effect_custom_payload_t*)effectPalPayload->payload;
+                if (!customPayload) {
+                    PAL_ERR(LOG_TAG, "customPayload is null");
+                    status = -EINVAL;
+                    break;
+                }
                 status = builder->payloadCustomParam(&paramData, &paramSize,
                     customPayload->data,
                     effectPalPayload->payloadSize - sizeof(uint32_t),
@@ -3342,6 +3360,11 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
         case PAL_PARAM_ID_BT_A2DP_TWS_CONFIG:
         {
             pal_bt_tws_payload *tws_payload = (pal_bt_tws_payload *)payload;
+            if (!tws_payload) {
+                PAL_ERR(LOG_TAG, "tws_payload is null");
+                status = -EINVAL;
+                break;
+            }
             status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
@@ -3362,6 +3385,11 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
         case PAL_PARAM_ID_BT_A2DP_LC3_CONFIG:
         {
             pal_bt_lc3_payload *lc3_payload = (pal_bt_lc3_payload *)payload;
+            if (!lc3_payload) {
+                PAL_ERR(LOG_TAG, "lc3_payload is null");
+                status = -EINVAL;
+                break;
+            }
             status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
@@ -3798,7 +3826,16 @@ int SessionAlsaPcm::setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_
         goto exit;
     }
 
-    if (sAttr.direction != PAL_AUDIO_INPUT) {
+    /* do not apply ECRef for Mic -> BT SCO */
+    if (sAttr.direction == PAL_AUDIO_INPUT_OUTPUT &&
+        sAttr.info.opt_stream_info.loopback_type != PAL_STREAM_LOOPBACK_HFP_RX) {
+        PAL_ERR(LOG_TAG, "Ext EC Ref cannot be set to PAL_STREAM_LOOPBACK_HFP_TX");
+        status = 0; /* setting status to zero as we dont need ec ref for hfp uplink but
+        device registration should be successful */
+        goto exit;
+    }
+    /* EC Ref cannot be set to output stream (EC Ref is only supported for input streams) */
+    if (sAttr.direction == PAL_AUDIO_OUTPUT) {
         PAL_ERR(LOG_TAG, "EC Ref cannot be set to output stream");
         status = -EINVAL;
         goto exit;
@@ -4037,6 +4074,21 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
                           PARAM_ID_ASR_OUTPUT, configSize);
             break;
         }
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+
+            pal_effect_custom_payload_t *customPayload = nullptr;
+            pal_param_payload *param_payload = nullptr;
+            effect_pal_payload_t *effectPalPayload = nullptr;
+            param_payload = (pal_param_payload *)(*payload);
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+
+            customPayload = (pal_effect_custom_payload_t *)effectPalPayload->payload;
+            configSize = effectPalPayload->payloadSize - sizeof(uint32_t);
+            builder->payloadQuery(&payloadData, &payloadSize, miid,
+                        customPayload->paramId, effectPalPayload->payloadSize - sizeof(uint32_t));
+             break;
+        }
         default:
             status = EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -4049,7 +4101,13 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
         goto exit;
     }
 
-    if (payloadData && payloadSize <= MAX_PCM_PAYLOAD_SIZE) {
+    if (param_id == PAL_PARAM_ID_PLUGIN_PARAM ) {
+        status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
+            goto exit;
+        }
+    } else if (payloadData && payloadSize <= MAX_PCM_PAYLOAD_SIZE ) {
         status = mixer_ctl_get_array(ctl, payloadData, payloadSize);
         if (0 != status) {
             PAL_ERR(LOG_TAG, "Get custom config failed, status = %d", status);
@@ -4061,7 +4119,7 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
             status = -ENOMEM;
             goto exit;
         } else {
-            PAL_ERR(LOG_TAG, "Payloadsize exceeds max permissible value");
+            PAL_ERR(LOG_TAG, "Payload size %d exceeds max permissible value %d", payloadSize, MAX_PCM_PAYLOAD_SIZE);
             status = -EINVAL;
             goto exit;
         }
@@ -4896,13 +4954,14 @@ int SessionAlsaPcm::addRemoveEffect(Stream *s, pal_audio_effect_t effect, bool e
         status = -EINVAL;
         goto exit;
     }
+    PAL_INFO(LOG_TAG, "Effect : %d, enable : %d", effect, enable);
     status = this->setConfig(s, MODULE, tag);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "session setConfig for addRemoveEffect failed with status %d",
                 status);
         goto exit;
     }
-    PAL_DBG(LOG_TAG, "session setConfig successful");
+    PAL_DBG(LOG_TAG, "session setConfig for addRemoveEffect successful");
 exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
