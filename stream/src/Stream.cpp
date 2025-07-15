@@ -852,9 +852,9 @@ int32_t Stream::getTimestamp(struct pal_session_time *stime)
         PAL_ERR(LOG_TAG, "Sound card offline/standby, status %d", status);
         goto exit;
     }
-    rm->lockResourceManagerMutex();
+    lockGetParamMutex();
     status = session->getTimestamp(stime);
-    rm->unlockResourceManagerMutex();
+    unlockGetParamMutex();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Failed to get session timestamp status %d", status);
         if (errno == -ENETRESET &&
@@ -1920,7 +1920,9 @@ int32_t Stream::getCustomParam(custom_payload_uc_info_t* uc_info, std::string pa
         mStreamMutex.unlock();
         return -EINVAL;
     }
+    lockGetParamMutex();
     status = session->getCustomParam(uc_info, param_str, param_payload, payload_size, this);
+    unlockGetParamMutex();
     if (status) {
        PAL_ERR(LOG_TAG, "getCustomParam failed with %d", status);
     }
