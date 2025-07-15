@@ -26,8 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ *
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -40,7 +41,11 @@
 #include <thread>
 #include <mutex>
 #include <string>
+#ifdef FEATURE_IPQ_OPENWRT
+#include "audio_route.h"
+#else
 #include "audio_route/audio_route.h"
+#endif
 #include <array>
 #include <map>
 #include <set>
@@ -531,6 +536,8 @@ private:
     /* Variable to store the mode request for Speaker protection */
     pal_spkr_prot_payload mSpkrProtModeValue;
 
+    /* Variable to store the mode request for Haptics Device */
+    pal_haptics_payload mHapticsModeValue;
     /* Variable to store the device orientation for Speaker*/
     int mOrientation = 0;
     uint32_t num_proxy_channels = 0;
