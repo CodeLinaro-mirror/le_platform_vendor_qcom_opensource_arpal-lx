@@ -15,6 +15,7 @@ AM_CPPFLAGS += -I $(srcdir)/../../session/SessionAR/inc
 AM_CPPFLAGS += -I $(srcdir)/../../plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../resource_manager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../context_manager/inc
+AM_CPPFLAGS += -I $(srcdir)/../../api/vui-interface
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 
@@ -26,6 +27,7 @@ lib_LTLIBRARIES     = libdev_handset.la
 libdev_handset_la_SOURCES   = $(dev_handset_sources)
 libdev_handset_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat -ltinyalsa -ltinycompress
 libdev_handset_la_LIBADD    += -L${abs_top_builddir}/device/Speaker/.libs -ldev_speaker
+libdev_handset_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal
 libdev_handset_la_CPPFLAGS := $(AM_CPPFLAGS)
 libdev_handset_la_CPPFLAGS += -std=c++14
 libdev_handset_la_LDFLAGS   = -shared -avoid-version

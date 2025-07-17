@@ -14,6 +14,7 @@ AM_CPPFLAGS += -I $(srcdir)/../../session/SessionAR/inc
 AM_CPPFLAGS += -I $(srcdir)/../../plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../resource_manager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../context_manager/inc
+AM_CPPFLAGS += -I $(srcdir)/../../api/vui-interface
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 
@@ -25,6 +26,7 @@ library_includedir = $(includedir)/stream_incall
 lib_LTLIBRARIES     = libstream_incall.la
 libstream_incall_la_SOURCES   = $(stream_incall_sources)
 libstream_incall_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat
+libstream_incall_la_LIBADD   += -L${abs_top_builddir}/.libs -lpal
 libstream_incall_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_incall_la_CPPFLAGS += -std=c++14
 libstream_incall_la_LDFLAGS   = -shared -avoid-version

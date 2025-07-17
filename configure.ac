@@ -216,6 +216,16 @@ plugins/customva_intf/Makefile \
 plugins/customva_intf/customva_intf.pc \
 plugins/codecs/Makefile \
 plugins/codecs/codecs.pc \
+plugins/configs/Makefile \
+plugins/configs/session_configs.pc \
+plugins/configs/ConfigSessionAlsaCompress/Makefile \
+plugins/configs/ConfigSessionAlsaCompress/session_compress_config.pc \
+plugins/configs/ConfigSessionAlsaPcm/Makefile \
+plugins/configs/ConfigSessionAlsaPcm/session_pcm_config.pc \
+plugins/configs/ConfigSessionAlsaVoice/Makefile \
+plugins/configs/ConfigSessionAlsaVoice/session_voice_config.pc \
+plugins/configs/ConfigSessionUtils/Makefile \
+plugins/configs/ConfigSessionUtils/session_utils_config.pc \
 plugins/vui_interface/Makefile \
 plugins/vui_interface/vui_interface.pc ])
 AC_OUTPUT

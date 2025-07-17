@@ -14,6 +14,7 @@ AM_CPPFLAGS += -I $(srcdir)/../../session/SessionAR/inc
 AM_CPPFLAGS += -I $(srcdir)/../../plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../resource_manager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../context_manager/inc
+AM_CPPFLAGS += -I $(srcdir)/../../api/vui-interface
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 
@@ -30,6 +31,7 @@ lib_LTLIBRARIES     = libstream_soundtrigger.la
 libstream_soundtrigger_la_SOURCES   = $(stream_soundtrigger_sources)
 libstream_soundtrigger_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat
 libstream_soundtrigger_la_LIBADD    += -L${abs_top_builddir}/plugins/vui_interface/.libs -lvui_intf
+libstream_soundtrigger_la_LIBADD    +=  -L${abs_top_builddir}/.libs -lpal
 libstream_soundtrigger_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_soundtrigger_la_CPPFLAGS += -std=c++14
 libstream_soundtrigger_la_LDFLAGS   = -shared -avoid-version

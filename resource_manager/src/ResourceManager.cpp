@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1491,6 +1491,7 @@ int ResourceManager::init_audio()
                 /* TODO: Needs to extend for new targets */
                 if (strstr(snd_card_name, "kona") ||
                     strstr(snd_card_name, "sm8150") ||
+                    strstr(snd_card_name, "sm6150") ||
                     strstr(snd_card_name, "sdx")||
                     strstr(snd_card_name, "lahaina") ||
                     strstr(snd_card_name, "waipio") ||
@@ -1502,7 +1503,8 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
                     strstr(snd_card_name, "vienna") ||
-                    strstr(snd_card_name, "sun")) {
+                    strstr(snd_card_name, "sun") ||
+                    strstr(snd_card_name, "kera")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
@@ -1568,9 +1570,9 @@ int ResourceManager::init_audio()
     PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file);
     if (!audio_route) {
         PAL_ERR(LOG_TAG, "audio route init failed trying with mixer without variant name");
-	audio_route = audio_route_init(snd_hw_card, mixer_xml_file_wo_variant);
+        audio_route = audio_route_init(snd_hw_card, mixer_xml_file_wo_variant);
         PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file_wo_variant);
-	if (!audio_route) {
+        if (!audio_route) {
             PAL_ERR(LOG_TAG, "audio route init failed ");
             mixer_close(audio_virt_mixer);
             mixer_close(audio_hw_mixer);
@@ -4884,6 +4886,10 @@ void ResourceManager::deinit()
         socPerithread.join();
     }
 #endif
+
+#ifdef LINUX_ENABLED
+    PluginManager::deinit();
+#endif
     deviceInfo.clear();
     listAllBackEndIds.clear();
     sndDeviceNameLUT.clear();
@@ -7324,6 +7330,25 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             memcpy((char*)param_payload, isProxyRecordActive ? "true" : "false", *payload_size);
         }
         break;
+        case PAL_PARAM_ID_HAPTICS_MODE:
+        {
+            PAL_VERBOSE(LOG_TAG, "get parameter for FTM mode");
+            std::shared_ptr<Device> dev = nullptr;
+            struct pal_device dattr;
+            dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
+            dev = Device::getInstance(&dattr , rm);
+            if (dev) {
+                status = dev->getParameter(PAL_PARAM_ID_HAPTICS_MODE,
+                                    param_payload);
+                if (status > 0) {
+                    *payload_size = status;
+                    status = 0;
+                } else {
+                    *payload_size = 0;
+                }
+            }
+        }
+        break;
         default:
         #ifndef SOUND_TRIGGER_FEATURES_DISABLED
             status = getSTParameter(param_id, param_payload, payload_size, query);
@@ -7437,6 +7462,47 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                       sizeof(pal_param_device_rotation_t), payload_size);
                 status = -EINVAL;
                 goto exit;
+            }
+        }
+        break;
+        case PAL_PARAM_ID_HAPTICS_MODE:
+        {
+            pal_haptics_payload *hapModeVal =
+                (pal_haptics_payload *) param_payload;
+
+            if (payload_size == sizeof(pal_haptics_payload)) {
+                switch(hapModeVal->operationMode) {
+                    case PAL_HAP_MODE_FACTORY_TEST:
+                    case PAL_HAP_MODE_DYNAMIC_CAL:
+                    {
+                        struct pal_device dattr;
+                        dattr.id = PAL_DEVICE_OUT_HAPTICS_DEVICE;
+                        std::shared_ptr<Device> dev = nullptr;
+
+                        memset (&mHapticsModeValue, 0,
+                                        sizeof(pal_haptics_payload));
+                        mHapticsModeValue.operationMode =
+                                hapModeVal->operationMode;
+
+                        dev = Device::getInstance(&dattr , rm);
+                        if (dev) {
+                            PAL_DBG(LOG_TAG, "Got Haptics Device Instance, mode:%d",
+                                                          hapModeVal->operationMode);
+                            dev->setParameter(hapModeVal->operationMode, nullptr);
+                        }
+                        else {
+                            PAL_DBG(LOG_TAG, "Unable to get haptics device instance");
+                        }
+                    }
+                    break;
+                    default:
+                    {
+                        PAL_ERR(LOG_TAG, "unsupported hap op mode = %d",
+                                hapModeVal->operationMode);
+                        status = -EINVAL;
+                        goto exit;
+                    }
+                }
             }
         }
         break;
