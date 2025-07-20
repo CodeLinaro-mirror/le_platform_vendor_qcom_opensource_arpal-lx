@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -1018,6 +1017,8 @@ int32_t pal_get_timestamp(pal_stream_handle_t *stream_handle,
 int32_t pal_add_remove_effect(pal_stream_handle_t *stream_handle,
                        pal_audio_effect_t effect, bool enable)
 {
+    PAL_VERBOSE(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+    PAL_VERBOSE(LOG_TAG, "effect: %d, enable: %d", effect, enable);
     Stream *s = NULL;
     int status = 0;
     std::shared_ptr<ResourceManager> rm = NULL;

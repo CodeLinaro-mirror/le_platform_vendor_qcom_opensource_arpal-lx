@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -519,7 +519,9 @@ private:
     int getControlPluginOps(plugin_control_name_t control, pal_stream_type_t usecase, plugin_fn_ops_t *plugin_fn);
     SoundTriggerOnResourceAvailableCallback onResourceAvailCb = NULL;
     uint64_t onResourceAvailCookie;
-
+    static int closeControlPlugin(plugin_t *plugin, plugin_control_name_t control);
+    /* gets respective device index */
+    static int getSndDeviceIndex(int32_t);
     static bool isQmpEnabled;
     static bool mixerClosed;
     //bool ssrStarted = false;
@@ -1160,8 +1162,10 @@ public:
     static void process_control(const XML_Char **attr);
     static void process_plugin(struct xml_userdata *data, const XML_Char **attr);
     static void process_plugin_usecase(struct xml_userdata *data, const XML_Char **attr);
-    int controlPluginSet(Stream *s, plugin_control_name_t control, void *payload, size_t playload_size);
-    int controlPluginGet(Stream *s, plugin_control_name_t control, void **payload, size_t *playload_size);
+    int controlPluginSet(Stream *s, plugin_control_name_t control, void* payload, size_t playload_size);
+    int controlPluginGet(Stream *s, plugin_control_name_t control, void** payload, size_t *playload_size);
+    int controlPluginSetParam(plugin_control_name_t control, void* payload, size_t size);
+    int controlPluginClose(plugin_control_name_t control, void* payload, size_t size);
     int getagmstatus();
     void setagmstatus(int status);
 

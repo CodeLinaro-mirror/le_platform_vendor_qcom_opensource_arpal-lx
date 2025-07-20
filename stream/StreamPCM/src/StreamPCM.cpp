@@ -26,10 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 #define LOG_TAG "PAL: StreamPCM"
@@ -964,7 +963,19 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
 {
     pal_param_payload *param_payload = nullptr;
     PAL_DBG(LOG_TAG, "Enter.");
+    int32_t status = 0;
+    effect_pal_payload_t *effectPalPayload = nullptr;
 
+    PAL_DBG(LOG_TAG, "Enter, get parameter %u, session handle - %p", param_id, session);
+
+    if (!payload)
+    {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "wrong params");
+        goto exit;
+    }
+
+    mStreamMutex.lock();
     switch(param_id) {
         case PAL_PARAM_ID_DEVICE_MUTE:
         {
@@ -973,12 +984,27 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
             getDeviceMute(deviceMutePayload->dir, &(deviceMutePayload->mute));
             break;
         }
+        case PAL_PARAM_ID_PLUGIN_PARAM:
+        {
+            param_payload = (pal_param_payload *)(*payload);
+
+            effectPalPayload = (effect_pal_payload_t *)(param_payload->payload);
+            status = session->getParamWithTag(this, effectPalPayload->tag, param_id, payload);
+            if (status) {
+               PAL_ERR(LOG_TAG, "getParamwithTag %d failed with %d", param_id, status);
+            }
+            break;
+        }
+
         default:
             PAL_INFO(LOG_TAG, "Not supported for param id %u", param_id);
             break;
     }
 
-    return 0;
+    mStreamMutex.unlock();
+exit:
+    return status;
+
 }
 
 int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
@@ -1004,6 +1030,9 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
         mStreamMutex.unlock();
         return -EINVAL;
     }
+    mStreamMutex.unlock();
+
+    mSetParamMutex.lock();
     // Call Session for Setting the parameter.
     if (NULL != session) {
         status = session->setParameters(this, param_id, payload);
@@ -1011,8 +1040,8 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
         PAL_ERR(LOG_TAG, "Session is null");
         status = -EINVAL;
     }
+    mSetParamMutex.unlock();
 
-    mStreamMutex.unlock();
 exit:
     PAL_DBG(LOG_TAG, "exit, session parameter %u set with status %d", param_id, status);
     return status;
@@ -1269,11 +1298,11 @@ int32_t StreamPCM::isBitWidthSupported(uint32_t bitWidth)
 int32_t StreamPCM::addRemoveEffect(pal_audio_effect_t effect, bool enable)
 {
     int32_t status = 0;
-
+    PAL_DBG(LOG_TAG, "Enter - effect %d enable %d", effect, enable);
     mStreamMutex.lock();
     status = session->addRemoveEffect(this, effect, enable);
     mStreamMutex.unlock();
-
+    PAL_DBG(LOG_TAG, "Exit - status: %d", status);
     return status;
 }
 
