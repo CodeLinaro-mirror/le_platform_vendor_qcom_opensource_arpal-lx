@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2138,6 +2138,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
         case PAL_PARAM_ID_SDZ_FORCE_OUTPUT:
         case PAL_PARAM_ID_SDZ_SET_PARAM:
         case PAL_PARAM_ID_SDZ_ENABLE:
+        case PAL_PARAM_ID_FORCE_RECOGNITION:
+        case PAL_PARAM_ID_BUFFERING_MODE:
         {
             struct apm_module_param_data_t* header =
                 (struct apm_module_param_data_t *)payload;
