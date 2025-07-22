@@ -71,7 +71,7 @@ typedef enum {
 } hostless_dir_t;
 
 #define audio_mixer mixer
-#define MAX_SND_CARD 10
+#define MAX_SND_CARD 2
 #define DUMMY_SND_CARD MAX_SND_CARD
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
 #define VOLUME_TOLERANCE 0.000001
