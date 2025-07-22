@@ -8351,7 +8351,7 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
      */
     if (inStrAttr->type == PAL_STREAM_VOICE_CALL) {
         for (auto& str: mActiveStreams) {
-            if (!isStreamActive(str))
+            if (!isStreamActive(str, mActiveStreams))
                 continue;
             status = str->getStreamAttributes(&sAttr);
             if (status != 0) {
