@@ -1504,7 +1504,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     std::vector <Stream *> streamsToSwitch;
     struct pal_device streamDevAttr;
     std::vector <Stream*>::iterator sIter;
-    bool VoiceorVoip_call_active = false;
     bool has_out_device = false, has_in_device = false;
     std::vector <std::shared_ptr<Device>>::iterator dIter;
     struct pal_volume_data *volume = NULL;
@@ -1723,17 +1722,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
          * is removed above.
          */
         if (sharedBEStreamDev.size() > 0) {
-            for (const auto &elem : sharedBEStreamDev) {
-                struct pal_stream_attributes strAttr;
-                std::get<0>(elem)->getStreamAttributes(&strAttr);
-                if (strAttr.type == PAL_STREAM_VOIP ||
-                    strAttr.type == PAL_STREAM_VOIP_RX ||
-                    strAttr.type == PAL_STREAM_VOIP_TX ||
-                    strAttr.type == PAL_STREAM_VOICE_CALL) {
-                    VoiceorVoip_call_active = true;
-                    break;
-                }
-            }
             rm->getSndDeviceName(newDeviceId, CurrentSndDeviceName);
             /* compare new stream-device attr with current active stream-device attr */
             bool switchStreams = rm->compareSharedBEStreamDevAttr(sharedBEStreamDev, &newDevices[newDeviceSlots[i]], true);
@@ -1751,17 +1739,6 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                 }
                 curDev->getDeviceAttributes(&curDevAttr);
 
-                /* avoid device for voice/voip being switched by low priority switch*/
-                if (VoiceorVoip_call_active &&
-                    strAttr.type != PAL_STREAM_VOICE_CALL &&
-                    strAttr.type != PAL_STREAM_VOIP_RX &&
-                    strAttr.type != PAL_STREAM_VOIP_TX &&
-                    strAttr.type != PAL_STREAM_VOIP &&
-                    curDevAttr.id != newDevices[newDeviceSlots[i]].id) {
-                    ar_mem_cpy(&(newDevices[newDeviceSlots[i]]), sizeof(struct pal_device),
-                               &curDevAttr, sizeof(struct pal_device));
-                    rm->getSndDeviceName(newDevices[newDeviceSlots[i]].id, CurrentSndDeviceName);
-                }
 
                 /*
                  * for current stream, if custom key updated, even reset of the attr
