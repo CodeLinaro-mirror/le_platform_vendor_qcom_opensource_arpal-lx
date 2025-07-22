@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -17,6 +17,10 @@ typedef struct {
     std::string libName;
     std::vector<std::string> keyNames;
     std::string entryFunction;
+#ifdef LINUX_ENABLED
+    std::string exitFunction;
+    void* exitPlugin;
+#endif
     void* plugin;
     uint32_t refCount;
 } pm_item_t;
@@ -31,6 +35,10 @@ class PluginManager
         static std::vector<pm_item_t> registeredDevices;
         static std::vector<pm_item_t> registeredControls;
         static std::vector<pm_item_t> registeredConfigs;
+
+#ifdef LINUX_ENABLED
+        static void deinitPlugins(std::vector<pm_item_t>& plugins);
+#endif
         void deinitStreamPlugins();
         void deinitSessionPlugins();
         void deinitDevicePlugins();
@@ -44,6 +52,9 @@ class PluginManager
 
     public:
         static std::shared_ptr<PluginManager> getInstance();
+#ifdef LINUX_ENABLED
+        static void deinit();
+#endif
         int32_t getVersion(){return PLUGIN_MANAGER_VERSION;};
         int32_t openPlugin(pal_plugin_manager_t pluginType, std::string keyName, void* &plugin);
         int32_t closePlugin(pal_plugin_manager_t pluginType, std::string keyName);

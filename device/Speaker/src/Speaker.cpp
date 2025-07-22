@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Speaker"
@@ -44,6 +48,21 @@ extern "C" void CreateSpeakerDevice(struct pal_device *device,
         *dev = Speaker::getObject();
 
 }
+
+#ifdef LINUX_ENABLED
+extern "C" void ExitSpeakerDevice()
+{
+    Speaker::destroy();
+}
+
+void Speaker::destroy()
+{
+    if (obj.get()) {
+        pal_param_device_connection_t conn;
+        obj->deinit(conn);
+    }
+}
+#endif
 
 std::shared_ptr<Device> Speaker::obj = nullptr;
 

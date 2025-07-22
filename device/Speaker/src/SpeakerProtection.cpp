@@ -26,39 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *
- *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SpeakerProtection"
@@ -83,6 +53,16 @@
 #define MIN_SPKR_IDLE_SEC (60 * 3)
 #define WAKEUP_MIN_IDLE_CHECK (1000 * 30)
 
+#ifdef USE_CUSTOM_SPK_CTRL
+#define SPKR_RIGHT_WSA_TEMP "SpR WSA Temp"
+#define SPKR_LEFT_WSA_TEMP "SpL WSA Temp"
+
+#define SPKR_RIGHT_WSA_DEV_NUM "SpR WSA Get DevNum"
+#define SPKR_LEFT_WSA_DEV_NUM "SpL WSA Get DevNum"
+
+#define SPKR_RIGHT_WSA_DC_DET "SpR WSA PA Disable"
+#define SPKR_LEFT_WSA_DC_DET "SpL WSA PA Disable"
+#else
 #define SPKR_RIGHT_WSA_TEMP "SpkrRight WSA Temp"
 #define SPKR_LEFT_WSA_TEMP "SpkrLeft WSA Temp"
 
@@ -91,6 +71,7 @@
 
 #define SPKR_RIGHT_WSA_DC_DET "SpkrRight WSA PA Disable"
 #define SPKR_LEFT_WSA_DC_DET "SpkrLeft WSA PA Disable"
+#endif
 
 #define TZ_TEMP_MIN_THRESHOLD    (-30)
 #define TZ_TEMP_MAX_THRESHOLD    (80)
@@ -214,6 +195,23 @@ void SpeakerProtection::spkrCalibrateWait()
     cv.wait_for(lock,
             std::chrono::milliseconds(WAKEUP_MIN_IDLE_CHECK));
 }
+
+#ifdef LINUX_ENABLED
+void SpeakerProtection::spkrCalibrateSignalExit()
+{
+    if (calThrdCreated) {
+        std::unique_lock<std::mutex> lock(cvMutex);
+        threadExit = true;
+        cv.notify_all();
+    }
+}
+
+int SpeakerProtection::deinit(pal_param_device_connection_t device_conn)
+{
+    spkrCalibrateSignalExit();
+    return 0;
+}
+#endif
 
 // Callback from DSP for Ressistance value
 void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_id,
@@ -1276,6 +1274,9 @@ SpeakerProtection::SpeakerProtection(struct pal_device *device,
         mCalThread = std::thread(&SpeakerProtection::spkrCalibrationThread,
                             this);
         calThrdCreated = true;
+#ifdef LINUX_ENABLED
+        mCalThread.detach();
+#endif
     }
 exit:
     PAL_DBG(LOG_TAG, "exit. calThrdCreated :%d", calThrdCreated);
@@ -1283,6 +1284,9 @@ exit:
 
 SpeakerProtection::~SpeakerProtection()
 {
+#ifdef LINUX_ENABLED
+    spkrCalibrateSignalExit();
+#endif
     if (spkerTempList)
         delete[] spkerTempList;
 
