@@ -1,3 +1,9 @@
+qcom-pal-headers (2.0.0) unstable; urgency=low
+
+  * Add new API for SPR shared memory management
+
+ -- Tejas Vijay Kanfade <tkanfade@qti.qualcomm.com>  Mon, 21 Jul 2025 09:03:54 -0700
+
 qcom-pal-headers (1.0.0) unstable; urgency=low
 
   * Initial release.

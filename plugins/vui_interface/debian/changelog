@@ -1,3 +1,10 @@
+qcom-vui-interface (1.1.0) unstable; urgency=low
+
+  * Add pkg-config and libexpat1-dev as build dependencies
+  * Add support for versioned libraries.
+
+ -- Tejas Vijay Kanfade <tkanfade@qti.qualcomm.com>  Mon, 21 Jul 2025 08:58:52 -0700
+
 qcom-vui-interface (1.0.0) unstable; urgency=low
 
   * Initial release.
