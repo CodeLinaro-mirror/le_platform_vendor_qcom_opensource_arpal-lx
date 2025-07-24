@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2023,2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -528,8 +529,10 @@ int32_t pal_get_param(uint32_t param_id, void **param_payload, size_t *payload_s
 
     size = aidlPayload.size();
 
-    if (status.isOk() && *param_payload == NULL) {
-        *param_payload = calloc(1, size);
+    if (status.isOk()) {
+        if (*param_payload == NULL) {
+            *param_payload = calloc(1, size);
+        }
         if (!(*param_payload)) {
             ALOGE("Failed to allocate memory for (*param_payload) %s %d", __func__, __LINE__);
             return -ENOMEM;
