@@ -903,6 +903,12 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                     force_switch = true;
                     break;
                 }
+                if (rm->isPluginPlaybackDevice(devices[i].id) ||
+                    rm->isDpDevice(devices[i].id)) {
+                    PAL_DBG(LOG_TAG, "always switch device for plugin and DP device");
+                    force_switch = true;
+                    break;
+                }
             }
         }
         if (!force_switch && (activeDevices == newDevices)) {
