@@ -2461,6 +2461,17 @@ int SpeakerProtection::stop()
     return 0;
 }
 
+int SpeakerProtection::close()
+{
+    PAL_DBG(LOG_TAG, "Inside Speaker Protection close");
+    Device::close();
+    if (rm->IsVIRecordStarted()) {
+        rm->setVIRecordState(false);
+        return 0;
+    }
+    spkrProtProcessingMode(false);
+    return 0;
+}
 
 int32_t SpeakerProtection::setParameter(uint32_t param_id, void *param)
 {
