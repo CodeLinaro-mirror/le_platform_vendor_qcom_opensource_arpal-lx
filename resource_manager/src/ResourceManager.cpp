@@ -13188,6 +13188,12 @@ void ResourceManager::process_control(const XML_Char **attr) {
     if (!strcmp(attr[5], "true")) {
         openControlPlugin(&control.default_plugin, control.name);
     }
+    else
+    {
+        PAL_INFO(LOG_TAG, "loadOnInit for the control %s is set to %s",
+          control.default_plugin.name.c_str(),attr[5]);
+        goto exit;
+    }
     ControlInfo.push_back(control);
     PAL_DBG(LOG_TAG, "creating control, name %d default plugin %s loadOnInit %s",
         control.name, control.default_plugin.name.c_str(), attr[5]);
@@ -13213,6 +13219,12 @@ void ResourceManager::process_plugin(struct xml_userdata *data, const XML_Char *
         if (!load.compare("true")) {
             openControlPlugin(&plugin, ControlInfo[size].name);
         }
+        else
+        {
+            PAL_INFO(LOG_TAG, "loadOnInit for the plugin %s is set to %s",
+              plugin.name.c_str(),load.c_str());
+            goto exit;
+        }
         ControlInfo[size].plugins.push_back(plugin);
         PAL_DBG(LOG_TAG, "adding plugin %s load flag %s", plugin.name.c_str(), load.c_str());
     }
@@ -13226,6 +13238,11 @@ void ResourceManager::process_plugin_usecase(struct xml_userdata *data, const XM
     if (data->tag == TAG_CONTROL_PLUGIN) {
         std::string type(attr[1]);
         size = ControlInfo.size() - 1;
+        if(size < 0)
+        {
+            PAL_INFO(LOG_TAG, "ControlInfo is empty! Size is: %d",size);
+            return;
+        }
         plugin_size = ControlInfo[size].plugins.size() - 1;
         ControlInfo[size].plugins[plugin_size].usecases.push_back(usecaseIdLUT.at(type));
         PAL_DBG(LOG_TAG, "adding usecase %d for plugin %s",
