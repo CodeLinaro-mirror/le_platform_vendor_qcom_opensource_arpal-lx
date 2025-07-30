@@ -917,21 +917,48 @@ ResourceManager::ResourceManager()
     mHighestPriorityActiveStream = nullptr;
     mPriorityHighestPriorityActiveStream = 0;
 
-    ret = memLoggerInitQ(PAL_STATE_Q, MEMLOG_CFG_FILE); //initializes the queue for the debug logger
-
-    if (ret) {
-        PAL_ERR(LOG_TAG, "error in initializing memory queue %d", ret);
-    }
-
-    ret = memLoggerInitQ(KPI_Q, MEMLOG_CFG_FILE); //initializes the queue for the debug logger
-
-    if (ret) {
-        PAL_ERR(LOG_TAG, "error in initializing KPI queue %d", ret);
-    }
+    listAllFrontEndIds.clear();
+    listFreeFrontEndIds.clear();
+    listAllPcmPlaybackFrontEnds.clear();
+    listAllPcmRecordFrontEnds.clear();
+    listAllPcmHostlessRxFrontEnds.clear();
+    listAllNonTunnelSessionIds.clear();
+    listAllPcmHostlessTxFrontEnds.clear();
+    listAllCompressPlaybackFrontEnds.clear();
+    listAllCompressRecordFrontEnds.clear();
+    listAllPcmVoice1RxFrontEnds.clear();
+    listAllPcmVoice1TxFrontEnds.clear();
+    listAllPcmVoice2RxFrontEnds.clear();
+    listAllPcmVoice2TxFrontEnds.clear();
+    listAllPcmInCallRecordFrontEnds.clear();
+    listAllPcmInCallMusicFrontEnds.clear();
+    listAllPcmContextProxyFrontEnds.clear();
+    listAllPcmExtEcTxFrontEnds.clear();
+    memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
+    memset(in_stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
 
     ret = ResourceManager::XmlParser(SNDPARSER);
     if (ret) {
         PAL_ERR(LOG_TAG, "error in snd xml parsing ret %d", ret);
+    }
+
+    char propValue[PROPERTY_VALUE_MAX];
+    bool isBuildDebuggable = false;
+    property_get("ro.debuggable", propValue, "0");
+    if(atoi(propValue) == 1) {
+        isBuildDebuggable = true;
+    }
+
+    if (isSignalHandlerEnabled) {
+        mSigHandler = SignalHandler::getInstance();
+        if (mSigHandler) {
+            std::function<void(int, pid_t, uid_t)> crashSignalCb = sendCrashSignal;
+            SignalHandler::setClientCallback(crashSignalCb);
+            SignalHandler::setBuildDebuggable(isBuildDebuggable);
+            mSigHandler->registerSignalHandler(gSignalsOfInterest);
+        } else {
+            PAL_INFO(LOG_TAG, "Failed to create signal handler");
+        }
     }
 
     ret = ResourceManager::init_audio();
@@ -957,25 +984,6 @@ ResourceManager::ResourceManager()
     if (isHifiFilterEnabled)
         audio_route_apply_and_update_path(audio_route, "hifi-filter-coefficients");
 
-    char propValue[PROPERTY_VALUE_MAX];
-    bool isBuildDebuggable = false;
-    property_get("ro.debuggable", propValue, "0");
-    if(atoi(propValue) == 1) {
-        isBuildDebuggable = true;
-    }
-
-    if (isSignalHandlerEnabled) {
-        mSigHandler = SignalHandler::getInstance();
-        if (mSigHandler) {
-            std::function<void(int, pid_t, uid_t)> crashSignalCb = sendCrashSignal;
-            SignalHandler::setClientCallback(crashSignalCb);
-            SignalHandler::setBuildDebuggable(isBuildDebuggable);
-            mSigHandler->registerSignalHandler(gSignalsOfInterest);
-        } else {
-            PAL_INFO(LOG_TAG, "Failed to create signal handler");
-        }
-    }
-
 #if defined(ADSP_SLEEP_MONITOR)
     lpi_counter_ = 0;
     nlpi_counter_ = 0;
@@ -984,25 +992,6 @@ ResourceManager::ResourceManager()
     if (sleepmon_fd_ == -1)
         PAL_ERR(LOG_TAG, "Failed to open ADSP sleep monitor file");
 #endif
-    listAllFrontEndIds.clear();
-    listFreeFrontEndIds.clear();
-    listAllPcmPlaybackFrontEnds.clear();
-    listAllPcmRecordFrontEnds.clear();
-    listAllPcmHostlessRxFrontEnds.clear();
-    listAllNonTunnelSessionIds.clear();
-    listAllPcmHostlessTxFrontEnds.clear();
-    listAllCompressPlaybackFrontEnds.clear();
-    listAllCompressRecordFrontEnds.clear();
-    listAllPcmVoice1RxFrontEnds.clear();
-    listAllPcmVoice1TxFrontEnds.clear();
-    listAllPcmVoice2RxFrontEnds.clear();
-    listAllPcmVoice2TxFrontEnds.clear();
-    listAllPcmInCallRecordFrontEnds.clear();
-    listAllPcmInCallMusicFrontEnds.clear();
-    listAllPcmContextProxyFrontEnds.clear();
-    listAllPcmExtEcTxFrontEnds.clear();
-    memset(stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
-    memset(in_stream_instances, 0, PAL_STREAM_MAX * sizeof(uint64_t));
 
     for (int i=0; i < devInfo.size(); i++) {
 
@@ -1075,7 +1064,6 @@ ResourceManager::ResourceManager()
     mNTStreamInstancesList[NT_PATH_ENCODE] = encodeMap;
     mNTStreamInstancesList[NT_PATH_DECODE] = decodeMap;
 
-    ResourceManager::loadAdmLib();
     ResourceManager::initWakeLocks();
 
     if (ResourceManager::isHapticsthroughWSA) {
@@ -1105,24 +1093,6 @@ ResourceManager::ResourceManager()
 }
 ResourceManager::~ResourceManager()
 {
-    // Dump memory logger queues
-    int ret = memLoggerDumpAllToFile();
-    if (ret)
-    {
-        PAL_ERR(LOG_TAG, "error in dumping queues: %d", ret);
-    }
-    ret = memLoggerDeinitQ(PAL_STATE_Q);
-    if (ret)
-    {
-        PAL_ERR(LOG_TAG, "error in deinitializing memory queue %d", ret);
-    }
-    ret = memLoggerDeinitQ(KPI_Q);
-
-    if (ret)
-    {
-        PAL_ERR(LOG_TAG, "error in deinitializing KPI queue %d", ret);
-    }
-
     streamTag.clear();
     streamPpTag.clear();
     mixerTag.clear();
@@ -1609,7 +1579,9 @@ int ResourceManager::init_audio()
                 snd_hw_card, snd_card_name);
 
                 /* TODO: Needs to extend for new targets */
-                if (strstr(snd_card_name, "kona") ||
+                if (strstr(snd_card_name, "gvmauto") ||
+                    strstr(snd_card_name, "sa8255") ||
+                    strstr(snd_card_name, "kona") ||
                     strstr(snd_card_name, "sm8150") ||
                     strstr(snd_card_name, "sdx")||
                     strstr(snd_card_name, "lahaina") ||
@@ -1621,9 +1593,7 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
-                    strstr(snd_card_name, "sun") ||
-                    strstr(snd_card_name, "sa8255") ||
-                    strstr(snd_card_name, "gvmauto")) {
+                    strstr(snd_card_name, "sun") ) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
@@ -1953,12 +1923,6 @@ int ResourceManager::init()
         else
            PAL_INFO(LOG_TAG, "HapticsDev instance not created");
     }
-
-    PAL_INFO(LOG_TAG, "Initialize voiceui dmgr");
-    voiceuiDmgrManagerInit();
-
-    PAL_INFO(LOG_TAG, "Initialize Audio Feature Stats");
-    AudioFeatureStatsInit();
 
     return 0;
 }
