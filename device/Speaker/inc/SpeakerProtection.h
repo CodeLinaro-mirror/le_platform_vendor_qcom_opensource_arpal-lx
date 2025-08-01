@@ -159,6 +159,7 @@ public:
 
     int32_t start();
     int32_t stop();
+    int32_t close();
 
     int32_t setParameter(uint32_t param_id, void *param) override;
     int32_t getParameter(uint32_t param_id, void **param) override;
