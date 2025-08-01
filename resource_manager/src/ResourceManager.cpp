@@ -2896,8 +2896,7 @@ int ResourceManager::decreaseStreamUserCounter(Stream* s)
     std::map<Stream *, std::pair<uint32_t, bool>>::iterator it;
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
-    if (it != mActiveStreamUserCounter.end() &&
-            it->second.second) {
+    if (it != mActiveStreamUserCounter.end()) {
         PAL_DBG(LOG_TAG, "stream %p counter was %d", s, it->second.first);
         if (0 == it->second.first) {
             PAL_ERR(LOG_TAG, "counter of stream %p has already been 0.",s);
