@@ -7,7 +7,7 @@ LOCAL_MODULE := libstream_haptics
 LOCAL_MODULE_OWNER := qti
 LOCAL_VENDOR_MODULE := true
 
-LOCAL_CPPFLAGS += -fexceptions
+LOCAL_CPPFLAGS += -fexceptions -frtti
 
 # add for gcov dump
 ifeq ($(AUDIO_FEATURE_ENABLED_GCOV), true)
