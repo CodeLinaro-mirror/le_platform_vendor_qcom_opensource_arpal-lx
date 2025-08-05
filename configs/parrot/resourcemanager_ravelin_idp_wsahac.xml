@@ -26,10 +26,9 @@
 <!-- OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN    -->
 <!-- IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.                             -->
 
-<!-- Changes from Qualcomm Innovation Center are provided under the following license:    -->
-<!--                                                                                      -->
-<!-- Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.             -->
-<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                          -->
+<!-- Changes from Qualcomm Technologies, Inc. are provided under the following license: -->
+<!-- Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries                  -->
+<!-- SPDX-License-Identifier: BSD-3-Clause-Clear                                        -->
 <resource_manager_info>
     <config_params>
         <param key="native_audio_mode" value="multiple_mix_dsp"/>
@@ -42,6 +41,7 @@
         <param key="context_manager_enable" value ="false" />
         <param key="upd_dedicated_be" value ="true" />
         <param key="dual_mono" value ="false" />
+        <param key="dummy_dev_enable" value ="true" />
     </config_params>
     <config_volume>
         <use_volume_set_param>0</use_volume_set_param>
@@ -383,6 +383,15 @@
             <bit_width>16</bit_width>
             <samplerate>48000</samplerate>
         </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_DUMMY</id>
+            <back_end_name>PCM_DUMMY-TX-1</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
+        </in-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
@@ -675,6 +684,15 @@
             <channels>1</channels>
             <snd_device_name>ultrasound-handset</snd_device_name>
             <samplerate>96000</samplerate>
+            <bit_width>16</bit_width>
+        </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_DUMMY</id>
+            <back_end_name>PCM_DUMMY-RX-0</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
         </out-device>
     </device_profile>
