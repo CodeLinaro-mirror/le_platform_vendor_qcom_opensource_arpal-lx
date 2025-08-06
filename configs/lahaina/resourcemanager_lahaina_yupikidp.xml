@@ -689,11 +689,17 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_AUX_DIGITAL</id>
-            <back_end_name>DISPLAY_PORT-RX</back_end_name>
+            <back_end_name>DISPLAY_PORT-RX-0</back_end_name>
             <max_channels>32</max_channels>
             <channels>2</channels>
             <snd_device_name>display-port</snd_device_name>
             <fractional_sr>1</fractional_sr>
+            <!--specify the supported bit format on DP end point -->
+            <!--this should be in the form of pal_audio_fmt_id-->
+            <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>-->
+            <!--We support 24 bit for DP as of now, as SPF needs to conform to IEC 60958 packet format -->
+            <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <priority>1</priority>
@@ -701,10 +707,16 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HDMI</id>
-            <back_end_name>DISPLAY_PORT-RX</back_end_name>
+            <back_end_name>DISPLAY_PORT-RX-0</back_end_name>
             <max_channels>32</max_channels>
             <channels>2</channels>
             <fractional_sr>1</fractional_sr>
+            <!--specify the supported bit format on DP end point -->
+            <!--this should be in the form of pal_audio_fmt_id-->
+            <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>-->
+            <!--We support 24 bit for DP as of now, as SPF needs to conform to IEC 60958 packet format -->
+            <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>
             <snd_device_name>display-port</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
@@ -737,11 +749,17 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_AUX_DIGITAL_1</id>
-            <back_end_name>DISPLAY_PORT-RX</back_end_name>
+            <back_end_name>DISPLAY_PORT-RX-0</back_end_name>
             <max_channels>8</max_channels>
             <channels>2</channels>
             <snd_device_name>display-port</snd_device_name>
             <fractional_sr>1</fractional_sr>
+            <!--specify the supported bit format on DP end point -->
+            <!--this should be in the form of pal_audio_fmt_id-->
+            <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>-->
+            <!--We support 24 bit for DP as of now, as SPF needs to conform to IEC 60958 packet format -->
+            <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <priority>1</priority>
@@ -1340,8 +1358,8 @@
                 <param out_channels="1" />
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
-                    <high_performance capture_profile_handset="DUAL_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
-                    <high_performance_and_charging capture_profile_handset="DUAL_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
+                    <high_performance capture_profile_handset="DUAL_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
+                    <high_performance_and_charging capture_profile_handset="DUAL_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
                 <sound_model_info>
                     <first_stage_module_params>
@@ -1412,8 +1430,8 @@
                 <param out_channels="1" />
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
-                    <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_RAW_NLPI" />
-                    <high_performance_and_charging capture_profile_handset="DUAL_MIC_48KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_RAW_NLPI" />
+                    <high_performance capture_profile_handset="DUAL_MIC_16KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_NLPI" />
+                    <high_performance_and_charging capture_profile_handset="DUAL_MIC_16KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_NLPI" />
                 </operating_modes>
                 <sound_model_info>
                     <first_stage_module_params>
