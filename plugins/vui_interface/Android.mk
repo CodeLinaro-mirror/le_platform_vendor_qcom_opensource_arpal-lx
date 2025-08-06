@@ -13,6 +13,7 @@ LOCAL_SRC_FILES := \
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/inc
 
+LOCAL_CFLAGS        += -Wno-ignored-attributes
 LOCAL_HEADER_LIBRARIES := \
     libarpal_headers \
     libarvui_intf_headers \
