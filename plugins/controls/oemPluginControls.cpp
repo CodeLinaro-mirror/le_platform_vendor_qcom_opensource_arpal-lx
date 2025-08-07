@@ -49,7 +49,10 @@
 #include "vcpm_api.h"
 #include "ResourceManager.h"
 #include "SessionAlsaVoice.h"
-
+#define MIN_VOLUME_VALUE_MB -9000
+#define MAX_VOLUME_VALUE_MB 0
+#define MIN_VOLUME_VALUE 0
+#define MAX_VOLUME_VALUE 1
 #define NUM_OF_CAL_KEYS 3
 #define MAX_VOL_INDEX 5
 #define MIN_VOL_INDEX 0
@@ -821,11 +824,21 @@ int setAudioVolume(Stream* s, float voldB, std::shared_ptr<ResourceManager> rm)
     // if AWX BUS Handle the volume appropriately
     if (true == checkIfAWXBus(sAttr.bus_addr ,&bus_index) && sAttr.direction != PAL_AUDIO_INPUT)
     {
+        float volume;
+        if (voldB >= MAX_VOLUME_VALUE) {
+            volume = MAX_VOLUME_VALUE_MB;
+        } else {
+            if (voldB <= MIN_VOLUME_VALUE) {
+                volume = MIN_VOLUME_VALUE_MB;
+            } else {
+                volume = ((voldB) * (MAX_VOLUME_VALUE_MB - MIN_VOLUME_VALUE_MB)) + MIN_VOLUME_VALUE_MB;
+            }
+        }
         PAL_ERR(LOG_TAG,"AWX Bus index %d",bus_index);
         // if its a valid AWX bus Additional Check should not happen ideally
         if (BUS_RESERVED != bus_index)
         {
-            status = setAWXVolume(s,voldB, rm,bus_index);
+            status = setAWXVolume(s,volume, rm,bus_index);
         }
         else
         {
