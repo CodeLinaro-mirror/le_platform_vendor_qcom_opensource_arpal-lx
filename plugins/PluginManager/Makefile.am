@@ -29,12 +29,12 @@ AM_CPPFLAGS += -I ${top_srcdir}/session/SessionAR/inc
 AM_CPPFLAGS += -I ${top_srcdir}/plugins/PluginManager/inc
 AM_CPPFLAGS += -I ${top_srcdir}/resource_manager/inc
 AM_CPPFLAGS += -I ${top_srcdir}/context_manager/inc
-AM_CPPFLAGS += -I ${top_srcdir}/api/vui-interface/
+AM_CPPFLAGS += -I ${top_srcdir}/plugins/vui_interface/api/vui-interface/
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
 AM_CPPFLAGS += @KVH2XML_CFLAGS@
 AM_CPPFLAGS += @PALHEADERS_CFLAGS@
 
-plugin_manager_sources = ${top_srcdir}/plugins/PluginManagersrc/PluginManager.cpp
+plugin_manager_sources = ${top_srcdir}/plugins/PluginManager/src/PluginManager.cpp
 endif
 
 library_includedir = $(includedir)/plugin_manager
