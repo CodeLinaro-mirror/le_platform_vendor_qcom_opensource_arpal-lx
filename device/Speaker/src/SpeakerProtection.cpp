@@ -479,6 +479,13 @@ int SpeakerProtection::spkrStartCalibration()
 
     sessionCb = handleSPCallback;
     PayloadBuilder* builder = new PayloadBuilder();
+    /* During device idle state after reboot and no audio usecase started,
+    PayloadBuilder is not initialized and usecase KVs not parsed leading to
+    start calibration failure. Initialize PayloadBuilder , it is ignored
+    if already initialized  */
+    ret = PayloadBuilder::init();
+    if (ret)
+        throw std::runtime_error("Failed to parse usecase manager xml");
 
     keyVector.clear();
     calVector.clear();
