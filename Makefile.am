@@ -156,15 +156,16 @@ libpal_la_CPPFLAGS += @GLIB_CFLAGS@
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcm6490/resourcemanager_qcm6490_idp.xml \
-                      ./configs/qcm6490/mixer_paths_qcm6490_rb3.xml \
-                      ./configs/qcm6490/resourcemanager_qcm6490_rb3.xml \
-                      ./configs/qcm6490/mixer_paths_qcm6490_rb3_vision.xml \
-                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_vision.xml \
-                      ./configs/qcm6490/mixer_paths_qcm6490_rb3_vc.xml \
-                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_vc.xml \
+                      ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2.xml \
+                      ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2.xml \
+                      ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2_vision.xml \
+                      ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2_vision.xml \
+                      ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2_video.xml \
+                      ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2_video.xml \
                       ./configs/qcm6490/usecaseKvManager.xml \
-                      ./configs/qcm6490/mixer_paths_qcm6490_rb3_ia.xml \
-                      ./configs/qcm6490/resourcemanager_qcm6490_rb3_ia.xml \
+                      ./configs/qcs6490/usecaseKvManager_qcs6490.xml \
+                      ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2_ia.xml \
+                      ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2_ia.xml \
                       ./configs/iq8-8275-evk/mixer_paths_iq8_8275_evk.xml \
                       ./configs/iq8-8275-evk/resourcemanager_iq8_8275_evk.xml \
                       ./configs/qcs8300/mixer_paths_qcs8300_ridesx.xml \
@@ -210,15 +211,16 @@ install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs9075_rb8.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_idp.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_idp.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_vision.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_vision.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_vc.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_vc.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs6490_rb3gen2.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2_vision.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs6490_rb3gen2_vision.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2_video.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs6490_rb3gen2_video.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_ia.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_ia.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager_qcs6490.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2_ia.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs6490_rb3gen2_ia.xml
 
 adsprpc_sources = adsprpcd/adsprpcd.c
 
