@@ -236,7 +236,6 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
     }
 
     s->getStreamAttributes(&sAttr);
-    notify_concurrent_stream(sAttr.type, sAttr.direction, true);
 
     if (cb)
        s->registerCallBack(cb, cookie);
@@ -326,7 +325,6 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
     }
 exit:
     s->getStreamAttributes(&sAttr);
-    notify_concurrent_stream(sAttr.type, sAttr.direction, false);
     if (sAttr.type == PAL_STREAM_VOICE_CALL)
         rm->setCRSCallEnabled(false);
     rm->eraseStreamUserCounter(s);
