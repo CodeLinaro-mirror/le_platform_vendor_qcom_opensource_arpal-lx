@@ -610,8 +610,31 @@ int32_t pal_stream_get_param(pal_stream_handle_t *stream_handle,
     }
     PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
     kpiEnqueue(__func__, true);
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        kpiEnqueue(__func__, false);
+        return status;
+    }
+
     s =  reinterpret_cast<Stream *>(stream_handle);
+    status = rm->increaseStreamUserCounter(s);
+    if (0 != status) {
+        rm->unlockActiveStream();
+        PAL_ERR(LOG_TAG, "failed to increase stream user count");
+        kpiEnqueue(__func__, false);
+        return status;
+    }
+    rm->unlockActiveStream();
+
     status = s->getParameters(param_id, (void **)param_payload);
+
+    rm->lockActiveStream();
+    rm->decreaseStreamUserCounter(s);
+    rm->unlockActiveStream();
+
     if (0 != status) {
         PAL_ERR(LOG_TAG, "get parameters failed status %d param_id %u", status, param_id);
         kpiEnqueue(__func__, false);
@@ -634,21 +657,45 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle, uint32_t param_
         PAL_ERR(LOG_TAG,  "Invalid stream handle, status %d", status);
         return status;
     }
-    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK param_id %d", stream_handle,
-            param_id);
-    s =  reinterpret_cast<Stream *>(stream_handle);
-    status = s->setParameters(param_id, (void *)param_payload);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG, "set parameters failed status %d param_id %u", status, param_id);
-        return status;
-    }
     rm = ResourceManager::getInstance();
     if (!rm) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "Invalid resource manager");
         return status;
     }
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK param_id %d", stream_handle,
+            param_id);
     kpiEnqueue(__func__, true);
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        kpiEnqueue(__func__, false);
+        return status;
+    }
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = rm->increaseStreamUserCounter(s);
+    if (0 != status) {
+        rm->unlockActiveStream();
+        PAL_ERR(LOG_TAG, "failed to increase stream user count");
+        kpiEnqueue(__func__, false);
+        return status;
+    }
+    rm->unlockActiveStream();
+
+    status = s->setParameters(param_id, (void *)param_payload);
+
+    rm->lockActiveStream();
+    rm->decreaseStreamUserCounter(s);
+    rm->unlockActiveStream();
+
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "set parameters failed status %d param_id %u", status, param_id);
+        kpiEnqueue(__func__, false);
+        return status;
+    }
     if (param_id == PAL_PARAM_ID_STOP_BUFFERING) {
         PAL_DBG(LOG_TAG, "Buffering stopped, handle deferred LPI<->NLPI switch");
         rm->handleDeferredSwitch();
