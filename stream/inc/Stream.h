@@ -148,6 +148,7 @@ protected:
     uint32_t mNoOfDevices;
     std::vector <std::shared_ptr<Device>> mDevices;  //current running devices
     std::vector <std::shared_ptr<Device>> mPalDevices; // pal devices set from client, which may differ from mDevices
+    std::vector <struct pal_device> mPalDevice;  // pal devices get for micocclusion
     Session* session;
     struct pal_stream_attributes* mStreamAttr;
     int mGainLevel;
@@ -224,7 +225,7 @@ public:
     uint32_t getRenderLatency();
     uint32_t getLatency();
     int32_t getAssociatedDevices(std::vector <std::shared_ptr<Device>> &adevices);
-    int32_t getAssociatedPalDevices(std::vector <struct pal_device> &palDevices);
+    int32_t getAssociatedPalDevices(std::vector <std::shared_ptr<Device>>  &palDevices);
     int32_t getPalDevices(std::vector <std::shared_ptr<Device>> &PalDevices);
     void removePalDevice(Stream *streamHandle, int palDevId);
     void clearOutPalDevices(Stream *streamHandle);
@@ -281,6 +282,8 @@ public:
                                                            uint32_t event_size);
     static void handleStreamException(struct pal_stream_attributes *attributes,
                                       pal_stream_callback cb, uint64_t cookie);
+    static void handleSessionCallBack(uint64_t hdl, uint32_t event_id, void *data,
+                                                           uint32_t event_size);
     void lockStreamMutex() {
         mStreamMutex.lock();
         mutexLockedbyRm = true;

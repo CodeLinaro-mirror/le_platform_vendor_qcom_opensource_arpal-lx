@@ -28,40 +28,10 @@
  */
 
 /*
-Changes from Qualcomm Innovation Center are provided under the following license:
-Copyright (c) 2022, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
-
-Redistribution and use in source and binary forms, with or without
-modification, are permitted (subject to the limitations in the
-disclaimer below) provided that the following conditions are met:
-
-    * Redistributions of source code must retain the above copyright
-      notice, this list of conditions and the following disclaimer.
-
-    * Redistributions in binary form must reproduce the above
-      copyright notice, this list of conditions and the following
-      disclaimer in the documentation and/or other materials provided
-      with the distribution.
-
-    * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
-      contributors may be used to endorse or promote products derived
-      from this software without specific prior written permission.
-
-NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
-GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
-HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
-WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
-IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
-ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
-DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
-GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
-INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
-IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
-IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-*/
-
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
+ */
 
 #define LOG_TAG "PAL: SessionAlsaVoice"
 
@@ -97,6 +67,9 @@ SessionAlsaVoice::SessionAlsaVoice(std::shared_ptr<ResourceManager> Rm)
    if (max_vol_index == -1){
       max_vol_index = MAX_VOL_INDEX;
    }
+   isMixerEventCbRegd = false;
+   isPauseRegistrationDone = false;
+   isMicOcclusionRegistrationDone = false;
 }
 
 SessionAlsaVoice::~SessionAlsaVoice()
@@ -219,6 +192,13 @@ int SessionAlsaVoice::prepare(Stream * s __unused)
    return 0;
 }
 
+int SessionAlsaVoice::registerCallBack(session_callback cb, uint64_t cookie)
+{
+    sessionCb = cb;
+    cbCookie = cookie;
+    return 0;
+}
+
 int SessionAlsaVoice::open(Stream * s)
 {
     int status = -EINVAL;
@@ -285,7 +265,19 @@ int SessionAlsaVoice::open(Stream * s)
         pcmDevRxIds.clear();
         pcmDevTxIds.clear();
     }
+    else {
 
+        // Register for  mixer event callback for mic occlusion.
+        status = rm->registerMixerEventCallback(pcmDevTxIds, sessionCb,
+                        cbCookie, true);
+        if (status == 0) {
+            PAL_DBG(LOG_TAG, " register mixer event callback is SUCCESSFUL!");
+            isMixerEventCbRegd = true;
+        } else {
+             // Not a fatal error
+             PAL_ERR(LOG_TAG, " Failed to register callback to rm, status: %d",status);
+        }
+    }
 exit:
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
@@ -886,6 +878,36 @@ int SessionAlsaVoice::start(Stream * s)
             }
         }
     }
+
+    if (!status && isMixerEventCbRegd) {
+        // Register for callback for Mic Occlusion Notification
+        size_t payload_size = 0;
+        struct agm_event_reg_cfg event_cfg;
+        payload_size = sizeof(struct agm_event_reg_cfg);
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        event_cfg.event_id = EVENT_ID_MIC_OCCLUSION_STATUS_INFO;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 1;
+        if(!pcmDevTxIds.size()) {
+            PAL_ERR(LOG_TAG," pcmDevIds not found ");
+            goto exit;
+        }
+        status = SessionAlsaUtils::registerMixerEvent(mixer,
+                                    pcmDevTxIds.at(0),
+                                    txAifBackEnds[0].second.data(),
+                                    TAG_MODULE_MIC_OCCLUSION_DET,
+                                    (void *)&event_cfg, payload_size);
+        if (status == 0) {
+            PAL_DBG(LOG_TAG, "micOcclusion event Registration is SUCCESS");
+            isMicOcclusionRegistrationDone = true;
+            rm->addMicOcclusionInfo(s);
+        } else {
+            // Not a fatal error
+            PAL_ERR(LOG_TAG, "Mic Occlusion callback registration failed %d", status);
+            status = 0;
+        }
+    }
+
     status = 0;
     goto exit;
 
@@ -925,6 +947,8 @@ int SessionAlsaVoice::stop(Stream * s)
     int status = 0;
     int txDevId = PAL_DEVICE_NONE;
     std::shared_ptr<Device> rxDevice = nullptr;
+    struct agm_event_reg_cfg event_cfg;
+    int payload_size = 0;
 
     PAL_DBG(LOG_TAG,"Enter");
     /*disable sidetone*/
@@ -962,6 +986,31 @@ int SessionAlsaVoice::stop(Stream * s)
     }
 
     rm->voteSleepMonitor(s, false);
+
+    // Deregister for callback for Mic Occlusion
+    if (!status && isMicOcclusionRegistrationDone) {
+        payload_size = sizeof(struct agm_event_reg_cfg);
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        event_cfg.event_id = EVENT_ID_MIC_OCCLUSION_STATUS_INFO;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 0;
+        if (!pcmDevTxIds.size()) {
+            PAL_ERR(LOG_TAG, "frontendIDs are not available");
+            status = -EINVAL;
+            goto exit;
+        }
+
+        SessionAlsaUtils::registerMixerEvent(mixer, pcmDevTxIds.at(0),
+                                    txAifBackEnds[0].second.data(),
+                                    TAG_MODULE_MIC_OCCLUSION_DET,
+                                    (void *)&event_cfg, payload_size);
+
+
+        isMicOcclusionRegistrationDone = false;
+        rm->removeMicOcclusionInfo(s);
+    }
+
+exit:
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
 }
@@ -1015,6 +1064,19 @@ int SessionAlsaVoice::close(Stream * s)
         status = pcm_close(pcmTx);
         if (status) {
             PAL_ERR(LOG_TAG, "pcm_close - tx failed %d", status);
+        }
+    }
+
+    // Deregister callback for Mixer Event
+    if (!status && isMixerEventCbRegd) {
+        status = rm->registerMixerEventCallback(pcmDevTxIds,
+                    sessionCb, cbCookie, false);
+        if (status == 0) {
+            isMixerEventCbRegd = false;
+        } else {
+            // Not a fatal error
+            PAL_ERR(LOG_TAG, "Failed to deregister callback to rm");
+            status = 0;
         }
     }
 
@@ -1659,6 +1721,8 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
     struct pal_device dAttr;
     int status = 0;
     int txDevId = PAL_DEVICE_NONE;
+    struct agm_event_reg_cfg event_cfg;
+    int payload_size = 0;
 
     deviceList.push_back(deviceToDisconnect);
     rm->getBackEndNames(deviceList, rxAifBackEnds,txAifBackEnds);
@@ -1690,6 +1754,29 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
                 }
             }
         }
+
+        // Deregister for callback for Mic Occlusion
+        if (!status && isMicOcclusionRegistrationDone) {
+            payload_size = sizeof(struct agm_event_reg_cfg);
+            memset(&event_cfg, 0, sizeof(event_cfg));
+            event_cfg.event_id = EVENT_ID_MIC_OCCLUSION_STATUS_INFO;
+            event_cfg.event_config_payload_size = 0;
+            event_cfg.is_register = 0;
+            if (!pcmDevTxIds.size()) {
+                PAL_ERR(LOG_TAG, "frontendIDs are not available");
+                status = -EINVAL;
+                goto disconnect;
+            }
+
+            SessionAlsaUtils::registerMixerEvent(mixer, pcmDevTxIds.at(0),
+                                            txAifBackEnds[0].second.data(),
+                                            TAG_MODULE_MIC_OCCLUSION_DET,
+                                            (void *)&event_cfg, payload_size);
+
+            isMicOcclusionRegistrationDone = false;
+            rm->removeMicOcclusionInfo(streamHandle);
+        }
+disconnect:
         status =  SessionAlsaUtils::disconnectSessionDevice(streamHandle,
                                                             streamType, rm,
                                                             dAttr, pcmDevTxIds,
@@ -1754,6 +1841,8 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
     struct pal_device dAttr;
     int status = 0;
     int txDevId = PAL_DEVICE_NONE;
+    struct agm_event_reg_cfg event_cfg;
+    int payload_size = 0;
 
     deviceList.push_back(deviceToConnect);
     rm->getBackEndNames(deviceList, rxAifBackEnds, txAifBackEnds);
@@ -1798,6 +1887,36 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
             return status;
         }
 
+        if (!status && isMixerEventCbRegd) {
+            // Register for callback for Mic Occlusion Notification
+            size_t payload_size = 0;
+            struct agm_event_reg_cfg event_cfg;
+            payload_size = sizeof(struct agm_event_reg_cfg);
+            memset(&event_cfg, 0, sizeof(event_cfg));
+            event_cfg.event_id = EVENT_ID_MIC_OCCLUSION_STATUS_INFO;
+            event_cfg.event_config_payload_size = 0;
+            event_cfg.is_register = 1;
+            if(!pcmDevTxIds.size()) {
+                PAL_ERR(LOG_TAG," pcmDevIds not found ");
+                goto sidetone;
+            }
+            status = SessionAlsaUtils::registerMixerEvent(mixer,
+                                    pcmDevTxIds.at(0),
+                                    txAifBackEnds[0].second.data(),
+                                    TAG_MODULE_MIC_OCCLUSION_DET,
+                                    (void *)&event_cfg, payload_size);
+            if (status == 0) {
+                PAL_DBG(LOG_TAG, " micOcclusion event Registration is SUCCESS");
+                isMicOcclusionRegistrationDone = true;
+                rm->addMicOcclusionInfo(streamHandle);
+            } else {
+                // Not a fatal error
+                PAL_ERR(LOG_TAG, "Mic Occlusion callback registration failed %d", status);
+                status = 0;
+            }
+        }
+
+sidetone:
         if(sideTone_cnt == 0) {
            if (deviceToConnect->getSndDeviceId() > PAL_DEVICE_IN_MIN &&
                deviceToConnect->getSndDeviceId() < PAL_DEVICE_IN_MAX) {
