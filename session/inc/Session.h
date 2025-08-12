@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023, 2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -45,7 +45,7 @@
 #include <errno.h>
 #include "PalCommon.h"
 #include "Device.h"
-
+#include "fluence_ffv_common_calibration.h"
 
 
 typedef enum {
@@ -102,6 +102,7 @@ protected:
 public:
     bool isMixerEventCbRegd;
     bool isPauseRegistrationDone;
+    bool isMicOcclusionRegistrationDone;
     virtual ~Session();
     static Session* makeSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
     static Session* makeACDBSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
