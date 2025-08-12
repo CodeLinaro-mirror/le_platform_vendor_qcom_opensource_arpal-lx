@@ -317,6 +317,7 @@ int32_t getConfigFunc(void** func, std::string name) {
         case PAL_STREAM_VOICE_CALL_RECORD:
         case PAL_STREAM_VOICE_CALL_MUSIC:
         case PAL_STREAM_ACD:
+        case PAL_STREAM_ASR:
         case PAL_STREAM_HAPTICS:
         case PAL_STREAM_CONTEXT_PROXY:
         case PAL_STREAM_ULTRASOUND:
