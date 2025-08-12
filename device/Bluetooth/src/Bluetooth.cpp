@@ -2533,7 +2533,14 @@ int32_t BtSco::setDeviceParameter(uint32_t param_id, void *param)
 
 bool BtSco::isScoNbWbActive()
 {
+#ifdef BTSCO_NB_RAT_UNSUPPORTED
+    if (codecFormat == CODEC_TYPE_INVALID) {
+         return false;
+    }
+    return true;
+#else
     return codecFormat == CODEC_TYPE_INVALID;
+#endif
 }
 
 void BtSco::convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo,
