@@ -27,8 +27,6 @@ class PalService : public BnPalService {
         virtual int32_t ipc_pal_stream_suspend(pal_stream_handle_t *stream_handle) override;
         virtual int32_t ipc_pal_stream_get_buffer_size(pal_stream_handle_t *stream_handle,
                                                        size_t *in_buffer, size_t *out_buffer) override;
-        virtual int32_t ipc_pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
-                                                                 size_t *size ,uint8_t *payload) override;
         virtual int32_t ipc_pal_stream_set_buffer_size(pal_stream_handle_t *stream_handle,
                                                        pal_buffer_config_t *in_buff_cfg,
                                                        pal_buffer_config_t *out_buff_cfg) override;
@@ -64,13 +62,18 @@ class PalService : public BnPalService {
         virtual int32_t ipc_pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
                                                 struct pal_mmap_position *position) override;
         virtual int32_t ipc_pal_register_global_callback(pal_global_callback cb, uint64_t cookie) override;
-        virtual int32_t ipc_pal_gef_rw_param(uint32_t param_id, void *param_payload,
-                                    size_t payload_size, pal_device_id_t pal_device_id,
-                                    pal_stream_type_t pal_stream_type, unsigned int dir) override;
-        virtual int32_t ipc_pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
-                                        size_t payload_size, pal_device_id_t pal_device_id,
-                                        pal_stream_type_t pal_stream_type, uint32_t sample_rate,
-                                        uint32_t instance_id, uint32_t dir, bool is_play) override;
+        virtual int32_t ipc_pal_stream_set_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t payload_size) override;
+        virtual int32_t ipc_pal_stream_get_custom_param(pal_stream_handle_t* handle,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t* payload_size) override;
+        virtual int32_t ipc_pal_set_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t payload_size) override;
+        virtual int32_t ipc_pal_get_custom_param(custom_payload_uc_info_t* uc_info,
+              const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+              void* param_payload, size_t* payload_size) override;
 
     private:
         bool pal_initialized = false;

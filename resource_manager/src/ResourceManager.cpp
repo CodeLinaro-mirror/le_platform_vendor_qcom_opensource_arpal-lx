@@ -1491,6 +1491,7 @@ int ResourceManager::init_audio()
                 /* TODO: Needs to extend for new targets */
                 if (strstr(snd_card_name, "kona") ||
                     strstr(snd_card_name, "sm8150") ||
+                    strstr(snd_card_name, "sm6150") ||
                     strstr(snd_card_name, "sdx")||
                     strstr(snd_card_name, "lahaina") ||
                     strstr(snd_card_name, "waipio") ||
@@ -3632,7 +3633,7 @@ void ResourceManager::mixerEventWaitThreadLoop(
         PAL_VERBOSE(LOG_TAG, "mixer_wait_event returns %d", ret);
         if (ret <= 0) {
             PAL_DBG(LOG_TAG, "mixer_wait_event err! ret = %d", ret);
-        } else if (ret > 0) {
+        } else if (ret > 0 && (!ResourceManager::mixerClosed)) {
             ret = mixer_read_event(mixer, &mixer_event);
             if (ret >= 0) {
                 if (strstr((char *)mixer_event.data.elem.id.name, (char *)"event")) {
@@ -3763,7 +3764,8 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     }
 
     // callback
-    if (params->event_id == AGM_EVENT_EARLY_EOS) {
+    if (params->event_id == AGM_EVENT_EARLY_EOS ||
+        params->event_id == AGM_EVENT_EARLY_EOS_INTERNAL) {
          PAL_DBG(LOG_TAG, "Event will be handled by offload Thread loop");
     } else {
         session_cb(cookie, params->event_id, (void *)params->event_payload,
