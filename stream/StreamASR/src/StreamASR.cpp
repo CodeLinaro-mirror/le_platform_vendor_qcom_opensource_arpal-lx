@@ -528,7 +528,7 @@ int32_t StreamASR::setECRef(std::shared_ptr<Device> dev, bool isEnable)
     int32_t status = 0;
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
-    if (getLPIUsage()) {
+    if (ConfigSupportLPI() && getLPIUsage()) {
         PAL_INFO(LOG_TAG, "EC ref will be handled in LPI/NLPI switch");
         return status;
     }
@@ -596,7 +596,7 @@ std::shared_ptr<CaptureProfile> StreamASR::GetCurrentCaptureProfile()
     if (!UseLpiCaptureProfile())
         registerNLPIStream(this);
 
-    if (getLPIUsage())
+    if (ConfigSupportLPI() && getLPIUsage())
         operatingMode = ST_OPERATING_MODE_LOW_POWER;
 
     capProf = smCfg->GetCaptureProfile(
@@ -758,7 +758,7 @@ int32_t StreamASR::SetupDetectionEngine()
         }
     }
 
-    if (getLPIUsage() &&
+    if (ConfigSupportLPI() && getLPIUsage() &&
        !UseLpiCaptureProfile()) {
         mStreamMutex.unlock();
         registerNLPIStream(this);
@@ -1204,7 +1204,7 @@ int32_t StreamASR::ASRActive::ProcessEvent(
                 PAL_ERR(LOG_TAG, "Error:%d Device close failed", status);
             asrStream.deviceOpened = false;
 
-            if (getLPIUsage() &&
+            if (asrStream.ConfigSupportLPI() && getLPIUsage() &&
                 !asrStream.UseLpiCaptureProfile()) {
                 asrStream.mStreamMutex.unlock();
                 forceSwitchSoundTriggerStreams(false);
