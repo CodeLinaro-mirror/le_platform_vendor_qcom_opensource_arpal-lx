@@ -911,7 +911,8 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                 }
             }
         }
-        if (!force_switch && (activeDevices == newDevices)) {
+        if (!force_switch && (activeDevices == newDevices) &&
+                             (curPalDevices == newDevices)) {
             status = 0;
             PAL_DBG(LOG_TAG, "devices are same, no need to switch");
             goto exit;
