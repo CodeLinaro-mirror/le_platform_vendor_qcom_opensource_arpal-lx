@@ -569,7 +569,7 @@ void PayloadBuilder::payloadDpAudioConfig(uint8_t** payload, size_t* size,
     *payload = payloadInfo;
     PAL_DBG(LOG_TAG, "Exit:");
 }
-
+#ifdef SOUNDDOSE_SUPPORTED
 int PayloadBuilder::payloadSoundDoseInfo(uint8_t **payload, size_t *size, uint32_t moduleId)
 {
     struct apm_module_param_data_t* header;
@@ -597,6 +597,7 @@ int PayloadBuilder::payloadSoundDoseInfo(uint8_t **payload, size_t *size, uint32
     PAL_DBG(LOG_TAG, "payload %pK size %zu", *payload, *size);
     return 0;
 }
+#endif
 
 #define PLAYBACK_VOLUME_MAX 0x2000
 void PayloadBuilder::payloadVolumeConfig(uint8_t** payload, size_t* size,

@@ -1347,9 +1347,9 @@ BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
 #else
     a2dpLatencyMode = AUDIO_LATENCY_MODE_FREE;
 #endif
-
+#ifdef SOUNDDOSE_SUPPORTED
     mSoundDose = std::make_unique<SoundDoseUtility>(this, *device);
-
+#endif
     if (isA2dpOffloadSupported) {
         init();
     }
@@ -1670,6 +1670,7 @@ void BtA2dp::init()
 int BtA2dp::start()
 {
     int status = 0;
+#ifdef SOUNDDOSE_SUPPORTED
     mDeviceMutex.lock();
 
     status = (a2dpRole == SOURCE) ? startPlayback() : startCapture();
@@ -1701,6 +1702,7 @@ int BtA2dp::start()
         startAbr();
 exit:
     mDeviceMutex.unlock();
+#endif
     return status;
 }
 
@@ -1708,7 +1710,7 @@ int BtA2dp::stop()
 {
     int status = 0;
     PAL_DBG(LOG_TAG, " Enter %s",__func__);
-
+#ifdef SOUNDDOSE_SUPPORTED
     mDeviceMutex.lock();
     if (isAbrEnabled)
         stopAbr();
@@ -1723,7 +1725,7 @@ int BtA2dp::stop()
     /* Stop sound dose graph & de-register for the events.*/
     status = (a2dpRole == SOURCE) ? stopPlayback() : stopCapture();
     mDeviceMutex.unlock();
-
+#endif
     PAL_DBG(LOG_TAG, "Exit %s",__func__);
     return status;
 }

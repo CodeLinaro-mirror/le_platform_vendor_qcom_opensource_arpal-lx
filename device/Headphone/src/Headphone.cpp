@@ -73,7 +73,7 @@ std::shared_ptr<Device> Headphone::getObject(pal_device_id_t id)
 Headphone::Headphone(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
 Device(device, Rm)
 {
-#ifndef SOUNDDOSE_UNSUPPORTED
+#ifdef SOUNDDOSE_SUPPORTED
     mSoundDose = std::make_unique<SoundDoseUtility>(this, *device);
 #endif
 }
@@ -192,7 +192,7 @@ int32_t Headphone::getDeviceConfig(struct pal_device *deviceattr,
 
 int Headphone::start() {
     int status = 0;
-#ifndef SOUNDDOSE_UNSUPPORTED
+#ifdef SOUNDDOSE_SUPPORTED
     mDeviceMutex.lock();
 
     // start computation for first start instance
@@ -208,8 +208,7 @@ int Headphone::start() {
 
 int Headphone::stop() {
     int status = 0;
-#ifndef SOUNDDOSE_UNSUPPORTED
-
+#ifdef SOUNDDOSE_SUPPORTED
     mDeviceMutex.lock();
 
     // stop computation only when 1 instance is left
