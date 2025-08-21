@@ -48,6 +48,8 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <device name="PAL_DEVICE_IN_SPEAKER_MIC" lib="libdev_speaker_mic.so" entryFunction="CreateSpeakerMicDevice"/>
         <device name="PAL_DEVICE_IN_HEADSET_VA_MIC" lib="libdev_headset_va.so" entryFunction="CreateHeadsetVaDevice"/>
         <!--Bluetooth-->
+        <device name="PAL_DEVICE_OUT_BLUETOOTH_SCO" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
+        <device name="PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <device name="PAL_DEVICE_OUT_BLUETOOTH_A2DP" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <device name="PAL_DEVICE_IN_BLUETOOTH_A2DP" lib="libdev_bt.so" entryFunction="CreateBtDevice"/>
         <!--HFP-->

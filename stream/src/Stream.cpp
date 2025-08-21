@@ -2407,9 +2407,13 @@ int32_t Stream::setVolume(struct pal_volume_data *volume) {
         status = rm->controlPluginSet(this, PLUGIN_CONTROL_VOLUME,
             (void*)mVolumeData, vol_size);
         if (0 != status) {
-            PAL_ERR(LOG_TAG, "Plugin Control Volume failed %d",
-                status);
-            goto exit;
+            PAL_INFO(LOG_TAG, "Plugin Control Volume failed with status %d. Default Plugin "
+              "Controls may not be loaded. Triggering fallback mechanism",status);
+            status = session->setVolume(this);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Fallback mechanism for setvolume also failed %d",status);
+                goto exit;
+            }
         }
     }
     PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
