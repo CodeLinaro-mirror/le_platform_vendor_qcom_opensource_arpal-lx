@@ -4628,7 +4628,6 @@ std::vector<Stream*> ResourceManager::getConcurrentTxStream_l(
         status = -EINVAL;
         goto exit;
     }
-
     for (auto& tx_str: mActiveStreams) {
         tx_device_list.clear();
         tx_str->getStreamAttributes(&tx_attr);
