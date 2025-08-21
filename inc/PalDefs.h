@@ -803,6 +803,7 @@ typedef enum {
     PAL_PARAM_ID_VOLUME_SOFT_PARAMS = 87,
     PAL_PARAM_ID_PLUGIN_PARAM = 88,
     PAL_PARAM_ID_PLUGIN_CLOSE = 89,
+    PAL_PARAM_ID_SET_HFP_ZONE = 90,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
