@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 #define LOG_TAG "PAL: Stream"
@@ -2407,9 +2407,13 @@ int32_t Stream::setVolume(struct pal_volume_data *volume) {
         status = rm->controlPluginSet(this, PLUGIN_CONTROL_VOLUME,
             (void*)mVolumeData, vol_size);
         if (0 != status) {
-            PAL_ERR(LOG_TAG, "Plugin Control Volume failed %d",
-                status);
-            goto exit;
+            PAL_INFO(LOG_TAG, "Plugin Control Volume failed with status %d. Default Plugin "
+              "Controls may not be loaded. Triggering fallback mechanism",status);
+            status = session->setVolume(this);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Fallback mechanism for setvolume also failed %d",status);
+                goto exit;
+            }
         }
     }
     PAL_DBG(LOG_TAG, "Exit. Volume payload No.of vol pair:%d ch mask:%x gain:%f",
