@@ -44,6 +44,7 @@
 #include <regex>
 
 #define BT_IPC_SOURCE_LIB "btaudio_offload_if.so"
+#define BT_IPC_SOURCE_LIB_LINUX_EMBEDDED "libbthost_if.so"
 #define BT_IPC_SINK_LIB "libbthost_if_sink.so"
 #define PARAM_ID_RESET_PLACEHOLDER_MODULE          0x08001173
 #define MIXER_SET_FEEDBACK_CHANNEL "BT set feedback channel"
@@ -1245,8 +1246,13 @@ void BtA2dp::init_a2dp_source()
 {
     PAL_DBG(LOG_TAG, "init_a2dp_source START");
     if (bt_lib_source_handle == nullptr) {
-        PAL_DBG(LOG_TAG, "Requesting for BT lib handle");
-        bt_lib_source_handle = dlopen(BT_IPC_SOURCE_LIB, RTLD_NOW);
+        #ifdef LINUX_ENABLED
+            PAL_DBG(LOG_TAG, "Requesting for BT lib handle: %s", BT_IPC_SOURCE_LIB_LINUX_EMBEDDED);
+            bt_lib_source_handle = dlopen(BT_IPC_SOURCE_LIB_LINUX_EMBEDDED, RTLD_NOW);
+        #else
+            PAL_DBG(LOG_TAG, "Requesting for BT lib handle: %s", BT_IPC_SOURCE_LIB);
+            bt_lib_source_handle = dlopen(BT_IPC_SOURCE_LIB, RTLD_NOW);
+        #endif
         if (bt_lib_source_handle == nullptr) {
             PAL_ERR(LOG_TAG, "dlopen failed for %s", BT_IPC_SOURCE_LIB);
             return;
