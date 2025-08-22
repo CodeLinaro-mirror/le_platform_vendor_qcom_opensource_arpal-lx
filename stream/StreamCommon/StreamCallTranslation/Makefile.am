@@ -2,7 +2,7 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = stream_calltranslation.pc
 EXTRA_DIST = $(pkgconfig_DATA)
 
-
+if BUILDSYSTEM_OPENWRT
 AM_CPPFLAGS := -I ./inc
 AM_CPPFLAGS += -I ../inc
 AM_CPPFLAGS += -I $(top_srcdir)/inc
@@ -18,7 +18,28 @@ AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/vui_interface/api/vui-interface
 
 stream_calltranslation_sources = ./src/StreamCallTranslation.cpp
+else
+AM_CPPFLAGS := -I $(top_srcdir)/stream/StreamCommon/StreamSensorPCMData/inc
+AM_CPPFLAGS += -I $(top_srcdir)/stream/StreamCommon/StreamCallTranslation/inc
+AM_CPPFLAGS += -I $(top_srcdir)/stream/StreamCommon/inc
+AM_CPPFLAGS += -I $(top_srcdir)/inc
+AM_CPPFLAGS += -I $(top_srcdir)/stream/inc
+AM_CPPFLAGS += -I $(top_srcdir)
+AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
+AM_CPPFLAGS += -I $(top_srcdir)/device/inc
+AM_CPPFLAGS += -I $(top_srcdir)/session/inc
+AM_CPPFLAGS += -I $(top_srcdir)/stream/inc
+AM_CPPFLAGS += -I $(top_srcdir)/session/SessionAR/inc
+AM_CPPFLAGS += -I $(top_srcdir)/plugins/PluginManager/inc
+AM_CPPFLAGS += -I $(top_srcdir)/resource_manager/inc
+AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
+AM_CPPFLAGS += -I $(top_srcdir)/plugins/vui_interface/api/vui-interface
+AM_CPPFLAGS += @SPF_CFLAGS@
+AM_CPPFLAGS += @AROUTE_CFLAGS@
+AM_CPPFLAGS += @KVH2XML_CFLAGS@
 
+stream_calltranslation_sources = $(top_srcdir)/stream/StreamCommon/StreamCallTranslation/src/StreamCallTranslation.cpp
+endif
 library_includedir = $(includedir)/stream_calltranslation
 
 lib_LTLIBRARIES     = libstream_calltranslation.la
@@ -33,4 +54,7 @@ libstream_calltranslation_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\
 
 if BUILDSYSTEM_OPENWRT
 libstream_calltranslation_la_LIBADD += -lglib-2.0
+endif
+if BUILDSYSTEM_TELEMATICS
+libstream_calltranslation_la_CPPFLAGS  +=  -DPAL_USE_SYSLOG -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
 endif
