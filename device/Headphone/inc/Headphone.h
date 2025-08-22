@@ -37,7 +37,7 @@
 #include "Device.h"
 #include "PalAudioRoute.h"
 
-#ifndef SOUNDDOSE_UNSUPPORTED
+#ifdef SOUNDDOSE_SUPPORTED
 #include "SoundDoseUtility.h"
 #endif
 
@@ -69,7 +69,7 @@ public:
     virtual ~Headphone();
 
 private:
-#ifndef SOUNDDOSE_UNSUPPORTED
+#ifdef SOUNDDOSE_SUPPORTED
     std::unique_ptr<SoundDoseUtility> mSoundDose;
 #endif
 };

@@ -43,7 +43,9 @@
 #include <mutex>
 #include <system/audio.h>
 #include "Session.h"
+#ifdef SOUNDDOSE_SUPPORTED
 #include "SoundDoseUtility.h"
+#endif
 
 #define DISALLOW_COPY_AND_ASSIGN(name) \
     name(const name &); \
@@ -254,8 +256,9 @@ private:
     bool            support_bt_audio_pre_init;
     uint32_t        a2dpLatencyMode;
     uint32_t        codecLatency;
+#ifdef SOUNDDOSE_SUPPORTED
     std::unique_ptr<SoundDoseUtility> mSoundDose;
-
+#endif
     uint32_t getLatency(uint32_t slatency);
     int startPlayback();
     int stopPlayback();

@@ -9,8 +9,9 @@
 #include "Session.h"
 #include "ResourceManager.h"
 #include <unistd.h>
+#ifndef PAL_MEMLOG_UNSUPPORTED
 #include "MemLogBuilder.h"
-
+#endif
 
 extern "C" Stream* CreateCallTranslationStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                   const uint32_t no_of_devices, const struct modifier_kv *modifiers,

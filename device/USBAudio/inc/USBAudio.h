@@ -72,9 +72,9 @@
 #include <vector>
 #include <system/audio.h>
 #include <map>
-
+#ifdef SOUNDDOSE_SUPPORTED
 #include "SoundDoseUtility.h"
-
+#endif
 #define USB_BUFF_SIZE           4096
 #define CHANNEL_NUMBER_STR      "Channels: "
 #define PLAYBACK_PROFILE_STR    "Playback:"
@@ -210,7 +210,9 @@ public:
     ~USB();
 
   private:
+#ifdef SOUNDDOSE_SUPPORTED
     std::unique_ptr<SoundDoseUtility> mSoundDose;
+#endif
 };
 
 
