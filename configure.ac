@@ -7,7 +7,7 @@
 # Requires autoconf tool later than 2.61
 AC_PREREQ(2.69)
 # Initialize the audio-ms12-noship package version 1.0.0
-AC_INIT([pal],1.0.1)
+AC_INIT([pal],2.0.0)
 # Does not strictly follow GNU Coding standards
 AM_INIT_AUTOMAKE([foreign subdir-objects])
 
@@ -46,12 +46,11 @@ AC_ARG_WITH([openwrt],
     [with_openwrt=no])
 AM_CONDITIONAL([BUILDSYSTEM_OPENWRT], [test "x${with_openwrt}" = "xyes"])
 
-
 AC_ARG_WITH([versioned-lib],
-    AS_HELP_STRING([use versioned (default is no)]),
-    [with_versioned_lib=$withval],
-    [with_versioned_lib=no])
-AM_CONDITIONAL([USE_VERSIONED_SO], [test "x${with_versioned_lib}" = "xyes"])
+  [AS_HELP_STRING([--with-versioned-lib], [Enable versioned library installation])],
+  [with_versioned_lib=$withval],
+  [with_versioned_lib=no])
+AM_CONDITIONAL([USE_VERSIONED_SO], [test "x$with_versioned_lib" = "xyes"])
 
 AC_ARG_WITH([glib],
       AS_HELP_STRING([--with-glib],

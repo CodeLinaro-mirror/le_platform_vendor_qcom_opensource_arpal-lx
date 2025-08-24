@@ -12,18 +12,18 @@ override_dh_install:
 	dh_installsysusers
 
 	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_idp.xml $(DESTDIR)/etc/mixer_paths_qcm6490_idp.xml
-	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3.xml
-	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3_ia.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3_ia.xml
-	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3_vc.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3_vc.xml
-	install -D -m 644 debian/tmp/etc/mixer_paths_qcm6490_rb3_vision.xml $(DESTDIR)/etc/mixer_paths_qcm6490_rb3_vision.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs6490_rb3gen2.xml $(DESTDIR)/etc/mixer_paths_qcs6490_rb3gen2.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs6490_rb3gen2_ia.xml $(DESTDIR)/etc/mixer_paths_qcs6490_rb3gen2_ia.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs6490_rb3gen2_video.xml $(DESTDIR)/etc/mixer_paths_qcs6490_rb3gen2_video.xml
+	install -D -m 644 debian/tmp/etc/mixer_paths_qcs6490_rb3gen2_vision.xml $(DESTDIR)/etc/mixer_paths_qcs6490_rb3gen2_vision.xml
 	install -D -m 644 debian/tmp/etc/mixer_paths_qcs8300_ridesx.xml $(DESTDIR)/etc/mixer_paths_qcs8300_ridesx.xml
 	install -D -m 644 debian/tmp/etc/mixer_paths_qcs9075_rb8.xml $(DESTDIR)/etc/mixer_paths_qcs9075_rb8.xml
 	install -D -m 644 debian/tmp/etc/mixer_paths_qcs9100_ridesx.xml $(DESTDIR)/etc/mixer_paths_qcs9100_ridesx.xml
 	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_idp.xml $(DESTDIR)/etc/resourcemanager_qcm6490_idp.xml
-	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3.xml
-	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3_ia.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3_ia.xml
-	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3_vc.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3_vc.xml
-	install -D -m 644 debian/tmp/etc/resourcemanager_qcm6490_rb3_vision.xml $(DESTDIR)/etc/resourcemanager_qcm6490_rb3_vision.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs6490_rb3gen2.xml $(DESTDIR)/etc/resourcemanager_qcs6490_rb3gen2.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs6490_rb3gen2_ia.xml $(DESTDIR)/etc/resourcemanager_qcs6490_rb3gen2_ia.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs6490_rb3gen2_video.xml $(DESTDIR)/etc/resourcemanager_qcs6490_rb3gen2_video.xml
+	install -D -m 644 debian/tmp/etc/resourcemanager_qcs6490_rb3gen2_vision.xml $(DESTDIR)/etc/resourcemanager_qcs6490_rb3gen2_vision.xml
 	install -D -m 644 debian/tmp/etc/resourcemanager_qcs8300_ridesx.xml $(DESTDIR)/etc/resourcemanager_qcs8300_ridesx.xml
 	install -D -m 644 debian/tmp/etc/resourcemanager_qcs9075_rb8.xml $(DESTDIR)/etc/resourcemanager_qcs9075_rb8.xml
 	install -D -m 644 debian/tmp/etc/resourcemanager_qcs9100_ridesx.xml $(DESTDIR)/etc/resourcemanager_qcs9100_ridesx.xml

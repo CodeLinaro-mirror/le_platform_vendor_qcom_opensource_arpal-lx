@@ -1,3 +1,13 @@
+qcom-pal (2.0.0) unstable; urgency=low
+
+  * Introduced new API for SPR shared memory management.
+  * Enabled usage of versioned shared objects for dlopen operations.
+  * Added support for retrieving latency using DSP calls.
+  * Updated Debian packaging with audio node rules and metadata.
+  * Fixed compilation and memory handling issues.
+
+ -- Tejas Vijay Kanfade <tkanfade@qti.qualcomm.com>  Thu, 24 Jul 2025 03:43:00 -0700
+
 qcom-pal (1.0.0) unstable; urgency=low
 
   * Initial release.
