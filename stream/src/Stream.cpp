@@ -1854,6 +1854,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                             sAttr.type == PAL_STREAM_PCM_OFFLOAD) {
                             PAL_DBG(LOG_TAG, "mute stream %pk during switching", sharedStream);
                             sharedStream->mute(true);
+                            rm->increaseStreamUserCounter(sharedStream);
                             tempMutedStreams.push_back(sharedStream);
                         }
                     }
@@ -2033,10 +2034,13 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
 done:
     if (!tempMutedStreams.empty()) {
+        rm->lockActiveStream();
         for(sIter = tempMutedStreams.begin(); sIter != tempMutedStreams.end(); sIter++) {
             (*sIter)->mute(false);
+            rm->decreaseStreamUserCounter(*sIter);
             PAL_DBG(LOG_TAG, "unmute stream %pk during switching", *sIter);
         }
+        rm->unlockActiveStream();
     }
     tempMutedStreams.clear();
     mStreamMutex.lock();
