@@ -40,6 +40,12 @@ AC_ARG_WITH([openwrt],
     [with_openwrt=no])
 AM_CONDITIONAL([BUILDSYSTEM_OPENWRT], [test "x${with_openwrt}" = "xyes"])
 
+AC_ARG_WITH([telematics],
+    AS_HELP_STRING([use telematics (default is no)]),
+    [with_telematics=$withval],
+    [with_telematics=no])
+AM_CONDITIONAL([BUILDSYSTEM_TELEMATICS], [test "x${with_telematics}" = "xyes"])
+
 AC_ARG_WITH([glib],
       AS_HELP_STRING([--with-glib],
          [enable glib, Build against glib. Use this when building for HLOS systems which use glib]))
@@ -87,14 +93,18 @@ if (test "x${with_openwrt}" = "xno"); then
 PKG_CHECK_MODULES([PALHEADERS], [pal-headers])
 AC_SUBST([PALHEADERS_CFLAGS])
 
-PKG_CHECK_MODULES([CAPIV2HEADERS], [capiv2-api-headers])
-AC_SUBST([CAPIV2HEADERS_CFLAGS])
-
 PKG_CHECK_MODULES([KVH2XML], [kvh2xml])
 AC_SUBST([KVH2XML_CFLAGS])
 
 PKG_CHECK_MODULES([AROUTE], [audioroute])
 AC_SUBST([AROUTE_CFLAGS])
+
+fi
+
+if (test "x${with_openwrt}" = "xno" || test "x${with_telematics}" = "xno"); then
+
+PKG_CHECK_MODULES([CAPIV2HEADERS], [capiv2-api-headers])
+AC_SUBST([CAPIV2HEADERS_CFLAGS])
 
 fi
 
@@ -216,6 +226,14 @@ plugins/configs/qcom/mbb/default/ConfigSessionAlsaCompress/Makefile \
 plugins/configs/qcom/mbb/default/ConfigSessionAlsaCompress/session_compress_config.pc \
 plugins/configs/qcom/mbb/default/ConfigSessionAlsaVoice/Makefile \
 plugins/configs/qcom/mbb/default/ConfigSessionAlsaVoice/session_voice_config.pc \
+plugins/configs/qcom/telematics/default/ConfigSessionUtils/Makefile \
+plugins/configs/qcom/telematics/default/ConfigSessionUtils/session_utils_config.pc \
+plugins/configs/qcom/telematics/default/ConfigSessionAlsaPcm/Makefile \
+plugins/configs/qcom/telematics/default/ConfigSessionAlsaPcm/session_pcm_config.pc \
+plugins/configs/qcom/telematics/default/ConfigSessionAlsaCompress/Makefile \
+plugins/configs/qcom/telematics/default/ConfigSessionAlsaCompress/session_compress_config.pc \
+plugins/configs/qcom/telematics/default/ConfigSessionAlsaVoice/Makefile \
+plugins/configs/qcom/telematics/default/ConfigSessionAlsaVoice/session_voice_config.pc \
 plugins/PluginManager/Makefile \
 plugins/PluginManager/plugin_manager.pc \
 plugins/codecs/Makefile \
