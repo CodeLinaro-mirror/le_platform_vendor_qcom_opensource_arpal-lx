@@ -101,11 +101,11 @@ AC_SUBST([AROUTE_CFLAGS])
 
 fi
 
-if (test "x${with_openwrt}" = "xno" || test "x${with_telematics}" = "xno"); then
-
-PKG_CHECK_MODULES([CAPIV2HEADERS], [capiv2-api-headers])
-AC_SUBST([CAPIV2HEADERS_CFLAGS])
-
+if (test "x${with_openwrt}" = "xno"); then
+	if (test "x${with_telematics}" = "xno"); then
+	PKG_CHECK_MODULES([CAPIV2HEADERS], [capiv2-api-headers])
+	AC_SUBST([CAPIV2HEADERS_CFLAGS])
+	fi
 fi
 
 AC_ARG_WITH([acdbdata],
