@@ -2181,6 +2181,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
         case PAL_PARAM_ID_SDZ_FORCE_OUTPUT:
         case PAL_PARAM_ID_SDZ_SET_PARAM:
         case PAL_PARAM_ID_SDZ_ENABLE:
+        case PAL_PARAM_ID_FORCE_RECOGNITION:
+        case PAL_PARAM_ID_BUFFERING_MODE:
         {
             struct apm_module_param_data_t* header =
                 (struct apm_module_param_data_t *)payload;
@@ -3060,6 +3062,18 @@ int32_t SessionAlsaPcm::allocateFrontEndIds(const struct pal_stream_attributes &
             goto exit;
         }
         pcmDevIds.push_back(id);
+    } else if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+        if(sAttr.direction == PAL_AUDIO_OUTPUT)
+            id = rm->allocateFrontEndIds(PCM_PLAYBACK_NOCONFIG);
+        else
+            id = rm->allocateFrontEndIds(PCM_RECORD_NOCONFIG);
+
+        if (id < 0) {
+            PAL_ERR(LOG_TAG, "allocateFrontEndIds failed");
+            status = -EINVAL;
+            goto exit;
+        }
+        pcmDevIds.push_back(id);
     } else if (sAttr.type == PAL_STREAM_CONTEXT_PROXY || sAttr.type == PAL_STREAM_COMMON_PROXY) {
         id = rm->allocateFrontEndIds(PCM_RECORD_NOCONFIG);
         if (id < 0) {
@@ -3121,6 +3135,12 @@ void SessionAlsaPcm::freeFrontEndIds(const struct pal_stream_attributes &sAttr, 
         rm->freeFrontEndIds(PCM_RECORD_NONTUNNEL, pcmDevIds);
     else if (sAttr.type == PAL_STREAM_VOICE_CALL_MUSIC)
         rm->freeFrontEndIds(PCM_PLAYBACK_NONTUNNEL, pcmDevIds);
+    else if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+        if(sAttr.direction == PAL_AUDIO_OUTPUT)
+            rm->freeFrontEndIds(PCM_PLAYBACK_NOCONFIG, pcmDevIds);
+        else
+            rm->freeFrontEndIds(PCM_RECORD_NOCONFIG, pcmDevIds);
+    }
     else if (sAttr.type == PAL_STREAM_CONTEXT_PROXY || sAttr.type == PAL_STREAM_COMMON_PROXY)
         rm->freeFrontEndIds(PCM_RECORD_NOCONFIG, pcmDevIds);
     else {

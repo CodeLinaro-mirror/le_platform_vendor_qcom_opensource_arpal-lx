@@ -28,8 +28,8 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 #define LOG_TAG "PAL: libsession_pcm_config"
@@ -116,15 +116,17 @@ extern "C" int pcmPluginConfig(Stream* stream, plugin_config_name_t config,
 int32_t pcmPluginPreReconfig(Stream* s, void* pluginPayload) {
     int status = 0;
     struct ReconfigPluginPayload* reconfigPld = nullptr;
-    PluginPayload* ppld = nullptr;
-    reconfigPld = reinterpret_cast<ReconfigPluginPayload*>(pluginPayload);
 
     PAL_DBG(LOG_TAG,"Enter");
 
+    if (!pluginPayload) {
+        PAL_ERR(LOG_TAG, "plugin Payload is null");
+        return -EINVAL;
+    }
+    reconfigPld = reinterpret_cast<ReconfigPluginPayload*>(pluginPayload);
+
     if (!reconfigPld->config_ctrl.compare("silent_detection")) {
-        ppld->builder = reconfigPld->builder;
-        ppld->session = reconfigPld->session;
-        status = pcmSilenceDetectionConfig(SD_DISCONNECT, &reconfigPld->dAttr, ppld);
+        status = pcmSilenceDetectionConfig(SD_DISCONNECT, &reconfigPld->dAttr, pluginPayload);
     }
     return status;
 }
@@ -155,6 +157,8 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
     int DeviceId = 0;
     int tagId = 0;
     int payload_size = 0;
+    uint32_t tag = 0;
+    std::vector<uint32_t> MIIDs;
 
     PAL_DBG(LOG_TAG, "Enter");
     memset(&streamData, 0, sizeof(struct sessionToPayloadParam));
@@ -318,19 +322,23 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                 if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD)
                     status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),
                                                                 txAifBackEnds[0].second.data(),
-                                                                TAG_STREAM_MFC_SR, &miid);
+                                                                TAG_STREAM_MFC_SR, MIIDs);
                 else
                     status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),
-                                                                "ZERO", TAG_STREAM_MFC_SR, &miid);
+                                                                "ZERO", TAG_STREAM_MFC_SR, MIIDs);
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
                     goto exit;
                 }
                 if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
-                    PAL_ERR(LOG_TAG, "miid : %x id = %d, data %s\n", miid,
+                    for (const auto& miids : MIIDs) {
+                        PAL_ERR(LOG_TAG, "miid : %x id = %d, data %s\n", miids,
                         pcmDevIds.at(0), txAifBackEnds[0].second.data());
+                    }
                 } else {
-                    PAL_ERR(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
+                    for (const auto& miids : MIIDs) {
+                        PAL_ERR(LOG_TAG, "miid : %x id = %d\n", miids, pcmDevIds.at(0));
+                    }
                 }
 
                 if (isPalPCMFormat(sAttr.in_media_config.aud_fmt_id))
@@ -341,13 +349,15 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                 streamData.sampleRate = sAttr.in_media_config.sample_rate;
                 streamData.numChannel = sAttr.in_media_config.ch_info.channels;
                 streamData.ch_info = nullptr;
-                builder->payloadMFCConfig(&payload, &payloadSize, miid, &streamData);
-                if (payloadSize && payload) {
-                    status = builder->updateCustomPayload(payload, payloadSize);
-                    builder->freeCustomPayload(&payload, &payloadSize);
-                    if (0 != status) {
-                        PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
-                        goto exit;
+                for (const auto& miids : MIIDs) {
+                    builder->payloadMFCConfig(&payload, &payloadSize, miids, &streamData);
+                    if (payloadSize && payload) {
+                        status = builder->updateCustomPayload(payload, payloadSize);
+                        builder->freeCustomPayload(&payload, &payloadSize);
+                        if (0 != status) {
+                            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+                            goto exit;
+                        }
                     }
                 }
                 if (sAttr.type == PAL_STREAM_VOIP_TX) {
@@ -445,6 +455,32 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                                 goto set_mixer;
                             }
                         }
+                    }
+                }
+                if (sAttr.type == PAL_STREAM_VOIP_TX) {
+                    bool isVoiceActive = false;
+                    bool isTranslationActive = false;
+                    pal_stream_attributes streamAttr = {};
+                    for (auto& stream_itr: rm->getActiveStreamList()) {
+                        PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Mux-Demux module.");
+                        stream_itr->getStreamAttributes(&streamAttr);
+                        if (streamAttr.type == PAL_STREAM_VOICE_CALL) {
+                            isVoiceActive = true;
+                        } else if (streamAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+                            isTranslationActive = true;
+                        }
+                    }
+                    if (isVoiceActive && isTranslationActive) {
+                        tag = MUX_DEMUX_VOICE;
+                        PAL_DBG(LOG_TAG, "ongoing voice with Call Translation found, set TKV value as :%d", tag);
+                        status = session->setConfig(s, MODULE, tag);
+                        if (status) {
+                            PAL_ERR(LOG_TAG, "Failed setconfig for mux-demux tag = %d", status);
+                            goto set_mixer;
+                        }
+                    } else {
+                        PAL_ERR(LOG_TAG, "Cannot set the mux-demux tag, as ongoing voice with Call Translation not found");
+                        goto set_mixer;
                     }
                 }
 configure_pspfmfc:
@@ -648,6 +684,31 @@ set_mixer:
                 }
             }
         }
+        if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+            status = configureCallTranslationModules(s, builder, mxr, session, rm);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set call translation modules, status = %d", status);
+                goto exit;
+            }
+            // configure the voice and voip mux_demux using tag.
+            for (auto& stream_itr: rm->getActiveStreamList()) {
+                PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Mux-Demux module.");
+                stream_itr->getStreamAttributes(&sAttr);
+                if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+                    tag = MUX_DEMUX_VOICE;
+                    break;
+                } else if (sAttr.type == PAL_STREAM_VOIP_TX) {
+                    tag = MUX_DEMUX_VOIP;
+                    break;
+                }
+            }
+            status = session->setConfig(s, MODULE, tag);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set mux-demux tag data, status = %d", status);
+                goto exit;
+            }
+            goto exit;
+        }
 
         if (rm->IsSilenceDetectionEnabledPcm() && sAttr.type != PAL_STREAM_VOICE_CALL_RECORD) {
             status = s->getAssociatedDevices(associatedDevices);
@@ -702,6 +763,35 @@ silence_det_setup_done:
             }
             if (0 != status) {
                 PAL_INFO(LOG_TAG, "Unable to configure MFC voice call has not started %d", status);
+            }
+            goto exit;
+        }
+        if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+            status = configureCallTranslationModules(s, builder, mxr, session, rm);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set call RX path translation modules, status = %d", status);
+                goto exit;
+            }
+            status = configureCallTranslationRxDeviceMFC(builder, mxr, session, rm);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to configure translation rx device mfc, status = %d", status);
+                goto exit;
+            }
+            for (auto& stream_itr: rm->getActiveStreamList()) {
+                PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Mux-Demux module.");
+                stream_itr->getStreamAttributes(&sAttr);
+                if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+                    tag = MUX_DEMUX_VOICE;
+                    break;
+                } else if (sAttr.type == PAL_STREAM_VOIP_RX) {
+                    tag = MUX_DEMUX_VOIP;
+                    break;
+                }
+            }
+            status = session->setConfig(s, MODULE, tag);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set mux-demux tag data, status = %d", status);
+                goto exit;
             }
             goto exit;
         }
@@ -1011,6 +1101,32 @@ silence_det_setup_done:
                 PAL_ERR(LOG_TAG, "setMixerParameter failed");
                 status = 0;
                 goto exit;
+            }
+        }
+        if (sAttr.type == PAL_STREAM_VOIP_RX) {
+            bool isVoiceActive = false;
+            bool isTranslationActive = false;
+            pal_stream_attributes streamAttr = {};
+            for (auto& stream_itr: rm->getActiveStreamList()) {
+                PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Mux-Demux module.");
+                stream_itr->getStreamAttributes(&streamAttr);
+                if (streamAttr.type == PAL_STREAM_VOICE_CALL) {
+                    isVoiceActive = true;
+                } else if (streamAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+                    isTranslationActive = true;
+                }
+            }
+            if (isVoiceActive && isTranslationActive) {
+                tag = MUX_DEMUX_VOICE;
+                PAL_DBG(LOG_TAG, "ongoing voice with Call Translation found, set TKV value as :%d", tag);
+                status = session->setConfig(s, MODULE, tag);
+                if (status) {
+                    PAL_ERR(LOG_TAG, "Failed setconfig for mux-demux tag = %d", status);
+                    goto set_mixer;
+                } else {
+                    PAL_ERR(LOG_TAG, "Cannot set the mux-demux tag, as ongoing voice with Call Translation not found");
+                    goto set_mixer;
+                }
             }
         }
         break;
@@ -1326,6 +1442,174 @@ int register_asps_event(uint32_t reg, SessionAlsaPcm* session, struct mixer* mxr
     SessionAlsaUtils::registerMixerEvent(mxr, pcmDevIds.at(0),
             (void *)event_cfg, payload_size);
     delete event_cfg;
+exit:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int32_t configureCallTranslationModules(Stream* s, PayloadBuilder* builder, struct mixer *mxr, SessionAlsaPcm* session, std::shared_ptr<ResourceManager> rm) {
+    uint8_t* paramData = NULL;
+    size_t paramSize = 0;
+    uint32_t miid = 0;
+    int status;
+    std::vector<int> pcmDevIds;
+    pal_asr_config* asr_payload;
+    pal_tts_config* tts_payload;
+    pal_nmt_config* nmt_payload;
+
+    PAL_DBG(LOG_TAG, "Enter");
+    status = session->getFrontEndIds(pcmDevIds);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getFrontEndIds failed %d", status);
+        goto exit;
+    }
+
+    asr_payload = &s->callTranslationConfigPayload->asr_module_config;
+
+    PAL_DBG(LOG_TAG, ": asr_payload : input_language_code=%d, output_language_code=%d, enable_language_detection=%d, enable_translation=%d,"
+                     "enable_continuous_mode=%d, enable_partial_transcription=%d, threshold=%d, timeout_duration=%d, vad_hangover_duration=%d",
+                     asr_payload->input_language_code, asr_payload->output_language_code, asr_payload->enable_language_detection,
+                     asr_payload->enable_translation, asr_payload->enable_continuous_mode, asr_payload->enable_partial_transcription,
+                     asr_payload->threshold, asr_payload->timeout_duration, asr_payload->silence_detection_duration);
+
+    status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),"ZERO", TRANSLATION_ASR, &miid);
+
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed %d", status);
+        goto exit;
+    }
+    builder->payloadASRConfig(&paramData, &paramSize, miid, asr_payload);
+    if (paramSize && paramData) {
+        status = builder->updateCustomPayload(paramData, paramSize);
+        builder->freeCustomPayload(&paramData, &paramSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+            goto exit;
+        }
+    }
+    builder->getCustomPayload(&paramData, &paramSize);
+
+    tts_payload = &s->callTranslationConfigPayload->tts_module_config;
+
+    PAL_DBG(LOG_TAG, "tts_payload : language_code=%d, speech_format=%d",
+                     tts_payload->language_code, tts_payload->speech_format);
+
+    status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),"ZERO", TRANSLATION_TTS, &miid);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed %d", status);
+        goto exit;
+    }
+    builder->payloadTTSConfig(&paramData, &paramSize, miid, tts_payload);
+    if (paramSize && paramData) {
+        status = builder->updateCustomPayload(paramData, paramSize);
+        builder->freeCustomPayload(&paramData, &paramSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+            goto exit;
+        }
+    }
+    builder->getCustomPayload(&paramData, &paramSize);
+
+    nmt_payload = &s->callTranslationConfigPayload->nmt_module_config;
+    status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),"ZERO", TRANSLATION_NMT, &miid);
+
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed %d", status);
+        goto exit;
+    }
+    builder->payloadNMTConfig(&paramData, &paramSize, miid, nmt_payload);
+    if (paramSize && paramData) {
+        status = builder->updateCustomPayload(paramData, paramSize);
+        builder->freeCustomPayload(&paramData, &paramSize);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+                goto exit;
+        }
+    }
+    builder->getCustomPayload(&paramData, &paramSize);
+
+    if (paramSize) {
+        status = SessionAlsaUtils::setMixerParameter(mxr, pcmDevIds.at(0), paramData, paramSize);
+        builder->freeCustomPayload();
+    }
+    if (status) {
+        PAL_ERR(LOG_TAG, "setmixer, status = %d", status);
+        goto exit;
+    }
+
+exit:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int32_t configureCallTranslationRxDeviceMFC(PayloadBuilder* builder, struct mixer *mxr, SessionAlsaPcm* session, std::shared_ptr<ResourceManager> rm) {
+    uint8_t* paramData = NULL;
+    size_t paramSize = 0;
+    uint32_t miid = 0;
+    pal_stream_attributes sAttr = {};
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    struct pal_device dAttr = {};
+    sessionToPayloadParam deviceData = {};
+    int status;
+    std::vector<int> pcmDevIds;
+
+    PAL_DBG(LOG_TAG, "Enter");
+    status = session->getFrontEndIds(pcmDevIds);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getFrontEndIds failed %d", status);
+        goto exit;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),"ZERO", DEVICE_MFC, &miid);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed %d", status);
+        goto exit;
+    }
+    for (auto& stream_itr: rm->getActiveStreamList()) {
+        PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Device MFC.");
+        stream_itr->getStreamAttributes(&sAttr);
+        if (sAttr.type == PAL_STREAM_VOICE_CALL || sAttr.type == PAL_STREAM_VOIP_RX) {
+            status = stream_itr->getAssociatedDevices(associatedDevices);
+            break;
+        }
+    }
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+        status = 0;
+        goto exit;
+    }
+    for (int i = 0; i < associatedDevices.size();i++) {
+        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+            status = 0;
+            goto exit;
+        }
+        deviceData.bitWidth = dAttr.config.bit_width;
+        deviceData.sampleRate = dAttr.config.sample_rate;
+        deviceData.numChannel = dAttr.config.ch_info.channels;
+        deviceData.ch_info = nullptr;
+        builder->payloadMFCConfig(&paramData, &paramSize, miid, &deviceData);
+        if (paramSize && paramData) {
+            PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", paramData,paramSize);
+            status = builder->updateCustomPayload(paramData, paramSize);
+            builder->freeCustomPayload(&paramData, &paramSize);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                status = 0;
+                goto exit;
+            }
+        }
+    }
+    builder->getCustomPayload(&paramData, &paramSize);
+    status = SessionAlsaUtils::setMixerParameter(mxr, pcmDevIds.at(0),
+                                                paramData, paramSize);
+    builder->freeCustomPayload();
+
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+        status = 0;
+        goto exit;
+    }
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;

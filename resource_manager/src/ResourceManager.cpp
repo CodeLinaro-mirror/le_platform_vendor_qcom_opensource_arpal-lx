@@ -473,7 +473,9 @@ bool ResourceManager::isHandsetProtectionEnabled = false;
 bool ResourceManager::isHapticsProtectionEnabled = false;
 bool ResourceManager::isChargeConcurrencyEnabled = false;
 bool ResourceManager::isSoundDoseEnabled = false;
+uint8_t ResourceManager::speakerProtectionVersion;
 int ResourceManager::cpsMode = 0;
+int ResourceManager::wsaUsed = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
 bool ResourceManager::isRasEnabled = false;
@@ -489,6 +491,7 @@ bool ResourceManager::isUpdDedicatedBeEnabled = false;
 bool ResourceManager::isDeviceMuxConfigEnabled = false;
 bool ResourceManager::isUpdDutyCycleEnabled = false;
 bool ResourceManager::isUPDVirtualPortEnabled = false;
+bool ResourceManager::isI2sDualMonoEnabled = false;
 bool ResourceManager::isUpdSetCustomGainEnabled = false;
 bool ResourceManager::isCPEnabled = false;
 bool ResourceManager::isDummyDevEnabled = false;
@@ -911,7 +914,7 @@ ResourceManager::ResourceManager()
         throw std::runtime_error("error in resource xml parsing");
     }
 
-    if (IsVirtualPortForUPDEnabled()) {
+    if (IsVirtualPortForUPDEnabled() || IsI2sDualMonoEnabled()) {
         updateVirtualBackendName();
         updateVirtualBESndName();
     }
@@ -2818,9 +2821,11 @@ int ResourceManager::deregisterStream(Stream *s)
     it = activeStreamMap.find(type);
     if (it != activeStreamMap.end()) {
         iter = std::find(it->second.begin(), it->second.end(), s);
-        if (iter != it->second.end())
+        if (iter != it->second.end()) {
             it->second.erase(iter);
-        else {
+            if (it->second.empty())
+                activeStreamMap.erase(it);
+        } else {
             PAL_ERR(LOG_TAG, "Could not find stream to deregister", type);
             ret = -ENOENT;
         }
@@ -3647,6 +3652,11 @@ bool ResourceManager::IsDutyCycleForUPDEnabled()
 bool ResourceManager::IsVirtualPortForUPDEnabled()
 {
     return ResourceManager::isUPDVirtualPortEnabled;
+}
+
+bool ResourceManager::IsI2sDualMonoEnabled()
+{
+    return ResourceManager::isI2sDualMonoEnabled;
 }
 
 bool ResourceManager::IsCustomGainEnabledForUPD()
@@ -4599,9 +4609,13 @@ int ResourceManager::checkAndUpdateGroupDevConfig(struct pal_device *deviceattr,
             strstr(backEndName.c_str(), "-VIRT-")) {
         PAL_DBG(LOG_TAG, "virtual port enabled for device %d", deviceattr->id);
 
-        /* check for UPD comming or goes away */
-        if (deviceattr->id == PAL_DEVICE_OUT_ULTRASOUND) {
-            group_cfg_idx = GRP_UPD_RX;
+        /* check for UPD or HAPTICS comming or goes away */
+        if (deviceattr->id == PAL_DEVICE_OUT_ULTRASOUND ||
+            deviceattr->id == PAL_DEVICE_OUT_HAPTICS_DEVICE) {
+            if (deviceattr->id == PAL_DEVICE_OUT_ULTRASOUND)
+                group_cfg_idx = GRP_UPD_RX;
+            else
+                group_cfg_idx = GRP_HAPTICS;
             // check if stream active on speaker or handset exists
             // update group config and stream to streamsToSwitch to switch device for current stream if needed
             pal_device_id_t conc_dev[] = {PAL_DEVICE_OUT_SPEAKER, PAL_DEVICE_OUT_HANDSET};
@@ -4619,28 +4633,57 @@ int ResourceManager::checkAndUpdateGroupDevConfig(struct pal_device *deviceattr,
                     switch (conc_dev[i]) {
                         case PAL_DEVICE_OUT_SPEAKER:
                             if (streamEnable) {
-                                PAL_DBG(LOG_TAG, "upd is coming, found stream %d active on speaker", type);
-                                if (isGroupConfigAvailable(GRP_UPD_RX_SPEAKER)) {
-                                    PAL_DBG(LOG_TAG, "concurrency config exists, update active group config to upd_speaker");
-                                    group_cfg_idx = GRP_UPD_RX_SPEAKER;
-                                    streamsToSwitch.push_back(*sIter);
+                                if (IsVirtualPortForUPDEnabled()) {
+                                    PAL_DBG(LOG_TAG, "upd is coming, found stream %d active on speaker", type);
+                                    if (isGroupConfigAvailable(GRP_UPD_RX_SPEAKER)) {
+                                        PAL_DBG(LOG_TAG, "concurrency config exists, update active group config to upd_speaker");
+                                        group_cfg_idx = GRP_UPD_RX_SPEAKER;
+                                        streamsToSwitch.push_back(*sIter);
+                                    } else {
+                                        PAL_DBG(LOG_TAG, "concurrency config doesn't exist, update active group config to upd");
+                                        group_cfg_idx = GRP_UPD_RX;
+                                    }
                                 } else {
-                                    PAL_DBG(LOG_TAG, "concurrency config doesn't exist, update active group config to upd");
-                                    group_cfg_idx = GRP_UPD_RX;
+                                    PAL_DBG(LOG_TAG, "haptics is coming, found stream %d active on speaker", type);
+                                    if (isGroupConfigAvailable(GRP_HAPTICS_RX_SPEAKER)) {
+                                        PAL_DBG(LOG_TAG, "concurrency config exists, update active group config to haptics_speaker");
+                                        group_cfg_idx = GRP_HAPTICS_RX_SPEAKER;
+                                        streamsToSwitch.push_back(*sIter);
+                                    } else {
+                                        PAL_DBG(LOG_TAG, "concurrency config doesn't exist, update active group config to haptics");
+                                        group_cfg_idx = GRP_HAPTICS;
+                                    }
                                 }
                             } else {
-                                PAL_DBG(LOG_TAG, "upd goes away, stream %d active on speaker", type);
-                                if (isGroupConfigAvailable(GRP_UPD_RX_SPEAKER)) {
-                                    PAL_DBG(LOG_TAG, "concurrency config exists, update active group config to speaker");
-                                    streamsToSwitch.push_back(*sIter);
-                                    if (type == PAL_STREAM_VOICE_CALL &&
-                                        isGroupConfigAvailable(GRP_SPEAKER_VOICE)) {
-                                        PAL_DBG(LOG_TAG, "voice stream active, set to speaker voice cfg");
-                                        group_cfg_idx = GRP_SPEAKER_VOICE;
-                                    } else {
-                                        // if voice usecase is active, always use voice config
-                                        if (group_cfg_idx != GRP_SPEAKER_VOICE)
-                                            group_cfg_idx = GRP_SPEAKER;
+                                if (IsVirtualPortForUPDEnabled()) {
+                                    PAL_DBG(LOG_TAG, "upd goes away, stream %d active on speaker", type);
+                                    if (isGroupConfigAvailable(GRP_UPD_RX_SPEAKER)) {
+                                        PAL_DBG(LOG_TAG, "concurrency config exists, update active group config to speaker");
+                                        streamsToSwitch.push_back(*sIter);
+                                        if (type == PAL_STREAM_VOICE_CALL &&
+                                            isGroupConfigAvailable(GRP_SPEAKER_VOICE)) {
+                                            PAL_DBG(LOG_TAG, "voice stream active, set to speaker voice cfg");
+                                            group_cfg_idx = GRP_SPEAKER_VOICE;
+                                        } else {
+                                            // if voice usecase is active, always use voice config
+                                            if (group_cfg_idx != GRP_SPEAKER_VOICE)
+                                                group_cfg_idx = GRP_SPEAKER;
+                                        }
+                                    }
+                                } else if (IsI2sDualMonoEnabled()) {
+                                    PAL_DBG(LOG_TAG, "haptics goes away, stream %d active on speaker", type);
+                                    if (isGroupConfigAvailable(GRP_HAPTICS_RX_SPEAKER)) {
+                                        PAL_DBG(LOG_TAG, "concurrency config exists, update active group config to speaker");
+                                        streamsToSwitch.push_back(*sIter);
+                                        if (type == PAL_STREAM_VOICE_CALL &&
+                                            isGroupConfigAvailable(GRP_SPEAKER_VOICE)) {
+                                            PAL_DBG(LOG_TAG, "voice stream active, set to speaker voice cfg");
+                                            group_cfg_idx = GRP_SPEAKER_VOICE;
+                                        } else {
+                                            // if voice usecase is active, always use voice config
+                                            if (group_cfg_idx != GRP_SPEAKER_VOICE)
+                                                group_cfg_idx = GRP_SPEAKER;
+                                        }
                                     }
                                 }
                             }
@@ -5175,12 +5218,14 @@ void ResourceManager::getSharedBEActiveStreamDevs(std::vector <std::tuple<Stream
     std::vector <Stream *> activeStreams;
     std::vector <std::tuple<Stream *, uint32_t>>::iterator sIter;
     bool dup = false;
+    struct pal_device dattr;
 
     if (isValidDevId(dev_id) && (dev_id != PAL_DEVICE_NONE))
         backEndName = listAllBackEndIds[dev_id].second;
     for (int i = PAL_DEVICE_OUT_MIN; i < PAL_DEVICE_IN_MAX; i++) {
         if (backEndName == listAllBackEndIds[i].second) {
-            dev = Device::getObject((pal_device_id_t) i);
+            dattr.id = (pal_device_id_t) i;
+            dev = Device::getInstance(&dattr , rm);
             if(dev) {
                 std::list<Stream*>::iterator it;
                 for(it = mActiveStreams.begin(); it != mActiveStreams.end(); it++) {
@@ -5675,7 +5720,9 @@ int ResourceManager::restoreDeviceConfigForUPD(
 
     if (sAttr.type == PAL_STREAM_ULTRASOUND &&
         devId == PAL_DEVICE_OUT_HANDSET) {
-        hs_dev = Device::getObject(PAL_DEVICE_OUT_HANDSET);
+        struct pal_device dattr;
+        dattr.id = PAL_DEVICE_OUT_HANDSET;
+        hs_dev = Device::getInstance(&dattr, rm);
         if (hs_dev)
             hs_dev->getDeviceAttributes(&curDevAttr);
 
@@ -6054,7 +6101,8 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
     mActiveStreamMutex.unlock();
 
     // if device switch is needed, perform it
-    if (streamDevDisconnect.size()) {
+    // for i2s dual mono, there is no need to switch as the conf is fixed for all use-cases
+    if (streamDevDisconnect.size() & !IsI2sDualMonoEnabled()) {
         status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
         if (status) {
             PAL_ERR(LOG_TAG, "deviceswitch failed with %d", status);
@@ -6246,7 +6294,8 @@ int ResourceManager::getBackendName(int deviceId, std::string &backendName)
 void ResourceManager::updateVirtualBackendName()
 {
     std::string PrevBackendName;
-    pal_device_id_t virtual_dev[] = {PAL_DEVICE_OUT_ULTRASOUND, PAL_DEVICE_OUT_SPEAKER, PAL_DEVICE_OUT_HANDSET};
+    pal_device_id_t virtual_dev[] = {PAL_DEVICE_OUT_ULTRASOUND, PAL_DEVICE_OUT_SPEAKER,
+                                     PAL_DEVICE_OUT_HANDSET, PAL_DEVICE_OUT_HAPTICS_DEVICE};
 
     if (getBackendName(PAL_DEVICE_OUT_HANDSET, PrevBackendName) != 0) {
         PAL_ERR(LOG_TAG, "Error retrieving BE name");
@@ -6256,7 +6305,8 @@ void ResourceManager::updateVirtualBackendName()
     for (int i = 0; i < sizeof(virtual_dev) / sizeof(virtual_dev[0]); i++) {
         std::string backendName(PrevBackendName);
 
-        switch(virtual_dev[i]) {
+        if (IsVirtualPortForUPDEnabled()) {
+            switch(virtual_dev[i]) {
             case PAL_DEVICE_OUT_ULTRASOUND:
                 backendName.append("-VIRT-1");
                 break;
@@ -6266,8 +6316,19 @@ void ResourceManager::updateVirtualBackendName()
                 break;
             default:
                 break;
+            }
+        } else if (IsI2sDualMonoEnabled()) {
+            switch(virtual_dev[i]) {
+            case PAL_DEVICE_OUT_HAPTICS_DEVICE:
+                backendName.append("-VIRT-0-C1");
+                break;
+            case PAL_DEVICE_OUT_SPEAKER:
+                backendName.append("-VIRT-0-C2");
+                break;
+            default:
+                break;
+            }
         }
-
         listAllBackEndIds[virtual_dev[i]].second.assign(backendName);
     }
 }
@@ -6492,6 +6553,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setMuxconfigEnableParam(parms, value, len);
     ret = setUpdDutyCycleEnableParam(parms, value, len);
     ret = setUpdVirtualPortParam(parms, value, len);
+    ret = setI2sDualMonoParam(parms, value, len);
     setConnectivityProxyEnableParam(parms, value, len);
     setDummyDevEnableParam(parms, value, len);
 
@@ -6702,6 +6764,28 @@ int ResourceManager::setUpdVirtualPortParam(struct str_parms *parms, char *value
             ResourceManager::isUPDVirtualPortEnabled = true;
 
         str_parms_del(parms, AUDIO_PARAMETER_KEY_UPD_VIRTUAL_PORT);
+    }
+
+    return ret;
+}
+
+int ResourceManager::setI2sDualMonoParam(struct str_parms *parms, char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return ret;
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_I2S_DUAL_MONO,
+                            value, len);
+
+    PAL_VERBOSE(LOG_TAG," value %s", value);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            ResourceManager::isI2sDualMonoEnabled = true;
+
+        str_parms_del(parms, AUDIO_PARAMETER_KEY_I2S_DUAL_MONO);
     }
 
     return ret;
@@ -8841,6 +8925,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "haptics_protection_enabled")) {
             if (atoi(data->data_buf))
                 isHapticsProtectionEnabled = true;
+        } else if (!strcmp(tag_name, "sp_op_mode")) {
+                speakerProtectionVersion = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "ext_ec_ref_enabled")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].isExternalECRefEnabled = atoi(data->data_buf);
@@ -8864,6 +8950,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
                 deviceInfo[size].is32BitSupported = true;
         } else if (!strcmp(tag_name, "cps_mode")) {
             cpsMode = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "wsa_used")) {
+            wsaUsed = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "supported_bit_format")) {
             size = deviceInfo.size() - 1;
             if(!strcmp(data->data_buf, "PAL_AUDIO_FMT_PCM_S24_3LE"))
@@ -9104,7 +9192,11 @@ void ResourceManager::process_group_device_config(struct xml_userdata *data, con
         data->group_dev_idx = GRP_SPEAKER;
         auto grp_dev_cfg = std::make_shared<group_dev_config_t>();
         groupDevConfigMap.insert(std::make_pair(GRP_SPEAKER, grp_dev_cfg));
-    }else if (!strcmp(tag, "speaker_voice")) {
+    } else if (!strcmp(tag, "haptics")) {
+        data->group_dev_idx = GRP_HAPTICS;
+        auto grp_dev_cfg = std::make_shared<group_dev_config_t>();
+        groupDevConfigMap.insert(std::make_pair(GRP_HAPTICS, grp_dev_cfg));
+    } else if (!strcmp(tag, "speaker_voice")) {
         data->group_dev_idx = GRP_SPEAKER_VOICE;
         auto grp_dev_cfg = std::make_shared<group_dev_config_t>();
         groupDevConfigMap.insert(std::make_pair(GRP_SPEAKER_VOICE, grp_dev_cfg));
@@ -9112,6 +9204,10 @@ void ResourceManager::process_group_device_config(struct xml_userdata *data, con
         data->group_dev_idx = GRP_UPD_RX_HANDSET;
         auto grp_dev_cfg = std::make_shared<group_dev_config_t>();
         groupDevConfigMap.insert(std::make_pair(GRP_UPD_RX_HANDSET, grp_dev_cfg));
+    } else if (!strcmp(tag, "haptics_rx_speaker")) {
+        data->group_dev_idx = GRP_HAPTICS_RX_SPEAKER;
+        auto grp_dev_cfg = std::make_shared<group_dev_config_t>();
+        groupDevConfigMap.insert(std::make_pair(GRP_HAPTICS_RX_SPEAKER, grp_dev_cfg));
     } else if (!strcmp(tag, "upd_rx_speaker")) {
         data->group_dev_idx = GRP_UPD_RX_SPEAKER;
         auto grp_dev_cfg = std::make_shared<group_dev_config_t>();
@@ -9223,7 +9319,8 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
     static std::shared_ptr<SoundTriggerPlatformInfo> st_info = nullptr;
 
     if (st_info && data->is_parsing_sound_trigger) {
-        st_info->HandleStartTag((const char *)tag_name, (const char **)attr);
+        PAL_INFO(LOG_TAG, "Parsing sound trigger tags");
+        st_info->HandleStartTag((const std::string)tag_name, (const char **)attr);
         snd_reset_data_buf(data);
         return;
     }
@@ -9247,7 +9344,8 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
     }
 
     if (!strcmp(tag_name, "group_device_cfg")) {
-        if (ResourceManager::isUPDVirtualPortEnabled)
+        if (ResourceManager::isUPDVirtualPortEnabled ||
+            ResourceManager::isI2sDualMonoEnabled)
             data->is_parsing_group_device = true;
         return;
     }
@@ -9641,7 +9739,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
     }
 
     mActiveStreamMutex.unlock();
-    if (!streamDevDisconnect.empty())
+    if (!streamDevDisconnect.empty() & !IsI2sDualMonoEnabled())
         streamDevSwitch(streamDevDisconnect, streamDevConnect);
 exit:
     PAL_DBG(LOG_TAG, "Exit");
@@ -9975,6 +10073,10 @@ bool ResourceManager::IsHapticsProtectionEnabled() {
     return ResourceManager::isHapticsProtectionEnabled;
 }
 
+uint8_t ResourceManager::GetSpeakerProtectionVersion() {
+    return ResourceManager::speakerProtectionVersion;
+}
+
 bool ResourceManager::IsChargeConcurrencyEnabled() {
     return ResourceManager::isChargeConcurrencyEnabled;
 }
@@ -10025,6 +10127,10 @@ int ResourceManager::SilenceDetectionDuration() {
 
 int ResourceManager::getCpsMode() {
     return ResourceManager::cpsMode;
+}
+
+int ResourceManager::getWsaUsed() {
+    return ResourceManager::wsaUsed;
 }
 
 int ResourceManager::getSpQuickCalTime() {
@@ -10129,6 +10235,9 @@ int ResourceManager::setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s)
             PAL_ERR(LOG_TAG,"stream get attributes failed");
             return -ENOENT;
         }
+    } else {
+        PAL_ERR(LOG_TAG, "Invalid stream handle");
+        return -EINVAL;
     }
 
     if (PAL_STREAM_ULTRASOUND == sAttr.type) {

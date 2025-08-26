@@ -105,7 +105,8 @@ typedef enum {
 } pal_audio_fmt_t;
 
 typedef enum {
-    PAL_NOTIFY_START = 1,
+    PAL_NOTIFY_CALL_TRANSLATION_TEXT = 0,
+    PAL_NOTIFY_START,
     PAL_NOTIFY_STOP,
     PAL_NOTIFY_DEVICESWITCH
 } pal_notification_t;
@@ -536,6 +537,12 @@ struct pal_stream_info {
 };
 
 typedef enum {
+    CALL_TRANSLATION_DEFAULT = 0,
+    CALL_TRANSLATION_DIR_TX = 1,
+    CALL_TRANSLATION_DIR_RX = 2,
+} pal_call_translation_direction;
+
+typedef enum {
     INCALL_RECORD_VOICE_UPLINK = 1,
     INCALL_RECORD_VOICE_DOWNLINK,
     INCALL_RECORD_VOICE_UPLINK_DOWNLINK,
@@ -634,14 +641,6 @@ struct pal_stream_attributes {
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
     char* address;                               /**<  address */
 };
-
-typedef struct pal_callback_config {
-    int32_t noOfPrevDevices;
-    int32_t noOfCurrentDevices;
-    pal_device_id_t *prevDevices;
-    pal_device_id_t *currentDevices;
-    struct pal_stream_attributes streamAttributes;
-} pal_callback_config_t;
 
 /**< Key value pair to identify the topology of a usecase from default  */
 struct modifier_kv  {
@@ -884,6 +883,13 @@ typedef enum {
     PAL_PARAM_ID_SDZ_OUTPUT = 96,
     PAL_PARAM_ID_SDZ_SET_PARAM = 97,
     PAL_PARAM_ID_SDZ_ENABLE = 98,
+    PAL_PARAM_ID_CALL_TRANSLATION_CONFIG = 99,
+    PAL_PARAM_ID_FORCE_RECOGNITION = 100,
+    PAL_PARAM_ID_BUFFERING_MODE = 101,
+    PAL_PARAM_ID_NMT_OUTPUT = 102,
+    PAL_PARAM_NMT_GET_NUM_EVENT = 103,
+    PAL_PARAM_NMT_GET_OUTPUT_TOKEN = 104,
+    PAL_PARAM_NMT_GET_PAYLOAD_SIZE = 105,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1314,7 +1320,7 @@ struct pal_st_properties {
 };
 
 /** sound model structure passed in by ST Client during pal_st_load_sound_model() */
-struct pal_st_sound_model {
+struct __attribute__ ((aligned (8))) pal_st_sound_model {
     pal_st_sound_model_type_t type;           /* model type. e.g. PAL_SOUND_MODEL_TYPE_KEYPHRASE */
     struct st_uuid            uuid;           /* unique sound model ID. */
     struct st_uuid            vendor_uuid;    /* unique vendor ID. Identifies the engine the
@@ -1340,7 +1346,7 @@ struct pal_st_phrase {
  * Proprietary representation of key phrases in binary data must match information indicated
  * by phrases field use this when not sending
  */
-struct pal_st_phrase_sound_model {
+struct __attribute__ ((aligned (8))) pal_st_phrase_sound_model {
     struct pal_st_sound_model   common;         /** common sound model */
     uint32_t                    num_phrases;    /** number of key phrases in model */
     struct pal_st_phrase        phrases[PAL_SOUND_TRIGGER_MAX_PHRASES];
@@ -1505,6 +1511,27 @@ struct pal_asr_config {
                                                  structure */
 };
 
+struct pal_tts_config {
+    uint32_t language_code;            /**< consistente enum across ASR, Translation and TTS */
+    uint32_t speech_format;            /**< Speech output mode. Current : PCM */
+    uint32_t reserved;
+};
+
+struct pal_nmt_config {
+    uint32_t input_language_code;
+    uint32_t output_language_code;
+};
+
+/* Payload for populating the ASR, TTS and NMT modules
+ */
+struct call_translation_config {
+    bool enable;
+    pal_call_translation_direction call_translation_dir;        /** Direction for the call_translation usecase */
+    struct pal_tts_config tts_module_config;        /** TTS module config */
+    struct pal_nmt_config nmt_module_config;	    /** NMT module config */
+    struct pal_asr_config asr_module_config;        /** ASR module config */
+};
+
 #define MAX_TRANSCRIPTION_CHAR_SIZE 1024
 #define MAX_JSON_CHAR_SIZE 4096
 #define MAX_NUM_WORDS 200
@@ -1514,6 +1541,10 @@ typedef enum {
     PLAIN_TEXT = 0,
     TIMESTAMP_BASED_TEXT,
     SPEAKER_DIARIZATION,
+    CALL_TRANSLATION_TEXT,
+    CALL_TRANSLATION_OUT_TEXT = CALL_TRANSLATION_TEXT,
+    CALL_TRANSLATION_IN_TEXT = CALL_TRANSLATION_TEXT + 1,
+    CALL_TRANSLATION_INOUT_TEXT = CALL_TRANSLATION_TEXT + 2,
 } eventType;
 
 struct pal_asr_engine_event {
@@ -1584,6 +1615,36 @@ struct pal_sdz_event {
     uint32_t num_outputs;
     struct sdz_output output[];
 };
+
+struct pal_nmt_engine_event {
+    uint32_t is_final;                             /**< payload is partial output of NMT or complete */
+    uint32_t output_text_size;                     /**< Output size of text to sent to the client */
+    char output_text[MAX_TRANSCRIPTION_CHAR_SIZE]; /**< Text to be sent to the client */
+    uint32_t input_text_size;                      /**< Input size of text to sent to the client */
+    char input_text[MAX_TRANSCRIPTION_CHAR_SIZE];  /**< Text to be sent to the client */
+    uint32_t json_size;                            /**< size of JSON output, to be sent to client */
+    char result_json[MAX_JSON_CHAR_SIZE];          /**< JSON result */
+    uint32_t data_size;                            /**< event payload size */
+    uint8_t data[];                                /**< event payload offset from the start of this structure */
+};
+
+struct pal_nmt_event {
+    int32_t status;
+    int32_t input_language_code;
+    int32_t output_language_code;
+    pal_stream_direction_t direction;
+    uint32_t num_events;
+    struct pal_nmt_engine_event event[];
+};
+
+typedef struct pal_callback_config {
+    int32_t noOfPrevDevices;
+    int32_t noOfCurrentDevices;
+    pal_device_id_t *prevDevices;
+    pal_device_id_t *currentDevices;
+    struct pal_stream_attributes streamAttributes;
+    uint32_t *event;
+} pal_callback_config_t;
 
 struct pal_compr_gapless_mdata {
        uint32_t encoderDelay;

@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -492,7 +492,7 @@ void ASREngine::ParseEventAndNotifyStream(void* eventData) {
     event_id_asr_output_event_t *event = nullptr;
     asr_output_status_t *ev = nullptr;
     param_id_asr_output_t *eventHeader = nullptr;
-    eventPayload eventToStream;
+    eventPayload eventToStream {};
     StreamASR *sAsr = nullptr;
 
     event = (struct event_id_asr_output_event_t *)eventData;
@@ -775,12 +775,12 @@ void ASREngine::EventProcessingThread(ASREngine *engine)
         //Adding this condition, as destructor can also notify this thread without any event
         if (!engine->eventQ.empty()) {
             event = engine->eventQ.front();
+            engine->eventQ.pop();
             if (event.first == EVENT_ID_SDZ_OUTPUT) {
                 engine->ParseSdzEventAndNotifyStream(event.second);
             } else {
                 engine->ParseEventAndNotifyStream(event.second);
             }
-            engine->eventQ.pop();
         }
     }
 

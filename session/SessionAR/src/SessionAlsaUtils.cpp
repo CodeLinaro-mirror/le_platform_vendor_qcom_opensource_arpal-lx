@@ -26,11 +26,9 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
-* Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-*
-* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* Changes from Qualcomm Technologies, Inc. are provided under the following license:
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
-*
 */
 
 #define LOG_TAG "PAL: SessionAlsaUtils"
@@ -360,7 +358,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::shared_ptr<Device> beDevObj = nullptr;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t i;
     uint32_t streamPropId[] = {0x08000010, 1, 0x1}; /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
@@ -438,6 +436,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
     }
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
+
     /** Get mixer controls (struct mixer_ctl *) for both FE and BE */
     if (sAttr.type == PAL_STREAM_COMPRESSED)
         feName << COMPRESS_SND_DEV_NAME_PREFIX << DevIds.at(0);
@@ -1080,7 +1083,7 @@ int SessionAlsaUtils::getModuleInstanceId(struct mixer *mixer, int device, const
     }
     tag_info = (struct gsl_tag_module_info *)payload;
     PAL_DBG(LOG_TAG, "num of tags associated with stream %d is %d\n", device, tag_info->num_tags);
-    ret = -1;
+    ret = -EINVAL;
     tag_entry = (struct gsl_tag_module_info_entry *)(&tag_info->tag_module_entry[0]);
     offset = 0;
     for (i = 0; i < tag_info->num_tags; i++) {
@@ -1101,7 +1104,90 @@ int SessionAlsaUtils::getModuleInstanceId(struct mixer *mixer, int device, const
         }
     }
 
-    if (*miid == 0) {
+    if (ret) {
+         PAL_ERR(LOG_TAG, "No matching MIID found for tag: 0x%x, error:%d", tag_id, ret);
+    }
+
+    free(payload);
+    free(mixer_str);
+    return ret;
+}
+
+int SessionAlsaUtils::getModuleInstanceId(struct mixer *mixer, int device, const char *intf_name,
+                       int tag_id, std::vector<uint32_t> &miids)
+{
+    char *pcmDeviceName = NULL;
+    char const *control = "getTaggedInfo";
+    char *mixer_str;
+    struct mixer_ctl *ctl;
+    int ctl_len = 0,ret = -1, i;
+    void *payload;
+    struct gsl_tag_module_info *tag_info;
+    struct gsl_tag_module_info_entry *tag_entry;
+    int offset = 0;
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+
+    pcmDeviceName = rm->getDeviceNameFromID(device);
+    if(!pcmDeviceName){
+        PAL_ERR(LOG_TAG, "Device name from id %d not found", device);
+        return -EINVAL;
+    }
+
+    ret = setStreamMetadataType(mixer, device, intf_name);
+    if (ret)
+        return ret;
+
+    ctl_len = strlen(pcmDeviceName) + 1 + strlen(control) + 1;
+    mixer_str = (char *)calloc(1, ctl_len);
+    if (!mixer_str)
+        return -ENOMEM;
+
+    snprintf(mixer_str, ctl_len, "%s %s", pcmDeviceName, control);
+
+    PAL_DBG(LOG_TAG, "- mixer -%s-\n", mixer_str);
+    ctl = mixer_get_ctl_by_name(mixer, mixer_str);
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_str);
+        free(mixer_str);
+        return ENOENT;
+    }
+
+    payload = calloc(1024, sizeof(char));
+    if (!payload) {
+        free(mixer_str);
+        return -ENOMEM;
+    }
+
+    ret = mixer_ctl_get_array(ctl, payload, 1024);
+    if (ret < 0) {
+        PAL_ERR(LOG_TAG, "Failed to mixer_ctl_get_array\n");
+        free(payload);
+        free(mixer_str);
+        return ret;
+    }
+    tag_info = (struct gsl_tag_module_info *)payload;
+    PAL_DBG(LOG_TAG, "num of tags associated with stream %d is %d\n", device, tag_info->num_tags);
+    tag_entry = (struct gsl_tag_module_info_entry *)(&tag_info->tag_module_entry[0]);
+    offset = 0;
+    for (i = 0; i < tag_info->num_tags; i++) {
+        tag_entry += offset/sizeof(struct gsl_tag_module_info_entry);
+
+        PAL_DBG(LOG_TAG, "tag id[%d] = 0x%x, num_modules = 0x%x\n", i, tag_entry->tag_id, tag_entry->num_modules);
+        offset = sizeof(struct gsl_tag_module_info_entry) + (tag_entry->num_modules * sizeof(struct gsl_module_id_info_entry));
+        if (tag_entry->tag_id == tag_id) {
+            struct gsl_module_id_info_entry *mod_info_entry;
+
+            for (int j = 0; j < tag_entry->num_modules; j++) {
+                 mod_info_entry = &tag_entry->module_entry[j];
+                 miids.push_back(mod_info_entry->module_iid); // Append MIID to vector
+                 PAL_DBG(LOG_TAG, "MIID is 0x%x\n", mod_info_entry->module_iid);
+            }
+            ret = 0;
+            break;
+        }
+    }
+
+    if (miids.empty()) {
          ret = -EINVAL;
          PAL_ERR(LOG_TAG, "No matching MIID found for tag: 0x%x, error:%d", tag_id, ret);
     }
@@ -1400,7 +1486,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     struct mixer_ctl *txFeMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *txBeMixerCtrl = nullptr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t streamPropId[] = {0x08000010, 1, 0x1}; /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
     uint32_t streamDevicePropId[] = {0x08000010, 1, 0x3}; /** gsl_subgraph_platform_driver_props.xml */
@@ -1422,7 +1508,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     }
 
     status = streamHandle->getAssociatedDevices(associatedDevices);
-    if(0 != status) {
+    if (0 != status) {
         PAL_ERR(LOG_TAG, "getAssociatedDevices Failed \n");
         return status;
     }
@@ -1430,6 +1516,10 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     PayloadBuilder* builder = new PayloadBuilder();
 
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
     // get keyvalue pair info
     for (i = 0; i < associatedDevices.size(); i++) {
         associatedDevices[i]->getDeviceAttributes(&dAttr, streamHandle);
@@ -1706,7 +1796,7 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
     std::ostringstream feName;
     struct mixer_ctl *feMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t i;
     /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
@@ -1717,6 +1807,10 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "getVirtualAudioMixer failed");
+        goto freeMetaData;
+    }
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
         goto freeMetaData;
     }
 
@@ -1804,7 +1898,7 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
     struct mixer_ctl *txFeMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *txBeMixerCtrl = nullptr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t streamPropId[] = {0x08000010, 1, 0x1}; /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
     uint32_t streamDevicePropId[] = {0x08000010, 1, 0x3}; /** gsl_subgraph_platform_driver_props.xml */
@@ -1828,6 +1922,10 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
         }
     }
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
 
     // get audio mixer
     SessionAlsaUtils::getAgmMetaData(emptyKV, emptyKV,
@@ -2418,11 +2516,13 @@ int SessionAlsaUtils::setupSessionDevice(Stream* streamHandle, pal_stream_type_t
         PAL_ERR(LOG_TAG, "get device KV failed %d", status);
         goto exit;
     }
-    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first))
-        status = builder->populateDevicePPKV(streamHandle,
-                aifBackEndsToConnect[0].first, streamDeviceKV,
-                0, emptyKV);
-    else {
+    if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first)) {
+        if (!(sAttr.info.opt_stream_info.isBitPerfect)) {
+            status = builder->populateDevicePPKV(streamHandle,
+                     aifBackEndsToConnect[0].first, streamDeviceKV,
+                     0, emptyKV);
+        }
+    } else {
         rmHandle->getDeviceInfo(dAttr.id, streamType,
                                 dAttr.custom_config.custom_key, &devinfo);
         status = builder->populateDevicePPKV(streamHandle, 0, emptyKV,

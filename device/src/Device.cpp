@@ -54,6 +54,7 @@
 
 typedef void (*write_qmp_mode)(const char *hdr_custom_key);
 std::shared_ptr<PluginManager> Device::pm = nullptr;
+std::mutex Device::mInstMutex;
 
 std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
                                             std::shared_ptr<ResourceManager> Rm)
@@ -86,7 +87,7 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         status = pm->openPlugin(PAL_PLUGIN_MANAGER_DEVICE, deviceName, plugin);
         if (plugin && !status) {
             deviceCreate = reinterpret_cast<DeviceCreate>(plugin);
-            deviceCreate(device, Rm, device->id, true, &devPtr);
+            deviceCreate(device, Rm, &devPtr);
             if (devPtr == nullptr) {
                 PAL_ERR(LOG_TAG, "Device create failed for type %s",
                     deviceNameLUT.at(device->id).c_str());
@@ -101,49 +102,6 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
     catch (const std::exception& e) {
         PAL_ERR(LOG_TAG, "Device create failed for type %s",
             deviceNameLUT.at(device->id).c_str());
-    }
-
-    return nullptr;
-}
-
-std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
-{
-    uint32_t status;
-    std::string deviceName;
-    std::shared_ptr<Device> devPtr = nullptr;
-    void* plugin = nullptr;
-    DeviceCreate deviceCreate = NULL;
-
-    //There is no registered plugin for device type none, so return null
-    if (dev_id == PAL_DEVICE_NONE) {
-        return nullptr;
-    }
-
-    pm = PluginManager::getInstance();
-    if (!pm) {
-        PAL_ERR(LOG_TAG, "Unable to get plugin manager instance");
-        return NULL;
-    }
-
-    PAL_VERBOSE(LOG_TAG, "Enter device id %d", dev_id);
-
-    deviceName = (std::string) deviceNameLUT.at(dev_id);
-    try {
-        status = pm->openPlugin(PAL_PLUGIN_MANAGER_DEVICE, deviceName,
-                                plugin);
-        if (plugin) {
-            deviceCreate = reinterpret_cast<DeviceCreate>(plugin);
-            deviceCreate(nullptr, nullptr, dev_id, false, &devPtr);
-            return devPtr;
-        }
-        else {
-            PAL_ERR(LOG_TAG, "unable to get plugin for device type %s",
-                    deviceName.c_str());
-        }
-    }
-    catch (const std::exception& e) {
-        PAL_ERR(LOG_TAG, "exception: Device getObject failed for type %s",
-            deviceNameLUT.at(dev_id).c_str());
     }
 
     return nullptr;
@@ -306,6 +264,13 @@ int Device::getSndDeviceId()
 {
     PAL_VERBOSE(LOG_TAG,"Device Id %d acquired", deviceAttr.id);
     return deviceAttr.id;
+}
+
+int Device::getDeviceCount() {
+    mDeviceMutex.lock();
+    int devCount = deviceCount;
+    mDeviceMutex.unlock();
+    return devCount;
 }
 
 void Device::getCurrentSndDevName(char *name){
@@ -1028,10 +993,40 @@ int Device::setMediaConfig(std::shared_ptr<ResourceManager> rmHandle,
     groupDevConfig = rmHandle->getActiveGroupDevConfig();
     if (groupDevConfig && (dAttr->id == PAL_DEVICE_OUT_SPEAKER ||
         dAttr->id == PAL_DEVICE_OUT_HANDSET ||
-        dAttr->id == PAL_DEVICE_OUT_ULTRASOUND)) {
+        dAttr->id == PAL_DEVICE_OUT_ULTRASOUND) && rmHandle->IsVirtualPortForUPDEnabled()) {
         std::string truncatedBeName = backEndName;
         // remove "-VIRT-x" which length is 7
         truncatedBeName.erase(truncatedBeName.end() - 7, truncatedBeName.end());
+        ctl = getBeMixerControl(mixerHandle, truncatedBeName , BE_GROUP_ATTR);
+        if (!ctl) {
+        PAL_ERR(LOG_TAG, "invalid mixer control: %s %s", truncatedBeName.c_str(),
+                beCtrlNames[BE_GROUP_ATTR]);
+        return -EINVAL;
+        }
+        if (groupDevConfig->grp_dev_hwep_cfg.sample_rate)
+            aif_group_atrr_config[0] = groupDevConfig->grp_dev_hwep_cfg.sample_rate;
+        else
+            aif_group_atrr_config[0] = dAttr->config.sample_rate;
+        if (groupDevConfig->grp_dev_hwep_cfg.channels)
+            aif_group_atrr_config[1] = groupDevConfig->grp_dev_hwep_cfg.channels;
+        else
+            aif_group_atrr_config[1] = dAttr->config.ch_info.channels;
+        aif_group_atrr_config[2] = palToSndDriverFormat(
+                                    groupDevConfig->grp_dev_hwep_cfg.aud_fmt_id);
+        aif_group_atrr_config[3] = AGM_DATA_FORMAT_FIXED_POINT;
+        aif_group_atrr_config[4] = groupDevConfig->grp_dev_hwep_cfg.slot_mask;
+
+        mixer_ctl_set_array(ctl, &aif_group_atrr_config,
+                               sizeof(aif_group_atrr_config)/sizeof(aif_group_atrr_config[0]));
+        PAL_INFO(LOG_TAG, "%s rate ch fmt data_fmt slot_mask %ld %ld %ld %ld %ld\n", truncatedBeName.c_str(),
+                aif_group_atrr_config[0], aif_group_atrr_config[1], aif_group_atrr_config[2],
+                aif_group_atrr_config[3], aif_group_atrr_config[4]);
+        rmHandle->setCurrentGroupDevConfig(groupDevConfig, aif_group_atrr_config[0], aif_group_atrr_config[1]);
+    } else if ((groupDevConfig && (dAttr->id == PAL_DEVICE_OUT_SPEAKER ||
+        dAttr->id == PAL_DEVICE_OUT_HAPTICS_DEVICE) && rmHandle->IsI2sDualMonoEnabled())) {
+        std::string truncatedBeName = backEndName;
+        // remove "VIRT-0-CX" which length is 10
+        truncatedBeName.erase(truncatedBeName.end() - 10, truncatedBeName.end());
         ctl = getBeMixerControl(mixerHandle, truncatedBeName , BE_GROUP_ATTR);
         if (!ctl) {
         PAL_ERR(LOG_TAG, "invalid mixer control: %s %s", truncatedBeName.c_str(),

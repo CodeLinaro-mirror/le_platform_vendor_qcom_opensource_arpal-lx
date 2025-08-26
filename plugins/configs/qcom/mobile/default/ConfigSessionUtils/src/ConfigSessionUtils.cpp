@@ -183,7 +183,10 @@ int reconfigCommon(Stream* streamHandle, void* pluginPayload)
         /* This has to be done after sending all mixer controls and before connect */
         if (PAL_STREAM_VOICE_CALL != sAttr.type) {
             if (sAttr.direction == PAL_AUDIO_OUTPUT) {
-                if (sess) {
+                if (sAttr.info.opt_stream_info.isBitPerfect) {
+                    PAL_INFO(LOG_TAG, "configure MFC not needed for BitPerfect");
+                    goto exit;
+                } else if (sess) {
                     status = configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                         aifBackEndsToConnect[0].second.data(), builder);
                     if (status != 0) {
@@ -232,8 +235,8 @@ int reconfigCommon(Stream* streamHandle, void* pluginPayload)
                         status = configureMFC(rmHandle, sAttr, dAttr, pcmDevIds,
                                         aifBackEndsToConnect[0].second.data(), builder);
                         if (status != 0) {
-                            PAL_ERR(LOG_TAG, "build MFC payload failed");
-                            goto exit;
+                            PAL_INFO(LOG_TAG, "build MFC payload failed, overwriting status to 0");
+                            status = 0;
                         }
                     } else {
                         PAL_ERR(LOG_TAG, "invalid session audio object");
@@ -291,7 +294,8 @@ int configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal_stream_a
     groupDevConfig = rm->getActiveGroupDevConfig();
     if (groupDevConfig && (dAttr.id == PAL_DEVICE_OUT_SPEAKER ||
              dAttr.id == PAL_DEVICE_OUT_HANDSET ||
-             dAttr.id == PAL_DEVICE_OUT_ULTRASOUND)) {
+             dAttr.id == PAL_DEVICE_OUT_ULTRASOUND) && rm->IsVirtualPortForUPDEnabled()) {
+
         status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), intf,
                                                        TAG_DEVICE_PP_MFC, &miid);
         if (status == 0) {
@@ -331,6 +335,47 @@ int configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal_stream_a
 
         /* set TKV for slot mask */
         setSlotMask(rm, sAttr, dAttr, pcmDevIds);
+    } else if (groupDevConfig && (dAttr.id == PAL_DEVICE_OUT_SPEAKER ||
+             dAttr.id == PAL_DEVICE_OUT_HAPTICS_DEVICE) && rm->IsI2sDualMonoEnabled()) {
+
+        status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), intf,
+                                                       TAG_DEVICE_PP_MFC, &miid);
+        if (status == 0) {
+            PAL_DBG(LOG_TAG, "miid : %x id = %d, data %s, dev id = %d\n", miid,
+                    pcmDevIds.at(0), intf, dAttr.id);
+
+            if (groupDevConfig->devpp_mfc_cfg.bit_width)
+                mfcData.bitWidth = groupDevConfig->devpp_mfc_cfg.bit_width;
+            else
+                mfcData.bitWidth = dAttr.config.bit_width;
+            if (groupDevConfig->devpp_mfc_cfg.sample_rate)
+                mfcData.sampleRate = groupDevConfig->devpp_mfc_cfg.sample_rate;
+            else
+                mfcData.sampleRate = dAttr.config.sample_rate;
+            if (groupDevConfig->devpp_mfc_cfg.channels)
+                mfcData.numChannel = groupDevConfig->devpp_mfc_cfg.channels;
+            else
+                mfcData.numChannel = dAttr.config.ch_info.channels;
+            mfcData.ch_info = nullptr;
+
+            builder->payloadMFCConfig((uint8_t**)&payload, &payloadSize, miid, &mfcData);
+            if (!payloadSize) {
+                PAL_ERR(LOG_TAG, "payloadMFCConfig failed\n");
+                status = -EINVAL;
+                goto exit;
+            }
+            status = builder->updateCustomPayload(payload, payloadSize);
+            builder->freeCustomPayload(&payload, &payloadSize);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+                goto exit;
+            }
+        } else {
+            PAL_INFO(LOG_TAG, "deviePP MFC doesn't exist for stream %d \n", sAttr.type);
+            devicePPMFCSet = false;
+        }
+
+        /* no need to set slot mask */
     } else if (rm->IsDeviceMuxConfigEnabled() && (dAttr.id == PAL_DEVICE_OUT_SPEAKER ||
               dAttr.id == PAL_DEVICE_OUT_HANDSET)) {
         setSlotMask(rm, sAttr, dAttr, pcmDevIds);
@@ -543,6 +588,10 @@ int reconfigureModule(SessionAlsaPcm* session, PayloadBuilder* builder, uint32_t
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
 
     PAL_DBG(LOG_TAG, "Enter");
+    if (!session) {
+        PAL_ERR(LOG_TAG, "No existing session found");
+        goto exit;
+    }
     status = session->getMIID(BE, tagID, &miid);
     if(status){
         PAL_INFO(LOG_TAG,"could not find tagID 0x%x for backend %s", tagID, BE);

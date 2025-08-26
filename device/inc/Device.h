@@ -26,9 +26,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -59,6 +60,9 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef DEVICE_H
@@ -85,6 +89,7 @@ class Device
 protected:
     std::shared_ptr<Device> devObj;
     std::mutex mDeviceMutex;
+    static std::mutex mInstMutex;
     std::string mPALDeviceName;
     struct pal_device deviceAttr;
     std::shared_ptr<ResourceManager> rm;
@@ -120,13 +125,12 @@ public:
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     int getSndDeviceId();
-    int getDeviceCount() { return deviceCount; }
+    int getDeviceCount();
     std::string getPALDeviceName();
     int setDeviceAttributes(struct pal_device &dattr);
     virtual int getDeviceAttributes(struct pal_device *dattr,
                                     Stream* streamHandle = NULL);
     virtual int getCodecConfig(struct pal_media_config *config);
-    static std::shared_ptr<Device> getObject(pal_device_id_t dev_id);
     int updateCustomPayload(void *payload, size_t size);
     int freeCustomPayload(uint8_t **payload, size_t *payloadSize);
     void* getCustomPayload();

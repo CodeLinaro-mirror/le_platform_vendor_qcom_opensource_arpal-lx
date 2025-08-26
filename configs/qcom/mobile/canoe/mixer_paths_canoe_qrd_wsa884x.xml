@@ -26,8 +26,8 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-* Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-* Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+* Changes from Qualcomm Technologies, Inc. are provided under the following license:
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 * -->
 
@@ -141,7 +141,7 @@
 
     <ctl name="TX_DEC0 Volume" value="122" />
     <ctl name="TX_DEC1 Volume" value="122" />
-    <ctl name="TX_DEC2 Volume" value="110" />
+    <ctl name="TX_DEC2 Volume" value="106" />
     <ctl name="TX_DEC3 Volume" value="122" />
     <ctl name="TX_DEC4 Volume" value="84" />
     <ctl name="TX_DEC5 Volume" value="84" />
@@ -216,7 +216,7 @@
         <ctl name="SpkrLeft VISENSE Switch" value="1" />
         <ctl name="SpkrLeft CPS Switch" value="1" />
         <ctl name="SpkrLeft SWR DAC_Port Switch" value="1" />
-        <ctl name="WSA_RX0 Digital Volume" value="70" />
+        <ctl name="WSA_RX0 Digital Volume" value="60" />
     </path>
 
     <path name="handset">
@@ -521,7 +521,7 @@
     </path>
 
     <path name="qmp1-normal-lpi">
-        <ctl name="QMP_MIC01 FU1 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC01 FU1 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC01 VA Normal PortMap" value="SWRM_TX2_CH1" />
         <ctl name="QMP_MIC01 FU1 PDE11 VA Enable" value="1" />
     </path>
@@ -533,7 +533,7 @@
     </path>
 
     <path name="qmp1-lp">
-        <ctl name="QMP_MIC01 FU2 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC01 FU2 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC01 LP PortMap" value="SWRM_TX3_CH1" />
         <ctl name="QMP_MIC01 FU2 PDE11 Enable" value="1" />
     </path>
@@ -551,7 +551,7 @@
     </path>
 
     <path name="qmp2-normal-lpi">
-        <ctl name="QMP_MIC02 FU1 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC02 FU1 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC02 VA Normal PortMap" value="SWRM_TX2_CH2" />
         <ctl name="QMP_MIC02 FU1 PDE11 VA Enable" value="1" />
     </path>
@@ -563,7 +563,7 @@
     </path>
 
     <path name="qmp2-lp">
-        <ctl name="QMP_MIC02 FU2 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC02 FU2 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC02 LP PortMap" value="SWRM_TX3_CH2" />
         <ctl name="QMP_MIC02 FU2 PDE11 Enable" value="1" />
     </path>
@@ -581,7 +581,7 @@
     </path>
 
     <path name="qmp3-normal-lpi">
-        <ctl name="QMP_MIC03 FU1 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC03 FU1 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC03 VA Normal PortMap" value="SWRM_TX1_CH1" />
         <ctl name="QMP_MIC03 FU1 PDE11 VA Enable" value="1" />
     </path>
@@ -593,7 +593,7 @@
     </path>
 
     <path name="qmp3-lp">
-        <ctl name="QMP_MIC03 FU2 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC03 FU2 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC03 LP PortMap" value="SWRM_TX1_CH3" />
         <ctl name="QMP_MIC03 FU2 PDE11 Enable" value="1" />
     </path>
@@ -611,7 +611,7 @@
     </path>
 
     <path name="qmp4-normal-lpi">
-        <ctl name="QMP_MIC04 FU1 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC04 FU1 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC04 VA Normal PortMap" value="SWRM_TX1_CH2" />
         <ctl name="QMP_MIC04 FU1 PDE11 VA Enable" value="1" />
     </path>
@@ -623,7 +623,7 @@
     </path>
 
     <path name="qmp4-lp">
-        <ctl name="QMP_MIC04 FU2 IT11 Usage Mode" value="LP_DIV_16" />
+        <ctl name="QMP_MIC04 FU2 IT11 Usage Mode" value="NORMAL_DIV_4" />
         <ctl name="QMP_MIC04 LP PortMap" value="SWRM_TX2_CH3" />
         <ctl name="QMP_MIC04 FU2 PDE11 Enable" value="1" />
     </path>
@@ -686,12 +686,15 @@
     <path name="va-mic-mono">
         <ctl name="VA_SWR_DMIC Enable" value="1" />
         <ctl name="VA DEC0 MUX" value="SWR_MIC"/>
+        <ctl name="VA_DEC0 Volume" value="102" />
         <ctl name="VA SMIC MUX0" value="SWR_MIC5" />
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1"/>
         <path name="qmp2-normal-nlpi" />
     </path>
 
     <path name="va-mic-dmic">
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
         <ctl name="VA_SWR_DMIC Enable" value="1" />
         <ctl name="VA DEC0 MUX" value="SWR_MIC"/>
         <ctl name="VA DEC1 MUX" value="SWR_MIC"/>
@@ -704,6 +707,9 @@
     </path>
 
     <path name="va-mic-tmic">
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
+        <ctl name="VA_DEC2 Volume" value="102" />
         <ctl name="VA_SWR_DMIC Enable" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC1" value="1" />
@@ -720,6 +726,10 @@
     </path>
 
     <path name="va-mic-qmic">
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
+        <ctl name="VA_DEC2 Volume" value="102" />
+        <ctl name="VA_DEC3 Volume" value="102" />
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC1" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC2" value="1" />
@@ -743,6 +753,7 @@
     </path>
 
     <path name="va-mic-mono-lpi">
+        <ctl name="VA_DEC2 Volume" value="102" />
         <ctl name="VA_SWR_DMIC Enable" value="1" />
         <ctl name="VA DEC2 MUX" value="SWR_MIC" />
         <ctl name="VA SMIC MUX2" value="SWR_MIC4" />
@@ -751,6 +762,8 @@
     </path>
 
     <path name="va-mic-dmic-lpi">
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC1" value="1" />
         <ctl name="VA DEC0 MUX" value="SWR_MIC"/>
@@ -762,6 +775,9 @@
     </path>
 
     <path name="va-mic-tmic-lpi">
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
+        <ctl name="VA_DEC2 Volume" value="102" />
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC1" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC2" value="1" />
@@ -777,6 +793,10 @@
     </path>
 
     <path name="va-mic-qmic-lpi">
+        <ctl name="VA_DEC0 Volume" value="102" />
+        <ctl name="VA_DEC1 Volume" value="102" />
+        <ctl name="VA_DEC2 Volume" value="102" />
+        <ctl name="VA_DEC3 Volume" value="102" />
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC1" value="1" />
         <ctl name="VA_AIF1_CAP Mixer DEC2" value="1" />
@@ -816,9 +836,11 @@
         <ctl name="TX DEC3 MUX" value="SWR_MIC" />
         <ctl name="TX SMIC MUX2" value="SWR_MIC4" />
         <ctl name="TX SMIC MUX3" value="SWR_MIC0" />
-        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
         <path name="qmp1-normal" />
         <path name="qmp3-normal" />
+        <ctl name="TX_DEC2 Volume" value="110" />
+        <ctl name="TX_DEC3 Volume" value="110" />
     </path>
 
     <path name="speaker-dmic-endfire">
@@ -829,9 +851,11 @@
         <ctl name="TX DEC3 MUX" value="SWR_MIC" />
         <ctl name="TX SMIC MUX2" value="SWR_MIC5" />
         <ctl name="TX SMIC MUX3" value="SWR_MIC4" />
-        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
         <path name="qmp2-normal" />
         <path name="qmp1-normal" />
+        <ctl name="TX_DEC2 Volume" value="110" />
+        <ctl name="TX_DEC3 Volume" value="110" />
     </path>
 
     <path name="dmic-endfire">
@@ -930,10 +954,13 @@
         <ctl name="TX SMIC MUX1" value="SWR_MIC4" />
         <ctl name="TX SMIC MUX2" value="SWR_MIC0" />
         <ctl name="TX SMIC MUX3" value="SWR_MIC5" />
-        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
         <path name="qmp1-normal" />
         <path name="qmp3-normal" />
         <path name="qmp2-normal" />
+        <ctl name="TX_DEC1 Volume" value="110" />
+        <ctl name="TX_DEC2 Volume" value="110" />
+        <ctl name="TX_DEC3 Volume" value="110" />
     </path>
 
     <path name="speaker-tmic">
@@ -947,10 +974,13 @@
         <ctl name="TX SMIC MUX1" value="SWR_MIC5" />
         <ctl name="TX SMIC MUX2" value="SWR_MIC4" />
         <ctl name="TX SMIC MUX3" value="SWR_MIC0" />
-        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
         <path name="qmp2-normal" />
         <path name="qmp1-normal" />
         <path name="qmp3-normal" />
+        <ctl name="TX_DEC1 Volume" value="110" />
+        <ctl name="TX_DEC2 Volume" value="110" />
+        <ctl name="TX_DEC3 Volume" value="110" />
     </path>
 
     <path name="voice-speaker-tmic">
@@ -973,11 +1003,15 @@
         <ctl name="TX SMIC MUX2" value="SWR_MIC4" />
         <ctl name="TX SMIC MUX3" value="SWR_MIC0" />
         <ctl name="TX SMIC MUX4" value="SWR_MIC1" />
-        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
         <path name="qmp2-normal" />
         <path name="qmp1-normal" />
         <path name="qmp3-normal" />
         <path name="qmp4-normal" />
+        <ctl name="TX_DEC1 Volume" value="110" />
+        <ctl name="TX_DEC2 Volume" value="110" />
+        <ctl name="TX_DEC3 Volume" value="110" />
+        <ctl name="TX_DEC4 Volume" value="110" />
     </path>
 
     <path name="speaker-qmic-liquid">
@@ -1037,20 +1071,42 @@
         <path name="qmp1-normal" />
     </path>
 
+    <path name="handset-dual-dmic-dual-dec-landscape">
+        <ctl name="TX_SWR_DMIC Enable" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC1" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DEC1 MUX" value="SWR_MIC" />
+        <ctl name="TX DEC3 MUX" value="SWR_MIC" />
+        <ctl name="TX SMIC MUX1" value="SWR_MIC5" />
+        <ctl name="TX SMIC MUX3" value="SWR_MIC4" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <path name="qmp2-normal" />
+        <path name="qmp1-normal" />
+    </path>
+
+    <path name="handset-dual-dmic-dual-dec-landscape-reverse">
+        <ctl name="TX_SWR_DMIC Enable" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC1" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DEC1 MUX" value="SWR_MIC" />
+        <ctl name="TX DEC3 MUX" value="SWR_MIC" />
+        <ctl name="TX SMIC MUX1" value="SWR_MIC4" />
+        <ctl name="TX SMIC MUX3" value="SWR_MIC5" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <path name="qmp2-normal" />
+        <path name="qmp1-normal" />
+    </path>
+
     <path name="unprocessed-hdr-mic-landscape">
-        <path name="handset-dual-dmic-quad-dec" />
+        <path name="handset-dual-dmic-dual-dec-landscape" />
         <ctl name="TX_DEC1 Volume" value="84" />
-        <ctl name="TX_DEC2 Volume" value="84" />
         <ctl name="TX_DEC3 Volume" value="84" />
-        <ctl name="TX_DEC4 Volume" value="84" />
     </path>
 
     <path name="unprocessed-hdr-mic-inverted-landscape">
-        <path name="handset-dual-dmic-quad-dec-reverse" />
+        <path name="handset-dual-dmic-dual-dec-landscape-reverse" />
         <ctl name="TX_DEC1 Volume" value="84" />
-        <ctl name="TX_DEC2 Volume" value="84" />
         <ctl name="TX_DEC3 Volume" value="84" />
-        <ctl name="TX_DEC4 Volume" value="84" />
     </path>
 
     <path name="handset-single-dmic-quad-dec">
@@ -1071,20 +1127,42 @@
         <path name="qmp2-normal" />
     </path>
 
+    <path name="handset-dual-dmic-dual-dec-portrait">
+        <ctl name="TX_SWR_DMIC Enable" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DEC2 MUX" value="SWR_MIC" />
+        <ctl name="TX DEC3 MUX" value="SWR_MIC" />
+        <ctl name="TX SMIC MUX2" value="SWR_MIC5" />
+        <ctl name="TX SMIC MUX3" value="SWR_MIC1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <path name="qmp2-normal" />
+        <path name="qmp4-normal" />
+    </path>
+
+    <path name="handset-dual-dmic-dual-dec-portrait-reverse">
+        <ctl name="TX_SWR_DMIC Enable" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DEC2 MUX" value="SWR_MIC" />
+        <ctl name="TX DEC3 MUX" value="SWR_MIC" />
+        <ctl name="TX SMIC MUX2" value="SWR_MIC1" />
+        <ctl name="TX SMIC MUX3" value="SWR_MIC5" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <path name="qmp2-normal" />
+        <path name="qmp4-normal" />
+    </path>
+
     <path name="unprocessed-hdr-mic-portrait">
-        <path name="handset-single-dmic-quad-dec" />
-        <ctl name="TX_DEC1 Volume" value="84" />
+        <path name="handset-dual-dmic-dual-dec-portrait" />
         <ctl name="TX_DEC2 Volume" value="84" />
         <ctl name="TX_DEC3 Volume" value="84" />
-        <ctl name="TX_DEC4 Volume" value="84" />
     </path>
 
     <path name="unprocessed-hdr-mic-inverted-portrait">
-        <path name="handset-single-dmic-quad-dec" />
-        <ctl name="TX_DEC1 Volume" value="84" />
+        <path name="handset-dual-dmic-dual-dec-portrait-reverse" />
         <ctl name="TX_DEC2 Volume" value="84" />
         <ctl name="TX_DEC3 Volume" value="84" />
-        <ctl name="TX_DEC4 Volume" value="84" />
     </path>
 
     <path name="camcorder-main-mic">

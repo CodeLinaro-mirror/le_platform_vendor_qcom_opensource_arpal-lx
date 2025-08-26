@@ -1035,10 +1035,12 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
     }
 
     mDevices.push_back(dev);
+    rm->lockGraph();
     status = session->setupSessionDevice(streamHandle, mStreamAttr->type, dev);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "setupSessionDevice for %d failed with status %d",
                 dev->getSndDeviceId(), status);
+        rm->unlockGraph();
         goto dev_close;
     }
 
@@ -1050,7 +1052,6 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
      * Currently device switch to BT is not supported for stopped mmap stream.
      */
     // TODO: add support for device switch to BT for stopped streams
-    rm->lockGraph();
     if ((currentState != STREAM_INIT && currentState != STREAM_STOPPED) ||
         ((currentState == STREAM_INIT || currentState == STREAM_STOPPED) &&
         ((dev->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
@@ -1209,6 +1210,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
     std::vector <Stream *> tempMutedStreams;
+    bool hasNoneDevice = false;
 
     rm->lockActiveStream();
     mStreamMutex.lock();
@@ -1222,13 +1224,20 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
     streamHandle->getStreamAttributes(&strAttr);
 
+    for (int i = 0; i < numDev; i++) {
+         if (newDevices[i].id == PAL_DEVICE_NONE) {
+             hasNoneDevice = true;
+             break;
+         }
+    }
+
     for (int i = 0; i < mDevices.size(); i++) {
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
         /*
          * Check the current output device if need to check and handle later
          * in case the new routing request is PAL_DEVICE_NONE.
          */
-        if (curDevId < PAL_DEVICE_OUT_MAX &&
+        if (hasNoneDevice && (curDevId < PAL_DEVICE_OUT_MAX) &&
             (((rm->isBtA2dpDevice(curDevId) || rm->isBtScoDevice(curDevId))
             && (!rm->isDeviceReady(curDevId))) ||
             curDevId == PAL_DEVICE_OUT_PROXY ||
