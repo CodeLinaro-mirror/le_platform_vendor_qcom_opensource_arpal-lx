@@ -10741,6 +10741,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         return VUISetParameters(param_id, param_payload, payload_size);
     }
 
+    if (!param_payload) {
+        PAL_ERR(LOG_TAG, "Invalid input payload ptr");
+        return -EINVAL;
+    }
+
     mResourceManagerMutex.lock();
     switch (param_id) {
         case PAL_PARAM_ID_UHQA_FLAG:
