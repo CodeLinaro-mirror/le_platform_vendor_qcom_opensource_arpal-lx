@@ -42,6 +42,7 @@
 #define ALOGI(fmt, arg...) syslog (LOG_INFO, fmt, ##arg)
 #define ALOGD(fmt, arg...) syslog (LOG_DEBUG, fmt, ##arg)
 #define ALOGV(fmt, arg...) syslog (LOG_NOTICE, fmt, ##arg)
+#define LOG_FATAL(fmt, arg...) syslog (LOG_CRIT, fmt, ##arg)
 #else
 #include <log/log.h>
 #endif
@@ -55,7 +56,7 @@ extern uint32_t pal_log_lvl;
 
 #define PAL_FATAL(log_tag, arg,...)                                       \
     if (pal_log_lvl & PAL_LOG_ERR) {                              \
-        LOG_FATAL("%s: %d: "  arg, __func__, __LINE__, ##__VA_ARGS__);\
+       LOG_FATAL("%s: %d: "  arg, __func__, __LINE__, ##__VA_ARGS__);\
     }
 
 #define PAL_ERR(log_tag, arg,...)                                          \
