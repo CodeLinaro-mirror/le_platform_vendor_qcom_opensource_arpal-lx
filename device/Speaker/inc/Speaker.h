@@ -57,9 +57,6 @@ public:
 #ifdef LINUX_ENABLED
     static void destroy();
 #endif
-    int32_t isSampleRateSupported(uint32_t sampleRate);
-    int32_t isChannelSupported(uint32_t numChannels);
-    int32_t isBitWidthSupported(uint32_t bitWidth) override;
     static std::shared_ptr<Device> getObject();
     int close();
     Speaker();
