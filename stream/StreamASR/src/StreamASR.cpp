@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -36,7 +36,9 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/mman.h>
+#ifndef ANDROID_ASHMEM_UNSUPPORTED
 #include <cutils/ashmem.h>
+#endif
 #include <fstream>
 
 #include "StreamASR.h"
@@ -48,12 +50,19 @@
 #endif
 #include "STUtils.h"
 
-#define ASR_MODEL_FILE_NAME "/data/vendor/audio/asr_model.bin"
+#define ASR_MODEL_FILE_NAME    "/data/vendor/audio/asr_model.bin"
+#define ASR_MODEL_FILE_RENAME  "/data/vendor/audio/asr_on_device_model.bin"
 
 extern "C" Stream* CreateASRStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                    const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                    const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    return new StreamASR(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
+    try {
+        return new StreamASR(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
+    } catch (const std::exception& e) {
+         PAL_ERR(LOG_TAG, "Stream create failed for stream type %s: %s",
+                 streamNameLUT.at(sattr->type).c_str(), e.what());
+        return nullptr;
+    }
 }
 
 
@@ -84,6 +93,7 @@ StreamASR::StreamASR(const struct pal_stream_attributes *sattr, struct pal_devic
     engine = nullptr;
     conc_notified_ = false;
     stateToRestore = ASR_STATE_NONE;
+    is_client_model_used_ = false;
 
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
                       +sizeof(struct pal_channel_vol_kv));
@@ -201,7 +211,15 @@ int32_t StreamASR::close()
         engine->releaseEngine();
         engine = nullptr;
     }
-    deleteModelFile();
+
+    if (is_client_model_used_) {
+        status = deleteModelFile();
+        if (status) {
+            PAL_ERR(LOG_TAG, "Error while deleting the ASR Model");
+        } else {
+           is_client_model_used_ = false;
+        }
+    }
 #ifndef PAL_MEMLOG_UNSUPPORTED
     palStateEnqueue(this, PAL_STATE_CLOSED, status);
 #endif
@@ -305,45 +323,72 @@ int32_t StreamASR::HandleConcurrentStream(bool active) {
 int32_t StreamASR::storeModelToFile(int32_t fd, uint32_t size) {
 
     void* mapAddr = nullptr;
-    int32_t outFd;
+    int32_t outFd = -1;
+    int status = 0;
+    struct stat stats;
 
     PAL_INFO(LOG_TAG, "Enter, fd %d size %d", fd, size);
-    if (fd < 0) {
-        PAL_ERR(LOG_TAG, " Invalid FD, value of Fd is %d", fd);
-        return -errno;
+    if (fd < 0 || size == 0) {
+        if (fd == -1 && stat(ASR_MODEL_FILE_NAME, &stats) == 0) {
+            PAL_INFO(LOG_TAG, "Model is not passed, use existing model, size %d", stats.st_size);
+            return 0;
+        } else {
+            PAL_ERR(LOG_TAG, "Invalid fd and size, and no existing model to use");
+            return -EINVAL;
+        }
     } else if(!ashmem_valid(fd)) {
         PAL_ERR(LOG_TAG, "ashmem_valid(fd) validation failed");
-        return -errno;
+        return -EINVAL;
     } else if(size != ashmem_get_size_region(fd)) {
         PAL_ERR(LOG_TAG, "Size passed not same as memory region, passed size: %d, memory size: %d",
                size, ashmem_get_size_region(fd));
-        return -errno;
+        return -EINVAL;
+    }
+
+    if (stat(ASR_MODEL_FILE_NAME, &stats) == 0) {
+        if (::rename(ASR_MODEL_FILE_NAME, ASR_MODEL_FILE_RENAME)) {
+           PAL_ERR(LOG_TAG, "Failed to rename stored device model");
+           return -EINVAL;
+        }
+        is_client_model_used_ = true;
     }
 
     mapAddr = mmap(nullptr, size, PROT_READ, MAP_SHARED, fd, 0);
     if (mapAddr == MAP_FAILED) {
         PAL_ERR(LOG_TAG, "Failed to map the model fd %s", strerror(errno));
-        return -errno;
+        goto error_exit;
     }
 
     outFd = ::open(ASR_MODEL_FILE_NAME, O_WRONLY | O_CREAT | O_TRUNC, S_IRUSR | S_IWUSR);
     if (outFd == -1) {
         PAL_ERR(LOG_TAG, "Failed to open output file %s", strerror(errno));
-        munmap(mapAddr, size);
-        return -errno;
+        goto error_exit;
     }
 
     if (::write(outFd, mapAddr, size) != size) {
         PAL_ERR(LOG_TAG, "Failed to write to output file");
-        munmap(mapAddr, size);
-        ::close(outFd);
-        return -errno;
+        goto error_exit;
     }
 
     munmap(mapAddr, size);
     ::close(outFd);
     PAL_INFO(LOG_TAG, "Exit");
     return 0;
+
+error_exit:
+    if (outFd != -1) {
+        ::close(outFd);
+    }
+    if (mapAddr && mapAddr != MAP_FAILED) {
+        munmap(mapAddr, size);
+    }
+    if (is_client_model_used_) {
+        is_client_model_used_ = false;
+        if (::rename(ASR_MODEL_FILE_RENAME, ASR_MODEL_FILE_NAME)) {
+            PAL_ERR(LOG_TAG, "Failed to revert renaming Model: %s", strerror(errno));
+        }
+    }
+    return -EINVAL;
 }
 
 int32_t StreamASR::deleteModelFile() {
@@ -355,6 +400,10 @@ int32_t StreamASR::deleteModelFile() {
         if (::remove(ASR_MODEL_FILE_NAME) != 0) {
             PAL_ERR(LOG_TAG, "Failed to delete the file %s", strerror(errno));
             return -EINVAL;
+        }
+        if (::rename(ASR_MODEL_FILE_RENAME, ASR_MODEL_FILE_NAME)) {
+           PAL_ERR(LOG_TAG, "Error renaming device model %s", strerror(errno));
+           return -EINVAL;
         }
     } else {
         PAL_ERR(LOG_TAG, "Failed to delete the file %s", strerror(errno));
@@ -1488,7 +1537,9 @@ int32_t StreamASR::ASRSSR::ProcessEvent(std::shared_ptr<ASREventConfig> evCfg)
                 PAL_ERR(LOG_TAG, "Invalid operation, client state = %d now",
                         asrStream.stateToRestore);
             } else {
-                asrStream.sendAbort();
+                status = asrStream.engine->setParameters(&asrStream, ASR_ABORT_EVENT);
+                if (status)
+                    PAL_ERR(LOG_TAG, "Error:%d Failed to setparam for ASR abort event", status);
             }
             break;
         }
