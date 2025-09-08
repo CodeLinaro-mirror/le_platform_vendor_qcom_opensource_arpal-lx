@@ -1888,7 +1888,6 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote, bool force_nlp
 
     //For calibration mode as we dont have stream associated so skipping it
     if (str == nullptr) {
-        lpi_stream = 0;
         goto update_sleep_mon;
     }
 
