@@ -51,6 +51,7 @@ typedef struct {
     struct pal_stream_attributes stream_attr;
     pal_stream_callback cb_func;
     std::map<int, int> shared_fd_list;
+    bool cache_fd;
  } pal_client_stream_handle;
 
 typedef struct {

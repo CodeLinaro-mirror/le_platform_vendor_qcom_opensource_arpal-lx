@@ -96,6 +96,12 @@
                 <!-- INSTANCE - INSTANCE_1 -->
                 <graph_kv key="0xAB000000" value="0x1"/>
             </keys_and_values>
+            <keys_and_values Direction="TX" Instance="1">
+                <!-- STREAMTX - compress capture stream -->
+                <graph_kv key="0xB1000000" value="0xB1000012"/>
+                <!-- INSTANCE - INSTANCE_1 -->
+                <graph_kv key="0xAB000000" value="0x1"/>
+            </keys_and_values>
         </stream>
         <!-- VOIP RX stream -->
         <stream type="PAL_STREAM_VOIP_RX">
