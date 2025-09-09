@@ -730,10 +730,6 @@ int32_t StreamCompress::flush()
         return 0;
     }
 
-    for (int i = 0; i < mDevices.size(); i++) {
-        rm->deregisterDevice(mDevices[i], this);
-    }
-    isFlushed = true;
     return session->flush();
 }
 
