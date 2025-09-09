@@ -26,39 +26,10 @@
 * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *
- *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+* Changes from Qualcomm Technologies, Inc. are provided under the following license:
+*
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
 #define LOG_TAG "PAL: SessionAlsaUtils"
@@ -380,7 +351,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
     std::shared_ptr<Device> beDevObj = nullptr;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t i;
     uint32_t streamPropId[] = {0x08000010, 1, 0x1}; /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
@@ -449,6 +420,10 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         }
     }
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
 
     /** Get mixer controls (struct mixer_ctl *) for both FE and BE */
     if (sAttr.type == PAL_STREAM_COMPRESSED)
@@ -1491,7 +1466,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     struct mixer_ctl *txFeMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *txBeMixerCtrl = nullptr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t streamPropId[] = {0x08000010, 1, 0x1}; /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
     uint32_t streamDevicePropId[] = {0x08000010, 1, 0x3}; /** gsl_subgraph_platform_driver_props.xml */
@@ -1526,6 +1501,10 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     PayloadBuilder* builder = new PayloadBuilder();
 
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
     // get keyvalue pair info
     for (i = 0; i < associatedDevices.size(); i++) {
         associatedDevices[i]->getDeviceAttributes(&dAttr, streamHandle);
@@ -1801,7 +1780,7 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
     std::ostringstream feName;
     struct mixer_ctl *feMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t i;
     /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
@@ -1814,7 +1793,10 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
         PAL_ERR(LOG_TAG, "getVirtualAudioMixer failed");
         goto freeMetaData;
     }
-
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
     PAL_DBG(LOG_TAG, "Ext EC Ref Open Dev is called");
 
     if( DevIds.size() == 0)
@@ -1899,7 +1881,7 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
     struct mixer_ctl *txFeMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *txBeMixerCtrl = nullptr;
     std::vector<std::shared_ptr<Device>> associatedDevices;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t streamPropId[] = {0x08000010, 1, 0x1}; /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
     uint32_t streamDevicePropId[] = {0x08000010, 1, 0x3}; /** gsl_subgraph_platform_driver_props.xml */
@@ -1923,7 +1905,11 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
         }
     }
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
-
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
+        goto exit;
+    }
+    
     // get audio mixer
     SessionAlsaUtils::getAgmMetaData(emptyKV, emptyKV,
             (struct prop_data *)streamPropId, streamRxMetaData);
