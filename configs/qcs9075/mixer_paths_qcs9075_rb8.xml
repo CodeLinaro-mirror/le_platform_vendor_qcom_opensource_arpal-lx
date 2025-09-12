@@ -5,9 +5,11 @@
 * -->
 
 <mixer>
-<speaker>
-</speaker>
 
-<speaker-mic>
-</speaker-mic>
+    <path name="speaker">
+    </path>
+
+    <path name="speaker-mic">
+    </path>
+
 </mixer>
