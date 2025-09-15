@@ -394,6 +394,12 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
 
     std::unique_lock<std::mutex> calLock(calibrationMutex);
 
+    if (isHapDevInUse) {
+        PAL_INFO(LOG_TAG, "HapticsDev is in use, returning from calibration");
+        hapticsDevCalState = HAPTICS_DEV_NOT_CALIBRATED;
+        return -EINVAL;
+    }
+
     memset(&device, 0, sizeof(device));
     memset(&deviceRx, 0, sizeof(deviceRx));
     memset(&sAttr, 0, sizeof(sAttr));
@@ -985,7 +991,6 @@ exit:
         PAL_DBG(LOG_TAG, "Unlocked due to processing mode");
         hapticsDevCalState = HAPTICS_DEV_NOT_CALIBRATED;
         clock_gettime(CLOCK_BOOTTIME, &devLastTimeUsed);
-        cv.notify_all();
     }
 
     if (ret != 0) {
@@ -997,6 +1002,8 @@ exit:
        delete builder;
        builder = NULL;
     }
+    // Notify if any event is waiting
+    cv.notify_all();
     PAL_DBG(LOG_TAG, "Exiting");
     return ret;
 }
@@ -1065,7 +1072,7 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
     int i;
     int retry = 2;
 
-    while (!threadExit && retry) {
+    while (!threadExit && (retry > 0)) {
         PAL_DBG(LOG_TAG, "Inside calibration while loop");
         proceed = false;
         if (isHapticsDevInUse(&sec)) {
@@ -1076,6 +1083,8 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
         } else {
             PAL_DBG(LOG_TAG, "HapticsDev not in use");
             if (isDynamicCalTriggered) {
+                // for dynamic cal there should not be any retry
+                retry = 0;
                 PAL_DBG(LOG_TAG, "Dynamic Calibration triggered");
             } else if (0) /*(sec < minIdleTime)*/ {
                 PAL_DBG(LOG_TAG, "HapticsDev not idle for minimum time. %lu", sec);
