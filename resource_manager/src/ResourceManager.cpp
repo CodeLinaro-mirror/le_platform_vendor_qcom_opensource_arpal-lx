@@ -10741,6 +10741,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         return VUISetParameters(param_id, param_payload, payload_size);
     }
 
+    if (!param_payload) {
+        PAL_ERR(LOG_TAG, "Invalid input payload ptr");
+        return -EINVAL;
+    }
+
     mResourceManagerMutex.lock();
     switch (param_id) {
         case PAL_PARAM_ID_UHQA_FLAG:
@@ -11770,6 +11775,27 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             } else {
                 PAL_ERR(LOG_TAG, "Invalid ST resource payload");
                 status = -EINVAL;
+            }
+        }
+        break;
+        case PAL_PARAM_ID_SET_HFP_ZONE:
+        {
+            PAL_DBG(LOG_TAG, "zonal_hfp enter param set zone");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (st_attr.type == PAL_STREAM_LOOPBACK &&
+                    st_attr.info.opt_stream_info.loopback_type ==
+                                                 PAL_STREAM_LOOPBACK_HFP_TX) {
+                    PAL_DBG(LOG_TAG, "found active zonal_hfp uplink stream");
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_SET_HFP_ZONE,
+                            (int *)param_payload); //zone_id
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set zoneid for ECNR");
+                        goto exit;
+                    }
+                }
             }
         }
         break;
