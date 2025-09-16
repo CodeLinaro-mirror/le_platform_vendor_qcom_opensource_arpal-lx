@@ -1018,6 +1018,11 @@ int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
             bool slow_talk = false;
             param_payload = (pal_param_payload *)payload;
             slow_talk = *((bool *)param_payload->payload);
+            if (!((bool *)param_payload->payload)) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "wrong params: payload is NULL");
+                goto exit;
+            }
 
             uint32_t slow_talk_tag =
                           slow_talk ? VOICE_SLOW_TALK_ON : VOICE_SLOW_TALK_OFF;
