@@ -106,11 +106,12 @@ libpal_la_CPPFLAGS += @GLIB_CFLAGS@ -include glib.h
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 
 if BUILDSYSTEM_QLI
-libpal_la_CPPFLAGS +=  -DPAL_USE_SYSLOG -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
+libpal_la_CPPFLAGS += -DPAL_USE_SYSLOG -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
 endif
 
 if BUILDSYSTEM_TELEMATICS
-libpal_la_CPPFLAGS +=  -DPAL_USE_SYSLOG -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
+libpal_la_CPPFLAGS += -DPAL_CUTILS_SUPPORTED -DBLUETOOTH_FEATURES_DISABLED -DPAL_USE_SYSLOG -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED  -DHAPTICS_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED -DINPUT_INSTANCE_UNSUPPORTED -DSOUND_TRIGGER_FEATURES_DISABLED
+libpal_la_CPPFLAGS += -DVENDOR_SKU='"sdx"'
 endif
 
 if USE_SYSLOG
@@ -185,5 +186,24 @@ audioadsprpcd_LDADD = -ldl
 audioadsprpcd_la_CFLAGS = -fPIC
 
 endif
+
+if BUILDSYSTEM_TELEMATICS
+
+libpal_la_list      = ./configs/qcom/telematics/sa535m/mixer_paths_sdx_auto.xml \
+                      ./configs/qcom/telematics/sa535m/resourcemanager_sdx_auto.xml \
+                      ./configs/qcom/telematics/sa535m/card-defs.xml \
+                      ./configs/qcom/telematics/sa535m/usecaseKvManager.xml \
+					  ./configs/qcom/telematics/sa535m/plugin_manager.xml
+# install essential xml files under /etc
+root_etcdir      = "/etc"
+root_etc_SCRIPTS = $(libpal_la_list)
+install-data-hook:
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_sdx_auto.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_sdx_auto.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/card-defs.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/usecaseKvManager.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/plugin_manager.xml
+endif
+
 
 SUBDIRS =  plugins . session stream device plugins/configs
