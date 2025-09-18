@@ -114,6 +114,7 @@ protected:
     int mGainLevel;
     int mOrientation = 0;
     std::mutex mStreamMutex;
+    std::mutex mGetParamMutex;
     static std::mutex mBaseStreamMutex; //TBD change this. as having a single static mutex for all instances of Stream is incorrect. Replace
     static std::shared_ptr<ResourceManager> rm;
     static std::shared_ptr<PluginManager> pm;
@@ -264,7 +265,7 @@ public:
     virtual int32_t DisconnectDevice(pal_device_id_t device_id) { return 0; }
     virtual int32_t ConnectDevice(pal_device_id_t device_id) { return 0; }
     virtual uint32_t getCallbackEventId() { return 0; }
-    static void handleStreamException(struct pal_stream_attributes *attributes,
+    static void handleStreamCreateFailure(struct pal_stream_attributes *attributes,
                                       pal_stream_callback cb, uint64_t cookie);
     void lockStreamMutex() {
         mStreamMutex.lock();
@@ -274,11 +275,16 @@ public:
         mutexLockedbyRm = false;
         mStreamMutex.unlock();
     };
+
+    void lockGetParamMutex() { mGetParamMutex.lock(); }
+    void unlockGetParamMutex() { mGetParamMutex.unlock(); }
+
     bool isMutexLockedbyRm() { return mutexLockedbyRm; }
     void setCachedState(stream_state_t state);
     void clearmDevices();
     void removemDevice(int palDevId);
     void addmDevice(struct pal_device *dattr);
+    void removeLastmDevice();
     virtual std::shared_ptr<CaptureProfile> GetCurrentCaptureProfile(){return nullptr;};
 };
 

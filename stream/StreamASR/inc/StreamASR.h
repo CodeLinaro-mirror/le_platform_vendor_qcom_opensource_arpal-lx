@@ -44,6 +44,7 @@
 #include "asr_module_calibration_api.h"
 #include "sdz_api.h"
 
+#define ASR_ABORT_TYPE 0xFFFFFFFE
 
 typedef enum {
     ASR_STATE_NONE,
@@ -407,6 +408,7 @@ class StreamASR : public Stream {
     int32_t GenerateCallbackEvent(struct pal_asr_event **event,
                                   uint32_t *eventSize);
 
+    bool is_client_model_used_;
     int32_t storeModelToFile(int32_t fd, uint32_t size);
     int32_t deleteModelFile();
     /* Currently model is not loaded from HLOS, hence using this hardcoded UUID,

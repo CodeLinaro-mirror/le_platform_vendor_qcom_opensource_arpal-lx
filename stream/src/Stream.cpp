@@ -204,40 +204,30 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
 
 stream_create:
     PAL_DBG(LOG_TAG, "stream type 0x%x", sAttr->type);
-    try {
-            pm = PluginManager::getInstance();
-            if(!pm){
-                PAL_ERR(LOG_TAG, "unable to get plugin manager instance");
-                goto exit;
-            }
 
-            status = pm->openPlugin(PAL_PLUGIN_MANAGER_STREAM, streamNameLUT.at(sAttr->type), plugin);
-            if (plugin && !status) {
-                streamCreate = reinterpret_cast<StreamCreate>(plugin);
-                stream = streamCreate(sAttr,
-                                palDevsAttr,
-                                noOfDevices,
-                                modifiers,
-                                noOfModifiers,
-                                rm);
-                if (sAttr->type == PAL_STREAM_COMPRESSED && stream == nullptr) {
-                    PAL_ERR(LOG_TAG, "StreamCompress create failed");
-                    if (palDevsAttr) {
-                        free(palDevsAttr);
-                    }
-                    return nullptr;
-                }
-            } else {
-                PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s", streamNameLUT.at(sAttr->type).c_str());
-            }
+    pm = PluginManager::getInstance();
+    if(!pm){
+        PAL_ERR(LOG_TAG, "unable to get plugin manager instance");
+        goto exit;
     }
-    catch (const std::exception& e) {
-        PAL_ERR(LOG_TAG, "Stream create failed for stream type %s", streamNameLUT.at(sAttr->type).c_str());
-        if (palDevsAttr) {
-            free(palDevsAttr);
+
+    status = pm->openPlugin(PAL_PLUGIN_MANAGER_STREAM, streamNameLUT.at(sAttr->type), plugin);
+    if (plugin && !status) {
+        streamCreate = reinterpret_cast<StreamCreate>(plugin);
+        stream = streamCreate(sAttr,
+                        palDevsAttr,
+                        noOfDevices,
+                        modifiers,
+                        noOfModifiers,
+                        rm);
+        if (stream == nullptr) {
+            goto exit;
         }
-        throw std::runtime_error(e.what());
+    } else {
+        PAL_ERR(LOG_TAG, "unable to get plugin for stream type %s",
+                streamNameLUT.at(sAttr->type).c_str());
     }
+
     if (!rm->isStreamSupported(stream, palDevsAttr, noOfDevices)) {
         delete stream;
         stream = NULL;
@@ -267,11 +257,10 @@ exit:
         free(palDevsAttr);
     }
     if (!stream) {
-        PAL_ERR(LOG_TAG, "stream creation failed");
+        PAL_ERR(LOG_TAG, "Exit. Stream creation failed");
+    } else {
+        PAL_DBG(LOG_TAG, "Exit. Stream %pK create successful", stream);
     }
-
-    PAL_DBG(LOG_TAG, "Exit stream %pK create %s", stream,
-            stream ? "successful" : "failed");
     return stream;
 }
 
@@ -852,9 +841,9 @@ int32_t Stream::getTimestamp(struct pal_session_time *stime)
         PAL_ERR(LOG_TAG, "Sound card offline/standby, status %d", status);
         goto exit;
     }
-    rm->lockResourceManagerMutex();
+    lockGetParamMutex();
     status = session->getTimestamp(stime);
-    rm->unlockResourceManagerMutex();
+    unlockGetParamMutex();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "Failed to get session timestamp status %d", status);
         if (errno == -ENETRESET &&
@@ -1782,7 +1771,7 @@ int Stream::waitStreamSmph()
     return sem_wait(&mInUse);
 }
 
-void Stream::handleStreamException(struct pal_stream_attributes *attributes,
+void Stream::handleStreamCreateFailure(struct pal_stream_attributes *attributes,
                                    pal_stream_callback cb, uint64_t cookie)
 {
     if (!attributes || !cb) {
@@ -1842,6 +1831,10 @@ void Stream::addmDevice(struct pal_device *dattr)
     mDevices.push_back(dev);
 }
 
+void Stream::removeLastmDevice()
+{
+    mDevices.pop_back();
+}
 bool Stream::isStreamSSRDownFeasibile()
 {
     bool is_ssr_down_feasible = true;
@@ -1921,7 +1914,9 @@ int32_t Stream::getCustomParam(custom_payload_uc_info_t* uc_info, std::string pa
         mStreamMutex.unlock();
         return -EINVAL;
     }
+    lockGetParamMutex();
     status = session->getCustomParam(uc_info, param_str, param_payload, payload_size, this);
+    unlockGetParamMutex();
     if (status) {
        PAL_ERR(LOG_TAG, "getCustomParam failed with %d", status);
     }

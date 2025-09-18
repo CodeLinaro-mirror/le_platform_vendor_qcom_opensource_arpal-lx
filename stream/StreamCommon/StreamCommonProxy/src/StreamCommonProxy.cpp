@@ -62,8 +62,9 @@ StreamCommonProxy::~StreamCommonProxy() {
 int32_t StreamCommonProxy::getParameters(uint32_t param_id, void **payload)
 {
     int32_t status = 0;
-
+    lockGetParamMutex();
     status = session->getParameters(nullptr, param_id, payload);
+    unlockGetParamMutex();
     if (status)
             PAL_ERR(LOG_TAG, "Error:getParam failed with %d",
                     status);

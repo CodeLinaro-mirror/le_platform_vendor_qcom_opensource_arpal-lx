@@ -111,6 +111,7 @@ int32_t BTUtilsDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend)
                     goto exit;
                 }
                 iter = mDevices.erase(iter);
+                s->removemDevice((*iter)->getSndDeviceId());
                 s->removePalDevice(s, PAL_DEVICE_OUT_BLUETOOTH_SCO);
                 rm->unlockGraph();
             }
@@ -179,6 +180,7 @@ int32_t BTUtilsDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend)
                     goto exit;
                 }
                 iter = mDevices.erase(iter);
+                s->removemDevice((*iter)->getSndDeviceId());
                 s->removePalDevice(s, sndDevId);
                 rm->unlockGraph();
             } else {
@@ -223,6 +225,7 @@ int32_t BTUtilsDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend)
                 goto exit;
             }
             mDevices.push_back(switchDev);
+            s->addmDevice(&switchDevDattr);
             s->addPalDevice(s, &switchDevDattr);
         } else {
             s->suspendedOutDevIds.push_back(switchDevDattr.id);
@@ -303,6 +306,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                     goto exit;
                 }
                 iter = mDevices.erase(iter);
+                s->removemDevice((*iter)->getSndDeviceId());
                 rm->unlockGraph();
             }
         } else {
@@ -371,6 +375,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                     goto exit;
                 }
                 iter = mDevices.erase(iter);
+                s->removemDevice((*iter)->getSndDeviceId());
                 rm->unlockGraph();
             }
         } else {
@@ -461,6 +466,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
             }
 
             mDevices.push_back(dev);
+            s->addmDevice(&dattr);
             rm->lockGraph();
             status = session->setupSessionDevice(s, sAttr.type, dev);
             rm->unlockGraph();
@@ -481,6 +487,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                     PAL_ERR(LOG_TAG, "Speaker device start failed with status %d", status);
                     dev->close();
                     mDevices.pop_back();
+                    s->removeLastmDevice();
                     goto exit;
                 }
             }
@@ -489,6 +496,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                 PAL_ERR(LOG_TAG, "connectSessionDevice failed:%d", status);
                 dev->close();
                 mDevices.pop_back();
+                s->removeLastmDevice();
                 goto exit;
             }
             dev->getDeviceAttributes(&dattr, s);
@@ -2198,7 +2206,7 @@ int setBTParameter(uint32_t param_id, void *param_payload,
             struct pal_device dattr;
             pal_param_bta2dp_t *current_param_bt_a2dp = nullptr;
             pal_param_bta2dp_t param_bt_a2dp;
-            int retrycnt = 20;
+            int retrycnt = 3;
             const int retryPeriodMs = 100;
 
             if (rm->isDeviceAvailable(PAL_DEVICE_OUT_BLUETOOTH_A2DP)) {

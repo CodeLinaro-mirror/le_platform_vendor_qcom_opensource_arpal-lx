@@ -412,6 +412,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
 
     if (customPayloadSize) {
         free(customPayload);
+        customPayload = NULL;
         customPayloadSize = 0;
     }
 
@@ -786,6 +787,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     if (payloadSize) {
         if (customPayloadSize) {
             free(customPayload);
+            customPayload = NULL;
             customPayloadSize = 0;
         }
 
@@ -825,6 +827,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
         if (ret) {
             PAL_ERR(LOG_TAG, "Unable to set custom param for calibration mode");
             free(customPayload);
+            customPayload = NULL;
             customPayloadSize = 0;
             goto err_pcm_open;
         }
@@ -1689,6 +1692,7 @@ void HapticsDevProtection::updateHPcustomPayload()
 
     if (customPayloadSize) {
         free(customPayload);
+        customPayload = NULL;
         customPayloadSize = 0;
     }
 
@@ -2368,6 +2372,7 @@ void HapticsDevFeedback::updateVIcustomPayload()
 
     if (customPayloadSize) {
         free(customPayload);
+        customPayload = NULL;
         customPayloadSize = 0;
     }
 

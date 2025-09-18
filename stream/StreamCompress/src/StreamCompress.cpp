@@ -28,7 +28,7 @@
  *
  * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- *
+
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -66,7 +66,7 @@ extern "C" Stream* CreateCompressStream(const struct pal_stream_attributes *satt
     try {
         return new StreamCompress(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
     } catch (const std::exception& e) {
-         PAL_ERR(LOG_TAG, "StreamCompress create failed for stream type %s: %s",
+         PAL_ERR(LOG_TAG, "Stream create failed for stream type %s: %s",
                 streamNameLUT.at(sattr->type).c_str(), e.what());
         return nullptr;
     }
@@ -540,13 +540,16 @@ int32_t StreamCompress::start()
                 rm->unlockGraph();
                 goto session_fail;
             }
+            rm->unlockGraph();
+            mStreamMutex.unlock();
+            rm->lockActiveStream();
+            mStreamMutex.lock();
             for (int i = 0; i < mDevices.size(); i++) {
                 rm->registerDevice(mDevices[i], this);
             }
+            rm->unlockActiveStream();
             currentState = STREAM_STARTED;
             PAL_VERBOSE(LOG_TAG, "session start successful");
-
-            rm->unlockGraph();
 
             break;
         default:
@@ -980,7 +983,6 @@ int32_t StreamCompress::resume()
 
 int32_t StreamCompress::drain(pal_drain_type_t type)
 {
-    std::lock_guard<std::mutex> lck(mStreamMutex);
     if (PAL_CARD_STATUS_DOWN(rm->getSoundCardState())) {
         PAL_ERR(LOG_TAG, "Sound card offline/standby or session is null");
         return -EINVAL;
