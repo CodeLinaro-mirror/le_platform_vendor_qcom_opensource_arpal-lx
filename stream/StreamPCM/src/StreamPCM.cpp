@@ -117,10 +117,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
 
     //check if its capture, and if it is, look at the address and then pick instance ids.
     //move this to use bus device plugin for input
+#ifndef INPUT_INSTANCE_UNSUPPORTED
     if (mStreamAttr->direction == PAL_AUDIO_INPUT && mStreamAttr->address) {
         input_instance_id = 0;
         PAL_DBG(LOG_TAG, "%s did not find bus_addr %s so set instance_id %u", __func__, mStreamAttr->address, input_instance_id);
     }
+#endif
 
     PAL_VERBOSE(LOG_TAG, "Create new Session");
     session = Session::makeSession(rm, sattr);
