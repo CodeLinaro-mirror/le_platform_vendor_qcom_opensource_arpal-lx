@@ -868,10 +868,13 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
 
     // TODO: Make this to wait in While loop
     if (!mDspCallbackRcvd) {
+        rm->acquireWakeLock();
         if (cv.wait_for(calLock, std::chrono::seconds(3)) == std::cv_status::timeout) {
             PAL_ERR(LOG_TAG, "Timeout occured! for VI calibration");
+            rm->releaseWakeLock();
             goto done;
         }
+        rm->releaseWakeLock();
     }
 
     // Store haptics calibrated values Re, f0, Blq
