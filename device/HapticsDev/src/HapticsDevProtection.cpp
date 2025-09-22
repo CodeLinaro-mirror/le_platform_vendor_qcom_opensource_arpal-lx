@@ -381,7 +381,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     bool isTxFeandBeConnected = false, isRxFeandBeConnected = false;
     std::string backEndNameTx, backEndNameRx;
     std::vector<std::pair<int, int>> keyVector, calVector;
-    std::vector<int> pcmDevIdsRx, pcmDevIdsTx;
+    std::vector<int> pcmDevIdsTx;
     std::shared_ptr<ResourceManager> rm;
     std::ostringstream connectCtrlName;
     std::ostringstream connectCtrlNameRx;
@@ -973,11 +973,14 @@ err_pcm_open :
     }
 
 free_fe:
-    if (pcmDevIdsRx.size() != 0) {
-        if (isRxFeandBeConnected) {
-            disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
+    if (!isHapDevInUse) {
+        if (pcmDevIdsRx.size() != 0) {
+            if (isRxFeandBeConnected) {
+                disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
+            }
+            rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
+            pcmDevIdsRx.clear();
         }
-        rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
     }
 
     if (pcmDevIdsTx.size() != 0) {
@@ -986,7 +989,6 @@ free_fe:
         }
         rm->freeFrontEndIds(pcmDevIdsTx, sAttr, TX_HOSTLESS);
     }
-    pcmDevIdsRx.clear();
     pcmDevIdsTx.clear();
 
 exit:
@@ -1622,6 +1624,12 @@ free_fe:
         }
         rm->freeFrontEndIds(pcmDevIdTx, sAttr, dir);
         pcmDevIdTx.clear();
+    }
+
+    if (pcmDevIdsRx.size() != 0) {
+        disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
+        rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
+        pcmDevIdsRx.clear();
     }
 exit:
     deviceMutex.unlock();
