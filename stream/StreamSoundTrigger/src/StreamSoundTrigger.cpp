@@ -3300,7 +3300,6 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
         }
         case ST_EV_DEVICE_DISCONNECTED: {
             status = st_stream_.DisconnectEvent(ev_cfg);
-            rm->releaseWakeLock();
             break;
         }
         case ST_EV_DEVICE_CONNECTED: {
@@ -3647,7 +3646,6 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
             if (st_stream_.reader_) {
                 st_stream_.reader_->reset();
             }
-            rm->releaseWakeLock();
             break;
         }
         case ST_EV_DEVICE_CONNECTED: {
