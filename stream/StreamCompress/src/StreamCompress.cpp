@@ -416,6 +416,7 @@ int32_t StreamCompress::start()
         switch (mStreamAttr->direction) {
         case PAL_AUDIO_OUTPUT:
             PAL_VERBOSE(LOG_TAG, "Inside PAL_AUDIO_OUTPUT device count - %zu", mDevices.size());
+#ifndef BLUETOOTH_FEATURES_DISABLED
             // handle scenario where BT device is not ready
             if (rm->IsDummyDevEnabled()) {
                 status = rm->handleBTDeviceNotReadyToDummy(this, a2dpSuspend);
@@ -424,7 +425,7 @@ int32_t StreamCompress::start()
             }
             if (0 != status)
                 goto exit;
-
+#endif
             rm->lockGraph();
             /* Any device start success will be treated as positive status.
              * This allows stream be played even if one of devices failed to start.

@@ -45,12 +45,6 @@
                 <!-- INSTANCE - INSTANCE_1 -->
                 <graph_kv key="0xAB000000" value="0x1"/>
             </keys_and_values>
-            <keys_and_values Direction="RX" Instance="2">
-                <!-- STREAMRX - PCM_LL_PLAYBACK -->
-                <graph_kv key="0xA1000000" value="0xA100000E"/>
-                <!-- INSTANCE - INSTANCE_2 -->
-                <graph_kv key="0xAB000000" value="0x2"/>
-            </keys_and_values>
         </stream>
         <!-- Deep Buffer stream -->
         <stream type="PAL_STREAM_DEEP_BUFFER">
@@ -69,14 +63,6 @@
             <keys_and_values Direction="TX" Instance="1">
                 <!-- STREAMTX - PCM_RECORD -->
                 <graph_kv key="0xB1000000" value="0xB1000001"/>
-                <!-- INSTANCE - INSTANCE_1 -->
-                <graph_kv key="0xAB000000" value="0x1"/>
-            </keys_and_values>
-            <keys_and_values Direction="TX" Instance="2">
-                <!-- STREAMTX - PCM_RECORD -->
-                <graph_kv key="0xB1000000" value="0xB1000001"/>
-                <!-- INSTANCE - INSTANCE_2 -->
-                <graph_kv key="0xAB000000" value="0x2"/>
             </keys_and_values>
         </stream>
         <!-- Compress stream -->
@@ -124,13 +110,13 @@
         </stream>
         <!-- Voice stream -->
         <stream type="PAL_STREAM_VOICE_CALL">
-            <keys_and_values Direction="RX" VSID="VOICEMMODE1,VOICEMMODE2">
+            <keys_and_values Direction="RX" VSID="VOICEMMODE1,VOICEMMODE2,VOICELBMMODE1,VOICELBMMODE2">
                 <!-- STREAMRX - VOICE_CALL_RX -->
                 <graph_kv key="0xA1000000" value="0xA1000010"/>
                 <!-- VSID - VSID_DEFAULT -->
                 <graph_kv key="0xB3000000" value="0xB3000001"/>
             </keys_and_values>
-            <keys_and_values Direction="TX" VSID="VOICEMMODE1,VOICEMMODE2">
+            <keys_and_values Direction="TX" VSID="VOICEMMODE1,VOICEMMODE2,VOICELBMMODE1,VOICELBMMODE2">
                 <!-- STREAMTX - VOICE_CALL_TX -->
                 <graph_kv key="0xB1000000" value="0xB1000007"/>
                 <!-- VSID - VSID_DEFAULT -->
@@ -302,13 +288,6 @@
                 <graph_kv key="0xA3000000" value="0xA3000008"/>
                 <!-- PROXY_TX_TYPE - PROXY_TX_VOICE_RX -->
                 <graph_kv key="0xD1000000" value="0xD1000003"/>
-            </keys_and_values>
-        </device>
-        <!-- In VI feedback Device -->
-        <device id="PAL_DEVICE_IN_VI_FEEDBACK">
-            <keys_and_values>
-                <!-- DEVICETX - VI_TX -->
-                <graph_kv key="0xA3000000" value="0xA3000009"/>
             </keys_and_values>
         </device>
         <!-- BT SCO OUT Device -->
@@ -501,11 +480,9 @@
                 <!-- DEVICEPP_TX - DEVICEPP_TX_AUDIO_FLUENCE_SMECNS -->
                 <graph_kv key="0xAD000000" value="0xAD000002"/>
             </keys_and_values>
-            <keys_and_values StreamType="PAL_STREAM_VOICE_CALL" CustomConfig="dm-ec">
+            <keys_and_values StreamType="PAL_STREAM_VOICE_CALL">
                 <!-- DEVICETX - SPEAKER_MIC -->
                 <graph_kv key="0xA3000000" value="0xA3000001"/>
-                <!-- DEVICEPP_TX - DEVICEPP_TX_VOICE_FLUENCE_SMECNS -->
-                <graph_kv key="0xAD000000" value="0xAD000008"/>
             </keys_and_values>
             <keys_and_values StreamType="PAL_STREAM_VOIP_TX">
                 <!-- DEVICETX - SPEAKER_MIC -->
