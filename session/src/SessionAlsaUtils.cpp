@@ -1795,7 +1795,7 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
     }
     if (mixerHandle == nullptr) {
         PAL_ERR(LOG_TAG, "mixerHandle is null");
-        goto exit;
+        goto freeMetaData;
     }
     PAL_DBG(LOG_TAG, "Ext EC Ref Open Dev is called");
 
@@ -1909,7 +1909,6 @@ int SessionAlsaUtils::close(Stream * streamHandle, std::shared_ptr<ResourceManag
         PAL_ERR(LOG_TAG, "mixerHandle is null");
         goto exit;
     }
-    
     // get audio mixer
     SessionAlsaUtils::getAgmMetaData(emptyKV, emptyKV,
             (struct prop_data *)streamPropId, streamRxMetaData);
