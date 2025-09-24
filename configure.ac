@@ -164,6 +164,7 @@ device/Bluetooth/Makefile \
 device/Bluetooth/dev_bt.pc \
 device/RTProxy/Makefile \
 device/RTProxy/dev_proxy.pc \
+adsprpcd/Makefile \
 plugins/Makefile plugins/plugins.pc \
 plugins/configs/Makefile \
 plugins/configs/session_configs.pc \
