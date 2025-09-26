@@ -1567,7 +1567,7 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
     std::ostringstream feName;
     struct mixer_ctl *feMixerCtrls[FE_MAX_NUM_MIXER_CONTROLS] = { nullptr };
     struct mixer_ctl *beMetaDataMixerCtrl = nullptr;
-    struct mixer *mixerHandle;
+    struct mixer *mixerHandle = nullptr;
     uint32_t i;
     /** gsl_subgraph_platform_driver_props.xml */
     uint32_t devicePropId[] = {0x08000010, 2, 0x2, 0x5};
@@ -1578,6 +1578,10 @@ int SessionAlsaUtils::openDev(std::shared_ptr<ResourceManager> rmHandle,
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "getVirtualAudioMixer failed");
+        goto freeMetaData;
+    }
+    if (mixerHandle == nullptr) {
+        PAL_ERR(LOG_TAG, "mixerHandle is null");
         goto freeMetaData;
     }
 
