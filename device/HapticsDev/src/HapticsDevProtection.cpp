@@ -247,6 +247,7 @@ void HapticsDevProtection::handleHPCallback(uint64_t hdl __unused, uint32_t even
 
     PAL_DBG(LOG_TAG, "Got event from DSP 0x%x", event_id);
 
+    calibrationMutex.lock();
     if (event_id == EVENT_ID_HAPTICS_VI_CALIBRATION) {
         // Received callback for Calibration state
         param_data = static_cast<haptics_vi_calib_param_t*>(event_data);
@@ -278,29 +279,28 @@ void HapticsDevProtection::handleHPCallback(uint64_t hdl __unused, uint32_t even
 
             mDspCallbackRcvd = true;
             calibrationCallbackStatus = HAPTICS_VI_CALIB_STATE_SUCCESS;
-            cv.notify_all();
         } else if ((param_data->state == HAPTICS_VI_CALIB_STATE_FAILED) ||
             (param_data->state == HAPTICS_VI_CALIB_STATE_VI_WAIT_TIMED_OUT) ||
             (param_data->state == HAPTICS_VI_CALIB_STATE_LOW_VI)) {
             PAL_DBG(LOG_TAG, "Calibration unsuccessful, state:%d", param_data->state);
             mDspCallbackRcvd = true;
             calibrationCallbackStatus = HAPTICS_VI_CALIB_STATE_FAILED;
-            cv.notify_all();
         } else if (param_data->state == HAPTICS_VI_CALIB_STATE_WAIT_FOR_VI) {
             PAL_DBG(LOG_TAG, "Low VI threshold continue cal, state:%d", param_data->state);
         } else {
             PAL_DBG(LOG_TAG, "unexpected cal state :%d, failing cal step", param_data->state);
             mDspCallbackRcvd = true;
             calibrationCallbackStatus = HAPTICS_VI_CALIB_STATE_FAILED;
-            cv.notify_all();
         }
     } else {
             PAL_ERR(LOG_TAG, "received unexpected event id:0x%x", event_id);
             // Restart the calibration and abort current run.
             mDspCallbackRcvd = true;
             calibrationCallbackStatus = HAPTICS_VI_CALIB_STATE_FAILED;
-            cv.notify_all();
     }
+    calibrationMutex.unlock();
+    if (mDspCallbackRcvd)
+        cv.notify_all();
 }
 
 void HapticsDevProtection::disconnectFeandBe(std::vector<int> pcmDevIds,
@@ -395,6 +395,12 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
 
     std::unique_lock<std::mutex> calLock(calibrationMutex);
 
+    if (isHapDevInUse) {
+        PAL_INFO(LOG_TAG, "HapticsDev is in use, returning from calibration");
+        hapticsDevCalState = HAPTICS_DEV_NOT_CALIBRATED;
+        return -EINVAL;
+    }
+
     memset(&device, 0, sizeof(device));
     memset(&deviceRx, 0, sizeof(deviceRx));
     memset(&sAttr, 0, sizeof(sAttr));
@@ -422,6 +428,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
         PAL_ERR(LOG_TAG, "Error: %d Failed to get resource manager instance", -EINVAL);
         goto exit;
     }
+    rm->voteSleepMonitor(nullptr, true);
 
     // Configure device attribute
     switch (vi_device.channels) {
@@ -863,9 +870,11 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     PAL_DBG(LOG_TAG, "Waiting for the event from DSP or PAL");
 
     // TODO: Make this to wait in While loop
-    if (cv.wait_for(calLock, std::chrono::seconds(5)) == std::cv_status::timeout) {
-        PAL_ERR(LOG_TAG, "Timeout occured! for VI calibration");
-        goto done;
+    if (!mDspCallbackRcvd) {
+        if (cv.wait_for(calLock, std::chrono::seconds(3)) == std::cv_status::timeout) {
+            PAL_ERR(LOG_TAG, "Timeout occured! for VI calibration");
+            goto done;
+        }
     }
 
     // Store haptics calibrated values Re, f0, Blq
@@ -988,7 +997,6 @@ exit:
         PAL_DBG(LOG_TAG, "Unlocked due to processing mode");
         hapticsDevCalState = HAPTICS_DEV_NOT_CALIBRATED;
         clock_gettime(CLOCK_BOOTTIME, &devLastTimeUsed);
-        cv.notify_all();
     }
 
     if (ret != 0) {
@@ -1000,6 +1008,8 @@ exit:
        delete builder;
        builder = NULL;
     }
+    // Notify if any event is waiting
+    cv.notify_all();
     PAL_DBG(LOG_TAG, "Exiting");
     return ret;
 }
@@ -1068,7 +1078,7 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
     int i;
     int retry = 2;
 
-    while (!threadExit && retry) {
+    while (!threadExit && (retry > 0)) {
         PAL_DBG(LOG_TAG, "Inside calibration while loop");
         proceed = false;
         if (isHapticsDevInUse(&sec)) {
@@ -1079,6 +1089,8 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
         } else {
             PAL_DBG(LOG_TAG, "HapticsDev not in use");
             if (isDynamicCalTriggered) {
+                // for dynamic cal there should not be any retry
+                retry = 0;
                 PAL_DBG(LOG_TAG, "Dynamic Calibration triggered");
             } else if (0) /*(sec < minIdleTime)*/ {
                 PAL_DBG(LOG_TAG, "HapticsDev not idle for minimum time. %lu", sec);
@@ -1105,6 +1117,7 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
     }
     isDynamicCalTriggered = false;
     calThrdCreated = false;
+    rm->voteSleepMonitor(nullptr, false);
     PAL_DBG(LOG_TAG, "Calibration done, exiting the thread");
 }
 
@@ -1221,6 +1234,8 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
     deviceMutex.lock();
 
     if (flag) {
+        //Set isHapDevInUse to make sure no calibration thread allowed
+        HapticsDevProtSetDevStatus(flag);
         if (hapticsDevCalState == HAPTICS_DEV_CALIB_IN_PROGRESS) {
             // Close the Graphs
             cv.notify_all();
@@ -1245,13 +1260,13 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         customPayloadSize = 0;
         customPayload = nullptr;
 
-        HapticsDevProtSetDevStatus(flag);
         //  HapticsDevice in use. Start the Processing Mode
         rm = ResourceManager::getInstance();
         if (!rm) {
             PAL_ERR(LOG_TAG, "Failed to get resource manager instance");
             goto exit;
         }
+        rm->voteSleepMonitor(nullptr, true);
 
         memset(&device, 0, sizeof(device));
         memset(&sAttr, 0, sizeof(sAttr));
@@ -1590,6 +1605,7 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
             txPcm = NULL;
             sAttr.type = PAL_STREAM_HAPTICS;
             sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
+            rm->voteSleepMonitor(nullptr, false);
             goto free_fe;
         }
     }

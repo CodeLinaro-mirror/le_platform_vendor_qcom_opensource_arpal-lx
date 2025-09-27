@@ -192,6 +192,10 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
         count++;
     }
 
+    if (noOfDevices == 1 && !rm->is_multiple_sample_rate_combo_supported) {
+        rm->checkAndUpdateHeadsetDevConfig(&palDevsAttr[0], false);
+    }
+
 stream_create:
     PAL_DBG(LOG_TAG, "stream type 0x%x", sAttr->type);
 
@@ -1247,6 +1251,15 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
          */
         matchFound = false;
         for (int j = 0; j < numDev; j++) {
+            if(numDev > 1 && (newDevices[j].id == PAL_DEVICE_OUT_SPEAKER ||
+                                    newDevices[j].id == PAL_DEVICE_OUT_WIRED_HEADSET ||
+                                    newDevices[j].id == PAL_DEVICE_OUT_WIRED_HEADPHONE)) {
+               PAL_DBG(LOG_TAG, "isComboHeadsetActive true, %pk", streamHandle);
+               streamHandle->isComboHeadsetActive = true;
+            } else {
+               PAL_DBG(LOG_TAG, "isComboHeadsetActive false, %pk", streamHandle);
+               streamHandle->isComboHeadsetActive = false;
+            }
             if (curDevId == newDevices[j].id) {
                 matchFound = true;
                 /* special handle if same device switch is triggered by different custom key */
@@ -1458,6 +1471,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                             sAttr.type == PAL_STREAM_PCM_OFFLOAD) {
                             PAL_DBG(LOG_TAG, "mute stream %pk during switching", sharedStream);
                             sharedStream->mute(true);
+                            rm->increaseStreamUserCounter(sharedStream);
                             tempMutedStreams.push_back(sharedStream);
                         }
                     }
@@ -1619,6 +1633,10 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     mStreamMutex.unlock();
     rm->unlockActiveStream();
 
+    if (numDev == 1 && !rm->is_multiple_sample_rate_combo_supported) {
+        rm->checkAndUpdateHeadsetDevConfig(&newDevices[0], true);
+    }
+
     status = rm->restoreDeviceConfigForUPD(streamDevDisconnect, StreamDevConnect,
                                            streamsSkippingSwitch);
     if (status) {
@@ -1633,10 +1651,13 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
 done:
     if (!tempMutedStreams.empty()) {
+        rm->lockActiveStream();
         for(sIter = tempMutedStreams.begin(); sIter != tempMutedStreams.end(); sIter++) {
             (*sIter)->mute(false);
+            rm->decreaseStreamUserCounter(*sIter);
             PAL_DBG(LOG_TAG, "unmute stream %pk during switching", *sIter);
         }
+        rm->unlockActiveStream();
     }
     tempMutedStreams.clear();
     mStreamMutex.lock();

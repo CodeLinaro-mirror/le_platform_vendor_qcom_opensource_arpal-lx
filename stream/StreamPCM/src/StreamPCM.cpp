@@ -142,6 +142,18 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     }
 
     PAL_VERBOSE(LOG_TAG, "Create new Devices with no_of_devices - %d", no_of_devices);
+    /* check if it's combo device with speaker + HS */
+    for (int i = 0; no_of_devices > 1 && i < no_of_devices; i++) {
+        if(dattr[i].id == PAL_DEVICE_OUT_SPEAKER ||
+            dattr[i].id == PAL_DEVICE_OUT_WIRED_HEADSET ||
+            dattr[i].id == PAL_DEVICE_OUT_WIRED_HEADPHONE) {
+           PAL_DBG(LOG_TAG, "set isComboHeadsetActive true, %pk", this);
+           this->isComboHeadsetActive = true;
+        } else {
+           PAL_DBG(LOG_TAG, "set isComboHeadsetActive false, %pk", this);
+           this->isComboHeadsetActive = false;
+        }
+    }
     bool str_registered = false;
     for (int i = 0; i < no_of_devices; i++) {
         //Check with RM if the configuration given can work or not
@@ -151,6 +163,13 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         dev = Device::getInstance((struct pal_device *)&dattr[i] , rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "Device creation failed");
+            if (str_registered) {
+                mStreamMutex.unlock();
+                rm->deregisterStream(this);
+                for (int32_t i = 0; i < mPalDevices.size(); i++)
+                    mPalDevices[i]->removeStreamDeviceAttr(this);
+                mStreamMutex.lock();
+            }
             free(mStreamAttr);
             mStreamAttr = NULL;
             free(mVolumeData);
@@ -158,11 +177,6 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
             delete session;
             session = nullptr;
             mStreamMutex.unlock();
-            if (str_registered) {
-                rm->deregisterStream(this);
-                for (int32_t i = 0; i < mPalDevices.size(); i++)
-                    mPalDevices[i]->removeStreamDeviceAttr(this);
-            }
             throw std::runtime_error("failed to create device object");
         }
         dev->insertStreamDeviceAttr(&dattr[i], this);
@@ -1245,21 +1259,6 @@ int32_t StreamPCM::resume_l()
                 status);
         goto exit;
     }
-
-    if (mStreamAttr->direction == PAL_AUDIO_OUTPUT &&
-        (mStreamAttr->type == PAL_STREAM_LOW_LATENCY ||
-         mStreamAttr->type == PAL_STREAM_PCM_OFFLOAD ||
-         mStreamAttr->type == PAL_STREAM_DEEP_BUFFER)) {
-            pal_param_device_rotation_t rotation;
-            rotation.rotation_type = rm->getOrientation() == ORIENTATION_270 ?
-                                    PAL_SPEAKER_ROTATION_RL : PAL_SPEAKER_ROTATION_LR;
-            status = session->setParameters(this, PAL_PARAM_ID_DEVICE_ROTATION, &rotation);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "session setParameters for rotation failed with status %d",
-                        status);
-            }
-        }
-
     isPaused = false;
 
     //since we set the volume to 0 in pause, in resume we need to set vol back to default

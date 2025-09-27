@@ -743,7 +743,7 @@ int32_t StreamSoundTrigger::setECRef(std::shared_ptr<Device> dev, bool is_enable
     int32_t status = 0;
 
     std::lock_guard<std::mutex> lck(mStreamMutex);
-    if (getLPIUsage()) {
+    if (getLPIUsage() && ConfigSupportLPI() && !sm_cfg_->GetEnableBufferingEC()) {
         PAL_DBG(LOG_TAG, "EC ref will be handled in LPI/NLPI switch");
         return status;
     }
@@ -761,7 +761,8 @@ int32_t StreamSoundTrigger::setECRef_l(std::shared_ptr<Device> dev, bool is_enab
             is_enable, ec_rx_dev_ ? ec_rx_dev_->getPALDeviceName().c_str() : "Null",
             dev ? dev->getPALDeviceName().c_str() : "Null");
 
-    if (!cap_prof_ || !cap_prof_->isECRequired()) {
+    if (!cap_prof_ ||
+        (!cap_prof_->isECRequired() && !sm_cfg_->GetEnableBufferingEC())) {
         PAL_DBG(LOG_TAG, "No need to set ec ref");
         goto exit;
     }
@@ -893,11 +894,14 @@ int32_t StreamSoundTrigger::Resume(bool is_internal) {
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    /* For internal resume, mutex is locked during pause and it will get released after
+     * resume, to avoid race conditions.
+     */
     if (is_internal) {
         std::shared_ptr<StEventConfig> ev_cfg(new StInternalResumeEventConfig());
         status = cur_state_->ProcessEvent(ev_cfg);
     } else {
+        mStreamMutex.lock();
         std::shared_ptr<StEventConfig> ev_cfg(new StResumeEventConfig());
         status = cur_state_->ProcessEvent(ev_cfg);
     }
@@ -905,6 +909,7 @@ int32_t StreamSoundTrigger::Resume(bool is_internal) {
     if (status) {
         PAL_ERR(LOG_TAG, "Resume failed");
     }
+    mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
     return status;
@@ -914,7 +919,7 @@ int32_t StreamSoundTrigger::Pause(bool is_internal) {
     int32_t status = 0;
 
     PAL_DBG(LOG_TAG, "Enter");
-    std::lock_guard<std::mutex> lck(mStreamMutex);
+    mStreamMutex.lock();
     if (is_internal) {
         std::shared_ptr<StEventConfig> ev_cfg(new StInternalPauseEventConfig());
         status = cur_state_->ProcessEvent(ev_cfg);
@@ -926,6 +931,10 @@ int32_t StreamSoundTrigger::Pause(bool is_internal) {
     if (status) {
         PAL_ERR(LOG_TAG, "Pause failed");
     }
+
+    if (!is_internal)
+        mStreamMutex.unlock();
+
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
     return status;
@@ -2049,7 +2058,7 @@ std::shared_ptr<CaptureProfile> StreamSoundTrigger::GetCurrentCaptureProfile() {
             cap_prof = sm_cfg_->GetCaptureProfile(
                 std::make_pair(ST_OPERATING_MODE_HIGH_PERF_AND_CHARGING,
                     ST_INPUT_MODE_HEADSET));
-        } else if (getLPIUsage()) {
+        } else if (ConfigSupportLPI() && getLPIUsage()) {
             cap_prof = sm_cfg_->GetCaptureProfile(
                 std::make_pair(ST_OPERATING_MODE_LOW_POWER,
                     ST_INPUT_MODE_HEADSET));
@@ -2063,7 +2072,7 @@ std::shared_ptr<CaptureProfile> StreamSoundTrigger::GetCurrentCaptureProfile() {
             cap_prof = sm_cfg_->GetCaptureProfile(
                 std::make_pair(ST_OPERATING_MODE_HIGH_PERF_AND_CHARGING,
                     ST_INPUT_MODE_HANDSET));
-        } else if (getLPIUsage()) {
+        } else if (ConfigSupportLPI() && getLPIUsage()) {
             cap_prof = sm_cfg_->GetCaptureProfile(
                 std::make_pair(ST_OPERATING_MODE_LOW_POWER,
                     ST_INPUT_MODE_HANDSET));
