@@ -532,7 +532,7 @@ void ASREngine::ParseEventAndNotifyStream(void* eventData) {
 
     if (event->num_outputs == 0) {
         PAL_ERR(LOG_TAG, "event raised without any transcript");
-        goto exit;
+        goto cleanup;
     }
 
     /**
@@ -705,7 +705,7 @@ void ASREngine::ParseSdzEventAndNotifyStream(void* eventData) {
 
     if (event->num_outputs == 0) {
         PAL_ERR(LOG_TAG, "event raised without any speaker info");
-        goto exit;
+        goto cleanup;
     }
 
     sdzNumOutput = event->num_outputs;

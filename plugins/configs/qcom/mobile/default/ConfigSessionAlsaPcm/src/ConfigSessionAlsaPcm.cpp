@@ -838,25 +838,6 @@ silence_det_setup_done:
             pal_param_haptics_cnfg_t* hpCnfg = new pal_param_haptics_cnfg_t;
             if (sAttr.info.opt_stream_info.haptics_type == PAL_STREAM_HAPTICS_RINGTONE) {
                 hpCnfg->mode = PAL_STREAM_HAPTICS_RINGTONE;
-            } else if(sAttr.info.opt_stream_info.haptics_type == PAL_STREAM_HAPTICS_TOUCH) {
-                status = session->getHapticsConfig(hpCnfg);
-            }
-
-            if (hpCnfg != NULL) {
-                if (hpCnfg->mode == PAL_STREAM_HAPTICS_PCM) {
-                    builder->payloadHapticsDevPConfig(&payload, &payloadSize,
-                        miid, PARAM_ID_HAPTICS_RX_PCMV_PLAYBACK,(void *)hpCnfg);
-
-                    if (payloadSize && payload) {
-                        status = builder->updateCustomPayload(payload, payloadSize);
-                        free(payload);
-                        if (0 != status) {
-                            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
-                            free(hpCnfg);
-                            goto exit;
-                        }
-                    }
-                }
             }
 
             if (hpCnfg != nullptr && status == 0) {
@@ -882,10 +863,6 @@ silence_det_setup_done:
                 }
                 if (sAttr.info.opt_stream_info.haptics_type == PAL_STREAM_HAPTICS_TOUCH)
                     goto exit;
-            }
-            else {
-                PAL_ERR(LOG_TAG, "haptics config is not set");
-                goto exit;
             }
         }
         status = s->getAssociatedDevices(associatedDevices);

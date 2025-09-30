@@ -94,6 +94,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_HAPTICS_PRIORITY "haptics_priority"
 #define AUDIO_PARAMETER_KEY_WSA_HAPTICS "haptics_through_wsa"
 #define AUDIO_PARAMETER_KEY_DUMMY_DEV_ENABLE "dummy_dev_enable"
+#define AUDIO_PARAMETER_MULTI_SR_COMBO_SUPPORTED "multiple_sample_rate_combo_supported"
 #define MAX_PCM_NAME_SIZE 50
 #define MAX_STREAM_INSTANCES (sizeof(uint64_t) << 3)
 #define MIN_USECASE_PRIORITY 0xFFFFFFFF
@@ -706,7 +707,8 @@ protected:
 
 public:
     ~ResourceManager();
-
+    //Variable to check if multiple sampe rate during combo device supported
+    static bool is_multiple_sample_rate_combo_supported;
     void registerGlobalCallback(pal_global_callback cb, uint64_t cookie);
     pal_global_callback getCallback() { return globalCb; }
     uint64_t getCookie() { return cookie; }
@@ -1008,6 +1010,7 @@ public:
                              const struct pal_stream_attributes *sAttr,
                              std::vector<Stream*> &streamsToSwitch,
                              struct pal_device *streamDevAttr);
+    void checkAndUpdateHeadsetDevConfig(struct pal_device *newDevAttr, bool isSwitchCase);
     static void sendCrashSignal(int signal, pid_t pid, uid_t uid);
     static bool isSsrDownFeasible(std::shared_ptr<ResourceManager> rm, int type);
     bool isStreamSupportedInsndCardStandy(uint32_t type);

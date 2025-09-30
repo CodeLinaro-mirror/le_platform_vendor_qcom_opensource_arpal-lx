@@ -474,6 +474,7 @@ int ResourceManager::wsaUsed = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
 bool ResourceManager::isRasEnabled = false;
+bool ResourceManager::is_multiple_sample_rate_combo_supported = true;
 bool ResourceManager::isMainSpeakerRight;
 int ResourceManager::spQuickCalTime;
 bool ResourceManager::isGaplessEnabled = false;
@@ -1888,6 +1889,7 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote, bool force_nlp
 
     //For calibration mode as we dont have stream associated so skipping it
     if (str == nullptr) {
+        lpi_stream = 0;
         goto update_sleep_mon;
     }
 
@@ -3116,7 +3118,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
 
     streamHandle->getStreamAttributes(&curStrAttr);
     *ec_enable = true;
-    status = tx_dev->getDeviceAttributes(&DevDattr, streamHandle);
+    status = tx_dev->getDeviceAttributes(&DevDattr);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "getDeviceAttributes Failed");
         goto exit;
@@ -4508,6 +4510,73 @@ void ResourceManager::checkHapticsConcurrency(struct pal_device *deviceattr,
                         curDevAttr->config.sample_rate, curDevAttr->config.bit_width);
                 }
             }
+        }
+    }
+}
+
+void ResourceManager::checkAndUpdateHeadsetDevConfig(struct pal_device *newDevAttr, bool isSwitchCase)
+{
+    std::shared_ptr<Device> hsDev = nullptr;
+    struct pal_device hsDattr = {};
+    std::shared_ptr<Device> spkDev = nullptr;
+    struct pal_device spkDattr = {};
+    std::vector <std::tuple<Stream *, uint32_t>> sharedBEStreamDev;
+
+    if (newDevAttr->id == PAL_DEVICE_OUT_SPEAKER) {
+        //speaker coming, check the WHS if it's active
+        lockActiveStream();
+        getSharedBEActiveStreamDevs(sharedBEStreamDev, PAL_DEVICE_OUT_WIRED_HEADSET);
+        if (sharedBEStreamDev.size() == 0) {
+            getSharedBEActiveStreamDevs(sharedBEStreamDev, PAL_DEVICE_OUT_WIRED_HEADPHONE);
+            if (sharedBEStreamDev.size())
+                hsDattr.id = PAL_DEVICE_OUT_WIRED_HEADPHONE;
+        } else {
+            hsDattr.id = PAL_DEVICE_OUT_WIRED_HEADSET;
+        }
+        if (sharedBEStreamDev.size() == 0 || (isSwitchCase && sharedBEStreamDev.size() == 1)) {
+            //there is no need to check and update for single switch case.
+            unlockActiveStream();
+            return;
+        }
+        unlockActiveStream();
+
+        //there are active streams on WHS, need to check and update the device config
+        hsDev = Device::getInstance(&hsDattr, rm);
+        hsDev->getDeviceAttributes(&hsDattr);
+        if (newDevAttr->config.sample_rate != hsDattr.config.sample_rate) {
+            //update WHS sample rate same with speaker.
+            PAL_DBG(LOG_TAG, "The current sample rate on WHS is different with speaker, update to same with speaker.");
+            hsDattr.config.sample_rate = newDevAttr->config.sample_rate;
+            hsDattr.config.bit_width = newDevAttr->config.bit_width;
+            hsDattr.config.aud_fmt_id = bitWidthToFormat.at(hsDattr.config.bit_width);
+            hsDattr.config.ch_info.channels = DEFAULT_OUTPUT_CHANNEL;
+            hsDev->setDeviceAttributes(hsDattr);
+            forceDeviceSwitch(hsDev, &hsDattr);
+        }
+    } else if (newDevAttr->id == PAL_DEVICE_OUT_WIRED_HEADSET ||
+                newDevAttr->id == PAL_DEVICE_OUT_WIRED_HEADPHONE) {
+        //WHS coming, check the speaker if it's active
+        lockActiveStream();
+        getSharedBEActiveStreamDevs(sharedBEStreamDev, PAL_DEVICE_OUT_SPEAKER);
+        if (sharedBEStreamDev.size() == 0 || (isSwitchCase && sharedBEStreamDev.size() == 1)) {
+            //there is no need to check and update for single switch case.
+            unlockActiveStream();
+            return;
+        }
+        unlockActiveStream();
+
+        spkDattr.id = PAL_DEVICE_OUT_SPEAKER;
+        spkDev = Device::getInstance(&spkDattr, rm);
+        hsDev = Device::getInstance(newDevAttr, rm);
+        spkDev->getDeviceAttributes(&spkDattr);
+        if (newDevAttr->config.sample_rate != spkDattr.config.sample_rate) {
+            //if the sample rate is different, then update the same sample rate to WHS
+            PAL_DBG(LOG_TAG, "The sample rate of WHS waiting to create is different with speaker, update to same with speaker.");
+            newDevAttr->config.sample_rate = spkDattr.config.sample_rate;
+            newDevAttr->config.bit_width = spkDattr.config.bit_width;
+            newDevAttr->config.aud_fmt_id = bitWidthToFormat.at(newDevAttr->config.bit_width);
+            newDevAttr->config.ch_info.channels = DEFAULT_OUTPUT_CHANNEL;
+            hsDev->setDeviceAttributes(*newDevAttr);
         }
     }
 }
@@ -7446,6 +7515,19 @@ int ResourceManager::setNativeAudioParams(struct str_parms *parms,
               PAL_VERBOSE(LOG_TAG,"napb: native audio cannot be enabled from UI");
         }
     }
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_MULTI_SR_COMBO_SUPPORTED,
+                             value, len);
+    PAL_VERBOSE(LOG_TAG," value %s", value);
+    if (ret >= 0) {
+        if (!strncmp("true", value, sizeof("true"))) {
+            is_multiple_sample_rate_combo_supported = true;
+            PAL_VERBOSE(LOG_TAG,"multiple sample rate on combo devices supported enabled from XML");
+        } else {
+            PAL_VERBOSE(LOG_TAG,"multiple sample rate on combo devices supported disabled from XML");
+            is_multiple_sample_rate_combo_supported = false;
+        }
+    }
     return ret;
 }
 void ResourceManager::updatePcmId(int32_t deviceId, int32_t pcmId)
@@ -10138,7 +10220,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
     }
 
     mActiveStreamMutex.unlock();
-    if (!streamDevDisconnect.empty() & !IsI2sDualMonoEnabled())
+    if (!streamDevDisconnect.empty() && !IsI2sDualMonoEnabled())
         streamDevSwitch(streamDevDisconnect, streamDevConnect);
 exit:
     PAL_DBG(LOG_TAG, "Exit");
