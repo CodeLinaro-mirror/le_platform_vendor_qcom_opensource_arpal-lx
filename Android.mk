@@ -1,5 +1,4 @@
 ifneq ($(AUDIO_USE_STUB_HAL), true)
-ifeq ($(TARGET_USES_QCOM_MM_AUDIO), true)
 
 LOCAL_PATH := $(call my-dir)
 PAL_BASE_PATH := $(call my-dir)
@@ -16,7 +15,8 @@ LOCAL_CFLAGS        += -Wno-macro-redefined
 LOCAL_CFLAGS        += -Wall -Werror -Wno-unused-variable -Wno-unused-parameter
 LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
-LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
+#TODO: to be enabled later
+# LOCAL_CFLAGS        += -DPAL_SP_TEMP_PATH=\"/data/vendor/audio/audio.cal\"
 LOCAL_CFLAGS        += -DACD_SM_FILEPATH=\"/vendor/etc/models/acd/\"
 LOCAL_CPPFLAGS      += -fexceptions -frtti
 
@@ -37,7 +37,7 @@ ifneq ($(TARGET_KERNEL_VERSION), 4.19)
 ifneq ($(TARGET_KERNEL_VERSION), 4.4)
 ifneq ($(TARGET_KERNEL_VERSION), 4.9)
 ifneq ($(TARGET_KERNEL_VERSION), 5.4)
-LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR
+# LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR #TODO: to be enabled later
 LOCAL_C_INCLUDES += $(TOP)/kernel_platform/msm-kernel/include/uapi/misc
 endif
 endif
@@ -46,15 +46,16 @@ endif
 endif
 endif
 
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
-LOCAL_CFLAGS += -DEC_REF_CAPTURE_ENABLED
-endif
+#TODO: to be enabled later
+# ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
+# LOCAL_CFLAGS += -DEC_REF_CAPTURE_ENABLED
+# endif
 
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/include
 LOCAL_ADDITIONAL_DEPENDENCIES += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr
 
-LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)
+LOCAL_EXPORT_C_INCLUDE_DIRS   := $(LOCAL_PATH)/inc \
 
 LOCAL_SRC_FILES := \
     Pal.cpp \
@@ -111,9 +112,11 @@ LOCAL_SRC_FILES := \
     utils/src/SoundTriggerUtils.cpp \
     utils/src/SignalHandler.cpp \
     utils/src/MetadataParser.cpp
-ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
-LOCAL_SRC_FILES += device/src/ECRefDevice.cpp
-endif
+
+#TODO: to be enabled later
+# ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
+# LOCAL_SRC_FILES += device/src/ECRefDevice.cpp
+# endif
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \
@@ -131,11 +134,8 @@ LOCAL_SHARED_LIBRARIES := \
     libcutils \
     libagmclient
 
-#if android version is R, use qtitinyxxx headers & libs, otherwise use upstream ones
-#This assumes we would be using AR code only for Android R and subsequent versions.
-ifneq ($(filter 11 R, $(PLATFORM_VERSION)),)
-LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinyalsa/include
-LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
+# Use flag based selection to use QTI vs open source tinycompress project
+ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
 LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
@@ -190,5 +190,4 @@ include $(CLEAR_VARS)
 include $(PAL_BASE_PATH)/plugins/Android.mk
 include $(PAL_BASE_PATH)/ipc/aidl/Android.mk
 
-endif #TARGET_USES_QCOM_MM_AUDIO
 endif #AUDIO_USE_STUB_HAL
