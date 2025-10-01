@@ -249,6 +249,7 @@ private:
     enum A2DP_STATE mA2dpState;
     bool            mIsA2dpOffloadSupported;
     uint32_t        mA2dpLatencyMode;
+    bool            mA2dpLatencyUpdatedFromFramework;
     uint32_t        mCodecLatency;
     std::unique_ptr<SoundDoseUtility> mSoundDose;
 

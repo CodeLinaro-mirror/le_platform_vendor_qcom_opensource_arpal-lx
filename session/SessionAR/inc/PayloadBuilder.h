@@ -115,6 +115,7 @@ typedef enum {
     CUSTOM_CONFIG_SEL,
     HOSTLESS_SEL,
     SIDETONE_MODE_SEL,
+    BLE_ABR_SEL,
 } selector_type_t;
 
 const std::map<std::string, selector_type_t> selectorstypeLUT {
@@ -134,6 +135,7 @@ const std::map<std::string, selector_type_t> selectorstypeLUT {
     {std::string{ "CustomConfig" },          CUSTOM_CONFIG_SEL},
     {std::string{ "Hostless" },              HOSTLESS_SEL},
     {std::string{ "SidetoneMode" },          SIDETONE_MODE_SEL},
+    {std::string{ "SAOffloadMode" },         BLE_ABR_SEL},
 };
 
 struct kvPairs {
@@ -257,6 +259,8 @@ public:
         uint32_t miid, bool isNrecEnabled);
     void payloadCopV2StreamInfo(uint8_t** payload, size_t* size, uint32_t miid, void *data,
                           bool isStreamMapDirIn);
+    void payloadHdtStreamInfo(uint8_t** payload, size_t* size, uint32_t miid, void *data,
+                          bool isStreamMapDirIn);
     void payloadTWSConfig(uint8_t** payload, size_t* size, uint32_t miid,
                           bool isTwsMonoModeOn, uint32_t codecFormat);
     void payloadSPConfig(uint8_t** payload, size_t* size, uint32_t miid,
@@ -331,7 +335,7 @@ public:
     static std::string removeSpaces(const std::string& str);
     static std::vector<std::string> splitStrings(const std::string& str);
     static int getBtDeviceKV(int dev_id, std::vector<std::pair<int, int>> &deviceKV,
-        uint32_t codecFormat, bool isAbrEnabled, bool isHostless);
+        uint32_t codecFormat, bool isAbrEnabled, bool isHostless, bool isSAOffloadEnabled);
     static int getDeviceKV(int dev_id, std::vector<std::pair<int, int>> &deviceKV);
     static bool compareNumSelectors(struct kvInfo info_1, struct kvInfo info_2);
     static int payloadDualMono(uint8_t **payloadInfo);
