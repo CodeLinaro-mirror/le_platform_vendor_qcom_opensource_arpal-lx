@@ -221,6 +221,8 @@ public:
             return nullptr;
     }
     bool isLPIProfile();
+    vote_type_t getVoteType() override { return vote_type_; };
+    void setVoteType(vote_type_t type) { vote_type_ = type; };
 
     std::vector<PalRingBufferReader *> GetReaders() { return reader_list_;}
 
@@ -589,6 +591,7 @@ private:
     bool pending_stop_;
     bool paused_;
     bool device_opened_;
+    vote_type_t vote_type_;
     st_module_type_t model_type_;
 
     void AddState(StState* state);
