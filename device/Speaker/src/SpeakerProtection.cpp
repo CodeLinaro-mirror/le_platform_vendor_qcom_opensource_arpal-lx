@@ -509,9 +509,7 @@ retry:
         if (proceed) {
             // Start calibrating the speakers.
             PAL_DBG(LOG_TAG, "Speaker not in use, start calibration");
-            rm->voteSleepMonitor(nullptr, true);
             spkrStartCalibration();
-            rm->voteSleepMonitor(nullptr, false);
             if (spkrCalState == SPKR_CALIBRATED) {
                 threadExit = true;
             }
@@ -710,9 +708,7 @@ int SpeakerProtection::start()
         updateSPcustomPayload();
     }
     else {
-        rm->voteSleepMonitor(nullptr, true);
         spkrProtProcessingMode(true);
-        rm->voteSleepMonitor(nullptr, false);
     }
 
     PAL_DBG(LOG_TAG, "Calling Device start");
