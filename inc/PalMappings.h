@@ -335,7 +335,7 @@ static PalAddressTag getAddressTag(const pal_device_id_t deviceId) {
     }
 }
 
-static std::string toString(const pal_device* device) {
+static std::string __attribute__((unused)) toString(const pal_device* device) {
     std::ostringstream oss;
     auto tag = getAddressTag(device->id);
     if (deviceNameLUT.find(device->id) != deviceNameLUT.end()) {
