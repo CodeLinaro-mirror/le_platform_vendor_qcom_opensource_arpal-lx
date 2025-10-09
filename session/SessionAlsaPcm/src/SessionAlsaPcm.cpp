@@ -1370,9 +1370,9 @@ int SessionAlsaPcm::start(Stream * s)
             }
            break;
     }
-    if (sAttr.direction != PAL_AUDIO_OUTPUT) {
+    /*if (sAttr.direction != PAL_AUDIO_OUTPUT) {
         setInitialVolume();
-    }
+    }*/
     mState = SESSION_STARTED;
 
 exit:
