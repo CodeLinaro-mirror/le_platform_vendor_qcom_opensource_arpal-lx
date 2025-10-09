@@ -43,8 +43,8 @@ public:
     int32_t startSession();
     int32_t prepare() override { return 0; };
     int32_t setVolume( struct pal_volume_data *volume) override { return 0; };
-    int32_t mute(bool state) override { return 0; };
-    int32_t mute_l(bool state) override { return 0; };
+    int32_t mute(bool state) override;
+    int32_t mute_l(bool state) override;
     int32_t getDeviceMute(pal_stream_direction_t dir __unused, bool *state __unused) override {return 0; };
     int32_t setDeviceMute(pal_stream_direction_t dir __unused, bool state __unused) override {return 0; };
     int32_t pause() override { return 0; };
