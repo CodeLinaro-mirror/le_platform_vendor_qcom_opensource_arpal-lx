@@ -45,7 +45,7 @@
 #include <errno.h>
 #include "PalCommon.h"
 #include "Device.h"
-
+#include "fluence_ffv_common_calibration.h"
 
 
 typedef enum {
@@ -106,6 +106,7 @@ protected:
 public:
     bool isMixerEventCbRegd;
     bool isPauseRegistrationDone;
+    bool isMicOcclusionRegistrationDone;
     virtual ~Session();
     static Session* makeSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);
     static Session* makeACDBSession(const std::shared_ptr<ResourceManager>& rm, const struct pal_stream_attributes *sAttr);

@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022, 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1019,6 +1019,7 @@ typedef enum {
     PAL_PARAM_ID_ST_CAPTURE_INFO = 75,
     PAL_PARAM_ID_RESOURCES_AVAILABLE = 76,
     PAL_PARAM_ID_HAPTICS_MODE = 77,
+    PAL_PARAM_ID_MIC_OCCLUSION_INFO = 78,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1288,6 +1289,16 @@ typedef struct pal_bt_tws_payload_s {
     bool isTwsMonoModeOn;
     uint32_t codecFormat;
 } pal_bt_tws_payload;
+
+/* Payload For ID: PAL_PARAM_ID_MIC_OCCLUSION_INFO
+ * Description   : mic occlusion related information.
+*/
+typedef struct pal_param_mic_occlusion_info {
+    pal_device_id_t   id;                 /**< Pal device id */
+    bool              is_occluded;        /**< currently is mic occluded?*/
+    uint32_t          num_of_occlusion;   /**< number of occlusions */
+    uint32_t          num_of_recovery;    /**< number of recoveries after occlusion. */
+} pal_param_mic_occlusion_info_t;
 
 /* Payload For Custom Config
  * Description : Used by PAL client to customize
