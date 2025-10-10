@@ -99,6 +99,9 @@ endif
 if IS_SA525M
 libpal_la_LIBADD    += -lagmclientwrapper
 endif
+if IS_AGMIPC
+libpal_la_LIBADD    += -lagmclientwrapper
+endif
 libpal_la_CPPFLAGS = $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -avoid-version
