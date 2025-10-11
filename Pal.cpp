@@ -218,7 +218,6 @@ int32_t pal_stream_open(struct pal_stream_attributes *attributes,
        s->registerCallBack(cb, cookie);
 
     rm->initStreamUserCounter(s);
-    s->initStreamSmph();
     stream = reinterpret_cast<uint64_t *>(s);
     *stream_handle = stream;
 exit:
@@ -256,9 +255,7 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
     s = reinterpret_cast<Stream *>(stream_handle);
     status = s->close();
 
-    s->waitStreamSmph();
-    rm->deinitStreamUserCounter(s);
-    s->deinitStreamSmph();
+    rm->deactivateStreamUserCounter(s);
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream closed failed. status %d", status);
@@ -267,6 +264,7 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
 
 exit:
     delete s;
+    rm->eraseStreamUserCounter(s);
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
 }
