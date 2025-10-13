@@ -71,6 +71,7 @@ public:
     int32_t setECRef_l(std::shared_ptr<Device> dev, bool is_enable) override;
     int32_t ssrDownHandler() override;
     int32_t ssrUpHandler() override;
+    int32_t getTagsWithModuleInfo(size_t *size, uint8_t *payload);
 private:
     uint32_t volRampPeriodms;
 };

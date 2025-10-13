@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -261,6 +261,11 @@ struct usecase_custom_config_info
     uint32_t bit_width;
     bool ec_enable;
 };
+
+typedef struct globalCallback {
+    pal_global_callback cb;
+    uint64_t cookie;
+} globalCallback_t;
 
 struct usecase_info {
     int type;
@@ -621,6 +626,7 @@ public:
     static bool isUHQAEnabled;
     static bool isSignalHandlerEnabled;
     static std::mutex mChargerBoostMutex;
+    static std::mutex mGlobalClientsMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only
      */
@@ -635,6 +641,7 @@ public:
     /* Variable to store the device orientation for Speaker*/
     int mOrientation = 0;
     pal_global_callback globalCb = NULL;
+    std::vector<std::shared_ptr<globalCallback_t>> globalCbs;
     uint32_t num_proxy_channels = 0;
     /* Flag to store the state of VI record */
     static bool isVIRecordStarted;

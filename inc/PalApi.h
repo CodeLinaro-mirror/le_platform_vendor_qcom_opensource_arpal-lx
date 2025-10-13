@@ -56,6 +56,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /** \file pal_api.h
@@ -610,6 +615,46 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
                       pal_stream_type_t pal_stream_type, uint32_t sample_rate,
                       uint32_t instance_id, uint32_t dir, bool is_play);
 
+/**
+  * \brief Request for shared memory allocation.
+  *
+  * \param[in] size - Size of the shared memeory required
+  *
+  * \param[out] pal_cshm_info_t - Info regarding the allocated shared memory
+  *
+  * \return 0 on success, error code otherwise
+  */
+
+int32_t pal_cshm_alloc(uint32_t size, pal_cshm_info_t *mem_info);
+
+/**
+  * \brief Request for deallocate the shared memory allocated via
+  *        pal_cshm_alloc.
+  *
+  * \param[in] mem_id - mem_id of the shared memory block to be deallocated
+  *
+  * \return 0 on success, error code otherwise
+  */
+
+int32_t pal_cshm_dealloc(pal_cshm_id_t mem_id);
+
+
+/**
+  * \brief Stream set parameters for generic/custom param
+  *
+  * \param[in] handle - stream handle to which the custom param is sent.
+  *
+  * \param[in] param_str - param str that mention the type of setparam.
+  *
+  * \param[in/out] param_payload - param data applicable to the param_str
+  *
+  * \param[in] payload_size - size of payload passed in
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+                            char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                            void* param_payload, size_t payload_size);
 
 #ifdef __cplusplus
 }  /* extern "C" */

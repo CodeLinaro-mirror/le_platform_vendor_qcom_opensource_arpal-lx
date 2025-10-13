@@ -59,6 +59,10 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SESSION_ALSAPCM_H
@@ -154,6 +158,8 @@ public:
     int register_asps_event(uint32_t reg);
     int getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload);
     void retryOpenWithoutEC(Stream *s, unsigned int pcm_flags, struct pcm_config *config);
+    int sendMsg(pal_cshm_id_t mem_id, uint32_t offset, uint32_t length,
+                 uint32_t miid, uint32_t flags);
 };
 
 #endif //SESSION_ALSAPCM_H

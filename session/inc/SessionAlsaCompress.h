@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef SESSION_ALSACOMPRESS_H
@@ -156,6 +160,9 @@ public:
     int disconnectSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToDisconnect) override;
     uint32_t getMIID(const char *backendName, uint32_t tagId, uint32_t *miid) override;
+        int getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload);
+    int sendMsg(pal_cshm_id_t mem_id, uint32_t offset, uint32_t length,
+                uint32_t miid, uint32_t flags);
     struct mixer_ctl* getFEMixerCtl(const char *controlName, int *device, pal_stream_direction_t dir __unused) override;
 };
 

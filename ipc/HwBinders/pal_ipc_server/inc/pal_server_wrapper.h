@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022,2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -127,6 +127,14 @@ struct client_info {
     std::mutex mActiveSessionsLock;
 };
 
+typedef struct  {
+    int pid;
+    /* map<mem_id, vector<tuple<stream_handle, miid>> */
+    std::map<pal_cshm_id_t, std::vector<std::tuple<uint64_t, uint32_t>>> active_mem_ids;
+    /* map<mem_id, fd>> */
+    std::map<pal_cshm_id_t, native_handle_t*> active_fds;
+} pal_cshm_client_info_t;
+
 struct PAL : public IPAL /*, public android::hardware::hidl_death_recipient*/{
     public:
     std::mutex mClientLock;
@@ -215,8 +223,19 @@ struct PAL : public IPAL /*, public android::hardware::hidl_death_recipient*/{
     Return<void>ipc_pal_stream_get_tags_with_module_info(const uint64_t streamHandle,
                                      uint32_t size,
                                      ipc_pal_stream_get_tags_with_module_info_cb _hidl_cb) override;
+    Return<void> ipc_pal_cshm_alloc(uint32_t size, const hidl_vec<PalCShmInfo>& memInfo,
+                                 ipc_pal_cshm_alloc_cb _hidl_cb) override;
+    Return<int32_t> ipc_pal_cshm_dealloc(PalCShmId mem_id) override;
+    Return<int32_t> ipc_pal_stream_set_custom_param(const uint64_t streamHandle,
+                                    const ::android::hardware::hidl_string &paramStr,
+                                    const hidl_memory& paramPayload, uint64_t paramPayloadSize) override;
+    void printCShmClientInfo(void);
     sp<PalClientDeathRecipient> mDeathRecipient;
     std::vector<std::shared_ptr<client_info>> mPalClients;
+    std::mutex mPalCShmClientLock;
+    std::mutex mPalGlobalClientLock;
+    std::vector<std::shared_ptr<pal_cshm_client_info_t>> mPalCShmClients;
+    std::vector<std::shared_ptr<SrvrClbk>> mPalGlobalCbClients;
 private:
     static PAL* sInstance;
     int find_dup_fd_from_input_fd(const uint64_t streamHandle, int input_fd, int *dup_fd);

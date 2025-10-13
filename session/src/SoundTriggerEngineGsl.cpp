@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2614,4 +2614,15 @@ void SoundTriggerEngineGsl::DetachStream(Stream *s, bool erase_engine) {
         str_eng_map_.erase(s);
         eng_create_mutex_.unlock();
     }
+}
+
+int SoundTriggerEngineGsl::sendMsg(pal_cshm_id_t mem_id, uint32_t offset,
+        uint32_t length, uint32_t miid, uint32_t flags) {
+
+    return session_->sendMsg(mem_id, offset, length, miid, flags);
+}
+
+int SoundTriggerEngineGsl::getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload) {
+
+    return session_->getTagsWithModuleInfo(s,  size, payload);
 }

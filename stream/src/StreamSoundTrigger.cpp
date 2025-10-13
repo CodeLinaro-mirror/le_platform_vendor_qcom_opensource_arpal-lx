@@ -3554,3 +3554,36 @@ struct st_uuid StreamSoundTrigger::GetVendorUuid()
     memset(&uuid, 0, sizeof(uuid));
     return uuid;
 }
+
+int32_t StreamSoundTrigger::setCustomParam(char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                void *param_payload, size_t payload_size)
+{
+    int status = -EINVAL;
+
+    if (!strcmp(param_str, SEND_MSG_PARAM)) {
+        pal_cshm_msg_payload_t *payload = (pal_cshm_msg_payload_t *)param_payload;
+        if (gsl_engine_)
+            status = gsl_engine_->sendMsg(payload->mem_id, payload->offset,
+                                        payload->length, payload->miid, payload->flags);
+    }
+
+    return status;
+}
+
+int32_t StreamSoundTrigger::getTagsWithModuleInfo(size_t *size, uint8_t *payload)
+{
+    int32_t status = -EINVAL;
+
+    if (!payload) {
+        PAL_ERR(LOG_TAG, "payload is NULL");
+        goto exit;
+    }
+
+    if (gsl_engine_)
+        status = gsl_engine_->getTagsWithModuleInfo(this, size, payload);
+    else
+        PAL_ERR(LOG_TAG, "session handle is NULL");
+
+exit:
+    return status;
+}

@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -149,6 +149,10 @@ public:
         std::vector<PalRingBufferReader *> &reader_list);
     int32_t SetBufferReader(PalRingBufferReader *reader);
     int32_t ResetBufferReaders(std::vector<PalRingBufferReader *> &reader_list);
+    virtual int sendMsg(pal_cshm_id_t mem_id, uint32_t offset, uint32_t length,
+                 uint32_t miid, uint32_t flags) {return -EINVAL;}
+    virtual int getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload) {return -EINVAL;}
+
     uint32_t UsToBytes(uint64_t input_us);
     uint32_t FrameToBytes(uint32_t frames);
     uint32_t BytesToFrames(uint32_t bytes);

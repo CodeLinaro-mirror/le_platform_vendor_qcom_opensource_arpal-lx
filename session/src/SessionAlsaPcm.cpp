@@ -60,6 +60,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SessionAlsaPcm"
@@ -304,6 +309,49 @@ int SessionAlsaPcm::open(Stream * s)
     }
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int SessionAlsaPcm::sendMsg(pal_cshm_id_t mem_id, uint32_t offset,
+        uint32_t length, uint32_t miid, uint32_t flags)
+{
+
+    int status = -EINVAL;
+    char const *stream = "PCM";
+    std::ostringstream tagCntrlName;
+    const char *setParamTagControl = SEND_MSG_PARAM;
+    struct mixer_ctl *ctl = nullptr;
+    agm_msg_config *msg_config = nullptr;
+
+    if (pcmDevIds.size() > 0) {
+        tagCntrlName << stream << pcmDevIds.at(0) << " " << setParamTagControl;
+   } else {
+        PAL_ERR(LOG_TAG, "pcmDevIds not found.");
+        status = -EINVAL;
+        goto exit;
+    }
+    ctl = mixer_get_ctl_by_name(mixer, tagCntrlName.str().data());
+    if (!ctl) {
+        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", tagCntrlName.str().data());
+        status = -ENOENT;
+        goto exit;
+    }
+    msg_config = (agm_msg_config *)calloc(1, sizeof(agm_msg_config));
+    if (msg_config == nullptr) {
+        status = -ENOMEM;
+        goto exit;
+    }
+    msg_config->mem_id = mem_id;
+    msg_config->offset = offset;
+    msg_config->length = length;
+    msg_config->miid = miid;
+    msg_config->flags = flags;
+    status = mixer_ctl_set_array(ctl, msg_config, sizeof(agm_msg_config));
+    ctl = NULL;
+exit:
+    if (msg_config)
+        free(msg_config);
+
     return status;
 }
 
@@ -3213,8 +3261,16 @@ int SessionAlsaPcm::getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint
 
     }
 
+    if (sAttr.direction == PAL_AUDIO_INPUT) {
     status = SessionAlsaUtils::getTagsWithModuleInfo(mixer, DeviceId,
                                   txAifBackEnds[0].second.data(), payload);
+    } else if (sAttr.direction == PAL_AUDIO_OUTPUT ) {
+    status = SessionAlsaUtils::getTagsWithModuleInfo(mixer, DeviceId,
+                                  rxAifBackEnds[0].second.data(), payload);
+    } else {
+        return -EINVAL;
+    }
+
     if (0 != status)
         PAL_ERR(LOG_TAG, "get tags failed = %d", status);
 

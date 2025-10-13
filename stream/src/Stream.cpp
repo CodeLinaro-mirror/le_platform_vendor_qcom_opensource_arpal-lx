@@ -59,6 +59,11 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Stream"
@@ -851,6 +856,20 @@ int32_t Stream::getTimestamp(struct pal_session_time *stime)
         }
     }
 exit:
+    return status;
+}
+
+int32_t Stream::setCustomParam(char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                void *param_payload, size_t payload_size)
+{
+    int status = -EINVAL;
+
+    if (!strcmp(param_str, SEND_MSG_PARAM)) {
+        pal_cshm_msg_payload_t *payload = (pal_cshm_msg_payload_t *)param_payload;
+        status = session->sendMsg(payload->mem_id, payload->offset,
+                                    payload->length, payload->miid, payload->flags);
+    }
+
     return status;
 }
 

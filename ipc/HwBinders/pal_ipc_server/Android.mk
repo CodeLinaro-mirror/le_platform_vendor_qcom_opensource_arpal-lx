@@ -23,7 +23,9 @@ LOCAL_SHARED_LIBRARIES := \
     libhardware \
     libbase \
     vendor.qti.hardware.pal@1.0 \
-    libar-pal
+    libar-pal \
+    android.hidl.memory@1.0 \
+    libhidlmemory
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \

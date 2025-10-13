@@ -72,6 +72,7 @@
 #include "Device.h"
 #include "ResourceManager.h"
 #include "PalCommon.h"
+#include <agm/agm_api.h>
 class Stream;
 
 /**
@@ -1270,6 +1271,15 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
         return status;
     }
 
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        PAL_ERR(LOG_TAG, "Stream handle %pK not active", stream_handle);
+        status = -EINVAL;
+        rm->unlockActiveStream();
+        return status;
+    }
+    rm->unlockActiveStream();
+
     rm->lockValidStreamMutex();
     if (!stream_handle || !rm->isActiveStream(stream_handle)) {
         rm->unlockValidStreamMutex();
@@ -1435,16 +1445,43 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
 
 int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
 {
+    int status = 0;
     std::shared_ptr<ResourceManager> rm = NULL;
 
     PAL_DBG(LOG_TAG, "Enter. global callback %pK", cb);
     rm = ResourceManager::getInstance();
 
-    if (cb != NULL) {
-        rm->globalCb = cb;
-        rm->cookie = cookie;
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
     }
-    PAL_DBG(LOG_TAG, "Exit");
+
+    rm->mGlobalClientsMutex.lock();
+    if (cb == NULL) {
+        for (auto itr = rm->globalCbs.begin(); itr != rm->globalCbs.end(); itr++) {
+            if ((*itr)->cookie == cookie) {
+                itr = rm->globalCbs.erase(itr);
+                break;
+            }
+        }
+        goto exit;
+    }
+
+    if (cb != NULL) {
+        auto gcb = std::make_shared<globalCallback_t>();
+        if (gcb == NULL) {
+            PAL_ERR(LOG_TAG, "Failed to alloc memory for callback");
+            status = -ENOMEM;
+            goto exit;
+        }
+        gcb->cb = cb;
+        gcb->cookie = cookie;
+        rm->globalCbs.push_back(gcb);
+    }
+
+exit:
+    rm->mGlobalClientsMutex.unlock();
     return 0;
 }
 
@@ -1508,6 +1545,74 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id __unused, void *param_payload,
     }
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
+    return status;
+}
+
+int32_t pal_cshm_alloc(uint32_t size, pal_cshm_info_t *mem_info) {
+
+    int ret = -EINVAL;
+    agm_cshm_info agm_info = {};
+
+    PAL_DBG(LOG_TAG, "Enter. Allocating memory of size: 0x%x", size);
+
+    agm_info.flags = mem_info->flags;
+    agm_info.type = (agm_cshm_type) mem_info->type;
+
+    ret = agm_cshm_alloc(size, &agm_info);
+    mem_info->mem_id = agm_info.mem_id;
+    mem_info->fd = agm_info.fd;
+
+    PAL_DBG(LOG_TAG, "Exit. ret: %d, mem_id: 0x%x", ret, mem_info->mem_id);
+
+    return ret;
+}
+
+int32_t pal_cshm_dealloc(pal_cshm_id_t mem_id) {
+
+    int status = -EINVAL;
+
+    PAL_DBG(LOG_TAG, "Enter mem_id: 0x%x", mem_id);
+
+    status = agm_cshm_dealloc(mem_id);
+
+    PAL_DBG(LOG_TAG, "Exit");
+    return status;
+}
+
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* stream_handle,
+                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    void* param_payload, size_t payload_size) {
+    int32_t status = 0;
+    Stream *s = nullptr;
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    if (!stream_handle) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        goto exit;
+    }
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        PAL_ERR(LOG_TAG, "Stream handle %pK not active", stream_handle);
+        status = -EINVAL;
+        rm->unlockActiveStream();
+        return status;
+    }
+    rm->unlockActiveStream();
+
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = s->setCustomParam(param_str, param_payload, payload_size);
+
+exit:
     return status;
 }
 

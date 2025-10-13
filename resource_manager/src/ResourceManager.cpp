@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -426,6 +425,7 @@ std::vector <int> ResourceManager::devicePpTag = {0};
 std::vector <int> ResourceManager::deviceTag = {0};
 std::mutex ResourceManager::mResourceManagerMutex;
 std::mutex ResourceManager::mChargerBoostMutex;
+std::mutex ResourceManager::mGlobalClientsMutex;
 std::mutex ResourceManager::mGraphMutex;
 std::mutex ResourceManager::mActiveStreamMutex;
 std::mutex ResourceManager::mValidStreamMutex;
@@ -1247,6 +1247,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
     uint32_t eventData;
     pal_global_callback_event_t event;
     pal_stream_type_t type;
+    bool notify_clients = false;
 
     PAL_VERBOSE(LOG_TAG,"ssr Handling thread started");
 
@@ -1265,14 +1266,7 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
             mActiveStreamMutex.lock();
             rm->cardState = state;
             if (state != prevState) {
-                if (rm->globalCb) {
-                    PAL_DBG(LOG_TAG, "Notifying client about sound card state %d global cb %pK",
-                                      rm->cardState, rm->globalCb);
-                    eventData = (int)rm->cardState;
-                    event = PAL_SND_CARD_STATE;
-                    PAL_DBG(LOG_TAG, "eventdata %d", eventData);
-                    rm->globalCb(event, &eventData, cookie);
-                }
+                notify_clients = true;
             }
 
             if (rm->mActiveStreams.empty()) {
@@ -1365,6 +1359,16 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                 prevState = state;
             } else {
                 PAL_ERR(LOG_TAG, "Invalid state. state %d", state);
+            }
+            if (rm->globalCbs.size() > 0 && notify_clients) {
+                PAL_INFO(LOG_TAG, "Notifying client about sound card state %d",
+                                  rm->cardState);
+                eventData = (int)rm->cardState;
+                event = PAL_SND_CARD_STATE;
+                PAL_DBG(LOG_TAG, "eventdata %d", eventData);
+                for (auto cb1: rm->globalCbs)
+                    cb1->cb(event, &eventData, cb1->cookie);
+                notify_clients = false;
             }
             mActiveStreamMutex.unlock();
             lock.lock();
