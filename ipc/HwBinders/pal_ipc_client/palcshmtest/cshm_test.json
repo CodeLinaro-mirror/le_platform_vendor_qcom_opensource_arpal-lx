@@ -1,0 +1,42 @@
+{
+    "tc_1": [
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 1,
+                "size": 53248,
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": 10
+            }
+        },
+        {
+            "name":"set_cfg",
+            "payload": {
+                "id": 1,
+                "size": 64
+            }
+        },
+        {
+            "name":"get_cfg",
+            "payload": {
+                "id": 1,
+                "size": 64
+            }
+        },
+        {
+            "name":"data_logging",
+            "payload": {
+                "is_async": 0,
+                "id": 1,
+                "filename": "/data/test4.wav",
+                "duration": 10
+            }
+        }
+    ]
+}
