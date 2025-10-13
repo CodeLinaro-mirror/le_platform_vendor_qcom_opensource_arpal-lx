@@ -25,6 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 package vendor.qti.hardware.pal@1.0;
@@ -102,4 +106,10 @@ interface IPAL
                               generates(int32_t ret, vec<uint8_t> param_payload);
     ipc_pal_stream_get_tags_with_module_info(PalStreamHandle stream_handle, uint32_t size)
                               generates(int32_t ret, uint32_t size_ret, vec<uint8_t> payload);
+    ipc_pal_cshm_alloc(uint32_t size, vec<PalCShmInfo> memInfo)
+                              generates(int32_t ret, vec<PalCShmInfo> memInfo);
+    ipc_pal_cshm_dealloc(PalCShmId mem_id)
+                    generates(int32_t ret);
+    ipc_pal_stream_set_custom_param(PalStreamHandle streamHandle, string paramStr, memory paramPayload, uint64_t paramPayloadSize)
+                         generates(int32_t ret);
 };

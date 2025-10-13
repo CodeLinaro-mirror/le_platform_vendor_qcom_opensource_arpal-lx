@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -417,4 +417,21 @@ enum PalReadWriteDoneCommand : int32_t {
     PARTIAL_DRAIN_READY,
     READ_DONE,
     ERROR
+};
+
+/** Mem ID */
+typedef uint64_t PalCShmId;
+
+/** Client shared memory type */
+enum PalCShmType : uint32_t {
+    PAL_CSHM_CACHED = 1,
+    PAL_CSHM_UNCACHED,
+};
+
+/** Client shared memory info */
+struct PalCShmInfo {
+    PalCShmId mem_id;
+    PalCShmType type;
+    memory fdMemory;
+    uint32_t flags;
 };
