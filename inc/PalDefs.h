@@ -1099,20 +1099,6 @@ typedef struct  pal_param_haptics_cnfg_t {
     uint8_t *buffer_ptr;
 } pal_param_haptics_cnfg_t;
 
-/* Payload For ID: PAL_PARAM_ID_BT_SCO*
- * Description   : BT SCO related device parameters
-*/
-static const char* lc3_reserved_params[] = {
-    "StreamMap",
-    "Codec",
-    "FrameDuration",
-    "rxconfig_index",
-    "txconfig_index",
-    "version",
-    "Blocks_forSDU",
-    "vendor",
-};
-
 enum {
     LC3_STREAM_MAP_BIT     = 0x1,
     LC3_CODEC_BIT          = 0x1 << 1,
@@ -1246,8 +1232,7 @@ typedef struct pal_sound_dose_info {
     uint64_t timestamp[PAL_MAX_SOUND_DOSE_VALUES];
 } pal_sound_dose_info_t;
 
-
-static const char *beCtrlNames[] = {
+static const char *beCtrlNames[] __attribute__((unused)) = {
     " metadata",
     " rate ch fmt",
     " setParam",
