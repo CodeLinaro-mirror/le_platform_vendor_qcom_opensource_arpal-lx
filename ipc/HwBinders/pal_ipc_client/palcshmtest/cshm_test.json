@@ -1,10 +1,17 @@
 {
+	"global_configs": {
+                            "logging_level": 15
+                      },
     "tc_1": [
+        {
+            "name": "palnotifier",
+            "devices": ["PAL_DEVICE_OUT_SPEAKER", "PAL_DEVICE_IN_HANDSET_MIC", "PAL_DEVICE_OUT_WIRED_HEADSET", "PAL_DEVICE_IN_HANDSET_VA_MIC"]
+        },
         {
             "name":"alloc",
             "payload": {
                 "id": 1,
-                "size": 53248,
+                "size": "0x268BC",
                 "type": 2,
                 "flags": 0
             }
@@ -12,31 +19,273 @@
         {
             "name": "wait",
             "payload": {
-                "duration": 10
+                "duration": -1
             }
         },
         {
-            "name":"set_cfg",
+            "name":"dealloc",
             "payload": {
-                "id": 1,
-                "size": 64
+                "id": 1
             }
         },
         {
-            "name":"get_cfg",
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        },
+        {
+            "name":"alloc",
             "payload": {
                 "id": 1,
-                "size": 64
+                "size": "0x30000",
+                "type": 1,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        },
+        {
+            "name":"dealloc",
+            "payload": {
+                "id": 1
+            }
+        }
+
+    ],
+    "tc_2": [
+        {
+            "name": "palnotifier",
+            "devices": ["PAL_DEVICE_OUT_SPEAKER", "PAL_DEVICE_IN_HANDSET_VA_MIC"]
+        },
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 1,
+                "size": "0x268BC",
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        },
+        {
+            "name": "set_cfg",
+            "payload":
+            {
+            "id": 1,
+            "size": 32,
+            "seed": 2,
+			"miid": "0x434F"
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_IN_HANDSET_VA_MIC",
+                "module_pos": 2,
+                "seed": 1
+            }
+
+        },
+        {
+            "name": "get_cfg",
+            "payload":
+            {
+            "id": 1,
+            "size": 32,
+            "offset": "0x80",
+			"miid": "0x434F"
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_IN_HANDSET_VA_MIC",
+                "module_pos": 2
+            }
+
+        },
+        {
+            "name":"data_logging",
+            "payload": {
+                "id": 1,
+                "size": "0xCD94"
+
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_IN_HANDSET_VA_MIC",
+                "filename": "/data/testing2.wav",
+                "module_pos": 1,
+                    "duration": 20,
+                    "is_async": 0
+            }
+        }
+    ],
+    "tc_6": [
+        {
+            "name": "palnotifier",
+            "devices": ["PAL_DEVICE_OUT_SPEAKER", "PAL_DEVICE_IN_HANDSET_VA_MIC"]
+        },
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 1,
+                "size": "0x268BC",
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
             }
         },
         {
             "name":"data_logging",
             "payload": {
-                "is_async": 0,
                 "id": 1,
-                "filename": "/data/test4.wav",
-                "duration": 10
+                "size": "0xCD94"
+
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_IN_HANDSET_VA_MIC",
+                "filename": "/data/testing2.wav",
+                "module_pos": 1,
+                    "duration": 20,
+                    "is_async": 0
             }
         }
+    ],
+    "tc_3": [
+        {
+            "name": "palnotifier",
+            "devices": ["PAL_DEVICE_OUT_SPEAKER", "PAL_DEVICE_IN_HANDSET_MIC"]
+        },
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 1,
+                "size": "0x268BC",
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 2,
+                "size": "0x268BC",
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        },
+        {
+            "name":"data_logging",
+            "payload": {
+                "id": 1,
+                "size": "0xCD94"
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_OUT_SPEAKER",
+                "filename": "/data/w4.wav",
+                "module_pos": 1,
+                    "duration": 10,
+                    "is_async": 1
+            }
+        },
+        {
+            "name":"data_logging",
+            "payload": {
+                "id": 2,
+                "size": "0xCD94"
+
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_OUT_SPEAKER",
+                "filename": "/data/w5.wav",
+                "module_pos": 2,
+                    "duration": 20,
+                    "is_async": 1
+            }
+        }
+    ],
+    "tc_4": [
+        {
+            "name": "palnotifier",
+            "devices": ["PAL_DEVICE_OUT_SPEAKER", "PAL_DEVICE_IN_HANDSET_MIC"]
+        },
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 1,
+                "size": "0x268BC",
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        },
+        {
+            "name":"data_logging",
+            "payload": {
+                "id": 1,
+                "size": "0xCD94"
+            },
+            "miscInfo": {
+                "usecase": "PAL_DEVICE_OUT_SPEAKER",
+                "filename": "/data/testing.wav",
+                "module_pos": 1,
+                    "duration": 10,
+                    "is_async": 1
+            }
+        }
+    ],
+    "tc_5": [
+        {
+            "name": "palnotifier",
+            "devices": ["PAL_DEVICE_OUT_SPEAKER", "PAL_DEVICE_IN_HANDSET_MIC"]
+        },
+        {
+            "name":"alloc",
+            "payload": {
+                "id": 1,
+                "size": "0x268BC",
+                "type": 2,
+                "flags": 0
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        },
+        {
+            "name": "dealloc",
+            "payload": {
+                "id": 1
+            }
+        },
+        {
+            "name": "wait",
+            "payload": {
+                "duration": -1
+            }
+        }
+
     ]
 }

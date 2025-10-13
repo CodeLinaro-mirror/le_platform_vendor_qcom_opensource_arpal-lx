@@ -53,10 +53,10 @@ LOCAL_SHARED_LIBRARIES := \
     libhardware \
     libbase \
     vendor.qti.hardware.pal@1.0 \
+    vendor.qti.hardware.paleventnotifier@1.0 \
     android.hidl.allocator@1.0 \
     android.hidl.memory@1.0 \
     libhidlmemory \
-    libpalclient \
     libjsoncpp
 
 LOCAL_HEADER_LIBRARIES := libarpal_headers \
