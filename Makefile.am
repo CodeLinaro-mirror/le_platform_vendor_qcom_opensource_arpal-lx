@@ -2,6 +2,13 @@ pkgconfigdir = $(libdir)/pkgconfig
 pkgconfig_DATA = pal.pc
 EXTRA_DIST = $(pkgconfig_DATA)
 
+if ENABLE_UPSTREAM_SUPPORT
+displayport_inc = ${top_srcdir}/device/inc/DisplayPortUpstream.h
+displayport_src = ${top_srcdir}/device/src/DisplayPortUpstream.cpp
+else
+displayport_inc = ${top_srcdir}/device/inc/DisplayPort.h
+displayport_src = ${top_srcdir}/device/src/DisplayPort.cpp
+endif
 
 h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/stream/inc/StreamCompress.h \
@@ -26,7 +33,7 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/device/inc/HandsetMic.h \
             ${top_srcdir}/device/inc/Handset.h \
             ${top_srcdir}/device/inc/HandsetVaMic.h \
-            ${top_srcdir}/device/inc/DisplayPort.h \
+            $(displayport_inc) \
             ${top_srcdir}/device/inc/HeadsetVaMic.h \
             ${top_srcdir}/device/inc/RTProxy.h \
             ${top_srcdir}/device/inc/SpeakerProtection.h \
@@ -85,6 +92,10 @@ if USE_VERSIONED_SO
 AM_CPPFLAGS += -DUSE_VERSIONED_SO
 endif
 
+if ENABLE_UPSTREAM_SUPPORT
+AM_CPPFLAGS += -DENABLE_UPSTREAM_SUPPORT
+endif
+
 pal_sources = ${top_srcdir}/Pal.cpp \
               ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/stream/src/StreamCompress.cpp \
@@ -110,7 +121,7 @@ pal_sources = ${top_srcdir}/Pal.cpp \
               ${top_srcdir}/device/src/HandsetMic.cpp \
               ${top_srcdir}/device/src/Handset.cpp \
               ${top_srcdir}/device/src/HandsetVaMic.cpp \
-              ${top_srcdir}/device/src/DisplayPort.cpp \
+              $(displayport_src) \
               ${top_srcdir}/device/src/HeadsetVaMic.cpp \
               ${top_srcdir}/device/src/RTProxy.cpp \
               ${top_srcdir}/device/src/SpeakerProtection.cpp \
