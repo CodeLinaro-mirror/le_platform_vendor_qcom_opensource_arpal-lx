@@ -78,6 +78,12 @@ AM_CONDITIONAL([CUTILS_SUPPORTED], [test "x${with_cutils}" = "xyes"])
 AM_CONDITIONAL([IS_SDXLEMUR], [test x$IS_SDXLEMUR_TARGET = xtrue])
 AM_CONDITIONAL([IS_SA525M], [test x$IS_SA525M_TARGET = xtrue])
 
+AC_ARG_WITH([agm_ipc],
+    AS_HELP_STRING([use agm_ipc (default is no)]),
+    [with_agm_ipc=$withval],
+    [with_agm_ipc=no])
+AM_CONDITIONAL([IS_AGMIPC], [test "x${with_agm_ipc}" = "xyes"])
+
 # Checks for libraries
 PKG_CHECK_MODULES([AGM], [agm])
 AC_SUBST([AGM_CFLAGS])
