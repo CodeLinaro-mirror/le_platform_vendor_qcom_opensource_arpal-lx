@@ -16,6 +16,7 @@ struct pal_shmem_info g_buf_info_write, g_buf_info_read, g_buf_info;
 uint32_t *g_vAddr_write = nullptr, *g_vAddr_read = nullptr, *g_vAddr = nullptr;
 pal_stream_handle_t *g_pal_stream_handle = nullptr;
 uint32_t shmem_size = 0;
+bool alloc_state = false;
 uint32_t number_write = 1, number_read = 1;
 uint32_t floodtest = 0;
 uint32_t validate_full = 0;
@@ -649,6 +650,8 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
             ret = str_parms_get_str(parms_t, "alloc", value, sizeof(value));
             if (ret >= 0) {
                 shmem_size = atoi(value);
+                if(shmem_size > 0)
+                    alloc_state = true;
                 str_parms_del(parms_t, "alloc");
             }
 
@@ -753,16 +756,22 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 }
                 else
                 {
-                    status = alloc_shmem(&g_buf_info, shmem_size, cache);
-                    if (status) {
-                        PAL_ERR(LOG_TAG,"shared memory allocation failed\n");
-                        return -EINVAL;
-                    }
-                    else
+                    // if alloc_state is true, allocate is need to be done and 
+                    // it will set to false if allocation is successful
+                    if (alloc_state == true)
                     {
-                        PAL_ERR(LOG_TAG,"shared memory allocation success\n");
+                        status = alloc_shmem(&g_buf_info, shmem_size, cache);
+                        if (status) {
+                            PAL_ERR(LOG_TAG,"shared memory allocation failed\n");
+                            return -EINVAL;
+                        }
+                        else
+                        {
+                            PAL_ERR(LOG_TAG,"shared memory allocation success\n");
+                            alloc_state = false;
+                        }
                     }
-                }
+               }
             }
 
             ret = str_parms_get_str(parms, "set_index", value, sizeof(value));
