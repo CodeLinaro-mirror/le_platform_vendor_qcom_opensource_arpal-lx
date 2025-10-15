@@ -27,6 +27,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamCommon"
@@ -108,6 +113,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
     if (!session) {
         PAL_ERR(LOG_TAG, "Error:session creation failed");
         free(mStreamAttr);
+        mStreamAttr = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to create session object");
     }
@@ -136,8 +142,9 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
         if (!dev) {
             PAL_ERR(LOG_TAG, "Error:Device creation failed");
             free(mStreamAttr);
-
-            //TBD::free session too
+            mStreamAttr = NULL;
+            delete session;
+            session = nullptr;
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }

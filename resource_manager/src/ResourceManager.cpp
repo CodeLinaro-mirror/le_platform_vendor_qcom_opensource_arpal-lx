@@ -88,7 +88,7 @@
 #endif
 
 #if defined(ADSP_SLEEP_MONITOR)
-#include <adsp_sleepmon.h>
+#include <misc/adsp_sleepmon.h>
 #endif
 
 #if LINUX_ENABLED
@@ -6691,6 +6691,7 @@ error:
 int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList){
     int status = 0;
     std::vector <std::tuple<Stream *, struct pal_device *>>::iterator sIter;
+    std::set<Stream *> connected_streams;
 
     PAL_DBG(LOG_TAG, "Enter");
     /* connect active list from the current devices they are attached to */
@@ -6704,7 +6705,9 @@ int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, st
                 PAL_DBG(LOG_TAG,"connected stream %pK from device %d",
                         std::get<0>(*sIter), (std::get<1>(*sIter))->id);
             }
-            std::get<0>(*sIter)->unlockStreamMutex();
+            auto result = connected_streams.insert(std::get<0>(*sIter));
+            if (result.second)
+                std::get<0>(*sIter)->unlockStreamMutex();
         }
     }
 
@@ -9050,7 +9053,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             std::vector <Stream *> activeA2dpStreams;
             struct pal_device dattr;
             pal_param_bta2dp_t *current_param_bt_a2dp = nullptr;
-            pal_param_bta2dp_t param_bt_a2dp;
+            pal_param_bta2dp_t param_bt_a2dp = {};
             int retrycnt = 3;
             const int retryPeriodMs = 100;
 
@@ -9137,6 +9140,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (!isDeviceAvailable(param_bt_a2dp->dev_id))
                 skip_switch = true;
 
+            if (param_bt_a2dp->dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP && param_bt_a2dp->is_in_call)
+                    skip_switch = true;
+
             if (ResourceManager::isDummyDevEnabled) {
                 if (param_bt_a2dp->a2dp_suspended == false) {
                     struct pal_device sco_tx_dattr = {};
@@ -9191,7 +9197,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     mActiveStreamMutex.unlock();
                 }
             } else {
-                if (param_bt_a2dp->a2dp_suspended == false) {
+                if (param_bt_a2dp->a2dp_suspended == false && !skip_switch) {
                     struct pal_device sco_tx_dattr;
                     struct pal_device sco_rx_dattr;
                     std::shared_ptr<Device> sco_tx_dev = nullptr;
@@ -9409,6 +9415,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (!isDeviceAvailable(param_bt_a2dp->dev_id))
                 skip_switch = true;
 
+            if (param_bt_a2dp->dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP && param_bt_a2dp->is_in_call)
+                  skip_switch = true;
+
             if (ResourceManager::isDummyDevEnabled) {
                 if (param_bt_a2dp->a2dp_capture_suspended == false) {
                     struct pal_device sco_rx_dattr = {};
@@ -9432,7 +9441,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     }
                 }
             } else {
-                if (param_bt_a2dp->a2dp_capture_suspended == false) {
+                if (param_bt_a2dp->a2dp_capture_suspended == false && !skip_switch) {
                     /* Handle bt sco out running usecase */
                     struct pal_device sco_rx_dattr;
                     struct pal_stream_attributes sAttr;
