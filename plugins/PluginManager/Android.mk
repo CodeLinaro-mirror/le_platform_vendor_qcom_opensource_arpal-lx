@@ -94,12 +94,17 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_hfpdownlink_headers \
         libdev_hfpuplink_headers \
 
-    ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
-    LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
-    else
-    LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
-    LOCAL_SHARED_LIBRARIES += libtinyalsa libtinycompress
-    endif
+ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
+LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
+else
+LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
+LOCAL_SHARED_LIBRARIES += libtinycompress
+ifneq (,$(filter gen5_gvm gen5_gvm_gy, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)))
+LOCAL_SHARED_LIBRARIES += libtinyalsav2
+else
+LOCAL_SHARED_LIBRARIES += libtinyalsa
+endif
+endif
 endif #end of static compilation
 
 include $(BUILD_STATIC_LIBRARY)
