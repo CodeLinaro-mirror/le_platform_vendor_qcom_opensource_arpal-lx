@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -874,6 +874,7 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
     PayloadBuilder* builder = new PayloadBuilder();
     uint32_t miid = 0;
     bool devicePPMFCSet =  true;
+    std::vector<uint32_t> MIIDs;
 
     // clear any cached custom payload
     freeCustomPayload();
@@ -958,10 +959,8 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
     /* Get PSPD MFC MIID and configure to match to device config */
     /* This has to be done after sending all mixer controls and before connect */
     status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0), intf,
-                                                   TAG_DEVICE_MFC_SR, &miid);
+                                                   TAG_DEVICE_MFC_SR, MIIDs);
     if (status == 0) {
-        PAL_DBG(LOG_TAG, "miid : %x id = %d, data %s, dev id = %d\n", miid,
-                pcmDevIds.at(0), intf, dAttr.id);
 
         if (dAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
             dAttr.id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
@@ -1000,18 +999,20 @@ int Session::configureMFC(const std::shared_ptr<ResourceManager>& rm, struct pal
             dAttr.id == PAL_DEVICE_OUT_HDMI)
             mfcData.ch_info = &dAttr.config.ch_info;
 
-        builder->payloadMFCConfig((uint8_t **)&payload, &payloadSize, miid, &mfcData);
-        if (!payloadSize) {
-            PAL_ERR(LOG_TAG, "payloadMFCConfig failed\n");
-            status = -EINVAL;
-            goto exit;
-        }
+        for (const auto& miid : MIIDs) {
+            builder->payloadMFCConfig((uint8_t **)&payload, &payloadSize, miid, &mfcData);
+            if (!payloadSize) {
+                PAL_ERR(LOG_TAG, "payloadMFCConfig failed\n");
+                status = -EINVAL;
+                goto exit;
+            }
 
-        status = updateCustomPayload(payload, payloadSize);
-        freeCustomPayload(&payload, &payloadSize);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
-            goto exit;
+            status = updateCustomPayload(payload, payloadSize);
+            freeCustomPayload(&payload, &payloadSize);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "updateCustomPayload Failed\n");
+                goto exit;
+            }
         }
     } else {
         PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
