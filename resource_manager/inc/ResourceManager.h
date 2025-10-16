@@ -626,6 +626,7 @@ public:
     static bool isUHQAEnabled;
     static bool isSignalHandlerEnabled;
     static std::mutex mChargerBoostMutex;
+    static pal_audio_event_callback callback_event;
     static std::mutex mGlobalClientsMutex;
     /* Variable to store which speaker side is being used for call audio.
      * Valid for Stereo case only

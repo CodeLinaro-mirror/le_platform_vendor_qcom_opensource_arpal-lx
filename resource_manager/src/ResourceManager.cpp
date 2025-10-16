@@ -512,6 +512,7 @@ bool ResourceManager::isDeviceMuxConfigEnabled = false;
 bool ResourceManager::isUpdDutyCycleEnabled = false;
 bool ResourceManager::isUPDVirtualPortEnabled = false;
 bool ResourceManager::isUpdSetCustomGainEnabled = false;
+pal_audio_event_callback ResourceManager::callback_event = nullptr;
 int ResourceManager::max_voice_vol = -1;     /* Variable to store max volume index for voice call */
 
 bool ResourceManager::isSignalHandlerEnabled = false;

@@ -110,6 +110,13 @@ typedef enum {
     PAL_AUDIO_FMT_COMPRESSED_RANGE_END   = PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_END /* Reserved for beginning of 3rd party codecs */
 } pal_audio_fmt_t;
 
+
+typedef enum {
+    PAL_NOTIFY_START = 1,
+    PAL_NOTIFY_STOP,
+    PAL_NOTIFY_DEVICESWITCH
+} pal_notification_t;
+
 #define PCM_24_BIT_PACKED (0x6u)
 #define PCM_32_BIT (0x3u)
 #define PCM_16_BIT (0x1u)
@@ -777,6 +784,14 @@ struct pal_stream_attributes {
     struct pal_media_config in_media_config;     /**<  media config of the input audio samples */
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
 };
+
+
+typedef struct pal_callback_config {
+    int32_t noOfPrevDevices, noOfCurrentDevices;
+    pal_device_id_t *prevDevices, *currentDevices;
+    struct pal_stream_attributes streamAttributes;
+    pal_stream_handle_t streamHandle;
+} pal_callback_config_t;
 
 /**< Key value pair to identify the topology of a usecase from default  */
 struct modifier_kv  {
@@ -1498,6 +1513,17 @@ typedef int32_t (*pal_stream_callback)(pal_stream_handle_t *stream_handle,
                                        uint32_t event_id, uint32_t *event_data,
                                        uint32_t event_data_size,
                                        uint64_t cookie);
+
+/** @brief Callback function prototype to be given for
+ *         pal_audio_event_callback.
+ *
+ * \param[in] config - configuration data related to
+ *       stream and device.
+ * \param[in] event - event raised on the stream.
+ * \param[in] isregister - specifies if it is called
+ *       during register of callback.
+ */
+typedef int32_t (*pal_audio_event_callback)(pal_callback_config_t *config, uint32_t event, bool isregister);
 
 /** @brief Callback function prototype to be given for
  *         pal_register_callback.
