@@ -166,6 +166,8 @@ libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcs6490/usecaseKvManager_qcs6490.xml \
                       ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2_ia.xml \
                       ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2_ia.xml \
+                      ./configs/monza-monaco/mixer_paths_monza_monaco.xml \
+                      ./configs/monza-monaco/resourcemanager_monza_monaco.xml \
                       ./configs/iq8-8275-evk/mixer_paths_iq8_8275_evk.xml \
                       ./configs/iq8-8275-evk/resourcemanager_iq8_8275_evk.xml \
                       ./configs/qcs8300/mixer_paths_qcs8300_ridesx.xml \
@@ -201,6 +203,8 @@ endif
 root_etcdir      = "/etc"
 root_etc_SCRIPTS = $(libpal_la_list)
 install-data-hook:
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_monza_monaco.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_monza_monaco.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_iq8_8275_evk.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_iq8_8275_evk.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs8300_ridesx.xml
