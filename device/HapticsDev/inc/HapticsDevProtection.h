@@ -102,6 +102,7 @@ protected :
     static haptics_vi_cal_param cbCalData;
     struct pal_device mDeviceAttr;
     std::vector<int> pcmDevIdTx;
+    std::vector<int> pcmDevIdsRx;
     static int calibrationCallbackStatus;
     static int numberOfRequest;
     static struct pal_device_info vi_device;

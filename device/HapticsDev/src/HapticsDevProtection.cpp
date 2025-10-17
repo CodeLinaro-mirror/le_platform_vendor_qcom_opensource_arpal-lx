@@ -381,7 +381,7 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
     bool isTxFeandBeConnected = false, isRxFeandBeConnected = false;
     std::string backEndNameTx, backEndNameRx;
     std::vector<std::pair<int, int>> keyVector, calVector;
-    std::vector<int> pcmDevIdsRx, pcmDevIdsTx;
+    std::vector<int> pcmDevIdsTx;
     std::shared_ptr<ResourceManager> rm;
     std::ostringstream connectCtrlName;
     std::ostringstream connectCtrlNameRx;
@@ -868,10 +868,13 @@ int HapticsDevProtection::HapticsDevStartCalibration(int32_t operation_mode)
 
     // TODO: Make this to wait in While loop
     if (!mDspCallbackRcvd) {
+        rm->acquireWakeLock();
         if (cv.wait_for(calLock, std::chrono::seconds(3)) == std::cv_status::timeout) {
             PAL_ERR(LOG_TAG, "Timeout occured! for VI calibration");
+            rm->releaseWakeLock();
             goto done;
         }
+        rm->releaseWakeLock();
     }
 
     // Store haptics calibrated values Re, f0, Blq
@@ -970,11 +973,14 @@ err_pcm_open :
     }
 
 free_fe:
-    if (pcmDevIdsRx.size() != 0) {
-        if (isRxFeandBeConnected) {
-            disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
+    if (!isHapDevInUse) {
+        if (pcmDevIdsRx.size() != 0) {
+            if (isRxFeandBeConnected) {
+                disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
+            }
+            rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
+            pcmDevIdsRx.clear();
         }
-        rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
     }
 
     if (pcmDevIdsTx.size() != 0) {
@@ -983,7 +989,6 @@ free_fe:
         }
         rm->freeFrontEndIds(pcmDevIdsTx, sAttr, TX_HOSTLESS);
     }
-    pcmDevIdsRx.clear();
     pcmDevIdsTx.clear();
 
 exit:
@@ -1007,6 +1012,10 @@ exit:
     }
     // Notify if any event is waiting
     cv.notify_all();
+    // unvote sleep monitor only for valid rm instance
+    if (rm) {
+        rm->voteSleepMonitor(nullptr, false);
+    }
     PAL_DBG(LOG_TAG, "Exiting");
     return ret;
 }
@@ -1114,7 +1123,6 @@ void HapticsDevProtection::HapticsDevCalibrationThread()
     }
     isDynamicCalTriggered = false;
     calThrdCreated = false;
-    rm->voteSleepMonitor(nullptr, false);
     PAL_DBG(LOG_TAG, "Calibration done, exiting the thread");
 }
 
@@ -1245,6 +1253,7 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         numberOfRequest++;
         if (numberOfRequest > 1) {
             // R0T0 already set, we don't need to process the request.
+            ret = -EINVAL;
             goto exit;
         }
         PAL_DBG(LOG_TAG, "Custom payload size %zu, Payload %p", customPayloadSize,
@@ -1260,9 +1269,9 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         rm = ResourceManager::getInstance();
         if (!rm) {
             PAL_ERR(LOG_TAG, "Failed to get resource manager instance");
+            ret = -EINVAL;
             goto exit;
         }
-        rm->voteSleepMonitor(nullptr, true);
 
         memset(&device, 0, sizeof(device));
         memset(&sAttr, 0, sizeof(sAttr));
@@ -1320,10 +1329,11 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         rm->getBackendName(device.id, backEndName);
         if (!strlen(backEndName.c_str())) {
             PAL_ERR(LOG_TAG, "Failed to obtain tx backend name for %d", device.id);
+            ret = -EINVAL;
             goto exit;
         }
 
-        PayloadBuilder::getDeviceKV(device.id, keyVector);
+        ret = PayloadBuilder::getDeviceKV(device.id, keyVector);
         if (0 != ret) {
             PAL_ERR(LOG_TAG, "Failed to obtain device KV for %d", device.id);
             goto exit;
@@ -1339,6 +1349,7 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
             break;
             default :
                 PAL_ERR(LOG_TAG, "Unsupported channel %d", numberOfChannels);
+                ret = -EINVAL;
                 goto exit;
         }
 
@@ -1391,6 +1402,7 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         connectCtrl = mixer_get_ctl_by_name(virtMixer, connectCtrlName.str().data());
         if (!connectCtrl) {
             PAL_ERR(LOG_TAG, "invalid mixer control: %s", connectCtrlName.str().data());
+            ret = -EINVAL;
             goto free_fe;
         }
 
@@ -1466,17 +1478,20 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
         txPcm = pcm_open(rm->getVirtualSndCard(), pcmDevIdTx.at(0), flags, &config);
         if (!txPcm) {
             PAL_ERR(LOG_TAG, "txPcm open failed");
+            ret = -EINVAL;
             goto free_fe;
         }
 
         if (!pcm_is_ready(txPcm)) {
             PAL_ERR(LOG_TAG, "txPcm open not ready");
+            ret = -EINVAL;
             goto err_pcm_open;
         }
         getAndsetVIScalingParameter(pcmDevIdTx.at(0), miid);
         rm->getBackendName(mDeviceAttr.id, backEndNameRx);
         if (!strlen(backEndNameRx.c_str())) {
             PAL_ERR(LOG_TAG, "Failed to obtain rx backend name for %d", mDeviceAttr.id);
+            ret = -EINVAL;
             goto err_pcm_open;
         }
 
@@ -1588,6 +1603,7 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
             ret = rm->getSndDeviceName(device.id , mSndDeviceName_vi);
             rm->getBackendName(device.id, backEndName);
             if (!strlen(backEndName.c_str())) {
+                ret = -EINVAL;
                 PAL_ERR(LOG_TAG, "Failed to obtain tx backend name for %d", device.id);
                 goto exit;
             }
@@ -1600,7 +1616,6 @@ int32_t HapticsDevProtection::HapticsDevProtProcessingMode(bool flag)
             txPcm = NULL;
             sAttr.type = PAL_STREAM_HAPTICS;
             sAttr.direction = PAL_AUDIO_INPUT_OUTPUT;
-            rm->voteSleepMonitor(nullptr, false);
             goto free_fe;
         }
     }
@@ -1619,6 +1634,12 @@ free_fe:
         }
         rm->freeFrontEndIds(pcmDevIdTx, sAttr, dir);
         pcmDevIdTx.clear();
+    }
+
+    if (pcmDevIdsRx.size() != 0) {
+        disconnectFeandBe(pcmDevIdsRx, backEndNameRx);
+        rm->freeFrontEndIds(pcmDevIdsRx, sAttr, RX_HOSTLESS);
+        pcmDevIdsRx.clear();
     }
 exit:
     deviceMutex.unlock();
@@ -2075,15 +2096,27 @@ int HapticsDevProtection::HapticsDevProtectionDynamicCal()
 
 int HapticsDevProtection::start()
 {
+    int32_t ret = 0;
+
     PAL_DBG(LOG_TAG, "Enter");
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Failed to get resource manager instance");
+        return -EINVAL;
+    }
 
     if (rm->IsVIRecordStarted()) {
         PAL_DBG(LOG_TAG, "record running so just update SP payload");
         updateHPcustomPayload();
     }
     else {
-        HapticsDevProtProcessingMode(true);
+        rm->voteSleepMonitor(nullptr, true);
+        ret = HapticsDevProtProcessingMode(true);
+        if (ret != 0) {
+            PAL_ERR(LOG_TAG, "HapticsDevProtProcessingMode failed with status = %d", ret);
+        }
+        //unvote as voting also happens sessionalsapcm start
+        rm->voteSleepMonitor(nullptr, false);
     }
 
     PAL_DBG(LOG_TAG, "Calling Device start");
@@ -2097,6 +2130,10 @@ int HapticsDevProtection::stop()
     Device::stop();
 
     std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Failed to get resource manager instance");
+        return -EINVAL;
+    }
     if (rm->IsVIRecordStarted()) {
         PAL_DBG(LOG_TAG, "record running so no need to proceed");
         rm->setVIRecordState(false);
