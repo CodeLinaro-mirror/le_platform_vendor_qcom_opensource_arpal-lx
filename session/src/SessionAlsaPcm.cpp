@@ -946,6 +946,7 @@ void SessionAlsaPcm::releaseAdmFocus(Stream *s)
     if (rm->admAbandonFocusFn)
         rm->admAbandonFocusFn(rm->admData, static_cast<void *>(s));
 }
+
 int SessionAlsaPcm::populateECMFCPayload(Stream *s, size_t *payloadSize, uint8_t **payload)
 {
     int status = 0;
@@ -987,56 +988,12 @@ int SessionAlsaPcm::populateECMFCPayload(Stream *s, size_t *payloadSize, uint8_t
             streamData.sampleRate = codecConfig.sample_rate;
             streamData.bitWidth   = AUDIO_BIT_WIDTH_DEFAULT_16;
             streamData.numChannel = 0xFFFF;
-        }else if ((dAttr.id == PAL_DEVICE_IN_USB_DEVICE) ||
+        } else if ((dAttr.id == PAL_DEVICE_IN_USB_DEVICE) ||
                 (dAttr.id == PAL_DEVICE_IN_USB_HEADSET)) {
             streamData.sampleRate = (dAttr.config.sample_rate % SAMPLINGRATE_8K == 0 &&
                                     dAttr.config.sample_rate <= SAMPLINGRATE_48K) ?
                                     dAttr.config.sample_rate : SAMPLINGRATE_48K;
             streamData.bitWidth= AUDIO_BIT_WIDTH_DEFAULT_16;
-        }else {
-            streamData.sampleRate = dAttr.config.sample_rate;
-            streamData.bitWidth   = AUDIO_BIT_WIDTH_DEFAULT_16;
-            streamData.numChannel = 0xFFFF;
-        }
-
-        builder->payloadMFCConfig(payload, payloadSize, miid, &streamData);
-        if (payloadSize && payload) {
-            status = updateCustomPayload(*payload, *payloadSize);
-            freeCustomPayload(payload, payloadSize);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
-                goto exit;
-            }
-
-        }
-    }
-
-    status = SessionAlsaUtils::getModuleInstanceId(mixer, pcmDevIds.at(0),
-                txAifBackEnds[0].second.data(), DEVICE_MFC, &miid);
-    if (status != 0) {
-        PAL_ERR(LOG_TAG,"getModuleInstanceId failed\n");
-        goto exit;
-       }
-
-    PAL_INFO(LOG_TAG, "miid : %x id = %d\n", miid, pcmDevIds.at(0));
-    status = s->getAssociatedDevices(associatedDevices);
-    if (0 != status) {
-        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
-        goto exit;
-    }
-    for (int i = 0; i < associatedDevices.size();i++) {
-        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
-        if (0 != status) {
-            PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
-            goto exit;
-        }
-
-        if (dAttr.id == PAL_DEVICE_IN_USB_DEVICE || dAttr.id == PAL_DEVICE_IN_USB_HEADSET) {
-            streamData.sampleRate = (dAttr.config.sample_rate % SAMPLINGRATE_8K == 0 &&
-                        dAttr.config.sample_rate <= SAMPLINGRATE_48K) ?
-                        dAttr.config.sample_rate : SAMPLINGRATE_48K;
-            streamData.bitWidth   = AUDIO_BIT_WIDTH_DEFAULT_16;
-            streamData.numChannel = 0xFFFF;
         } else {
             streamData.sampleRate = dAttr.config.sample_rate;
             streamData.bitWidth   = AUDIO_BIT_WIDTH_DEFAULT_16;
@@ -1044,21 +1001,19 @@ int SessionAlsaPcm::populateECMFCPayload(Stream *s, size_t *payloadSize, uint8_t
         }
 
         builder->payloadMFCConfig(payload, payloadSize, miid, &streamData);
-
-        if (payloadSize && payload) {
+        if (*payloadSize && *payload) {
             status = updateCustomPayload(*payload, *payloadSize);
             freeCustomPayload(payload, payloadSize);
             if (0 != status) {
                 PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
                 goto exit;
             }
-
         }
     }
-
 exit:
     return status;
 }
+
 int SessionAlsaPcm::start(Stream * s)
 {
     struct pcm_config config = {};
@@ -1343,15 +1298,7 @@ int SessionAlsaPcm::start(Stream * s)
                         PAL_ERR(LOG_TAG, "populate EC MFC payload failed");
                         goto set_mixer;
                     }
-                        if (payloadSize && payload) {
-                            status = updateCustomPayload(payload, payloadSize);
-                            freeCustomPayload(&payload, &payloadSize);
-                            if (0 != status) {
-                                PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
-                                goto set_mixer;
-                            }
-                        }
-                    }
+                 }
 
 
 configure_pspfmfc:
@@ -2425,9 +2372,6 @@ int SessionAlsaPcm::disconnectSessionDevice(Stream *streamHandle,
     int32_t status = 0;
     struct agm_event_reg_cfg event_cfg;
     int payload_size = 0;
-    uint8_t *payload = NULL;
-    size_t payloadSize = 0;
-    struct pal_stream_attributes sAttr;
 
     deviceList.push_back(deviceToDisconnect);
     rm->getBackEndNames(deviceList, rxAifBackEndsToDisconnect,
@@ -2511,30 +2455,6 @@ disconnectTxBE:
             }
         }
     }
-    if ((streamType == PAL_STREAM_VOIP_TX)||
-        ((streamType == PAL_STREAM_DEEP_BUFFER) &&
-        (sAttr.direction == PAL_AUDIO_INPUT))) {
-        status = streamHandle->getStreamAttributes(&sAttr);
-        if (status != 0) {
-            PAL_ERR(LOG_TAG, "stream get attributes failed");
-            goto exit;
-        }
-        status = populateECMFCPayload(streamHandle, &payloadSize, &payload);
-        if (status != 0) {
-            PAL_ERR(LOG_TAG, "Failed to populate EC MFC Payload");
-            status = 0;
-            goto exit;
-}
-        if (payloadSize && payload) {
-            status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0), payload, payloadSize);
-            freeCustomPayload(&payload, &payloadSize);
-            if (status != 0) {
-                PAL_ERR(LOG_TAG, "Failed to set ecref mfc payload");
-                status = 0;
-                goto exit;
-            }
-        }
-    }
 
 exit:
     return status;
@@ -2573,6 +2493,9 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
     std::vector<std::pair<int32_t, std::string>> rxAifBackEndsToConnect;
     std::vector<std::pair<int32_t, std::string>> txAifBackEndsToConnect;
     int32_t status = 0;
+    uint8_t *payload = NULL;
+    size_t payloadSize = 0;
+    struct pal_stream_attributes sAttr;
 
     deviceList.push_back(deviceToConnect);
     rm->getBackEndNames(deviceList, rxAifBackEndsToConnect,
@@ -2663,6 +2586,32 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
                 PAL_ERR(LOG_TAG, "Mic Occlusion callback registration is failed %d", status);
                 status = 0;
             }
+        }
+    }
+
+    status = streamHandle->getStreamAttributes(&sAttr);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "stream get attributes failed");
+        goto exit;
+     }
+
+    if ((streamType == PAL_STREAM_VOIP_TX) ||
+        ((streamType == PAL_STREAM_DEEP_BUFFER) &&
+        (sAttr.direction == PAL_AUDIO_INPUT))) {
+        status = populateECMFCPayload(streamHandle, &payloadSize, &payload);
+        if (status != 0) {
+             PAL_ERR(LOG_TAG, "Failed to populate EC MFC Payload");
+             status = 0;
+             goto exit;
+        }
+
+        status = SessionAlsaUtils::setMixerParameter(mixer, pcmDevIds.at(0),
+                                                     customPayload, customPayloadSize);
+        freeCustomPayload();
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "Failed to set EC MFC payload");
+            status = 0;
+            goto exit;
         }
     }
 
