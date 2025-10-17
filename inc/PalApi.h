@@ -25,6 +25,9 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * 
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * ​​​​Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  */
 
 /** \file pal_api.h
@@ -524,6 +527,22 @@ int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
   * \return 0 on success, error code otherwise
   */
 int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie);
+
+/**
+  * \brief Stream set parameters for generic/custom param
+  *
+  * \param[in] handle - stream handle to which the param is set/get.
+  *
+  * \param[in] param_str - param str that mention the type of setparam.
+  *
+  * \param[in/out] param_payload - param data applicable to the param_str
+  *
+  * \param[in] payload_size - size of payload passed in
+  *
+  * \return 0 on success, error code otherwise
+  */
+// int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+//     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
 
 /**
   * \brief Set and get pal parameters for generic effect framework
