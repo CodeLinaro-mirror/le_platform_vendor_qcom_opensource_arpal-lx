@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2152,7 +2152,9 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
         pal_param_device_connection_t *device_connection =
             (pal_param_device_connection_t *)param;
         if (device_connection->connection_state == true) {
+#ifdef SOUNDDOSE_SUPPORTED
             mSoundDose->setDevice(device_connection->device);
+#endif
             if (a2dpRole == SOURCE)
                 open_a2dp_source();
 
