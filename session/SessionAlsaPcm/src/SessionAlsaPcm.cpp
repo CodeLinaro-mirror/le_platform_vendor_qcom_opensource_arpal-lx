@@ -2153,6 +2153,7 @@ pcm_start:
                     goto exit;
                 }
             }
+#if !defined(SKIP_INITIAL_VOLUME)
             //setInitialVolume();
             // Setting the volume as no default volume is set now in stream open
             voldata = (struct pal_volume_data*)calloc(1, (sizeof(uint32_t) +
@@ -2176,7 +2177,7 @@ pcm_start:
                 free(voldata);
                 voldata = NULL;
             }
-
+#endif
             memset(&lpm_info, 0, sizeof(struct disable_lpm_info));
             rm->getDisableLpmInfo(&lpm_info);
             isStreamAvail = (find(lpm_info.streams_.begin(),
