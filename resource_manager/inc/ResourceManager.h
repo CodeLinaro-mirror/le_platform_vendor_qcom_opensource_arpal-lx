@@ -530,6 +530,7 @@ private:
     static bool isUHQAEnabled;
     static bool isSignalHandlerEnabled;
     static bool isCPEnabled;
+    static bool isSAHDTEnabled;
     static bool isCRSCallEnabled;
     static bool isDummyDevEnabled;
     static bool isProxyRecordActive;
@@ -931,6 +932,7 @@ public:
     static int setHapticsPriorityParam(struct str_parms *parms,char *value, int len);
     static int setHapticsDrivenParam(struct str_parms *parms,char *value, int len);
     static void setConnectivityProxyEnableParam(struct str_parms *parms,char *value, int len);
+    static void setSpatialAudioHeadTrackingEnableParam(struct str_parms *parms,char *value, int len);
     static void setDummyDevEnableParam(struct str_parms *parms,char *value, int len);
     static bool isLpiLoggingEnabled();
     static void processConfigParams(const XML_Char **attr);
@@ -1032,6 +1034,7 @@ public:
     void setSpkrProtModeValue(int value);
     void setProxyChannels(int value);
     bool IsCPEnabled();
+    bool IsSAHDTEnabled();
     bool IsDummyDevEnabled();
     static bool IsSpeakerProtectionEnabled();
     static bool IsHandsetProtectionEnabled();

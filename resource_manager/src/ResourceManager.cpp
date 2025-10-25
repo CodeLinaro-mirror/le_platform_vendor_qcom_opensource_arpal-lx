@@ -490,6 +490,7 @@ bool ResourceManager::isUPDVirtualPortEnabled = false;
 bool ResourceManager::isI2sDualMonoEnabled = false;
 bool ResourceManager::isUpdSetCustomGainEnabled = false;
 bool ResourceManager::isCPEnabled = false;
+bool ResourceManager::isSAHDTEnabled = false;
 bool ResourceManager::isDummyDevEnabled = false;
 bool ResourceManager::isProxyRecordActive = false;
 bool ResourceManager::isSilenceDetectionEnabledPcm = false;
@@ -7173,6 +7174,7 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
     ret = setUpdVirtualPortParam(parms, value, len);
     ret = setI2sDualMonoParam(parms, value, len);
     setConnectivityProxyEnableParam(parms, value, len);
+    setSpatialAudioHeadTrackingEnableParam(parms, value, len);
     setDummyDevEnableParam(parms, value, len);
 
     ret = setHapticsPriorityParam(parms, value, len);
@@ -7447,6 +7449,24 @@ void ResourceManager::setConnectivityProxyEnableParam(struct str_parms *parms, c
     }
 }
 
+void ResourceManager::setSpatialAudioHeadTrackingEnableParam(struct str_parms *parms, char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return;
+
+    ret = str_parms_get_str(parms, "spatialaudio_headtracking_enabled",
+                            value, len);
+    PAL_VERBOSE(LOG_TAG," value %s", value);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            ResourceManager::isSAHDTEnabled = true;
+
+        str_parms_del(parms, "spatialaudio_headtracking_enabled");
+    }
+}
 void ResourceManager::setDummyDevEnableParam(struct str_parms *parms, char *value, int len)
 {
     int ret = -EINVAL;
@@ -10615,6 +10635,9 @@ bool ResourceManager::IsCPEnabled() {
     return ResourceManager::isCPEnabled;
 }
 
+bool ResourceManager::IsSAHDTEnabled() {
+    return ResourceManager::isSAHDTEnabled;
+}
 bool ResourceManager::IsDummyDevEnabled() {
     return ResourceManager::isDummyDevEnabled;
 }
