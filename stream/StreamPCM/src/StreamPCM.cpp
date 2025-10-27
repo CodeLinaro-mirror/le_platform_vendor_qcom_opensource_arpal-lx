@@ -45,13 +45,15 @@
 extern "C" Stream* CreatePCMStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    try {
-        return new StreamPCM(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
-    } catch (const std::exception& e) {
-         PAL_ERR(LOG_TAG, "Stream create failed for stream type %s: %s",
-                streamNameLUT.at(sattr->type).c_str(), e.what());
-        return nullptr;
+    StreamPCM* stream = new(std::nothrow) StreamPCM(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream && stream->isInitialized()) {
+        return stream;
     }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    delete stream;
+    return nullptr;
 }
 
 StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
@@ -83,7 +85,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     if (!sattr || !dattr) {
         PAL_ERR(LOG_TAG,"invalid arguments");
         mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
+        return;
     }
 
     // Setting default volume to unity
@@ -92,7 +94,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     if (!mVolumeData) {
         PAL_ERR(LOG_TAG, "Failed to allocate memory for volume data");
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to allocate memory for volume data");
+        return;
     }
     mVolumeData->no_of_volpair = 1;
     mVolumeData->volume_pair[0].channel_mask = 0x03;
@@ -105,7 +107,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         free(mVolumeData);
         mVolumeData = NULL;
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to malloc for stream attributes");
+        return;
     }
 
     ar_mem_cpy(mStreamAttr, sizeof(pal_stream_attributes), sattr, sizeof(pal_stream_attributes));
@@ -128,7 +130,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         free(mStreamAttr);
         mStreamAttr = NULL;
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to create session object");
+        return;
     }
 
     PAL_VERBOSE(LOG_TAG, "Create new Devices with no_of_devices - %d", no_of_devices);
@@ -167,7 +169,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
             delete session;
             session = nullptr;
             mStreamMutex.unlock();
-            throw std::runtime_error("failed to create device object");
+            return;
         }
         dev->insertStreamDeviceAttr(&dattr[i], this);
         mPalDevices.push_back(dev);
@@ -195,7 +197,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         mDevices.push_back(dev);
         dev = nullptr;
     }
-
+    mInitialized = true;
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
     return;
