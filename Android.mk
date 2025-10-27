@@ -44,7 +44,11 @@ ifneq ($(TARGET_KERNEL_VERSION), 4.19)
 ifneq ($(TARGET_KERNEL_VERSION), 4.4)
 ifneq ($(TARGET_KERNEL_VERSION), 4.9)
 ifneq ($(TARGET_KERNEL_VERSION), 5.4)
+ifeq ($(TARGET_KERNEL_VERSION), 6.12)
+LOCAL_C_INCLUDES += $(TOP)/kernel_platform/soc-repo/include/uapi/misc
+else
 LOCAL_C_INCLUDES += $(TOP)/kernel_platform/msm-kernel/include/uapi/misc
+endif
 endif
 endif
 endif
