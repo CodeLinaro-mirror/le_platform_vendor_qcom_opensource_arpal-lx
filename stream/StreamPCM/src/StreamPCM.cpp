@@ -1319,6 +1319,7 @@ int32_t StreamPCM::isChannelSupported(uint32_t numChannels)
         case CHANNELS_5_1:
         case CHANNELS_7:
         case CHANNELS_8:
+        case CHANNELS_12:
             break;
         default:
             rc = -EINVAL;
