@@ -105,6 +105,7 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
     mutex_unlocked_after_cb_ = false;
     common_cp_update_disable_ = false;
     second_stage_processing_ = false;
+    is_backend_shared_ = false;
     gsl_engine_model_ = nullptr;
     gsl_engine_ = nullptr;
     vui_intf_ = nullptr;
