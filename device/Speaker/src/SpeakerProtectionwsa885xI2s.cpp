@@ -24,6 +24,7 @@ SpeakerProtectionwsa885xI2s::SpeakerProtectionwsa885xI2s(struct pal_device *devi
                         std::shared_ptr<ResourceManager> Rm):SpeakerProtection(device, Rm)
 {
     viTxSetupThrdCreated = false;
+    wsaTemp = -1002;
 }
 
 SpeakerProtectionwsa885xI2s::~SpeakerProtectionwsa885xI2s()
@@ -32,18 +33,20 @@ SpeakerProtectionwsa885xI2s::~SpeakerProtectionwsa885xI2s()
 }
 
 int SpeakerProtectionwsa885xI2s::getSpeakerTemperature(int spkr_pos) {
-    int status = 0;
     FILE *fp = NULL;
     int temp_val = 0;
 
     PAL_DBG(LOG_TAG, "Enter Speaker Get Temperature");
 
+    if (wsaTemp != -1002) {
+        PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", wsaTemp);
+        return wsaTemp;
+    }
     fp = fopen("/sys/class/thermal/thermal_zone1/temp", "r");
     if (!fp) {
          PAL_ERR(LOG_TAG, "Failed to open file /sys/class/thermal/thermal_zone1/temp");
          return -EINVAL;
     }
-
     if (fscanf(fp, "%d", &temp_val) != 1) {
          PAL_ERR(LOG_TAG, "Failed to read temperature from file");
          fclose(fp);
@@ -51,9 +54,10 @@ int SpeakerProtectionwsa885xI2s::getSpeakerTemperature(int spkr_pos) {
     }
     fclose(fp);
 
-    status = temp_val/1000;
-    PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", status);
-    return status;
+    wsaTemp = temp_val/1000;
+    PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", wsaTemp);
+
+    return wsaTemp;
 }
 
 int SpeakerProtectionwsa885xI2s::spkrStartCalibration()
