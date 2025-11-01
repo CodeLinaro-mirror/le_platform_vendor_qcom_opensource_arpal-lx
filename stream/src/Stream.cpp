@@ -1853,6 +1853,10 @@ bool Stream::checkStreamMatch(pal_device_id_t pal_device_id,
 
     //device
     for (int i = 0; i < mDevices.size();i++) {
+       if (mDevices[i] == NULL){
+             PAL_ERR(LOG_TAG,"mDevices[%d] is NULL \n", i);
+             return false;
+       }
        status = mDevices[i]->getDeviceAttributes(&dAttr);
        if (0 != status) {
           PAL_ERR(LOG_TAG,"getDeviceAttributes Failed \n");
