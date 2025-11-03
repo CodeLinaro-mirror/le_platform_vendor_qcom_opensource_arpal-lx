@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,8 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 #define LOG_TAG "PAL: StreamPCM"
 
 #include "StreamPCM.h"
@@ -53,6 +54,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         usleep(SSR_RECOVERY);
         mStreamMutex.unlock();
         throw std::runtime_error("Sound card offline");
+    }
+
+    if (!sattr || !dattr) {
+        PAL_ERR(LOG_TAG,"invalid arguments");
+        mStreamMutex.unlock();
+        throw std::runtime_error("invalid arguments");
     }
 
     session = NULL;
@@ -90,20 +97,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     mVolumeData->volume_pair[0].vol = 1.0f;
     volRampPeriodms = 0x28;
 
-    if (!sattr || !dattr) {
-        PAL_ERR(LOG_TAG,"invalid arguments");
-        free(mVolumeData);
-        mVolumeData = nullptr;
-        mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
-    }
-
     attribute_size = sizeof(struct pal_stream_attributes);
     mStreamAttr = (struct pal_stream_attributes *) calloc(1, attribute_size);
     if (!mStreamAttr) {
         PAL_ERR(LOG_TAG, "malloc for stream attributes failed %s", strerror(errno));
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to malloc for stream attributes");
     }
@@ -123,10 +122,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     session = Session::makeSession(rm, sattr);
     if (!session) {
         PAL_ERR(LOG_TAG, "session creation failed");
-        free(mStreamAttr);
-        mStreamAttr = nullptr;
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
+        delete session;
+        session = nullptr;
+        free(mStreamAttr);
+        mStreamAttr = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to create session object");
     }
@@ -142,11 +143,11 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         if (!dev) {
             PAL_ERR(LOG_TAG, "Device creation failed");
             free(mStreamAttr);
-            mStreamAttr = nullptr;
+            mStreamAttr = NULL;
             free(mVolumeData);
-            mVolumeData = nullptr;
-
-            //TBD::free session too
+            mVolumeData = NULL;
+            delete session;
+            session = nullptr;
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }
@@ -203,8 +204,12 @@ int32_t  StreamPCM::open()
     /* Check for BT device connected state */
     for (int32_t i = 0; i < mDevices.size(); i++) {
         pal_device_id_t dev_id = (pal_device_id_t) mDevices[i]->getSndDeviceId();
-        if (rm->isBtDevice(dev_id) && !(rm->isDeviceAvailable(dev_id))) {
-            PAL_ERR(LOG_TAG, "BT device %d not connected, cannot open stream", dev_id);
+        if (rm->isBtDevice(dev_id) &&
+            (!rm->isDeviceAvailable(dev_id) ||
+             (!rm->isDeviceReady(dev_id) && mDevices.size() == 1))) {
+            PAL_ERR(LOG_TAG,
+                "BT device %d not connected or not ready, cannot open stream",
+                 dev_id);
             status = -ENODEV;
             goto exit;
         }
