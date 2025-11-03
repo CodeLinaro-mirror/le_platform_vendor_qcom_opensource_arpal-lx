@@ -212,11 +212,19 @@ static int32_t free_shmem(pal_shmem_info *buf_info)
         if (status != 0) {
             PAL_ERR(LOG_TAG,"Shared memory buffer Free failed\n");
             status = -EINVAL;
+            return status;
+        }
+        if (buf_info->fd >= 0) {
+            status = close(buf_info->fd);
+            if(status != 0)
+            {
+                PAL_ERR(LOG_TAG,"Shared Mem File descriptor failed to close\n");
+                return status;
+            }
         }
     }
 
     memset(buf_info, 0, sizeof(pal_shmem_info));
-
     PAL_DBG(LOG_TAG,"Exit with status: %d\n", status);
     return status;
 }
