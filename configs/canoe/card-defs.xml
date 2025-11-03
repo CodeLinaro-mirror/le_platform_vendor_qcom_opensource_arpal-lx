@@ -411,6 +411,190 @@
         </props>
     </pcm-device>
 
+    <pcm-device>
+        <id>129</id>
+        <name>PCM129</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>1</playback>
+            <capture>0</capture>
+            <session_mode>1</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>130</id>
+        <name>PCM130</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>1</playback>
+            <capture>0</capture>
+            <!--  AGM_SESSION_NO_CONFIG  -->
+            <session_mode>3</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>131</id>
+        <name>PCM131</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <!--  AGM_SESSION_NO_CONFIG  -->
+            <session_mode>3</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>132</id>
+        <name>PCM132</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>133</id>
+        <name>PCM133</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>134</id>
+        <name>PCM134</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>135</id>
+        <name>PCM135</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>136</id>
+        <name>PCM136</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>137</id>
+        <name>PCM137</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>138</id>
+        <name>PCM138</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>139</id>
+        <name>PCM139</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>140</id>
+        <name>PCM140</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>141</id>
+        <name>PCM141</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>142</id>
+        <name>PCM142</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
     <mixer>
         <id>1</id>
         <name>agm_mixer</name>
