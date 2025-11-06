@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1085,6 +1085,8 @@ typedef struct pal_param_bta2dp {
     bool     is_tws_mono_mode_on;
     bool     is_lc3_mono_mode_on;
     bool     is_force_switch;
+    pal_device_id_t   dev_id;
+    bool     is_suspend_setparam;
     uint32_t latency;
 } pal_param_bta2dp_t;
 
