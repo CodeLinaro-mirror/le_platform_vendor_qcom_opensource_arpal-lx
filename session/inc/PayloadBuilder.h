@@ -194,6 +194,8 @@ public:
     void payloadVolumeConfig(uint8_t** payload, size_t* size,
                            uint32_t miid,
                            struct pal_volume_data * data);
+    void payloadVolumeDuckingConfig(uint8_t** payload, size_t* size,
+                                    uint32_t miid, struct pal_volume_data* voldata);
     int payloadCustomParam(uint8_t **alsaPayload, size_t *size,
                             uint32_t *customayload, uint32_t customPayloadSize,
                             uint32_t moduleInstanceId, uint32_t dspParamId);
@@ -222,6 +224,7 @@ public:
     void payloadCopV2DepackConfig(uint8_t** payload, size_t* size, uint32_t miid, void *data,
                           bool isStreamMapDirIn);
     void payloadCopV2PackConfig(uint8_t** payload, size_t* size, uint32_t miid, void *data);
+    void payloadCopV2AcquireStream(uint8_t** payload, size_t* size, uint32_t miid, uint32_t decision);
     void payloadTWSConfig(uint8_t** payload, size_t* size, uint32_t miid,
                           bool isTwsMonoModeOn, uint32_t codecFormat);
     void payloadSPConfig(uint8_t** payload, size_t* size, uint32_t miid,
