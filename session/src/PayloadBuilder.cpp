@@ -80,6 +80,48 @@ struct volume_ctrl_master_gain_t
 /* Structure type def for above payload. */
 typedef struct volume_ctrl_master_gain_t volume_ctrl_master_gain_t;
 
+/* ID of the Ducking configuration parameter used by MODULE_ID_VOL_CTRL. */
+#define PARAM_ID_VOL_CTRL_DUCKING_CFG 0x08001BAC
+
+/** @h2xmlp_parameter   {"PARAM_ID_VOL_CTRL_DUCKING_CFG", PARAM_ID_VOL_CTRL_DUCKING_CFG}
+    @h2xmlp_description {Specifies the ducking configuration}
+    @h2xmlp_toolPolicy  {Calibration; RTC}*/
+
+/* Payload of the PARAM_ID_VOL_CTRL_DUCKING_CFG parameter used
+ by the Volume Control module */
+
+enum duck_mode {
+   DUCKING_DISABLED = 0,
+   DUCKING_ENABLED,
+   DUCKING_AUTO
+};
+
+/* Structure for the ducking configuration parameter for a volume control module. */
+#include "spf_begin_pack.h"
+struct volume_ctrl_ducking_cfg_t
+{
+   uint32_t ducking_mode;
+/**< @h2xmle_description  {Ducking mode. Enabled, disabled or let the feedback from control link to determine. \n}
+     @h2xmle_rangeList    {"Disabled" = 0, "Enabled" = 1, "Auto" = 2}
+     @h2xmle_default      {2} */
+
+   uint16_t ducked_gain;
+/**< @h2xmle_description  {Specifies linear ducked gain in Q13 format.
+                           This gain is expected to be always set lower than 1.0 for ducking\n}
+     @h2xmle_dataFormat   {Q13}
+     @h2xmle_default      {0x1000} */
+
+   uint16_t reserved;
+/**< @h2xmle_description  {Clients must set this field to 0.\n}
+     @h2xmle_rangeList    {"0" = 0}
+     @h2xmle_default      {0}     */
+}
+#include "spf_end_pack.h"
+;
+
+/* Structure type def for above payload. */
+typedef struct volume_ctrl_ducking_cfg_t volume_ctrl_ducking_cfg_t;
+
 /* ID of the Output Media Format parameters used by MODULE_ID_MFC */
 #define PARAM_ID_MFC_OUTPUT_MEDIA_FORMAT            0x08001024
 #include "spf_begin_pack.h"
@@ -350,6 +392,47 @@ void PayloadBuilder::payloadVolumeConfig(uint8_t** payload, size_t* size,
     *size = payloadSize + padBytes;;
     *payload = payloadInfo;
     PAL_DBG(LOG_TAG, "payload %pK size %zu", *payload, *size);
+}
+
+void PayloadBuilder::payloadVolumeDuckingConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, struct pal_volume_data* voldata)
+{
+    struct apm_module_param_data_t* header = nullptr;
+    volume_ctrl_ducking_cfg_t* duckingCfg = nullptr;
+    uint8_t* payloadInfo = nullptr;
+    size_t payloadSize = 0, padBytes = 0;
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(struct volume_ctrl_ducking_cfg_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+
+    payloadInfo = new uint8_t[payloadSize + padBytes]();
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed: %s", strerror(errno));
+        return;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_VOL_CTRL_DUCKING_CFG;
+    header->error_code = 0x0;
+    header->param_size = sizeof(struct volume_ctrl_ducking_cfg_t);
+
+    duckingCfg = (volume_ctrl_ducking_cfg_t*)(payloadInfo + sizeof(struct apm_module_param_data_t));
+
+    // Set ducking mode based on isDucking flag
+    duckingCfg->ducking_mode = voldata->isDucking ? DUCKING_ENABLED : DUCKING_DISABLED;
+
+    // Convert volume to Q13 format (linear gain)
+    duckingCfg->ducked_gain = (uint16_t)(voldata->volume_pair[0].vol * 0x2000); // Q13 scale
+
+    duckingCfg->reserved = 0;
+
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
+
+    PAL_DBG(LOG_TAG, "Ducking payload prepared: mode=%d, gain=0x%x, size=%zu",
+            duckingCfg->ducking_mode, duckingCfg->ducked_gain, *size);
 }
 
 void PayloadBuilder::payloadMFCConfig(uint8_t** payload, size_t* size,
@@ -1802,7 +1885,7 @@ void PayloadBuilder::payloadCopV2DepackConfig(uint8_t** payload, size_t* size,
             streamMap[i].channel_mask_msw = (channel_mask & 0xFFFFFFFF00000000) >> 32;
         }
     } else {
-        streamInfo->num_streams = bleCfg->dec_cfg.stream_map_size;
+        streamInfo->num_streams = bleCfg->dec_cfg.stream_map_size;;
         for (i = 0; i < streamInfo->num_streams; i++) {
             channel_mask = convert_channel_map(bleCfg->dec_cfg.streamMapIn[i].audio_location);
             streamMap[i].stream_id = bleCfg->dec_cfg.streamMapIn[i].stream_id;
@@ -1814,6 +1897,32 @@ void PayloadBuilder::payloadCopV2DepackConfig(uint8_t** payload, size_t* size,
     *size = payloadSize + padBytes;
     *payload = payloadInfo;
     PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo, *size);
+}
+
+void PayloadBuilder::payloadCopV2AcquireStream(uint8_t** payload, size_t* size,
+                                               uint32_t miid, uint32_t decision)
+{
+    size_t payloadSize = PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t) +
+                                         sizeof(struct param_id_cop_v2_acquire_stream_t));
+
+    uint8_t* payloadInfo = (uint8_t*)calloc(1, payloadSize);
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "Memory allocation failed for COPv2 payload");
+        return;
+    }
+
+    struct apm_module_param_data_t* header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_COP_V2_ACQUIRE_STREAM;
+    header->error_code = 0x0;
+    header->param_size = sizeof(struct param_id_cop_v2_acquire_stream_t);
+
+    struct param_id_cop_v2_acquire_stream_t* cop_v2_payload =
+        (struct param_id_cop_v2_acquire_stream_t*)(payloadInfo + sizeof(*header));
+    cop_v2_payload->acquire = decision; // 0 = release, 1 = acquire
+
+    *payload = payloadInfo;
+    *size = payloadSize;
 }
 
 /* Used for VI feedback device KV as of now */
@@ -2641,7 +2750,7 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
 
     long voldB = 0;
     struct pal_volume_data *voldata = NULL;
-    voldata = (struct pal_volume_data *)calloc(1, (sizeof(uint32_t) +
+    voldata = (struct pal_volume_data *)calloc(1, (sizeof(struct pal_volume_data) +
                       (sizeof(struct pal_channel_vol_kv) * (0xFFFF))));
     if (!voldata) {
         status = -ENOMEM;
@@ -2661,52 +2770,52 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
     switch (static_cast<uint32_t>(tag)) {
     case TAG_STREAM_VOLUME:
         if (voldB == 0L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_15));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_15));
         }
         else if (voldB <= 17L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_14));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_14));
         }
         else if (voldB <= 38L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_13));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_13));
         }
         else if (voldB <= 81L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_12));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_12));
         }
         else if (voldB <= 121L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_11));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_11));
         }
         else if (voldB <= 193L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_10));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_10));
         }
         else if (voldB <= 307L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_9));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_9));
         }
         else if (voldB <= 458L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_8));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_8));
         }
         else if (voldB <= 728L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_7));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_7));
         }
         else if (voldB <= 1157L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_6));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_6));
         }
         else if (voldB <= 1551L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_5));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_5));
         }
         else if (voldB <= 2185L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_4));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_4));
         }
         else if (voldB <= 3078L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_3));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_3));
         }
         else if (voldB <= 4129L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_2));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_2));
         }
         else if (voldB <= 5816L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_1));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_1));
         }
         else if (voldB <= 8192L) {
-            ckv.push_back(std::make_pair(VOLUME,LEVEL_0));
+            ckv.push_back(std::make_pair(VOLUME, LEVEL_0));
         }
         break;
     case TAG_DEVICE_PP_MBDRC:
