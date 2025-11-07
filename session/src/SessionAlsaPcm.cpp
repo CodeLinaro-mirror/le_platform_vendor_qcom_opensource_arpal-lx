@@ -2027,6 +2027,46 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
             }
             return 0;
         }
+        case PAL_PARAM_ID_VOICE_ACTIVE_DETECTION:
+        {
+            if (pcmDevRxIds.size()) {
+                device = pcmDevRxIds.at(0);
+            }
+
+            pal_voice_active_detection_payload *vadPayload =
+                (pal_voice_active_detection_payload *)payload;
+
+            bool vad_state = vadPayload->isVadEnabled;
+
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                    rxAifBackEnds[0].second.data(), tagId, &miid);
+            if (status != 0) {
+                PAL_ERR(LOG_TAG, "Failed to get module instance ID: %x, status=%d", tagId, status);
+                return status;
+            }
+
+            uint8_t *paramData = nullptr;
+            size_t paramSize = 0;
+            uint32_t decision = vad_state ? 1 : 0; // 1 = noisy (active), 0 = quiet (inactive)
+
+            builder->payloadCopV2AcquireStream(&paramData, &paramSize, miid, decision);
+
+            if (!paramData || paramSize == 0) {
+                PAL_ERR(LOG_TAG, "Failed to build COPv2 Acquire Stream payload");
+                return -ENOMEM;
+            }
+
+            status = SessionAlsaUtils::setMixerParameter(mixer, device, paramData, paramSize);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set COPv2 Acquire Stream param, status=%d", status);
+            } else {
+                PAL_INFO(LOG_TAG, "COPv2 Acquire Stream param applied successfully");
+            }
+
+            freeCustomPayload(&paramData, &paramSize);
+
+            return status;
+        }
         case PAL_PARAM_ID_BT_A2DP_LC3_CONFIG:
         {
             pal_bt_lc3_payload *lc3_payload = (pal_bt_lc3_payload *)payload;
@@ -2070,12 +2110,14 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
         {
             pal_param_payload *param_payload = (pal_param_payload *)payload;
             pal_volume_data *vdata = (struct pal_volume_data *)param_payload->payload;
+
             status = streamHandle->getStreamAttributes(&sAttr);
+
             if (sAttr.direction == PAL_AUDIO_OUTPUT) {
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                         rxAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
             } else if (sAttr.direction == PAL_AUDIO_INPUT &&
-                       sAttr.type != PAL_STREAM_ULTRA_LOW_LATENCY) {
+                    sAttr.type != PAL_STREAM_ULTRA_LOW_LATENCY) {
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
                         txAifBackEnds[0].second.data(), TAG_STREAM_VOLUME, &miid);
             } else if (sAttr.direction == (PAL_AUDIO_INPUT | PAL_AUDIO_OUTPUT)) {
@@ -2088,29 +2130,35 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                         if (pcmDevTxIds.size() > 0)
                             device = pcmDevTxIds.at(0);
                         status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
-                                                                       txAifBackEnds[0].second.data(),
-                                                                       tagId, &miid);
+                                                                    txAifBackEnds[0].second.data(),
+                                                                    tagId, &miid);
                     }
                 }
             } else {
                 status = 0;
                 goto exit;
             }
+
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, dir: %d (%d)", tagId,
-                       sAttr.direction, status);
+                    sAttr.direction, status);
                 goto exit;
             }
 
-            builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            if (vdata->isDucking) {
+                builder->payloadVolumeDuckingConfig(&paramData, &paramSize, miid, vdata);
+            } else {
+                builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+            }
+
             if (paramSize) {
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
-                                               paramData, paramSize);
-                PAL_INFO(LOG_TAG, "mixer set volume config status=%d\n", status);
+                                            paramData, paramSize);
+                PAL_INFO(LOG_TAG, "Mixer set volume config status = %d", status);
                 freeCustomPayload(&paramData, &paramSize);
             }
-            return 0;
 
+            return 0;
         }
         default:
             status = -EINVAL;

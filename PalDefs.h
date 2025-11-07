@@ -806,6 +806,7 @@ struct pal_channel_vol_kv {
 /** Volume data strucutre defintion used as argument for volume command */
 struct pal_volume_data {
     uint32_t no_of_volpair;                       /**< no of volume pairs*/
+    bool isDucking;                              /**< Indicates if ducking is enabled */
     struct pal_channel_vol_kv volume_pair[];     /**< channel mask and volume pair */
 };
 
@@ -899,6 +900,7 @@ typedef enum {
     PAL_PARAM_ID_VOLUME_USING_SET_PARAM = 55,
     PAL_PARAM_ID_UHQA_FLAG = 56,
     PAL_PARAM_ID_STREAM_ATTRIBUTES = 57,
+    PAL_PARAM_ID_VOICE_ACTIVE_DETECTION = 58,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1103,6 +1105,11 @@ typedef struct pal_bt_tws_payload_s {
     bool isTwsMonoModeOn;
     uint32_t codecFormat;
 } pal_bt_tws_payload;
+
+typedef struct pal_voice_active_detection_payload {
+    bool isVadEnabled;  // true = VAD ON, false = VAD OFF
+} pal_voice_active_detection_payload;
+
 
 /* Payload For Custom Config
  * Description : Used by PAL client to customize
