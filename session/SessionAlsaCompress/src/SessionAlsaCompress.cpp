@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1411,10 +1411,16 @@ int SessionAlsaCompress::start(Stream * s)
             ppld.builder = reinterpret_cast<void*>(builder);
             ppld.payload = reinterpret_cast<void*>(&audio_fmt);
             //previous logic in config plugin
-            status = pluginConfig(s, PAL_PLUGIN_CONFIG_START, reinterpret_cast<void*>(&ppld), sizeof(ppld));
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "pluginConfig failed");
-                goto exit;
+            if (pluginConfig) {
+                status = pluginConfig(s, PAL_PLUGIN_CONFIG_START, reinterpret_cast<void*>(&ppld),
+                                    sizeof(ppld));
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "pluginConfig failed");
+                    goto exit;
+                }
+            } else {
+                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                        PAL_PLUGIN_CONFIG_START);
             }
             break;
         }
@@ -1449,10 +1455,16 @@ int SessionAlsaCompress::start(Stream * s)
             PAL_VERBOSE(LOG_TAG, "capture: compress is ready");
             //previous logic in config plugin
             ppld.builder = reinterpret_cast<void*>(builder);
-            status = pluginConfig(s, PAL_PLUGIN_CONFIG_START, reinterpret_cast<void*>(&ppld), sizeof(ppld));
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "pluginConfig failed");
-                goto exit;
+            if (pluginConfig) {
+                status = pluginConfig(s, PAL_PLUGIN_CONFIG_START, reinterpret_cast<void*>(&ppld),
+                                    sizeof(ppld));
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "pluginConfig failed");
+                    goto exit;
+                }
+            } else {
+                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                        PAL_PLUGIN_CONFIG_START);
             }
             if (!capture_started) {
                 status = compress_start(compress);
@@ -1479,10 +1491,16 @@ int SessionAlsaCompress::start(Stream * s)
             }
         } else {
             //call device rotation logic in plugin
-            status = pluginConfig(s, PAL_PLUGIN_CONFIG_POST_START, reinterpret_cast<void*>(this), 0);
-            if (0 != status) {
-                PAL_ERR(LOG_TAG, "PLUGIN_CONFIG_SETPARAM failed");
-                goto exit;
+            if (pluginConfig) {
+                status = pluginConfig(s, PAL_PLUGIN_CONFIG_POST_START,
+                                    reinterpret_cast<void*>(this), 0);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "PLUGIN_CONFIG_SETPARAM failed");
+                    goto exit;
+                }
+            } else {
+                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                        PAL_PLUGIN_CONFIG_POST_START);
             }
         }
     }
@@ -1880,7 +1898,7 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
 
             builder->payloadTWSConfig(&alsaParamData, &alsaPayloadSize,
@@ -1889,9 +1907,9 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set tws config status=%d\n", status);
-                builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_BT_A2DP_LC3_CONFIG:
         {
@@ -1907,7 +1925,7 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
 
             builder->payloadLC3Config(&alsaParamData, &alsaPayloadSize,
@@ -1916,9 +1934,9 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set lc3 config status=%d\n", status);
-                builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_CODEC_CONFIGURATION:
             PAL_DBG(LOG_TAG, "Compress Codec Configuration");
@@ -1947,10 +1965,16 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 ppld.session = this;
                 ppld.builder = reinterpret_cast<void*>(builder);
                 ppld.payload = reinterpret_cast<void*>(&audio_fmt);
-                status = pluginConfig(s, PAL_PLUGIN_CONFIG_SETPARAM, reinterpret_cast<void*>(&ppld), sizeof(SetParamPluginPayload));
-                if (0 != status) {
-                    PAL_ERR(LOG_TAG, "pluginConfig failed");
-                    goto exit;
+                if (pluginConfig) {
+                    status = pluginConfig(s, PAL_PLUGIN_CONFIG_SETPARAM,
+                                    reinterpret_cast<void*>(&ppld), sizeof(SetParamPluginPayload));
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG, "pluginConfig failed");
+                        goto exit;
+                    }
+                } else {
+                    PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                            PAL_PLUGIN_CONFIG_SETPARAM);
                 }
             }
         break;
@@ -2016,8 +2040,6 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set volume config status=%d\n", status);
-                builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
-                alsaPayloadSize = 0;
             }
         }
         break;
@@ -2037,7 +2059,7 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
             PAL_DBG(LOG_TAG, "set MSPP linear gain");
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
 
             builder->payloadMSPPConfig(&alsaParamData, &alsaPayloadSize, miid, linear_gain->gain);
@@ -2045,9 +2067,9 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set MSPP config status=%d\n", status);
-                free(alsaParamData);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         break;
         case PAL_PARAM_ID_VOLUME_CTRL_RAMP:
@@ -2068,7 +2090,6 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set vol ctrl ramp status=%d\n", status);
-                builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
             }
             break;
         }
@@ -2103,7 +2124,7 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d",
                         tagId, status);
-                return status;
+                goto exit;
             }
 
             size_t dspPayloadSize = 0;
@@ -2141,7 +2162,6 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                alsaParamData, alsaPayloadSize);
                 PAL_INFO(LOG_TAG, "mixer set playbackRate parameters status=%d", status);
-                builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
             }
             break;
         }
@@ -2150,6 +2170,9 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
         break;
     }
 exit:
+    if (alsaParamData) {
+        builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
+    }
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }
@@ -2530,10 +2553,12 @@ int SessionAlsaCompress::enableDisableWnrModule(Stream *s)
         status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                     payload, payloadSize);
         PAL_INFO(LOG_TAG, "mixer set wnr module status=%d", status);
-        builder->freeCustomPayload(&payload, &payloadSize);
     }
 
 exit:
+    if (payload) {
+        builder->freeCustomPayload(&payload, &payloadSize);
+    }
     PAL_DBG(LOG_TAG, "%s: Exit", __func__);
     return status;
 }

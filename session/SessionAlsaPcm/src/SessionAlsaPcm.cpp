@@ -62,7 +62,7 @@ int SessionAlsaPcm::pcmLpmRefCnt = 0;
 #define SESSION_ALSA_MMAP_DEFAULT_OUTPUT_SAMPLING_RATE (48000)
 #define SESSION_ALSA_MMAP_PERIOD_SIZE (SESSION_ALSA_MMAP_DEFAULT_OUTPUT_SAMPLING_RATE/1000)
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_MIN 64
-#define SESSION_ALSA_MMAP_PERIOD_COUNT_MAX 2048
+#define SESSION_ALSA_MMAP_PERIOD_COUNT_MAX 4096
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_DEFAULT (SESSION_ALSA_MMAP_PERIOD_COUNT_MAX)
 /* Param ID definitions */
 #define PARAM_ID_FFV_DOA_TRACKING_MONITOR 0x080010A4
@@ -2199,7 +2199,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
 
             builder->payloadTWSConfig(&paramData, &paramSize, miid,
@@ -2208,9 +2208,9 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set tws config status=%d\n", status);
-                builder->freeCustomPayload(&paramData, &paramSize);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_BT_A2DP_LC3_CONFIG:
         {
@@ -2219,7 +2219,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
 
             builder->payloadLC3Config(&paramData, &paramSize, miid,
@@ -2228,9 +2228,9 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set lc3 config status=%d\n", status);
-                builder->freeCustomPayload(&paramData, &paramSize);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_MODULE_CONFIG:
         {
@@ -2241,7 +2241,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                                               param_payload->payload_size);
                  PAL_INFO(LOG_TAG, "mixer set module config status=%d\n", status);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_UPD_REGISTER_FOR_EVENTS:
         {
@@ -2249,7 +2250,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             pal_param_upd_event_detection_t *detection_payload =
                                    (pal_param_upd_event_detection_t *)param_payload->payload;
             RegisterForEvents = detection_payload->register_status;
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_VOLUME_USING_SET_PARAM:
         {
@@ -2302,10 +2304,10 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set volume config status=%d\n", status);
-                builder->freeCustomPayload(&paramData, &paramSize);
                 paramSize = 0;
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_MSPP_LINEAR_GAIN:
         {
@@ -2317,7 +2319,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             PAL_INFO(LOG_TAG, "Set mspp linear gain");
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
 
             builder->payloadMSPPConfig(&paramData, &paramSize, miid, linear_gain->gain);
@@ -2325,9 +2327,9 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set MSPP config status=%d\n", status);
-                free(paramData);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_SET_UPD_DUTY_CYCLE:
         {
@@ -2381,8 +2383,10 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             }
 
             // TX duty cycle param is N/A for sensor renderer
-            if (sAttr.type == PAL_STREAM_SENSOR_PCM_RENDERER)
-                return 0;
+            if (sAttr.type == PAL_STREAM_SENSOR_PCM_RENDERER) {
+                status = 0;
+                goto exit;
+            }
 
             // set UPD TX tag data
             tagCntrlNameTx<<streamPcm<<pcmDevTxIds.at(0)<<setParamTagControl;
@@ -2400,7 +2404,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             }
             if (tagConfig)
                 free(tagConfig);
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_ULTRASOUND_RAMPDOWN:
         {
@@ -2439,7 +2444,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                rxAifBackEnds[0].second.data(), tagId, &miid);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
-                return status;
+                goto exit;
             }
             builder->payloadVolumeCtrlRamp(&paramData, &paramSize,
                  miid, rampParam->ramp_period_ms);
@@ -2447,9 +2452,9 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set vol ctrl ramp status=%d\n", status);
-                builder->freeCustomPayload(&paramData, &paramSize);
             }
-            return 0;
+            status = 0;
+            goto exit;
          }
         case PAL_PARAM_ID_HAPTICS_CNFG :
         {
@@ -2461,7 +2466,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             hpCnfg = (pal_param_haptics_cnfg_t *) calloc(1, sizeof(pal_param_haptics_cnfg_t));
             if (hpCnfg == NULL) {
                 PAL_ERR(LOG_TAG, "Haptics config memory allocation failed.");
-                return -ENOMEM;
+                status = -ENOMEM;
+                goto exit;
             }
 
             memcpy(hpCnfg, HapticsCnfg, sizeof(pal_param_haptics_cnfg_t ));
@@ -2496,7 +2502,6 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                                      paramData, paramSize);
                         if (status)
                             PAL_ERR(LOG_TAG, "setMixerParam for haptics PCM Failed\n");
-                        builder->freeCustomPayload(&paramData, &paramSize);
                     }
                 }
                 builder->payloadHapticsDevPConfig(&paramData, &paramSize,
@@ -2506,7 +2511,6 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                                      paramData, paramSize);
                     if (status)
                        PAL_ERR(LOG_TAG, "setMixerParam failed for haptics Wave\n");
-                    builder->freeCustomPayload(&paramData, &paramSize);
                 }
             }
             free(hpCnfg->buffer_ptr);
@@ -2525,7 +2529,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                       rxAifBackEnds[0].second.data(), MODULE_HAPTICS_GEN, &miid);
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
-                    return status;
+                    goto exit;
                 }
                 builder->payloadHapticsDevPConfig(&paramData, &paramSize,
                             miid, PARAM_ID_HAPTICS_WAVE_DESIGNER_STOP_PARAM,(void *)HapticsCnfg);
@@ -2534,9 +2538,8 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                                      paramData, paramSize);
                     if (status)
                         PAL_ERR(LOG_TAG, "setMixerParam failed for stop haptics Wave\n");
-                    builder->freeCustomPayload(&paramData, &paramSize);
                 }
-            return status;
+            goto exit;
         }
         case PARAM_ID_HAPTICS_WAVE_DESIGNER_UPDATE_PARAM :
         {
@@ -2548,7 +2551,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                           rxAifBackEnds[0].second.data(), MODULE_HAPTICS_GEN, &miid);
                 if (status != 0) {
                     PAL_ERR(LOG_TAG, "getModuleInstanceId failed");
-                    return status;
+                    goto exit;
                 }
                 builder->payloadHapticsDevPConfig(&paramData, &paramSize,
                                miid, PARAM_ID_HAPTICS_WAVE_DESIGNER_UPDATE_PARAM ,(void *)HapticsCnfg);
@@ -2557,9 +2560,9 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                                                          paramData, paramSize);
                     if (status)
                         PAL_ERR(LOG_TAG, "setMixerParam failed for haptics Wave\n");
-                    builder->freeCustomPayload(&paramData, &paramSize);
                 }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_GAIN_USING_SET_PARAM:
         {
@@ -2591,9 +2594,9 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                paramData, paramSize);
                 PAL_DBG(LOG_TAG, "GainLog - mixer set gain config status=%d\n", status);
-                builder->freeCustomPayload(&paramData, &paramSize);
             }
-            return 0;
+            status = 0;
+            goto exit;
         }
         case PAL_PARAM_ID_ULTRASOUND_SET_GAIN:
         {
@@ -2678,7 +2681,8 @@ skip_ultrasound_gain:
                 free(tagConfig);
             if (status)
                 PAL_ERR(LOG_TAG, "Failed to set Ultrasound Gain %d", status);
-            return 0;
+            status = 0;
+            goto exit;
         }
 
         default:
@@ -2696,8 +2700,9 @@ skip_ultrasound_gain:
     PAL_VERBOSE(LOG_TAG, "%pK - payload and %zu size", paramData , paramSize);
 
 exit:
-    if (paramData)
-        free(paramData);
+    if (paramData) {
+        builder->freeCustomPayload(&paramData, &paramSize);
+    }
 
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
@@ -3139,26 +3144,21 @@ int SessionAlsaPcm::getTagsWithModuleInfo(custom_payload_uc_info_t* uc_info,
     return status;
 }
 
-void SessionAlsaPcm::adjustMmapPeriodCount(struct pcm_config *config, int32_t min_size_frames)
+void SessionAlsaPcm::adjustMmapPeriodCount(struct pcm_config *config)
 {
-    int periodCountRequested = (min_size_frames + config->period_size - 1)
-                               / config->period_size;
-    int periodCount = SESSION_ALSA_MMAP_PERIOD_COUNT_MIN;
+    int requested = config->period_count;
+    int adjusted = SESSION_ALSA_MMAP_PERIOD_COUNT_MIN;
 
-    PAL_VERBOSE(LOG_TAG, "original config.period_size = %d config.period_count = %d",
-                config->period_size, config->period_count);
-
-    while (periodCount < periodCountRequested &&
-        (periodCount * 2) < SESSION_ALSA_MMAP_PERIOD_COUNT_MAX) {
-        periodCount *= 2;
+    while (adjusted < requested && adjusted * 2 <= SESSION_ALSA_MMAP_PERIOD_COUNT_MAX) {
+        adjusted *= 2;
     }
-    config->period_count = periodCount;
 
-    PAL_VERBOSE(LOG_TAG, "requested config.period_count = %d",
-                config->period_count);
+    config->period_count = adjusted;
 
+    if (adjusted != requested) {
+        PAL_DBG(LOG_TAG, "adjusted period_count: %d", adjusted);
+    }
 }
-
 
 int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
                                    struct pal_mmap_buffer *info)
@@ -3242,10 +3242,16 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
                 break;
         }
 
-        this->adjustMmapPeriodCount(&config, min_size_frames);
+        adjustMmapPeriodCount(&config);
 
-        PAL_DBG(LOG_TAG, "Opening PCM device card_id(%d) device_id(%d), channels %d",
-                rm->getVirtualSndCard(), pcmDevIds.at(0), config.channels);
+        PAL_INFO(LOG_TAG, "Opening PCM device card_id %d, device_id %d,"
+                " rate %u, format %u, channels %u, period_size %u, period_count %u,"
+                "start_threshold %lu, stop_threshold %lu, silence_threshold %lu, silence_size %lu,"
+                " avail_min %lu",
+                rm->getVirtualSndCard(), pcmDevIds.at(0),
+                config.rate, config.format, config.channels, config.period_size,
+                config.period_count, config.start_threshold, config.stop_threshold,
+                config.silence_threshold, config.silence_size, config.avail_min);
 
         pcm = pcm_open(rm->getVirtualSndCard(), pcmDevIds.at(0),
                              pcm_flags, &config);
@@ -3327,15 +3333,11 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
 
  exit:
      if (status < 0) {
-        if (pcm == NULL) {
-            PAL_ERR(LOG_TAG, "%s - %d",step, status);
-        } else {
-            PAL_ERR(LOG_TAG, "%s - %d",step, status);
-            if (pcm) {
-                pcm_close(pcm);
-                pcm = NULL;
-            }
-        }
+         PAL_ERR(LOG_TAG, "%s - %d",step, status);
+         if (pcm) {
+             pcm_close(pcm);
+             pcm = NULL;
+         }
      } else {
          status = 0;
      }
@@ -3789,10 +3791,12 @@ int32_t SessionAlsaPcm::enableDisableWnrModule(Stream *s)
         status = SessionAlsaUtils::setMixerParameter(mixer, device,
                                                     payload, payloadSize);
         PAL_INFO(LOG_TAG, "mixer set wnr module status=%d", status);
-        builder->freeCustomPayload(&payload, &payloadSize);
     }
 
 exit:
+    if (payload) {
+        builder->freeCustomPayload(&payload, &payloadSize);
+    }
     PAL_DBG(LOG_TAG, "%s: Exit", __func__);
     return status;
 }
