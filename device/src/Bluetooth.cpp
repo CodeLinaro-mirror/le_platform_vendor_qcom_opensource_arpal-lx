@@ -30,6 +30,7 @@
 #define LOG_TAG "PAL: Bluetooth"
 #include "Bluetooth.h"
 #include "ResourceManager.h"
+#include "cop_v2_packetizer_api.h"
 #include "PayloadBuilder.h"
 #include "Stream.h"
 #include "Session.h"
@@ -909,7 +910,7 @@ void Bluetooth::startAbr()
 
         blk = out_buf->blocks[0];
         builder->payloadCustomParam(&paramData, &paramSize,
-                  (uint32_t *)blk->payload, blk->payload_sz, miid, blk->param_id);
+                (uint32_t *)blk->payload, blk->payload_sz, miid, blk->param_id);
 
         codec->close_plugin(codec);
         dlclose(pluginLibHandle);
@@ -921,12 +922,13 @@ void Bluetooth::startAbr()
         }
 
         ret = SessionAlsaUtils::setDeviceCustomPayload(rm, backEndName,
-                paramData, paramSize);
+            paramData, paramSize);
         free(paramData);
         if (ret) {
             PAL_ERR(LOG_TAG, "Error: Dev setParam failed for %d", fbDevice.id);
             goto err_pcm_open;
         }
+
     } else if ((codecFormat == CODEC_TYPE_LC3) && (codecType == ENC)) {
         builder = new PayloadBuilder();
 
@@ -1873,6 +1875,38 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
             param_tws.isTwsMonoModeOn = isTwsMonoModeOn;
             param_tws.codecFormat = (uint32_t)codecFormat;
             session->setParameters(stream, BT_PLACEHOLDER_ENCODER, param_id, &param_tws);
+        }
+        break;
+    }
+    case PAL_PARAM_ID_VOICE_ACTIVE_DETECTION:
+    {
+        pal_voice_active_detection_payload *vadPayload =
+            (pal_voice_active_detection_payload *)param;
+
+        bool vad_state = vadPayload->isVadEnabled;
+
+        if (a2dpState == A2DP_STATE_STARTED) {
+            std::shared_ptr<Device> dev = nullptr;
+            Stream *stream = nullptr;
+            Session *session = nullptr;
+            std::vector<Stream*> activeStreams;
+
+            dev = Device::getInstance(&deviceAttr, rm);
+            status = rm->getActiveStream_l(activeStreams, dev);
+            if ((status != 0) || (activeStreams.size() == 0)) {
+                PAL_ERR(LOG_TAG, "No active stream available for COPv2 param");
+                return -EINVAL;
+            }
+
+            stream = static_cast<Stream *>(activeStreams[0]);
+            stream->getAssociatedSession(&session);
+
+            status = session->setParameters(stream, COP_PACKETIZER_V2,
+                                            PAL_PARAM_ID_VOICE_ACTIVE_DETECTION,
+                                            vadPayload);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set COPv2 acquire stream param, rc=%d", status);
+            }
         }
         break;
     }

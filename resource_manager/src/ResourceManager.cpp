@@ -8391,6 +8391,26 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_VOICE_ACTIVE_DETECTION:
+        {
+            std::shared_ptr<Device> dev = nullptr;
+            struct pal_device dattr;
+
+            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+            if (isDeviceAvailable(dattr.id)) {
+                dev = Device::getInstance(&dattr, rm);
+                if (dev) {
+                    status = dev->setDeviceParameter(param_id, param_payload);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "setParameter for VAD %d failed\n", param_id);
+                        goto exit;
+                    }
+                } else {
+                    PAL_ERR(LOG_TAG, "Device instance not found");
+                }
+            }
+        }
+        break;
         case PAL_PARAM_ID_GAIN_LVL_CAL:
         {
             struct pal_device dattr;

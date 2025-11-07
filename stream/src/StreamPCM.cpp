@@ -740,7 +740,7 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
         mVolumeData = NULL;
     }
 
-    volSize = sizeof(uint32_t) + (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair));
+    volSize = sizeof(struct pal_volume_data) + (sizeof(struct pal_channel_vol_kv) * (volume->no_of_volpair));
     mVolumeData = (struct pal_volume_data *)calloc(1, volSize);
     if (!mVolumeData) {
         status = -ENOMEM;
@@ -762,8 +762,27 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
         goto exit;
     }
 
+    //Handle ducking-specific volume update
+    if (mVolumeData->isDucking) {
+
+        uint8_t *volPayload = new uint8_t[sizeof(pal_param_payload) + volSize]();
+        if (!volPayload) {
+            PAL_ERR(LOG_TAG, "volPayload memory allocation failed");
+            status = -ENOMEM;
+            goto exit;
+        }
+
+        pal_param_payload *pld = (pal_param_payload *)volPayload;
+        pld->payload_size = sizeof(struct pal_volume_data);
+        memcpy(pld->payload, mVolumeData, volSize);
+        status = setParameters(PAL_PARAM_ID_VOLUME_USING_SET_PARAM, (void *)pld);
+        delete[] volPayload;
+        goto exit; // Skip regular volume path if ducking handled
+    }
+
     memset(&vol_set_param_info, 0, sizeof(struct volume_set_param_info));
     rm->getVolumeSetParamInfo(&vol_set_param_info);
+
     if ((rm->cardState == CARD_STATUS_ONLINE) && (currentState != STREAM_IDLE)
             && (currentState != STREAM_INIT)) {
         bool isStreamAvail = (find(vol_set_param_info.streams_.begin(),
