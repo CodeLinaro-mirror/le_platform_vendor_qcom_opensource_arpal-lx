@@ -187,7 +187,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_SPEAKER_MIC</id>
-            <back_end_name>CODEC_DMA-LPAIF_RXTX-TX-3</back_end_name>
+            <back_end_name>SLIM-DEV1-TX-0</back_end_name>
             <max_channels>4</max_channels>
             <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
