@@ -27,7 +27,7 @@
 * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-* Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 *  -->
 
@@ -849,6 +849,8 @@
             <back_end_name>DISPLAY_PORT-RX</back_end_name>
             <max_channels>32</max_channels>
             <channels>2</channels>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
             <snd_device_name>display-port</snd_device_name>
             <fractional_sr>1</fractional_sr>
             <usecase>
@@ -858,11 +860,14 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HDMI</id>
-            <back_end_name>DISPLAY_PORT-RX</back_end_name>
+            <back_end_name>MI2S-LPAIF-RX-SECONDARY</back_end_name>
             <max_channels>32</max_channels>
             <channels>2</channels>
+            <samplerate>48000</samplerate>
+            <bit_width>32</bit_width>
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S32_LE</supported_bit_format>
             <fractional_sr>1</fractional_sr>
-            <snd_device_name>display-port</snd_device_name>
+            <snd_device_name>hdmi-port</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <priority>1</priority>
