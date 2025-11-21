@@ -1440,6 +1440,7 @@ int BtA2dp::close_audio_source()
         mDeviceMutex.unlock();
     }
     totalActiveSessionRequests = 0;
+    param_bt_a2dp.a2dp_suspended = false;
     param_bt_a2dp.latency = 0;
     a2dpState = A2DP_STATE_DISCONNECTED;
     isConfigured = false;
