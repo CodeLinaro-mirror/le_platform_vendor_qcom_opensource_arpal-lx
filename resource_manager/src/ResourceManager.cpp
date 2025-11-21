@@ -2838,7 +2838,7 @@ int ResourceManager::deactivateStreamUserCounter(Stream *s)
     lockValidStreamMutex();
     printStreamUserCounter(s);
     it = mActiveStreamUserCounter.find(s);
-    if (it != mActiveStreamUserCounter.end()) {
+    if (it != mActiveStreamUserCounter.end() && it->second.second == true) {
         PAL_DBG(LOG_TAG, "stream %p is to be deactivated.", s);
         it->second.second = false;
         unlockValidStreamMutex();

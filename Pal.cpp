@@ -255,7 +255,10 @@ int32_t pal_stream_close(pal_stream_handle_t *stream_handle)
     s = reinterpret_cast<Stream *>(stream_handle);
     status = s->close();
 
-    rm->deactivateStreamUserCounter(s);
+    if (rm->deactivateStreamUserCounter(s)) {
+        PAL_ERR(LOG_TAG, "stream is being closed by another client");
+        return 0;
+    }
 
     if (0 != status) {
         PAL_ERR(LOG_TAG, "stream closed failed. status %d", status);
