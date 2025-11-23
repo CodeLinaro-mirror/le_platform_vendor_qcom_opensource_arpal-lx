@@ -22,7 +22,7 @@ AC_PROG_LN_S
 AC_PROG_MAKE_SET
 PKG_PROG_PKG_CONFIG
 
-m4_define([LT_MAJOR], [1])
+m4_define([LT_MAJOR], [2])
 m4_define([LT_MINOR], [0])
 m4_define([LT_PATCH], [0])
 
