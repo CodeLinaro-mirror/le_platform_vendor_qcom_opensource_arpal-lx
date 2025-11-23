@@ -3742,6 +3742,21 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             }
             return 0;
         }
+        case PAL_PARAM_ID_ASRC:
+        {
+            status = getPCMDeviceID(streamHandle, &device);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get Device id for ASRC, status= %d", status);
+                return status;
+            }
+
+            status = handleASRCSetting(streamHandle, (asrc_ratio_t *)payload, device, mixer, builder, rxAifBackEnds);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to set handle for ASRC, status= %d", status);
+                return status;
+            }
+            return 0;
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);

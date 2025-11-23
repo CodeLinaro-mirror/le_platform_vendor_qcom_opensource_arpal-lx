@@ -27,7 +27,7 @@
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -289,6 +289,14 @@ struct __attribute__((__packed__)) volume_ctrl_multichannel_gain_t
     uint32_t num_config;
     volume_ctrl_channels_gain_config_t gain_data[0];
 };
+
+/*ID of ASRC parameter used by AUTO_ASRC_RATIO*/
+#define PARAM_ID_AUTO_ASRC_RATIO 0x0800129E
+
+/*ASRC default value*/
+#define ASRC_RATIO_RAMP_DEFAULT 0x200000
+#define ASRC_RATIO_EFFECTIVE_DEFAULT 1
+
 
 std::vector<allKVs> PayloadBuilder::all_streams;
 std::vector<allKVs> PayloadBuilder::all_streampps;
@@ -5189,5 +5197,37 @@ int PayloadBuilder::freeCustomPayload()
         customPayload = NULL;
         customPayloadSize = 0;
     }
+    return 0;
+}
+
+int32_t PayloadBuilder::payloadASRCConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, asrc_ratio_t *asrc_params)
+{
+    struct apm_module_param_data_t* header = nullptr;
+    asrc_ratio_t *asrc_ratio = nullptr;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(asrc_ratio_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = (uint8_t *) malloc((payloadSize + padBytes) * sizeof(uint8_t));
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return -1;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_AUTO_ASRC_RATIO;
+    header->error_code = 0x0;
+    header->param_size = payloadSize -  sizeof(struct apm_module_param_data_t);
+    asrc_ratio = (asrc_ratio_t *)(payloadInfo + sizeof(struct apm_module_param_data_t));
+    asrc_ratio->ratio = asrc_params->ratio;
+    asrc_ratio->effective = asrc_params->effective;
+    asrc_ratio->ramp = asrc_params->ramp;
+    PAL_INFO(LOG_TAG, "ASRC header params IID:%x param_id:%x error_code:%d param_size:%d, asrc_ratio=%x, asrc_eff=%x, asrc_ramp=%x",
+                  header->module_instance_id, header->param_id,
+                  header->error_code, header->param_size, asrc_ratio->ratio, asrc_ratio->effective, asrc_ratio->ramp);
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
     return 0;
 }
