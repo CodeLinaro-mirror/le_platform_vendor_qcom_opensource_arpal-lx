@@ -1525,13 +1525,17 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "anorak") ||
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "qcm6490") ||
+                    strstr(snd_card_name, "QCM6490-IDP") ||
                     strstr(snd_card_name, "qcs6490") ||
+                    strstr(snd_card_name, "QCS6490-RB3Gen2") ||
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "8275-evk") ||
                     strstr(snd_card_name, "monza") ||
                     strstr(snd_card_name, "qcs8300") ||
                     strstr(snd_card_name, "qcs9100") ||
                     strstr(snd_card_name, "qcs9075") ||
+                    strstr(snd_card_name, "LEMANS-EVK") ||
+                    strstr(snd_card_name, "MONACO-EVK") ||
                     strstr(snd_card_name, "monaco")) {
                     PAL_VERBOSE(LOG_TAG, "Found Codec sound card");
                     snd_card_found = true;
