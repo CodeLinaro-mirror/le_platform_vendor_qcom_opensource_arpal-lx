@@ -28,6 +28,7 @@
 
 * Changes from Qualcomm Innovation Center are provided under the following license:
 * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 *  -->
 
@@ -48,7 +49,6 @@
         <param key="signal_handler" value ="false" />
         <param key="device_mux_config" value ="false" />
         <param key="upd_virtual_port" value ="false" />
-        <param key="btsink_hfp_ch_conf" value ="2" />
     </config_params>
     <config_volume>
         <use_volume_set_param>0</use_volume_set_param>
@@ -175,7 +175,7 @@
                     <channels>2</channels>
                     <snd_device_name>handset-dmic-endfire</snd_device_name>
                 </custom-config>
-                <custom-config key="dual-mic-nn-sm">
+                    <custom-config key="dual-mic-nn-sm">
                     <channels>2</channels>
                     <snd_device_name>handset-dmic-endfire</snd_device_name>
                 </custom-config>
@@ -268,6 +268,7 @@
                     <channels>4</channels>
                     <snd_device_name>quad-mic</snd_device_name>
                 </custom-config>
+
             </usecase>
            <usecase>
                 <name>PAL_STREAM_RAW</name>
@@ -456,7 +457,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_HEADSET_VA_MIC</id>
-            <back_end_name>CODEC_DMA-LPAIF_RXTX-TX-3</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_VA-TX-0</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>headset-va-mic</snd_device_name>
@@ -1324,7 +1325,7 @@
                 <!-- Module output channels -->
                 <param out_channels="1" />
                 <operating_modes>
-                    <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
+                    <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFNS" />
                     <high_performance capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
                     <high_performance_and_charging capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
