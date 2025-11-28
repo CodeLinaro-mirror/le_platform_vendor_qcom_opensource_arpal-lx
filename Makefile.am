@@ -165,10 +165,10 @@ libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -version-number @LT_VERSION_NUMBER@
 libpal_la_CPPFLAGS += @GLIB_CFLAGS@
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
-libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
-                      ./configs/qcm6490/resourcemanager_qcm6490_idp.xml \
-                      ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2.xml \
-                      ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2.xml \
+libpal_la_list      = ./configs/qcm6490/mixer_paths_QCM6490_IDP.xml \
+                      ./configs/qcm6490/resourcemanager_QCM6490_IDP.xml \
+                      ./configs/qcs6490/mixer_paths_QCS6490_RB3Gen2.xml \
+                      ./configs/qcs6490/resourcemanager_QCS6490_RB3Gen2.xml \
                       ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2_vision.xml \
                       ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2_vision.xml \
                       ./configs/qcs6490/mixer_paths_qcs6490_rb3gen2_video.xml \
@@ -179,12 +179,12 @@ libpal_la_list      = ./configs/qcm6490/mixer_paths_qcm6490_idp.xml \
                       ./configs/qcs6490/resourcemanager_qcs6490_rb3gen2_ia.xml \
                       ./configs/monaco-monza/mixer_paths_monaco_monza.xml \
                       ./configs/monaco-monza/resourcemanager_monaco_monza.xml \
-                      ./configs/iq8-8275-evk/mixer_paths_iq8_8275_evk.xml \
-                      ./configs/iq8-8275-evk/resourcemanager_iq8_8275_evk.xml \
+		      ./configs/iq8-8275-evk/mixer_paths_MONACO_EVK.xml \
+		      ./configs/iq8-8275-evk/resourcemanager_MONACO_EVK.xml \
                       ./configs/qcs8300/mixer_paths_qcs8300_ridesx.xml \
                       ./configs/qcs8300/resourcemanager_qcs8300_ridesx.xml \
-                      ./configs/qcs9075/mixer_paths_qcs9075_rb8.xml \
-                      ./configs/qcs9075/resourcemanager_qcs9075_rb8.xml \
+                      ./configs/qcs9075/mixer_paths_LEMANS_EVK.xml \
+                      ./configs/qcs9075/resourcemanager_LEMANS_EVK.xml \
                       ./configs/qcs9100/mixer_paths_qcs9100_ridesx.xml \
                       ./configs/qcs9100/resourcemanager_qcs9100_ridesx.xml
 
@@ -216,18 +216,18 @@ root_etc_SCRIPTS = $(libpal_la_list)
 install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_monaco_monza.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_monaco_monza.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_iq8_8275_evk.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_iq8_8275_evk.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_MONACO_EVK.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_MONACO_EVK.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs8300_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs8300_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs9100_ridesx.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs9100_ridesx.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs9075_rb8.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs9075_rb8.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_idp.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_idp.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2.xml
-	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs6490_rb3gen2.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_LEMANS_EVK.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_LEMANS_EVK.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_QCM6490_IDP.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_QCM6490_IDP.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_QCS6490_RB3Gen2.xml
+	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_QCS6490_RB3Gen2.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2_vision.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcs6490_rb3gen2_vision.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcs6490_rb3gen2_video.xml

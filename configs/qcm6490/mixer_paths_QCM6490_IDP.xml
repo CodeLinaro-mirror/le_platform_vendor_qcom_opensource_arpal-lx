@@ -28,6 +28,7 @@
 
 * Changes from Qualcomm Innovation Center are provided under the following license:
 * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 * SPDX-License-Identifier: BSD-3-Clause-Clear
 * -->
 
@@ -290,7 +291,6 @@
         <ctl name="SpkrLeft COMP Switch" value="1" />
         <ctl name="SpkrLeft BOOST Switch" value="1" />
         <ctl name="SpkrLeft DAC Switch" value="1" />
-        <ctl name="SpkrLeft VISENSE Switch" value="1" />
 	<ctl name="SpkrRight PA Volume" value="20" />
         <ctl name="WSA RX1 MUX" value="AIF1_PB" />
         <ctl name="WSA_RX1 INP0" value="RX1" />
@@ -298,11 +298,13 @@
         <ctl name="SpkrRight COMP Switch" value="1" />
         <ctl name="SpkrRight BOOST Switch" value="1" />
         <ctl name="SpkrRight DAC Switch" value="1" />
-        <ctl name="SpkrRight VISENSE Switch" value="1" />
+
     </path>
 
     <path name="speaker-prot">
         <path name="speaker" />
+        <ctl name="SpkrLeft VISENSE Switch" value="1" />
+        <ctl name="SpkrRight VISENSE Switch" value="1" />
         <ctl name="WSA_RX0 Digital Volume" value="84" />
         <ctl name="WSA_RX1 Digital Volume" value="84" />
     </path>
@@ -376,7 +378,7 @@
     </path>
 
     <path name="speaker-mic">
-        <path name="dmic0" />
+        <path name="dmic3" />
     </path>
 
 
@@ -464,7 +466,7 @@
         <ctl name="HPHL Switch" value="1" />
         <ctl name="HPHR Switch" value="1" />
         <ctl name="RX_HPH PWR Mode" value="LOHIFI" />
-        <ctl name="RX HPH Mode" value="CLS_H_ULP" />
+        <ctl name="RX HPH Mode" value="CLS_AB_HIFI" />
         <ctl name="RX_MACRO RX0 MUX" value="AIF1_PB" />
         <ctl name="RX_MACRO RX1 MUX" value="AIF1_PB" />
         <ctl name="RX INT0_1 MIX1 INP0" value="RX0" />
@@ -602,25 +604,11 @@
 
     <path name="headset-va-mic-lpi">
        <ctl name="LPI Enable" value="1" />
-       <ctl name="VA DEC0 MUX" value="SWR_MIC" />
-       <ctl name="VA SMIC MUX0" value="ADC1" />
-       <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
-       <ctl name="ADC2 MUX" value="INP2" />
-       <ctl name="ADC2 Switch" value="1" />
-       <ctl name="ADC2_MIXER Switch" value="1" />
-       <ctl name="VA_DEC0 Volume" value="80" />
-       <ctl name="ADC2 Volume" value="20" />
+       <path name="amic2" />
     </path>
 
     <path name="headset-va-mic">
-       <ctl name="VA DEC0 MUX" value="SWR_MIC" />
-       <ctl name="VA SMIC MUX0" value="ADC1" />
-       <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
-       <ctl name="ADC2 MUX" value="INP2" />
-       <ctl name="ADC2 Switch" value="1" />
-       <ctl name="ADC2_MIXER Switch" value="1" />
-       <ctl name="VA_DEC0 Volume" value="80" />
-       <ctl name="ADC2 Volume" value="20" />
+       <path name="amic2" />
     </path>
 
     <path name="lpi-pcm-logging">
