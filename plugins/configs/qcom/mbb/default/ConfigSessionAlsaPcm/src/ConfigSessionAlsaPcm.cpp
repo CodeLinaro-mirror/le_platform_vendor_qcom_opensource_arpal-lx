@@ -81,6 +81,11 @@
 #include <sys/klog.h>        /* Definition of SYSLOG_* constants */
 #include <time.h>
 
+#define HPCM_RX 0x4082
+#define HPCM_TX 0x425E
+#define HPCM_RX_SPK 0x4035
+#define HPCM_TX_SPK 0x421D
+
 /*interface implementation*/
 extern "C" int pcmPluginConfig(Stream* stream, plugin_config_name_t config,
                  void *pluginPayload, size_t ppldSize)
@@ -292,6 +297,88 @@ int32_t pcmPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                    (void *)asr_event_cfg, payload_size);
             free(asr_event_cfg);
         }
+    } else if (sAttr.type == PAL_STREAM_HPCM) {
+        PAL_INFO(LOG_TAG, "CONFIGURING HPCM_EVENT");
+        uint32_t hpcm_miid = 0;
+        payload_size = sizeof(struct agm_event_reg_cfg);
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        event_cfg.event_id = EVENT_ID_HPCM_HOST_BUF_DONE;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 1;
+
+        PAL_INFO(LOG_TAG, "CONFIGURING HPCM_EVENT %d",
+                        sAttr.info.hpcm_stream_info.hpcm_stream_type);
+
+        switch(sAttr.info.hpcm_stream_info.hpcm_stream_type) {
+            case PAL_HPCM_RX_PLAYBACK:
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_PLAY %d.\n", rxAifBackEnds[0].first);
+                hpcm_miid = (rxAifBackEnds[0].first == PAL_DEVICE_OUT_WIRED_HEADSET) ? HPCM_RX: HPCM_RX_SPK;
+                break;
+            case PAL_HPCM_TX_PLAYBACK:
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_PLAY %d.\n", rxAifBackEnds[0].first);
+                hpcm_miid = (rxAifBackEnds[0].first == PAL_DEVICE_OUT_WIRED_HEADSET) ? HPCM_TX: HPCM_TX_SPK;
+                break;
+            case PAL_HPCM_RX_CAPTURE:
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_CAP %d.\n", txAifBackEnds[0].first);
+                hpcm_miid = (txAifBackEnds[0].first == PAL_DEVICE_IN_WIRED_HEADSET) ? HPCM_RX: HPCM_RX_SPK;
+                break;
+            case PAL_HPCM_TX_CAPTURE:
+                PAL_INFO(LOG_TAG, "CONFIGURING HPCM_CAP %d.\n", txAifBackEnds[0].first);
+                hpcm_miid = (txAifBackEnds[0].first == PAL_DEVICE_IN_WIRED_HEADSET) ? HPCM_TX: HPCM_TX_SPK;
+                break;
+        }
+        event_cfg.module_instance_id = hpcm_miid;
+        status = SessionAlsaUtils::registerMixerEvent(mxr, pcmDevIds.at(0),
+                        (void *)&event_cfg, payload_size);
+        if (status != 0) {
+                PAL_ERR(LOG_TAG, "Register HPCM event failed for HPCM : 0x%x", hpcm_miid);\
+                goto exit;
+        } else {
+                PAL_INFO(LOG_TAG, "Register HPCM event done for HPCM : 0x%x", hpcm_miid);
+        }
+
+        param_id_hpcm_config_t hpcm_config = {0};
+        if((sAttr.info.hpcm_stream_info.hpcm_stream_type == PAL_HPCM_RX_PLAYBACK) ||
+                        (sAttr.info.hpcm_stream_info.hpcm_stream_type == PAL_HPCM_TX_PLAYBACK)) {
+            PAL_INFO(LOG_TAG, "HPCM Playback payload config");
+            hpcm_config.enable = 1;
+            hpcm_config.mode = 2;
+            hpcm_config.num_channels = sAttr.out_media_config.ch_info.channels;
+            hpcm_config.sampling_rate = sAttr.out_media_config.sample_rate;
+        } else {
+            PAL_INFO(LOG_TAG, "HPCM Record payload config");
+            hpcm_config.enable = 1;
+            hpcm_config.mode = 1;
+            hpcm_config.num_channels = sAttr.in_media_config.ch_info.channels;
+            hpcm_config.sampling_rate = sAttr.in_media_config.sample_rate;
+        }
+
+         PAL_INFO(LOG_TAG, "Configure HPCM miid 0x%x", hpcm_miid);
+         builder->payloadHpcmConfig(&payload, &payloadSize, hpcm_miid, &hpcm_config);
+         if (payload && payloadSize){
+             status = builder->updateCustomPayload(payload, payloadSize);
+             builder->freeCustomPayload(&payload, &payloadSize);
+             if (status != 0){
+                 PAL_ERR(LOG_TAG, "updateCustomPayload Failed \n");
+                 goto exit;
+                }
+         } else {
+                PAL_ERR(LOG_TAG, "Error Setting HPCM Custom Payload \n");
+                status = -EINVAL;
+                goto exit;
+         }
+
+         builder->getCustomPayload(&payload, &payloadSize);
+         status = SessionAlsaUtils::setMixerParameter(mxr, pcmDevIds.at(0),
+                                        payload, payloadSize);
+         builder->freeCustomPayload();
+         if (status != 0) {
+             PAL_ERR(LOG_TAG, "setMixerParameter failed for HPCM Payload");
+             goto exit;
+         }
+
+         goto exit;
+
     } else if (sAttr.info.opt_stream_info.isBitPerfect) {
         PAL_DBG(LOG_TAG, "Config not needed for BitPerfect Playback");
         goto exit;
@@ -1287,7 +1374,38 @@ silence_det_setup_done:
         SessionAlsaUtils::registerMixerEvent(mxr, pcmDevIds.at(0),
                 rxAifBackEnds[0].second.data(), MODULE_HAPTICS_GEN, (void *)&event_cfg,
                 payload_size);
+    } else if (sAttr.type == PAL_STREAM_HPCM) {
+        PAL_INFO(LOG_TAG, "De-registering HPCM_EVENT");
+        uint32_t hpcm_miid = 0;
+        payload_size = sizeof(struct agm_event_reg_cfg);
+        memset(&event_cfg, 0, sizeof(event_cfg));
+        event_cfg.event_id = EVENT_ID_HPCM_HOST_BUF_DONE;
+        event_cfg.event_config_payload_size = 0;
+        event_cfg.is_register = 0;
+
+        switch(sAttr.info.hpcm_stream_info.hpcm_stream_type) {
+            case PAL_HPCM_RX_PLAYBACK:
+            case PAL_HPCM_RX_CAPTURE:
+                 PAL_INFO(LOG_TAG, "Deregistering  HPCM_RX_EVENT");
+                 hpcm_miid = HPCM_RX;
+                 break;
+            case PAL_HPCM_TX_PLAYBACK:
+            case PAL_HPCM_TX_CAPTURE:
+                 PAL_INFO(LOG_TAG, "Deregistering HPCM_TX_EVENT");
+                 hpcm_miid = HPCM_TX;
+                 break;
+        }
+        event_cfg.module_instance_id = hpcm_miid;
+        status = SessionAlsaUtils::registerMixerEvent(mxr, pcmDevIds.at(0),
+                        (void *)&event_cfg, payload_size);
+        if (status != 0) {
+                PAL_ERR(LOG_TAG, "De-Register HPCM event failed for HPCM : 0x%x", hpcm_miid);
+                goto exit;
+        } else {
+                PAL_INFO(LOG_TAG, "De-Register HPCM event done for HPCM : 0x%x", hpcm_miid);
+        }
     }
+
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;

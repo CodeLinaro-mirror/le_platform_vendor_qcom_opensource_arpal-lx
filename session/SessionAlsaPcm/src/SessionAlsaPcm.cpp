@@ -66,6 +66,8 @@ int SessionAlsaPcm::pcmLpmRefCnt = 0;
 /* Param ID definitions */
 #define PARAM_ID_FFV_DOA_TRACKING_MONITOR 0x080010A4
 
+void handleHpcmCallback(uint64_t hdl, uint32_t event_id, void *data, uint32_t event_size);
+
 extern "C" Session* CreatePcmSession(const std::shared_ptr<ResourceManager> rm) {
     return new SessionAlsaPcm(rm);
 }
@@ -410,7 +412,7 @@ int SessionAlsaPcm::open(Stream * s)
         sAttr.type == PAL_STREAM_ACD ||
         sAttr.type == PAL_STREAM_ASR ||
         sAttr.type == PAL_STREAM_CONTEXT_PROXY ||
-        sAttr.type == PAL_STREAM_ULTRASOUND ||
+        sAttr.type == PAL_STREAM_ULTRASOUND || sAttr.type == PAL_STREAM_HPCM ||
        (sAttr.type == PAL_STREAM_HAPTICS &&
         sAttr.info.opt_stream_info.haptics_type == PAL_STREAM_HAPTICS_TOUCH)) {
         switch (sAttr.type) {
@@ -423,6 +425,13 @@ int SessionAlsaPcm::open(Stream * s)
                 break;
             case PAL_STREAM_ULTRASOUND:
                 pcmId = pcmDevTxIds;
+                break;
+            case PAL_STREAM_HPCM:
+                pcmId = pcmDevIds;
+                if (!sessionCb) {
+                    registerCallBack(handleHpcmCallback, (uint64_t)s);
+                    PAL_INFO(LOG_TAG, "hpcmCallback registered \n");
+                }
                 break;
             default:
                 break;
@@ -3897,4 +3906,20 @@ int32_t SessionAlsaPcm::enableDisableWnrModule(Stream *s)
 exit:
     PAL_DBG(LOG_TAG, "%s: Exit", __func__);
     return status;
+}
+
+void handleHpcmCallback(uint64_t hdl, uint32_t event_id,
+                                          void *data, uint32_t event_size)
+{
+    pal_stream_callback cb;
+
+    if ((hdl == 0) || !data || !event_size) {
+        PAL_ERR(LOG_TAG, "Invalid stream handle or event data or event size");
+        return;
+    }
+    if (event_id != EVENT_ID_HPCM_HOST_BUF_DONE) {
+        return;
+    }
+
+    PAL_INFO(LOG_TAG, "Enter, event detected on SPF, event id = 0x%x", event_id);
 }

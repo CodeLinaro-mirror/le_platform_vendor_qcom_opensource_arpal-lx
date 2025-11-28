@@ -52,6 +52,7 @@
 #include "jitter_buf_api.h"
 #include "AudioHapticsInterface.h"
 #include "us_tone_renderer_api.h"
+#include "hpcm_api.h"
 #ifdef SOUNDDOSE_SUPPORTED
 #include "sound_dose_api.h"
 #endif
@@ -77,6 +78,7 @@
 #define HW_EP_RX DEVICE_HW_ENDPOINT_RX
 #define TAG_STREAM_MFC_SR TAG_STREAM_MFC
 #define TAG_DEVICE_MFC_SR PER_STREAM_PER_DEVICE_MFC
+#define HPCM_DURATION_MS 20
 
 struct sessionToPayloadParam {
     uint32_t sampleRate;                /**< sample rate */
@@ -284,6 +286,8 @@ public:
                     pal_param_dtmf_gen_tone_cfg_t *dtmf_payload);
 
     int payloadSoundDoseInfo(uint8_t **payload, size_t *size, uint32_t moduleId);
+    void payloadHpcmConfig(uint8_t **payload, size_t *size, uint32_t moduleId,
+                    param_id_hpcm_config_t *hpcm_payload);
 
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVector);
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVectorRx,

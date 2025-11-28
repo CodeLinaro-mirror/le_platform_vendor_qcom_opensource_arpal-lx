@@ -80,6 +80,7 @@ StreamInCall::StreamInCall(const struct pal_stream_attributes *sattr, struct pal
     mStreamMutex.lock();
     uint32_t in_channels = 0, out_channels = 0;
     uint32_t attribute_size = 0;
+    std::shared_ptr<Device> dev = nullptr;
 
     session = NULL;
     mGainLevel = -1;
@@ -140,6 +141,23 @@ StreamInCall::StreamInCall(const struct pal_stream_attributes *sattr, struct pal
         PAL_ERR(LOG_TAG, "session creation failed");
         mStreamMutex.unlock();
         throw std::runtime_error("failed to create session object");
+    }
+
+    if (sattr->type == PAL_STREAM_HPCM) {
+        for (int i = 0; i < no_of_devices; i++) {
+            dev = Device::getInstance((struct pal_device *)&dattr[i] , rm);
+            if (!dev) {
+                  PAL_ERR(LOG_TAG, "Device creation failed");
+                  free(mStreamAttr);
+
+                  //TBD::free session too
+                  mStreamMutex.unlock();
+                  throw std::runtime_error("failed to create device object");
+              }
+
+            mDevices.push_back(dev);
+            dev = nullptr;
+        }
     }
 
     PAL_VERBOSE(LOG_TAG, "Create new Devices with no_of_devices - %d", no_of_devices);

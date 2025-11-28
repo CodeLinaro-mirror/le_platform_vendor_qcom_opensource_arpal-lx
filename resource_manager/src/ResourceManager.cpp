@@ -382,6 +382,7 @@ const std::map<uint32_t, uint32_t> streamPriorityLUT {
     {PAL_STREAM_CALL_TRANSLATION,   2},
     {PAL_STREAM_PLAYBACK_BUS,       3},
     {PAL_STREAM_CAPTURE_BUS,        3},
+    {PAL_STREAM_HPCM,               2},
 };
 
 const std::map<std::string, sidetone_mode_t> sidetoneModetoId {
