@@ -40,6 +40,7 @@ void ClientDeathNotifier::binderDied(const android::wp<android::IBinder>& who) {
     client_info *client = NULL;
     pal_client_stream_handle *handle = NULL;
 
+    PAL_INFO(LOG_TAG, "client died, client size: %d", g_client_list.size());
     pthread_mutex_lock(&g_client_list_lock);
     for (int i=0; i < g_client_list.size(); i++) {
         client = g_client_list[i];
@@ -47,6 +48,7 @@ void ClientDeathNotifier::binderDied(const android::wp<android::IBinder>& who) {
             for (int j=client->pal_client_stream_handle_list.size() - 1; j >= 0 ; j--) {
                 handle = client->pal_client_stream_handle_list[j];
                 if (handle && handle->stream_handle) {
+                    mPal->ipc_pal_stream_stop((pal_stream_handle_t *)handle->stream_handle);
                     mPal->ipc_pal_stream_close((pal_stream_handle_t *)handle->stream_handle);
                     client->pal_client_stream_handle_list.erase(client->pal_client_stream_handle_list.begin() + j);
                 }
