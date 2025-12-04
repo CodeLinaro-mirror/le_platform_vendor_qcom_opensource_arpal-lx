@@ -1793,6 +1793,8 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
         throw std::runtime_error(e.what());
     }
 
+    setCacheVoiceVolume(streamHandle);
+
     if (rxAifBackEnds.size() > 0) {
         status = SessionAlsaUtils::connectSessionDevice(this, streamHandle,
                                                          streamType, rm,
@@ -2059,4 +2061,49 @@ int SessionAlsaVoice::getRXDevice(Stream *s, std::shared_ptr<Device> &rx_dev)
         status = -EINVAL;
     }
     return status;
+}
+void SessionAlsaVoice::setCacheVoiceVolume(Stream* streamHandle)
+{
+    int status = 0;
+    struct pal_volume_data *volume = NULL;
+    float default_volume = 0.4;
+
+    PAL_DBG(LOG_TAG,"Enter");
+
+    if (!streamHandle) {
+        PAL_ERR(LOG_TAG, "streamHandle is null");
+        status = -EINVAL;
+        goto exit;
+    }
+    /*if no volume is set set a default volume or else apply the cached volume*/
+    volume = (struct pal_volume_data *)malloc(sizeof(uint32_t) +
+                        (sizeof(struct pal_channel_vol_kv)));
+    if (!volume) {
+        status = -ENOMEM;
+        PAL_ERR(LOG_TAG, "volume malloc failed %d", status);
+        goto exit;
+    }
+    if ((streamHandle->getVolumeData(volume))) {
+        PAL_INFO(LOG_TAG, "no volume set, setting default vol to %f", default_volume);
+        volume->no_of_volpair = 1;
+        volume->volume_pair[0].channel_mask = 1;
+        volume->volume_pair[0].vol = default_volume;
+        status = streamHandle->setVolume(volume);
+        if (status) {
+            PAL_ERR(LOG_TAG, "Failed to set default volume: %d", status);
+            goto exit;
+        }
+    } else {
+        PAL_INFO(LOG_TAG, "set the cached volume");
+        status = streamHandle->setVolume(volume);
+        if (status) {
+            PAL_ERR(LOG_TAG, "Failed to set cached volume: %d", status);
+            goto exit;
+        }
+    }
+exit:
+    PAL_DBG(LOG_TAG,"Exit status: %d", status);
+    if (volume)
+        free(volume);
+    return;
 }
