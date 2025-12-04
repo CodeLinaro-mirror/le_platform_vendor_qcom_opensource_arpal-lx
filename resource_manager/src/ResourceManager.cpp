@@ -7398,9 +7398,12 @@ bool ResourceManager::updateDeviceConfig(std::shared_ptr<Device> *inDev,
                 str->getAssociatedDevices(devices);
                 if (devices.size() > 0) {
                     for (auto device: devices) {
-                        if (device->getSndDeviceId() != inDevAttr->id) {
-                            streamDevDisconnect.push_back({str, device->getSndDeviceId()});
-                            streamDevConnect.push_back({str, inDevAttr});
+                        if ((isInputDevId(device->getSndDeviceId()) && isInputDevId(inDevAttr->id)) ||
+                            (isOutputDevId(device->getSndDeviceId()) && isOutputDevId(inDevAttr->id))) {
+                            if (device->getSndDeviceId() != inDevAttr->id) {
+                                streamDevDisconnect.push_back({str, device->getSndDeviceId()});
+                                streamDevConnect.push_back({str, inDevAttr});
+                            }
                         }
                     }
                 }
