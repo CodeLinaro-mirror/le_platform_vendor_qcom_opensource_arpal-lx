@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PalServerWrapper"
@@ -64,13 +64,13 @@ int getInputBufferIndex(int fd, int32_t offset, int64_t &bufIndex) {
 }
 
 StreamInfo::~StreamInfo() {
-    ALOGV("%s handle %lx, fdPairs %zu", __func__, mHandle, mInOutFdPairs.size());
+    ALOGV("%s handle %llx, fdPairs %zu", __func__, (long long)mHandle, mInOutFdPairs.size());
 }
 
 void StreamInfo::forceCloseStream() {
     std::lock_guard<std::mutex> guard(mLock);
     if (mHandle) {
-        ALOGV("force closing stream with handle %lx", mHandle);
+        ALOGV("force closing stream with handle %llx", (long long)mHandle);
         pal_stream_stop((pal_stream_handle_t *)mHandle);
         pal_stream_close((pal_stream_handle_t *)mHandle);
     }
@@ -78,7 +78,7 @@ void StreamInfo::forceCloseStream() {
 
 void StreamInfo::addSharedMemoryFdPairs(int inputFd, int dupFd) {
     std::lock_guard<std::mutex> guard(mLock);
-    ALOGV("%s handle %lx Fds[input %d - dup %d] size %zu", __func__, mHandle, inputFd, dupFd,
+    ALOGV("%s handle %llx Fds[input %d - dup %d] size %zu", __func__, (long long)mHandle, inputFd, dupFd,
           mInOutFdPairs.size());
     mInOutFdPairs.push_back(std::make_pair(inputFd, dupFd));
 }
@@ -94,20 +94,20 @@ int StreamInfo::removeSharedMemoryFdPairs(int dupFd) {
             break;
         }
     }
-    ALOGV("%s handle %lx Fds[input %d - dup %d] size %zu", __func__, mHandle, inputFd, dupFd,
+    ALOGV("%s handle %llx Fds[input %d - dup %d] size %zu", __func__, (long long)mHandle, inputFd, dupFd,
           mInOutFdPairs.size());
     return inputFd;
 }
 
 void StreamInfo::closeSharedMemoryFdPairs() {
     std::lock_guard<std::mutex> guard(mLock);
-    ALOGI("Before %s handle %lx size %zu", __func__, mHandle, mInOutFdPairs.size());
+    ALOGI("Before %s handle %llx size %zu", __func__, (long long)mHandle, mInOutFdPairs.size());
     auto itr = mInOutFdPairs.begin();
     for (; itr != mInOutFdPairs.end(); itr++) {
         close(itr->second);
     }
     mInOutFdPairs.clear();
-    ALOGI("After %s handle %lx size %zu", __func__, mHandle, mInOutFdPairs.size());
+    ALOGI("After %s handle %llx size %zu", __func__, (long long)mHandle, mInOutFdPairs.size());
 }
 
 PalServerWrapper *ClientInfo::sPalServerWrapper = nullptr;
@@ -117,7 +117,7 @@ void ClientInfo::setPalServerWrapper(PalServerWrapper *wrapper) {
 
 void ClientInfo::addSharedMemoryFdPairs(int64_t handle, int inputFd, int dupFd) {
     std::lock_guard<std::mutex> guard(mStreamLock);
-    ALOGV("%s handle %lx, inputFd %d dupFd %d streamSize %zu", __func__, handle, inputFd, dupFd,
+    ALOGV("%s handle %llx, inputFd %d dupFd %d streamSize %zu", __func__, (long long)handle, inputFd, dupFd,
           mStreamInfoMap.size());
     for (auto &streamInfo : mStreamInfoMap) {
         auto &streamInfoObj = streamInfo.second;
@@ -139,7 +139,7 @@ int ClientInfo::removeSharedMemoryFdPairs(int64_t handle, int dupFd) {
             break;
         }
     }
-    ALOGV("%s handle %lx, inputFd %d dupFd %d streamSize %zu", __func__, handle, inputFd, dupFd,
+    ALOGV("%s handle %llx, inputFd %d dupFd %d streamSize %zu", __func__, (long long)handle, inputFd, dupFd,
           mStreamInfoMap.size());
     return inputFd;
 }
@@ -153,12 +153,12 @@ void ClientInfo::closeSharedMemoryFdPairs(int64_t handle) {
             break;
         }
     }
-    ALOGV("%s handle %lx, streamSize %zu", __func__, handle, mStreamInfoMap.size());
+    ALOGV("%s handle %llx, streamSize %zu", __func__, (long long)handle, mStreamInfoMap.size());
 }
 
 void ClientInfo::getStreamMediaConfig(int64_t handle, pal_media_config *config) {
     std::lock_guard<std::mutex> guard(mStreamLock);
-    ALOGV("%s handle %lx ", __func__, handle);
+    ALOGV("%s handle %llx ", __func__, (long long)handle);
     for (auto &streamInfo : mStreamInfoMap) {
         auto &streamInfoObj = streamInfo.second;
         if (streamInfo.first == handle) {
@@ -245,7 +245,7 @@ void ClientInfo::cleanup() {
 
 std::shared_ptr<StreamInfo> ClientInfo::getStreamInfo_l(int64_t handle) {
     if (mStreamInfoMap.count(handle) == 0) {
-        ALOGV("new stream %lx ", handle);
+        ALOGV("new stream %llx ", (long long)handle);
         mStreamInfoMap[handle] = std::make_shared<StreamInfo>(handle);
     }
     return mStreamInfoMap[handle];
@@ -255,24 +255,24 @@ void ClientInfo::addStreamHandle(int64_t handle) {
     std::lock_guard<std::mutex> guard(mStreamLock);
 
     auto streamInfo = getStreamInfo_l(handle);
-    ALOGI("%s handle %lx ", __func__, handle);
+    ALOGI("%s handle %llx ", __func__, (long long)handle);
 }
 
 void ClientInfo::removeStreamHandle(int64_t handle) {
     std::lock_guard<std::mutex> guard(mStreamLock);
-    ALOGV("%s,  removeStreamHandle %lx in streams of size %zu ", __func__, handle,
+    ALOGV("%s,  removeStreamHandle %llx in streams of size %zu ", __func__, (long long)handle,
           mStreamInfoMap.size());
     auto itr = mStreamInfoMap.begin();
     for (; itr != mStreamInfoMap.end();) {
         auto streamInfo = itr->second;
         if (handle == itr->first) {
-            ALOGI("%s removing handle %lx", __func__, handle);
+            ALOGI("%s removing handle %llx", __func__, (long long)handle);
             mStreamInfoMap.erase(itr);
             break;
         }
         itr++;
     }
-    ALOGV("%s, Exit: removeStreamHandle %lx in streams of size %zu ", __func__, handle,
+    ALOGV("%s, Exit: removeStreamHandle %llx in streams of size %zu ", __func__, (long long)handle,
           mStreamInfoMap.size());
 }
 
@@ -280,7 +280,7 @@ bool ClientInfo::isValidStreamHandle(int64_t handle) {
     std::lock_guard<std::mutex> guard(mStreamLock);
     bool status = true;
     if (mStreamInfoMap.count(handle) == 0) {
-        ALOGE("%s: stream handle: %lx not found for pid %d", __func__, handle, mPid);
+        ALOGE("%s: stream handle: %llx not found for pid %d", __func__, (long long)handle, mPid);
         status = false;
     }
     return status;
@@ -336,7 +336,7 @@ int32_t ClientInfo::onCallback(pal_stream_handle_t *handle, uint32_t eventId, ui
                                             rw_done_payload->buff.alloc_info.offset,
                                             rwDonePayload->cbBufInfo.frameIndex);
             }
-            ALOGV("%s: frame_index=%ld", __func__, rwDonePayload->cbBufInfo.frameIndex);
+            ALOGV("%s: frame_index=%lld", __func__, (long long)rwDonePayload->cbBufInfo.frameIndex);
         }
 
         rwDonePayload->size = rw_done_payload->buff.size;
@@ -445,7 +445,7 @@ retry:
 
 void PalServerWrapper::addStreamHandle(int64_t handle) {
     std::lock_guard<std::mutex> guard(mLock);
-    ALOGV("%s, caller stream handle %lx", __func__, handle);
+    ALOGV("%s, caller stream handle %llx", __func__, (long long)handle);
 
     auto client = getClient_l();
     client->addStreamHandle(handle);
@@ -453,7 +453,7 @@ void PalServerWrapper::addStreamHandle(int64_t handle) {
 
 void PalServerWrapper::removeStreamHandle(int64_t handle) {
     std::lock_guard<std::mutex> guard(mLock);
-    ALOGV("%s, caller handle %lx", __func__, handle);
+    ALOGV("%s, caller handle %llx", __func__, (long long)handle);
 
     auto client = getClient_l();
     client->removeStreamHandle(handle);
@@ -461,7 +461,7 @@ void PalServerWrapper::removeStreamHandle(int64_t handle) {
 
 void PalServerWrapper::addSharedMemoryFdPairs(int64_t handle, int inputFd, int dupFd) {
     std::lock_guard<std::mutex> guard(mLock);
-    ALOGV("%s, caller handle %lx inputFd %d dupFd %d", __func__, handle, inputFd, dupFd);
+    ALOGV("%s, caller handle %llx inputFd %d dupFd %d", __func__, (long long)handle, inputFd, dupFd);
 
     auto client = getClient_l();
     client->addSharedMemoryFdPairs(handle, inputFd, dupFd);
@@ -471,7 +471,7 @@ int PalServerWrapper::removeSharedMemoryFdPairs(int64_t handle, int dupFd) {
     std::lock_guard<std::mutex> guard(mLock);
     int inputFd;
     int ret = -1;
-    ALOGV("%s, caller handle %lx  dupFd %d", __func__, handle, dupFd);
+    ALOGV("%s, caller handle %llx  dupFd %d", __func__, (long long)handle, dupFd);
 
     for (auto &client : mClients) {
         auto &clientInfoObj = client.second;
@@ -483,7 +483,7 @@ int PalServerWrapper::removeSharedMemoryFdPairs(int64_t handle, int dupFd) {
 
 bool PalServerWrapper::isValidStreamHandle(int64_t handle) {
     std::lock_guard<std::mutex> guard(mLock);
-    ALOGV("%s, caller stream handle %lx", __func__, handle);
+    ALOGV("%s, caller stream handle %llx", __func__, (long long)handle);
 
     auto client = getClient_l();
     return client->isValidStreamHandle(handle);
@@ -515,7 +515,7 @@ void PalServerWrapper::removeClient_l(int pid) {
 void PalServerWrapper::removeClientInfoData(int64_t handle) {
     std::lock_guard<std::mutex> guard(mLock);
     int pid = AIBinder_getCallingPid();
-    ALOGV("%s, caller handle %lx", __func__, handle);
+    ALOGV("%s, caller handle %llx", __func__, (long long)handle);
 
     auto client = getClient_l();
     client->unregisterCallback(handle);
@@ -736,7 +736,8 @@ std::shared_ptr<ClientInfo> PalServerWrapper::getClient_l() {
     buf.alloc_info.offset = inBuf.data()->allocInfo.offset;
 
     if (buf.buffer) memcpy(buf.buffer, inBuf.data()->buffer.data(), buf.size);
-    ALOGV("%s:%d sz %zu, frame_index %lu", __func__, __LINE__, buf.size, buf.frame_index);
+    ALOGV("%s:%d sz %zu, frame_index %llu", __func__, __LINE__, buf.size,
+        (unsigned long long)buf.frame_index);
 
     addToPendingInputs(buf.alloc_info.alloc_handle, buf.alloc_info.offset, buf.frame_index);
 
