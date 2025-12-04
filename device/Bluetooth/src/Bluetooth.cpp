@@ -26,10 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Bluetooth"
@@ -71,22 +70,30 @@ extern "C" void CreateBtDevice(struct pal_device *device,
             case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
             case PAL_DEVICE_OUT_BLUETOOTH_SCO:
                 *dev = BtSco::getInstance(device, rm);
-        }
-    } else if (id != NULL) {
-        switch (id) {
-            case PAL_DEVICE_IN_BLUETOOTH_A2DP:
-            case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
-            case PAL_DEVICE_IN_BLUETOOTH_BLE:
-            case PAL_DEVICE_OUT_BLUETOOTH_BLE:
-            case PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST:
-                *dev = BtA2dp::getObject(id);
                 break;
-            case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
-            case PAL_DEVICE_OUT_BLUETOOTH_SCO:
-                *dev = BtSco::getObject(id);
+            default:
+                PAL_ERR(LOG_TAG, "Unhandled parameter values");
+                break;
         }
-    } else {
-        PAL_ERR(LOG_TAG, "Invalid input parameters");
+    }
+    switch (id) {
+        case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+        case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
+        case PAL_DEVICE_IN_BLUETOOTH_BLE:
+        case PAL_DEVICE_OUT_BLUETOOTH_BLE:
+        case PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST:
+            *dev = BtA2dp::getObject(id);
+            break;
+        case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        case PAL_DEVICE_OUT_BLUETOOTH_SCO:
+            *dev = BtSco::getObject(id);
+            break;
+        case PAL_DEVICE_NONE:
+            PAL_ERR(LOG_TAG, "Invalid input parameters");
+            break;
+        default:
+            PAL_ERR(LOG_TAG, "Unhandled parameter values");
+            break;
     }
 }
 
@@ -2593,10 +2600,11 @@ void BtSco::convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo,
         streamMapStr = match.suffix().str();
     }
 
-    PAL_DBG(LOG_TAG, "stream map out size: %d, stream map in size: %d", steamMapOut.size(), steamMapIn.size());
+    PAL_DBG(LOG_TAG, "stream map out size: %d, stream map in size: %d",
+            (int32_t)steamMapOut.size(), (int32_t)steamMapIn.size());
     if ((steamMapOut.size() == 0) || (steamMapIn.size() == 0)) {
         PAL_ERR(LOG_TAG, "invalid size steamMapOut.size %d, steamMapIn.size %d",
-                steamMapOut.size(), steamMapIn.size());
+                (int32_t)steamMapOut.size(), (int32_t)steamMapIn.size());
         return;
     }
 
