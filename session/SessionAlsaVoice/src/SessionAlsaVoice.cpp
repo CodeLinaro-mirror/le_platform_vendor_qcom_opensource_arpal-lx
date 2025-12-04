@@ -26,11 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following
- * license:
- *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /*
@@ -403,7 +401,7 @@ int SessionAlsaVoice::reconfigureSession(Stream *s, pal_media_config config,
 
     if (status != 0) {
         PAL_ERR(LOG_TAG,"setMixerParameter failed:%d for dir:%s",
-                status, (dir == RX_HOSTLESS)?"RX":"TX");
+                status, ((int32_t)dir == (int32_t)RX_HOSTLESS)?"RX":"TX");
         goto exit;
     }
 
@@ -1510,7 +1508,7 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
                 goto exit;
             }
             builder->getCustomPayload(&customPayload, &customPayloadSize);
-            PAL_DBG(LOG_TAG, "customPayload: %d customPayloadSize: %d", customPayload, customPayloadSize);
+            PAL_DBG(LOG_TAG, "customPayload: %p customPayloadSize: %d", customPayload, (int32_t)customPayloadSize);
             status = SessionAlsaVoice::setVoiceMixerParameter(s, mixer,
                                                               customPayload,
                                                               customPayloadSize,
