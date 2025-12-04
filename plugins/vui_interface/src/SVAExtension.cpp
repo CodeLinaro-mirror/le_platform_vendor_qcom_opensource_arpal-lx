@@ -1,12 +1,16 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <dlfcn.h>
+#include <fstream>
+#include <sstream>
+#include <algorithm>
+
+#define LOG_TAG "PAL: SVAExtension"
 
 #ifdef VUI_USE_SYSLOG
-#include <algorithm>
 #include <stdint.h>
 #include <syslog.h>
 
@@ -30,16 +34,12 @@
 #define ALOGV_IF(cond,fmt, arg...) cond ? syslog (LOG_DEBUG, fmt, ##arg) : (void)0
 #endif
 
-
 #else
 #include <log/log.h>
 #endif
 
-#include <fstream>
-#include <sstream>
 #include "SVAExtension.h"
 
-#define LOG_TAG "PAL: SVAExtension"
 //#define LOG_NDEBUG 0
 
 #define SM_FILE_PATH "/vendor/etc/models/vui/"
@@ -190,7 +190,7 @@ int32_t SVAExtension::GetParameters(uint32_t param_id,
 int32_t SVAExtension::ParseClientId(void *payload, char **save) {
 
     int32_t client_id = 0;
-    char *delims = ",:";
+    char *delims = (char*)",:";
     char *token = nullptr;
 
     if (!payload)
@@ -212,7 +212,7 @@ int32_t SVAExtension::HandleSVAOnOff(int32_t client_id, char **save) {
 
     int32_t status = 0;
     bool va_on = false;
-    char *delims = ",:";
+    char *delims = (char*)",:";
     char *token = nullptr;
     struct va_config va_cfg = {};
 
@@ -313,7 +313,7 @@ va_error:
 int32_t SVAExtension::EnableSVA(int32_t client_id, struct va_config *va_cfg) {
 
     int32_t status = 0;
-    char *delims = ",:";
+    char *delims = (char*)",:";
     char *token = nullptr;
     struct client_config *client_cfg = nullptr;
 
@@ -411,7 +411,7 @@ int32_t SVAExtension::GetAvailableKeywords(int32_t client_id,
     strlcpy(static_cast<char*>(*payload), ostr.str().c_str(), *payload_sz);
 
     ALOGV("%s: %d: GetAvailableKeywords returned payload %s",
-            __func__, __LINE__, *payload);
+            __func__, __LINE__, ((char*)*payload));
     return 0;
 }
 

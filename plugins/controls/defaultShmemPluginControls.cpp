@@ -1,6 +1,7 @@
 /*
- * Copyright (c) 2022,2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+
  */
 
 #define LOG_TAG "PAL: lib_default_set_param_plugin_controls"
@@ -625,7 +626,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
     struct str_parms *parms = nullptr;
     struct str_parms *parms_t = nullptr;
 
-    PAL_INFO(LOG_TAG,"Enter with control %d size=%d", control, size);
+    PAL_INFO(LOG_TAG,"Enter with control %d size=%zu", control, size);
 
     if (!payload) {
         status = -EINVAL;
@@ -662,7 +663,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 numOf_element = 1;
                 if (((index_start + 1)*numOf_element) > (shmem_size/sizeof(uint32_t)))
                 {
-                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%d\n", shmem_size, (index_start + 1)*numOf_element*sizeof(uint32_t));
+                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%lu\n", shmem_size, (unsigned long)((index_start + 1)*numOf_element*sizeof(uint32_t)));
                     status = -EINVAL;
                     goto cleanup;
                 }
@@ -680,7 +681,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                     goto cleanup;
                 }
                 if (((index_end + 1)*numOf_element) > (shmem_size/sizeof(uint32_t))) {
-                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%d\n", shmem_size, (index_end + 1)*numOf_element*sizeof(uint32_t));
+                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%lu\n", shmem_size, (unsigned long)((index_end + 1)*numOf_element*sizeof(uint32_t)));
                     status = -EINVAL;
                     goto cleanup;
                 }
@@ -780,7 +781,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                 sscanf(value, "<%d>", &index_start);
                 numOf_element = 1;
                 if (((index_start + 1)*numOf_element) > (shmem_size/sizeof(uint32_t))) {
-                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%d\n", shmem_size, (index_start + 1)*numOf_element*sizeof(uint32_t));
+                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%lu\n", shmem_size, (unsigned long)((index_start + 1)*numOf_element*sizeof(uint32_t)));
                     status = -EINVAL;
                     goto shmem_cleanup;
                 }
@@ -798,7 +799,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                     goto shmem_cleanup;
                 }
                 if (((index_end + 1)*numOf_element) > (shmem_size/sizeof(uint32_t))) {
-                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%d\n", shmem_size, (index_end + 1)*numOf_element*sizeof(uint32_t));
+                    PAL_ERR(LOG_TAG,"Error : Buffer Overflow Allocated=%d, Required=%lu\n", shmem_size, (unsigned long)((index_end + 1)*numOf_element*sizeof(uint32_t)));
                     status = -EINVAL;
                     goto shmem_cleanup;
                 }
@@ -832,7 +833,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                               PAL_ERR(LOG_TAG,"shmem_map read failed\n");
                               goto cleanup;
                           }
-                          PAL_ERR(LOG_TAG,"g_vAddr_write: %x, g_vAddr_read : %x\n", g_vAddr_write, g_vAddr_read);
+                          PAL_ERR(LOG_TAG,"g_vAddr_write: 0x%p, g_vAddr_read : 0x%p\n", g_vAddr_write, g_vAddr_read);
                        }
                        else
                        {
@@ -906,7 +907,7 @@ int32_t plugin_set(Stream* s, plugin_control_name_t control, void *payload,
                     if (floodtest == 1)
                     {
                        if (g_vAddr_write != NULL) {
-                           PAL_ERR(LOG_TAG,"g_vAddr_write : %x, words_to_write : %d, number_write : %d\n", g_vAddr_write, words_to_write, number_write);
+                           PAL_ERR(LOG_TAG,"g_vAddr_write : 0x%p, words_to_write : %d, number_write : %d\n", g_vAddr_write, words_to_write, number_write);
                            status = HLOS_flood_set_shmem(g_vAddr_write, 0, words_to_write, number_write);
                            number_write++;
                            if (status) {
