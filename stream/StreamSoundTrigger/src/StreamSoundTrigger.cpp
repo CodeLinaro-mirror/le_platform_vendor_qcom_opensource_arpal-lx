@@ -110,6 +110,7 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
     mutex_unlocked_after_cb_ = false;
     common_cp_update_disable_ = false;
     second_stage_processing_ = false;
+    is_backend_shared_ = false;
     is_abort_event_notifying_ = false;
     gsl_engine_model_ = nullptr;
     gsl_engine_ = nullptr;
@@ -118,6 +119,8 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
     ec_rx_dev_ = nullptr;
     conc_notified_ = false;
     session = nullptr;
+    vote_type_ = LPI_VOTE;
+    dattr_specified_ = nullptr;
     mDevices.clear();
     std::list<Stream*> activeSTStreams;
 
@@ -2488,6 +2491,8 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
                     dev->setSndName(cap_prof->GetSndName());
                     dev->setDeviceAttributes(dattr);
                 }
+                st_stream_.setVoteType(cap_prof->GetSndName().find("lpi") ==
+                                       std::string::npos ? NLPI_VOTE : LPI_VOTE);
 
                 if (!st_stream_.device_opened_) {
                     /*
