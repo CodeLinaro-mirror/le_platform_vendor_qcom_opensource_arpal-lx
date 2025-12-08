@@ -1149,3 +1149,33 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id __unused, void *param_payload,
 
     return status;
 }
+
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    void* param_payload, size_t payload_size)
+{
+    PAL_ERR(LOG_TAG, "error: API: pal_stream_set_custom_param  not implemented");
+    return -ENOSYS;
+}
+
+int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
+                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    void* param_payload, size_t *payload_size)
+{
+    PAL_ERR(LOG_TAG, "error: API: pal_stream_get_custom_param  not implemented");
+    return -ENOSYS;
+}
+
+int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
+     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size)
+{
+    PAL_ERR(LOG_TAG, "error: API: pal_set_custom_param  not implemented");
+    return -ENOSYS;
+}
+
+int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
+     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size)
+{
+    PAL_ERR(LOG_TAG, "error: API: pal_get_custom_param  not implemented");
+    return -ENOSYS;
+}

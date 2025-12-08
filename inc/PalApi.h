@@ -541,8 +541,63 @@ int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie);
   *
   * \return 0 on success, error code otherwise
   */
-// int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
-//     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
+
+ /**
+  * \brief Stream set parameters for generic/custom param
+  *
+  * \param[in] handle - stream handle to which the param is set/get.
+  *
+  * \param[in] param_str - param str that mention the type of getparam.
+  *
+  * \param[in/out] param_payload - param data applicable to the param_str
+  *
+  * \param[in/out] payload_size - as input max size of the allocated/memory passed by the client.
+                           If it is not enough to copy the get_param payload - a error is returned
+                           with the size set to the expected size of the memory to be passed.
+                           If the memory is more/enough - api will return actual size
+                           copied for the response as a ouput.
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
+    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size);
+
+/**
+  * \brief Stream get parameters for generic/custom param
+  *
+  * \param[in] param_str - param str that mention the type of getparam.
+  *
+  * \param[in/out] param_payload - param data applicable to the param_str
+  *
+  * \param[in] payload_size - size of the payload passed by the client.
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
+    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size);
+
+
+/**
+  * \brief Get pal parameters for generic/custom param
+  *
+  * \param[in] uc_info - info of the usecase to which custom/param need to get/set.
+  *
+  * \param[in] param_str - param str that mention the type of getparam.
+  *
+  * \param[in/out] param_payload - param data applicable to the param_str
+  *
+  * \param[in/out] payload_size - as input max size of the allocated/memory passed by the client.
+                           If it is not enough to copy the get_param payload - a error is returned
+                           with the size set to the expected size of the memory to be passed.
+                           If the memory is more/enough - api will return actual size
+                           copied for the response as a ouput.
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
+     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t* payload_size);
 
 /**
   * \brief Set and get pal parameters for generic effect framework
