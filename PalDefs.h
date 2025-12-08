@@ -48,8 +48,10 @@
 
 #ifdef __cplusplus
 
+#include <iomanip>
 #include <map>
 #include <string>
+#include <sstream>
 
 extern "C" {
 #endif
@@ -58,6 +60,20 @@ extern "C" {
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
 #define PAL_MAX_LATENCY_MODES 8
+#define PAL_CUSTOM_PARAM_MAX_STRING_LENGTH 64
+#define PAL_MAX_SOUND_DOSE_VALUES 10
+
+ /*
+  * Description: used to get/set the custom effect param to AR modules
+  * Payload For this custom param string is gef_payload_s
+ */
+#define PAL_CUSTOM_PARAM_AR_UI_EFFECT "PAL_CUSTOM_PARAM_AR_UI_EFFECT"
+
+typedef enum {
+    CALL_TRANSLATION_DEFAULT = 0,
+    CALL_TRANSLATION_DIR_TX = 1,
+    CALL_TRANSLATION_DIR_RX = 2,
+} pal_call_translation_direction;
 
 /** Audio stream handle */
 typedef uint64_t pal_stream_handle_t;
@@ -404,6 +420,7 @@ typedef enum {
     PAL_STREAM_SENSOR_PCM_DATA = 25,      /**< Sensor Pcm Data Stream */
     PAL_STREAM_ULTRASOUND = 26,           /**< Ultrasound Proximity detection */
     PAL_STREAM_SPATIAL_AUDIO = 27,        /**< Spatial audio playback */
+    PAL_STREAM_CALL_TRANSLATION = 28,     /**< Translation usecase for Voice & Voip Calls */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -708,6 +725,7 @@ typedef enum {
 /* type of global callback events. */
 typedef enum {
     PAL_SND_CARD_STATE,
+    PAL_SOUND_DOSE_INFO, /*To report sound dose related info*/
 } pal_global_callback_event_t;
 
 struct pal_stream_info {
@@ -721,6 +739,7 @@ struct pal_stream_info {
     int32_t tx_proxy_type;   /** enums defined in enum pal_stream_proxy_tx_types */
     int32_t rx_proxy_type;   /** enums defined in enum pal_stream_proxy_rx_types */
     int32_t haptics_type;    /** enums defined in enum pal_sream_haptics_types */
+    bool isBitPerfect;                    /** true if stream is bitperfect (PCM_Immutable) */
     //pal_audio_attributes_t usage;       /** Not sure if we make use of this */
 };
 
@@ -1020,6 +1039,9 @@ typedef enum {
     PAL_PARAM_ID_RESOURCES_AVAILABLE = 76,
     PAL_PARAM_ID_HAPTICS_MODE = 77,
     PAL_PARAM_ID_MIC_OCCLUSION_INFO = 78,
+    PAL_PARAM_ID_WNR_MODE = 90,
+    PAL_PARAM_ID_CALL_TRANSLATION_CONFIG = 91,
+    PAL_PARAM_ID_FORCE_RECOGNITION = 100,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1063,15 +1085,6 @@ struct pal_amp_db_and_gain_table {
 struct pal_vol_ctrl_ramp_param {
     uint32_t ramp_period_ms;
 };
-
-/* Payload For ID: PAL_PARAM_ID_DEVICE_CONNECTION
- * Description   : Device Connection
-*/
-typedef struct pal_param_device_connection {
-    pal_device_id_t   id;
-    bool              connection_state;
-    pal_device_config_t device_config;
-} pal_param_device_connection_t;
 
 /* Payload For ID: PAL_PARAM_ID_GAIN_LVL_MAP
  * Description   : get gain level mapping
@@ -1317,6 +1330,22 @@ typedef struct pal_param_haptics_intensity {
     int intensity;
 } pal_param_haptics_intensity_t;
 
+/**
+ * @brief Structure to hold various types of device addresses.
+ * ID, basically a string for custom type of address
+ * IEEE 802 MAC address (exactly 6 elements)
+ * IPv4 Address (exactly 4 elements)
+ * IPv6 Address (exactly 8 elements)
+ * PCI bus Address. Set for USB devices (exactly 2 elements)
+ */
+typedef union {
+    char id [128];
+    uint8_t mac[6];
+    uint8_t ipv4[4];
+    uint32_t ipv6[8];
+    uint32_t alsa[2];
+} pal_address_type_t;
+
 /**< PAL device */
 #define DEVICE_NAME_MAX_SIZE 128
 struct pal_device {
@@ -1325,6 +1354,7 @@ struct pal_device {
     struct pal_usb_device_address address;
     char sndDevName[DEVICE_NAME_MAX_SIZE];
     pal_device_custom_config_t custom_config;        /**<  Optional */
+    pal_address_type_t addressV1;
 };
 
 /**
@@ -1622,6 +1652,171 @@ typedef struct pal_buffer_config {
     size_t buf_size; /**< This would be the size of each buffer*/
     size_t max_metadata_size; /** < max metadata size associated with each buffer*/
 } pal_buffer_config_t;
+
+/* Payload For ID: PAL_PARAM_ID_DEVICE_CONNECTION
+ * Description   : Device Connection
+*/
+typedef struct pal_param_device_connection {
+    pal_device_id_t   id;
+    bool              connection_state;
+    pal_device_config_t device_config;
+    struct pal_device device; // intermediate remove once device_config instances are removed.
+} pal_param_device_connection_t;
+
+/** payload for Sound Dose Info */
+typedef struct pal_sound_dose_info {
+    struct pal_device device;
+    uint32_t is_momentary_exposure_warning;
+    uint32_t num_mel_values;
+    float mel_values[PAL_MAX_SOUND_DOSE_VALUES];
+    uint64_t timestamp[PAL_MAX_SOUND_DOSE_VALUES];
+} pal_sound_dose_info_t;
+
+/** Payload for ID : PAL_PARAM_ID_ASR_CONFIG.
+ *  Description: To be used to pass ASR input configuration.
+ */
+struct pal_asr_config {
+    int32_t input_language_code;            /**< input language code */
+    int32_t output_language_code;           /**< output language code */
+    bool enable_language_detection;         /**< language detection switch enable/disable flag */
+    bool enable_translation;                /**< translation switch enable/disable flag */
+    bool enable_continuous_mode;            /**< continuous mode enable/disable flag */
+    bool enable_partial_transcription;      /**< partial transcription switch enable/disable flag */
+    bool enable_logger_mode;                /**< Flag to enable/disable logger mode */
+    bool enable_timestamp;                  /**< Flag to enable/disable output with timestamp details */
+    bool enable_speaker_diarization;        /**< Flag to enable/disable speaker diarization */
+    uint32_t threshold;                     /**< Confidence threshold for ASR transcription */
+    uint32_t timeout_duration;              /**< ASR processing timeout, in milliseconds,
+                                                 if silence is not detected after the speech
+                                                 processing is started */
+    uint32_t silence_detection_duration;    /**< "No speech" duration needed before
+                                                 determining speech has ended (in ms) */
+
+    bool outputBufferMode;                  /**< Buffer mode enable/disable */
+    uint32_t data_size;                     /**< Additional Engine specific custom data size */
+    uint8_t data[];                         /**< custom data offset from the start of this
+                                                 structure */
+};
+
+struct pal_tts_config {
+    uint32_t language_code;            /**< consistente enum across ASR, Translation and TTS */
+    uint32_t speech_format;            /**< Speech output mode. Current : PCM */
+    uint32_t reserved;
+};
+
+struct pal_nmt_config {
+    uint32_t input_language_code;
+    uint32_t output_language_code;
+};
+
+/* Payload for populating the ASR, TTS and NMT modules
+ */
+struct call_translation_config {
+    bool enable;
+    pal_call_translation_direction call_translation_dir;        /** Direction for the call_translation usecase */
+    struct pal_tts_config tts_module_config;        /** TTS module config */
+    struct pal_nmt_config nmt_module_config;	    /** NMT module config */
+    struct pal_asr_config asr_module_config;        /** ASR module config */
+};
+
+//enum class PalAddressTag { ID, MAC, IPv4, IPv6, ALSA };
+typedef enum {
+     ID = 0, 
+     MAC = 1,
+     IPv4 = 2,
+     IPv6 = 3,
+     ALSA = 4, 
+} PalAddressTag;
+
+static PalAddressTag getAddressTag(const pal_device_id_t deviceId) {
+    // don't have cases for ipv4/ ipv6 devices, add once have exact usecases.
+    switch (deviceId) {
+        case PAL_DEVICE_OUT_USB_DEVICE:
+        case PAL_DEVICE_OUT_USB_HEADSET:
+        case PAL_DEVICE_IN_USB_ACCESSORY:
+        case PAL_DEVICE_IN_USB_DEVICE:
+        case PAL_DEVICE_IN_USB_HEADSET:
+            //return PalAddressTag::ALSA;
+            return ALSA;
+        case PAL_DEVICE_OUT_BLUETOOTH_SCO:
+        case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
+        case PAL_DEVICE_OUT_HEARING_AID:
+        case PAL_DEVICE_OUT_BLUETOOTH_BLE:
+        case PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST:
+        case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+        case PAL_DEVICE_IN_BLUETOOTH_BLE:
+            //return PalAddressTag::MAC;
+            return MAC;
+        default:
+            //return PalAddressTag::ID;
+            return ID;
+    }
+}
+
+#if 0
+static std::string toString(const pal_device* device) {
+    std::ostringstream oss;
+    auto tag = getAddressTag(device->id);
+    if (deviceNameLUT.find(device->id) != deviceNameLUT.end()) {
+        oss << " " << deviceNameLUT.at(device->id);
+    } else {
+        oss << " Unknown Device";
+        return oss.str();
+    }
+
+    oss << " Address ( ";
+    switch (tag) {
+        case PalAddressTag::ID:
+            oss << "id: " << device->addressV1.id;
+            break;
+        case PalAddressTag::MAC:
+            oss << "mac: ";
+            for (int i = 0; i < 6; ++i) {
+                oss << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(device->addressV1.mac[i]);
+                if (i < 5) oss << ":";
+            }
+            oss << std::dec;
+            break;
+        case PalAddressTag::IPv4:
+            oss << " ipv4: ";
+            for (int i = 0; i < 4; ++i) {
+                oss << static_cast<int>(device->addressV1.ipv4[i]);
+                if (i < 3) oss << ".";
+            }
+
+            break;
+        case PalAddressTag::IPv6:
+            oss << " ipv6: ";
+            for (int i = 0; i < 8; ++i) {
+                oss << std::hex << device->addressV1.ipv6[i];
+                if (i < 7) oss << ":";
+            }
+            oss << std::dec;
+            break;
+        case PalAddressTag::ALSA:
+            oss << " alsa: ";
+            for (int i = 0; i < 2; ++i) {
+                oss << device->addressV1.alsa[i];
+                if (i < 1) oss << ":";
+            }
+            break;
+    }
+
+    oss << ")";
+    return oss.str();
+}
+#endif
+
+typedef struct custom_payload_uc_info_s {
+    pal_stream_type_t pal_stream_type; /**< type of stream to apply the payload param */
+    pal_device_id_t pal_device_id;     /**< type of device to apply the payload param */
+    uint32_t sample_rate;              /**< sample rate of the stream to apply the payload param */
+    uint32_t instance_id;              /**< instance id of the stream */
+    bool streamless;                  /** set to true to create a dummy stream to send command directly to framework */
+}custom_payload_uc_info_t;
+
 
 #define PAL_GENERIC_PLATFORM_DELAY     (29*1000LL)
 #define PAL_DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)
