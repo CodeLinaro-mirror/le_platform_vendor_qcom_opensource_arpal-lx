@@ -1433,7 +1433,7 @@ int32_t SpeakerProtectionwsa885xI2s::spkrProtProcessingMode(bool flag)
 
         payloadSize = 0;
         builder->payloadSPConfig(&payload, &payloadSize, miid,
-                PARAM_ID_SP_OP_MODE_V5, (void *)&spModeConfg);
+                PARAM_ID_SP_OP_MODE, (void *)&spModeConfg);
         if (payloadSize) {
             if (customPayload) {
                 free (customPayload);
