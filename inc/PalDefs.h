@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -285,6 +285,13 @@ struct pal_channel_info {
     uint16_t channels;      /**< number of channels*/
     uint8_t  ch_map[PAL_MAX_CHANNELS_SUPPORTED]; /**< ch_map value per channel. */
 };
+
+/* ASRC Ratio parameters data structure */
+typedef struct {
+    uint32_t effective;
+    uint32_t ratio;
+    uint32_t ramp;
+} asrc_ratio_t;
 
 /** Audio stream direction enumeration */
 typedef enum {
@@ -804,6 +811,7 @@ typedef enum {
     PAL_PARAM_ID_PLUGIN_PARAM = 88,
     PAL_PARAM_ID_PLUGIN_CLOSE = 89,
     PAL_PARAM_ID_SET_HFP_ZONE = 90,
+    PAL_PARAM_ID_ASRC = 91,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

@@ -778,6 +778,7 @@ int32_t SessionAR::getParameters(Stream *s __unused, uint32_t param_id, void **p
         }
         case PAL_PARAM_ID_DIRECTION_OF_ARRIVAL:
             status = this->getParamWithTag(nullptr, TAG_ECNS, param_id, payload);
+            break;
         default:
             PAL_ERR(LOG_TAG, "Error:Unsupported param id %u", param_id);
             status = -EINVAL;
@@ -948,6 +949,14 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
             }
             break;
         }
+        case PAL_PARAM_ID_ASRC:
+        {
+            status = this->setParamWithTag(s, TAG_MODULE_ASRC, param_id, payload);
+            if (status)
+                PAL_ERR(LOG_TAG, "setParam for ASRC failed with %d",
+                                            status);
+            break;
+        }
         default:
             status = this->setParamWithTag(s, INVALID_TAG, param_id, payload);
             break;
@@ -986,5 +995,40 @@ int SessionAR::setVolume(Stream *s)
     } else {
         status = this->setConfig(s, CALIBRATION, VOLUME_LVL);
     }
+    return status;
+}
+
+int SessionAR::handleASRCSetting(Stream *s, asrc_ratio_t *asrc_ratio,
+        int device, struct mixer *mixer, PayloadBuilder* builder,
+        std::vector<std::pair<int32_t, std::string>> rxAifBackEnds)
+{
+    PAL_DBG(LOG_TAG, "Enter: device id: %d", device);
+    int status = 0;
+    uint32_t miid = 0;
+    uint8_t* alsaParamData = NULL;
+    size_t alsaPayloadSize = 0;
+
+    if (rxAifBackEnds.empty()) {
+        PAL_ERR(LOG_TAG, "ASRC rxAifBackEnds is NULL");
+        status = -1;
+        return status;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mixer, device, rxAifBackEnds[0].second.data(),
+        TAG_MODULE_ASRC, &miid);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed, status=%d", status);
+        return status;
+    }
+
+    PAL_DBG(LOG_TAG, "getModuleInstanceId done, id = %u", miid);
+    builder->payloadASRCConfig(&alsaParamData, &alsaPayloadSize, miid, asrc_ratio);
+    PAL_INFO(LOG_TAG, "settingMixerParameters with asrc params");
+    status = SessionAlsaUtils::setMixerParameter(mixer, device, alsaParamData, alsaPayloadSize);
+    builder->freeCustomPayload(&alsaParamData, &alsaPayloadSize);
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+        return status;
+    }
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
     return status;
 }

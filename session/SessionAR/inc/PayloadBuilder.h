@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -335,6 +335,8 @@ public:
     int freeCustomPayload(uint8_t **payload, size_t *payloadSize);
     int getCustomPayload(uint8_t **payload, size_t *payloadSize);
     int freeCustomPayload();
+    int32_t payloadASRCConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, asrc_ratio_t *asrc_params);
     PayloadBuilder();
     ~PayloadBuilder();
 };
