@@ -113,8 +113,8 @@ public:
     int32_t checkAndUpdateBitWidth(uint32_t *bitWidth);
     int32_t checkAndUpdateSampleRate(uint32_t *sampleRate);
     void resetEldInfo();
-    static int getEldInfo(struct audio_mixer *mixer, int controller, int stream);
-    static void cacheEld(struct audio_mixer *mixer, int controller, int stream);
+    static int getEldInfo(struct audio_mixer *mixer, int controller, int stream, int pcmId);
+    static void cacheEld(struct audio_mixer *mixer, int controller, int stream, int pcmId);
     static const char * eldFormatToStr(unsigned char format);
     static bool isSampleRateSupported(unsigned char srByte, int samplingRate);
     static unsigned char getEldBpsByte(unsigned char byte, unsigned char format);
