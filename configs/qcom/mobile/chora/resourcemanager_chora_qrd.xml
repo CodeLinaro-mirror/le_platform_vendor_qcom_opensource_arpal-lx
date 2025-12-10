@@ -1113,7 +1113,7 @@
             <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
-            <snd_device_name>ultrasound-handset-wsa</snd_device_name>
+            <snd_device_name>handset-wsa-ultrasound</snd_device_name>
             <samplerate>96000</samplerate>
             <bit_width>16</bit_width>
             <usecase>
