@@ -26,9 +26,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
+ *
  */
 
 #define LOG_TAG "PAL: RTProxy"
@@ -57,21 +58,30 @@ extern "C" void CreateRTProxyDevice(struct pal_device *device,
             case PAL_DEVICE_IN_RECORD_PROXY:
             case PAL_DEVICE_IN_TELEPHONY_RX:
                 *dev = RTProxyIn::getInstance(device, rm);
-        }
-    } else if (id != NULL) {
-        switch (id) {
-            case PAL_DEVICE_OUT_PROXY:
-            case PAL_DEVICE_OUT_RECORD_PROXY:
-                *dev = RTProxyOut::getObject(id);
                 break;
-            case PAL_DEVICE_IN_PROXY:
-            case PAL_DEVICE_IN_RECORD_PROXY:
-            case PAL_DEVICE_IN_TELEPHONY_RX:
-                *dev = RTProxyIn::getObject(id);
+            default:
+                PAL_ERR(LOG_TAG, "Unhandled parameter values");
+                break;
         }
-    } else {
-        PAL_ERR(LOG_TAG, "Invalid input parameters");
     }
+    switch (id) {
+        case PAL_DEVICE_OUT_PROXY:
+        case PAL_DEVICE_OUT_RECORD_PROXY:
+            *dev = RTProxyOut::getObject(id);
+            break;
+        case PAL_DEVICE_IN_PROXY:
+        case PAL_DEVICE_IN_RECORD_PROXY:
+        case PAL_DEVICE_IN_TELEPHONY_RX:
+            *dev = RTProxyIn::getObject(id);
+            break;
+        case PAL_DEVICE_NONE:
+            PAL_ERR(LOG_TAG, "Invalid input parameters");
+            break;
+        default:
+            PAL_DBG(LOG_TAG, "Unhandled parameter values");
+            break;
+    }
+
 }
 
 RTProxyIn::RTProxyIn(struct pal_device *device, std::shared_ptr<ResourceManager> Rm) :
