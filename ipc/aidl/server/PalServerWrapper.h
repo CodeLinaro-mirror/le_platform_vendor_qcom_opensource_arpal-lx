@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #include <aidl/vendor/qti/hardware/pal/BnPAL.h>
@@ -29,7 +29,7 @@ class StreamInfo {
 
   public:
     StreamInfo(int64_t handle) : mHandle(handle) {
-        ALOGI("StreamInfo created for handle %lx", mHandle);
+        ALOGI("StreamInfo created for handle %llx", (long long)mHandle);
     }
     ~StreamInfo();
 
@@ -60,12 +60,13 @@ class CallbackInfo {
     CallbackInfo(const std::shared_ptr<IPALCallback> &callback, int64_t clientData) {
         mCallback = callback;
         mClientData = clientData;
-        ALOGV("%s, callback %p handle %lx clientData %llu", __func__, callback.get(), clientData);
+        ALOGV("%s, callback %p handle %llx clientData %llu", __func__, callback.get(), (long long)mHandle,
+            (long long)mClientData);
     }
 
     ~CallbackInfo() {
-        ALOGV("%s, callback %p handle %lx clientData %ld", __func__, mCallback.get(), mHandle,
-              mClientData);
+        ALOGV("%s, callback %p handle %llx clientData %llu", __func__, mCallback.get(), (long long)mHandle,
+              (long long)mClientData);
         if (mEfGroup) {
             EventFlag::deleteEventFlag(&mEfGroup);
         }
