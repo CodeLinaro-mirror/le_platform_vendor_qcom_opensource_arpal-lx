@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
+#include <cutils/properties.h>
 #include <PalDefs.h>
 #include <PalCommon.h>
 #include "pal_client_manager.h"
@@ -13,6 +14,7 @@
 std::vector<client_info *> g_client_list;
 pthread_mutex_t g_client_list_lock;
 bool g_client_list_init = false;
+static const char* sHwCodecEnableBufferCache = "vendor.qc2audio.enable.buffercache";
 
 class BpPALClient: public ::android:: BpInterface<IPALClient> {
 public:
@@ -132,6 +134,8 @@ void pal_add_stream_handle(uint64_t stream_handle, struct pal_stream_attributes*
 
     hndl->stream_handle = stream_handle;
     hndl->cb_func = cb;
+    hndl->cache_fd = (attr->type == PAL_STREAM_NON_TUNNEL) &&
+                     property_get_bool(sHwCodecEnableBufferCache, true);
     memcpy(&(hndl->stream_attr), attr, sizeof(struct pal_stream_attributes));
     client_handle->pal_client_stream_handle_list.push_back(hndl);
 
@@ -146,11 +150,14 @@ int pal_add_shared_fd(uint64_t stream_handle, int client_fd, int binder_fd) {
         return 0;
     }
 
-    if (!handle->shared_fd_list.count(client_fd)) {
-        handle->shared_fd_list[client_fd] = dup(binder_fd);
-    }
+    int fd = -1;
+    if (handle->cache_fd && handle->shared_fd_list.count(client_fd))
+        fd = handle->shared_fd_list[client_fd];
+    else
+        fd = dup(binder_fd);
 
-    return handle->shared_fd_list[client_fd];
+    handle->shared_fd_list[client_fd] = fd;
+    return fd;
 }
 
 void pal_remove_stream_handle(uint64_t stream_handle) {
