@@ -474,15 +474,16 @@ int32_t DisplayPort::isBitWidthSupported(uint32_t bitWidth)
     PAL_DBG(LOG_TAG, "bitWidth %u", bitWidth);
     struct extDispState *state = NULL;
 
+    if (bitWidth == 16 || bitWidth == 24 || bitWidth == 32) {
+        //16 bit bps is always supported
+        //some oem may not update 16bit support in their edid info
+        return rc;
+    }
+
     state = &extDisp[dp_controller][dp_stream];
     if (!(state && state->eldInfo)) {
         rc = -EINVAL;
         PAL_ERR(LOG_TAG, "ELD not available");
-        return rc;
-    }
-    if (bitWidth == 16 || bitWidth == 24 || bitWidth == 32) {
-        //16 bit bps is always supported
-        //some oem may not update 16bit support in their edid info
         return rc;
     }
 
