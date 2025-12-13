@@ -46,9 +46,9 @@
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #endif
 
-/* HDMI EDID Information */
-#define BIT(nr)     (1UL << (nr))
-#define MAX_EDID_BLOCKS 10
+/* HDMI/DP ELD Information */
+#define BIT(nr)                         (1UL << (nr))
+#define MAX_ELD_BLOCKS                  10
 #define MAX_SHORT_AUDIO_DESC_CNT        30
 #define MIN_AUDIO_DESC_LENGTH           3
 #define MIN_SPKR_ALLOCATION_DATA_LENGTH 3
@@ -56,13 +56,9 @@
 #define MAX_DISPLAY_DEVICES             3
 #define MAX_FRAME_BUFFER_NAME_SIZE      80
 #define MAX_CHAR_PER_INT                13
-#define MAX_HDMI_CHANNEL_CNT 8
+#define MAX_HDMI_CHANNEL_CNT            8
 
-#define EXT_DISPLAY_PLUG_STATUS_NOTIFY_ENABLE      0x30
-#define EXT_DISPLAY_PLUG_STATUS_NOTIFY_CONNECT     0x01
-#define EXT_DISPLAY_PLUG_STATUS_NOTIFY_DISCONNECT  0x00
-
-typedef enum edidAudioFormatId {
+typedef enum eldAudioFormatId {
     LPCM = 1,
     AC3,
     MPEG1,
@@ -77,23 +73,23 @@ typedef enum edidAudioFormatId {
     MAT,
     DST,
     WMA_PRO
-} edidAudioFormatId;
+} eldAudioFormatId;
 
-typedef struct edidAudioBlockInfo {
-    edidAudioFormatId formatId;
+typedef struct eldAudioBlockInfo {
+    eldAudioFormatId formatId;
     int samplingFreqBitmask;
     int bitsPerSampleBitmask;
     int channels;
-} edidAudioBlockInfo;
+} eldAudioBlockInfo;
 
-typedef struct edidAudioInfo {
+typedef struct eldAudioInfo {
     int audioBlocks;
     unsigned char speakerAllocation[MIN_SPKR_ALLOCATION_DATA_LENGTH];
-    edidAudioBlockInfo audioBlocksArray[MAX_EDID_BLOCKS];
+    eldAudioBlockInfo audioBlocksArray[MAX_ELD_BLOCKS];
     char channelMap[MAX_CHANNELS_SUPPORTED];
     int  channelAllocation;
     unsigned int  channelMask;
-} edidAudioInfo;
+} eldAudioInfo;
 
 class DisplayPort : public Device
 {
@@ -101,8 +97,8 @@ class DisplayPort : public Device
     uint32_t dp_stream;
 protected:
     int configureDpEndpoint();
-    static std::shared_ptr<Device> objRx;
-    static std::shared_ptr<Device> objTx;
+    static std::shared_ptr<Device> dpObj;
+    static std::shared_ptr<Device> hdmiObj;
     DisplayPort(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
 public:
     int start();
@@ -111,44 +107,35 @@ public:
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     static std::shared_ptr<Device> getObject(pal_device_id_t id);
-    static int32_t isSampleRateSupported(uint32_t sampleRate);
-    static int32_t isChannelSupported(uint32_t numChannels);
-    static int32_t isBitWidthSupported(uint32_t bitWidth);
-    static int32_t checkAndUpdateBitWidth(uint32_t *bitWidth);
-    static int32_t checkAndUpdateSampleRate(uint32_t *sampleRate);
-    static bool isDisplayPortEnabled ();
-    void resetEdidInfo();
-    static int32_t getDisplayPortCtlIndex(int controller, int stream);
-    static int32_t setExtDisplayDevice(struct audio_mixer *mixer, int controller, int stream);
-    static int32_t getExtDispType(struct audio_mixer *mixer, int controller, int stream);
-    static int getEdidInfo(struct audio_mixer *mixer, int controller, int stream);
-    static void cacheEdid(struct audio_mixer *mixer, int controller, int stream);
-    static const char * edidFormatToStr(unsigned char format);
+    int32_t isSampleRateSupported(uint32_t sampleRate);
+    int32_t isChannelSupported(uint32_t numChannels);
+    int32_t isBitWidthSupported(uint32_t bitWidth);
+    int32_t checkAndUpdateBitWidth(uint32_t *bitWidth);
+    int32_t checkAndUpdateSampleRate(uint32_t *sampleRate);
+    void resetEldInfo();
+    static int getEldInfo(struct audio_mixer *mixer, int controller, int stream);
+    static void cacheEld(struct audio_mixer *mixer, int controller, int stream);
+    static const char * eldFormatToStr(unsigned char format);
     static bool isSampleRateSupported(unsigned char srByte, int samplingRate);
-    static unsigned char getEdidBpsByte(unsigned char byte, unsigned char format);
+    static unsigned char getEldBpsByte(unsigned char byte, unsigned char format);
     static bool isSupportedBps(unsigned char bpsByte, int bps);
-    static int getHighestEdidSF(unsigned char byte);
-    static void updateChannelMap(edidAudioInfo* info);
-    static void dumpSpeakerAllocation(edidAudioInfo* info);
-    static void updateChannelAllocation(edidAudioInfo* info);
-    static void updateChannelMapLpass(edidAudioInfo* info);
+    static int getHighestEldSF(unsigned char byte);
+    static void updateChannelMap(eldAudioInfo* info);
+    static void dumpSpeakerAllocation(eldAudioInfo* info);
+    static void updateChannelAllocation(eldAudioInfo* info);
+    static void updateChannelMapLpass(eldAudioInfo* info);
     static void retrieveChannelMapLpass(int ca, uint8_t *ch_map, int ch_map_size);
-    static void updateChannelMask(edidAudioInfo* info);
-    static void dumpEdidData(edidAudioInfo *info);
-    static bool getSinkCaps(edidAudioInfo* info, char *edidData);
+    static void updateChannelMask(eldAudioInfo* info);
+    static void dumpEldData(eldAudioInfo *info);
+    static bool getSinkCaps(eldAudioInfo* info, char *eldData);
     static int getDeviceChannelAllocation(int num_channels);
-    bool isSupportedSR(edidAudioInfo* info, int sr);
+    bool isSupportedSR(eldAudioInfo* info, int sr);
     int getMaxChannel();
-    bool isSupportedBps(edidAudioInfo* info, int bps);
+    bool isSupportedBps(eldAudioInfo* info, int bps);
     int getHighestSupportedSR();
     int getHighestSupportedBps();
-    int updateSysfsNode(const char *path, const char *data, size_t len);
-    int getExtDispSysfsNodeIndex(int ext_disp_type);
-    int updateExtDispSysfsNode(int node_value, int controller, int stream);
-    int updateAudioAckState(int node_value, int controller, int stream);
     int getDeviceAttributes (struct pal_device *dattr,
                             Stream* streamHandle = NULL) override;
 };
-
 
 #endif //DISPLAYPORT_H

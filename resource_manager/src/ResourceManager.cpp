@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -68,7 +68,11 @@
 #include "USBAudio.h"
 #include "HeadsetMic.h"
 #include "HandsetMic.h"
+#ifdef ENABLE_UPSTREAM_SUPPORT
+#include "DisplayPortUpstream.h"
+#else
 #include "DisplayPort.h"
+#endif
 #include "Handset.h"
 #include "SndCardMonitor.h"
 #include "UltrasoundDevice.h"
@@ -3101,8 +3105,13 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
                     }
                 }
 
+#ifdef ENABLE_UPSTREAM_SUPPORT
+                if (dp_device->isBitWidthSupported(
+                            deviceattr->config.bit_width) != 0) {
+#else
                 if (DisplayPort::isBitWidthSupported(
                             deviceattr->config.bit_width) != 0) {
+#endif
                     int bps = dp_device->getHighestSupportedBps();
                     if (sAttr->out_media_config.bit_width > bps)
                         deviceattr->config.bit_width = bps;
