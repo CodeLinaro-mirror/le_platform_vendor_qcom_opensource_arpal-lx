@@ -27,7 +27,6 @@ public:
     int32_t spkrProtProcessingMode(bool flag) override;
 
     void updateCpsCustomPayload(int miid);
-    int getCpsDevNumber(std::string mixer);
 };
 
 class SpeakerProtectionwsa884x : public SpeakerProtection

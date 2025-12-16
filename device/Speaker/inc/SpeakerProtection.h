@@ -87,6 +87,7 @@
 #define CALIBRATION_STATUS_IVLOW 7
 
 #define MAX_RETRY 3
+#define WSA_DEFAULT 0
 #define WSA883X 1
 #define WSA884X 2
 #define WSA885X 3
@@ -142,6 +143,8 @@ struct agmMetaData {
         :buf(b),size(s) {}
 };
 
+extern cps_reg_wr_values_t sp_cps_thrsh_values;
+
 extern "C" void CreateFeedbackDevice(struct pal_device *device,
                                         const std::shared_ptr<ResourceManager> rm,
                                         pal_device_id_t id, bool createDevice,
@@ -160,6 +163,7 @@ protected :
     static bool isSpkrInUse;
     static bool calThrdCreated;
     static bool isDynamicCalTriggered;
+    static bool viTxSetupThrdCreated;
     static struct timespec spkrLastTimeUsed;
     static struct mixer *virtMixer;
     static struct mixer *hwMixer;
@@ -183,17 +187,21 @@ private :
 
 public:
     static std::thread mCalThread;
+    static std::thread viTxSetupThread;
     static std::condition_variable cv;
     static std::mutex cvMutex;
+    std::mutex deviceMutex;
     static std::mutex calibrationMutex;
     void spkrCalibrationThread();
     virtual int getSpeakerTemperature(int spkr_pos);
+    int32_t getSpeakerTemperature();
     void spkrCalibrateWait();
+    virtual int spkrStartCalibration();
+    virtual int viTxSetupThreadLoop();
 #ifdef LINUX_ENABLED
     void spkrCalibrateSignalExit();
     int deinit(pal_param_device_connection_t device_conn) override;
 #endif
-    virtual int spkrStartCalibration() {return 0;};
     void speakerProtectionInit();
     void speakerProtectionDeinit();
     void getSpeakerTemperatureList();
@@ -213,17 +221,18 @@ public:
     int32_t setParameter(uint32_t param_id, void *param) override;
     int32_t getParameter(uint32_t param_id, void **param) override;
 
-    virtual int32_t spkrProtProcessingMode(bool flag){return 0;};
+    virtual int32_t spkrProtProcessingMode(bool flag);
     int speakerProtectionDynamicCal();
     void updateSPcustomPayload();
     static int32_t spkrProtSetR0T0Value(vi_r0t0_cfg_t r0t0Array[]);
     static void handleSPCallback (uint64_t hdl, uint32_t event_id, void *event_data,
                                   uint32_t event_size);
+    virtual void updateCpsCustomPayload(int miid);
     int updateVICustomPayload(void *payload, size_t size);
+    virtual int getCpsDevNumber(std::string mixer);
     int32_t getCalibrationData(void **param);
     int32_t getFTMParameter(void **param);
     void disconnectFeandBe(std::vector<int> pcmDevIds, std::string backEndName);
-
 };
 
 class SpeakerFeedback : public Device

@@ -20,12 +20,6 @@ std::thread SpeakerProtectionwsa883x::viTxSetupThread;
 std::mutex SpeakerProtectionwsa883x::calibrationMutex;
 bool SpeakerProtectionwsa883x::viTxSetupThrdCreated;
 
-cps_reg_wr_values_t sp_cps_thrsh_values = {
-    .value_normal_threshold = {0x8E003049, 0x1000304A, 0x0F003472},
-    .value_lower_threshold_1 = {0x8F003049, 0xD000304A, 0x0F003472},
-    .value_lower_threshold_2 = {0x8F003049, 0xD000304A, 0x18003472}
-};
-
 SpeakerProtectionwsa883x::SpeakerProtectionwsa883x(struct pal_device *device,
                         std::shared_ptr<ResourceManager> Rm):SpeakerProtection(device, Rm)
 {
@@ -1593,25 +1587,4 @@ exit:
        delete builder;
        builder = NULL;
     }
-}
-
-/* Function to get CPS device number */
-int SpeakerProtectionwsa883x::getCpsDevNumber(std::string mixer_name)
-{
-    struct mixer_ctl *ctl;
-    int status = 0;
-
-    PAL_DBG(LOG_TAG, "Mixer control %s", mixer_name.c_str());
-    PAL_DBG(LOG_TAG, "audio_hw_mixer %pK", hwMixer);
-
-    ctl = mixer_get_ctl_by_name(hwMixer, mixer_name.c_str());
-    if (!ctl) {
-        PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", mixer_name.c_str());
-        status = -ENOENT;
-        return status;
-    }
-
-    status = mixer_ctl_get_value(ctl, 0);
-    PAL_DBG(LOG_TAG, "Value for Mixer control %d", status);
-    return status;
 }
