@@ -69,6 +69,9 @@
     <ctl name="CDC_TX3_RDDMA0_P3_MUX" value="ZERO" />
     <ctl name="I2S0_D3_L_MUX" value="ZERO" />
     <ctl name="VI_SENS_MIX I_SENS" value="0" />
+    <ctl name="TX0_PGA_GAIN" value="169 169" />
+    <ctl name="TX1_PGA_GAIN" value="169 169" />
+    <ctl name="RX0_PGA_GAIN" value="169 169" />
 
     <!-- split a2dp -->
     <ctl name="BT SampleRate" value="KHZ_8" />
@@ -81,7 +84,7 @@
         <ctl name="TX0_MIXER TX0_CAP" value="1" />
         <ctl name="I2S0_D0_L_MUX" value="CDC_TX1" />
         <ctl name="TXCH1 Switch" value="1" />
-        <ctl name="TX1_PGA_GAIN" value="205" />
+        <ctl name="TX1_PGA_GAIN" value="205 205" />
         <ctl name="TX1_INP_MUX" value="DMIC_1" />
         <ctl name="DMIC1_MUX" value="DMIC1"/>
         <ctl name="DMIC1_IN_S Switch" value="1" />
@@ -92,7 +95,7 @@
         <ctl name="TX0_MIXER TX1_CAP" value="1" />
         <ctl name="I2S0_D0_R_MUX" value="CDC_TX0" />
         <ctl name="TXCH0 Switch" value="1" />
-        <ctl name="TX0_PGA_GAIN" value="205" />
+        <ctl name="TX0_PGA_GAIN" value="205 205" />
         <ctl name="TX0_INP_MUX" value="DMIC_0" />
         <ctl name="DMIC0_MUX" value="DMIC3"/>
         <ctl name="DMIC3_IN_S Switch" value="1" />
@@ -103,7 +106,7 @@
         <ctl name="CDC_RX0_MUX" value="I2S0_D2_L" />
         <ctl name="RX0_SWITCH Switch" value="1" />
         <ctl name="SPKR_OUT_S Switch" value="1" />
-        <ctl name="RX0_PGA_GAIN" value="169" />
+        <ctl name="RX0_PGA_GAIN" value="169 169" />
     </path>
 
     <path name="speaker-prot">
