@@ -11872,6 +11872,50 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             goto exit;
         }
         break;
+        case PAL_PARAM_ID_CAPTURE_ZONE:
+        {
+            PAL_DBG(LOG_TAG, "zonal_capture enter param set zone");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (((st_attr.type == PAL_STREAM_LOW_LATENCY) ||
+                     (st_attr.type == PAL_STREAM_DEEP_BUFFER) ||
+                     (st_attr.type == PAL_STREAM_CAPTURE_BUS)) &&
+                    st_attr.direction == PAL_AUDIO_INPUT) {
+                    PAL_DBG(LOG_TAG, "found active stream to set capture zone");
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_CAPTURE_ZONE,
+                            (int *)param_payload); //zone_id
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set zoneid for ECNR");
+                        goto exit;
+                    }
+                }
+            }
+        }
+        break;
+        case PAL_PARAM_ID_RENDER_ZONE:
+        {
+            PAL_DBG(LOG_TAG, "zonal_render enter param set zone");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (((st_attr.type == PAL_STREAM_LOW_LATENCY) ||
+                     (st_attr.type == PAL_STREAM_DEEP_BUFFER) ||
+                     (st_attr.type == PAL_STREAM_PLAYBACK_BUS)) &&
+                    st_attr.direction == PAL_AUDIO_OUTPUT) {
+                    PAL_DBG(LOG_TAG, "found active stream to set render zone");
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_RENDER_ZONE,
+                            (int *)param_payload); //zone_id
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set render zoneid");
+                        goto exit;
+                    }
+                }
+            }
+        }
+        break;
         default:
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
             break;
