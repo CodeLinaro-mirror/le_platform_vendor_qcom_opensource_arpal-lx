@@ -16,6 +16,7 @@ AM_CPPFLAGS += -I ${top_srcdir}/plugins/PluginManager/inc
 AM_CPPFLAGS += -I ${top_srcdir}/session/SessionAlsaPcm/inc
 AM_CPPFLAGS += -I ${top_srcdir}/session/SessionAR/inc
 AM_CPPFLAGS += -I ${top_srcdir}/api/vui-interface
+AM_CPPFLAGS += -I ${top_srcdir}/plugins/codecs
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 

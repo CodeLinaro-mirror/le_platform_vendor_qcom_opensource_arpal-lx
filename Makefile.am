@@ -81,7 +81,12 @@ pal_sources = $(top_srcdir)/stream/src/Stream.cpp \
 
 endif
 
-AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED
+
+btbundle_plugin_sources = ${top_srcdir}/plugins/codecs/bt_base.c \
+                          ${top_srcdir}/plugins/codecs/bt_bundle.c
+
+
+AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DSOUND_TRIGGER_FEATURES_DISABLED
 AM_CPPFLAGS += -DCONFIG_GSL
 if DEF_SPKR_CAL_PATH
 AM_CPPFLAGS += -DPAL_SP_TEMP_PATH=\"$(SPKR_CAL_PATH)\"
@@ -143,7 +148,14 @@ endif
 
 if USE_SYSLOG
 libpal_la_CPPFLAGS += -DPAL_USE_SYSLOG
+lib_bt_bundle_la_CPPFLAGS = -DPAL_USE_SYSLOG
 endif
+
+lib_LTLIBRARIES     += lib_bt_bundle.la
+lib_bt_bundle_la_SOURCES   = $(btbundle_plugin_sources)
+lib_bt_bundle_la_LIBADD    = @GLIB_LIBS@ @SPFHEADERS_LIBS@
+lib_bt_bundle_la_CPPFLAGS := $(AM_CPPFLAGS)
+lib_bt_bundle_la_LDFLAGS   = -shared -avoid-version
 
 libpal_la_LIBADD   += -L${abs_top_builddir}/plugins/vui_interface/.libs -lvui_intf
 libpal_la_LIBADD   += -L${abs_top_builddir}/plugins/PluginManager/.libs -lplugin_manager
