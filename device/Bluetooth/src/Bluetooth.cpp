@@ -1701,7 +1701,7 @@ int BtA2dp::startPlayback()
     if (mParamBtA2dp.a2dp_suspended) {
         // session will be restarted after suspend completion
         PAL_ERR(LOG_TAG, "a2dp start requested during suspend state");
-        return -ENOSYS;
+        return -EAGAIN;
     } else if (mA2dpState == A2DP_STATE_DISCONNECTED) {
         // update device status, if still disconnected, return error.
         if (!(rm->isDeviceAvailable(deviceAttr.id) &&
@@ -1972,7 +1972,7 @@ int BtA2dp::startCapture()
         if (mParamBtA2dp.a2dp_capture_suspended) {
             // session will be restarted after suspend completion
             PAL_INFO(LOG_TAG, "a2dp start capture requested during suspend state");
-            return -EINVAL;
+            return -EAGAIN;
         }
 
         if (mA2dpState != A2DP_STATE_STARTED  && !mTotalActiveSessionRequests) {

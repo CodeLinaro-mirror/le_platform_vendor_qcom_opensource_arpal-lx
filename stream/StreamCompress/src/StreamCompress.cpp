@@ -415,9 +415,8 @@ exit:
 int32_t StreamCompress::start()
 {
     int32_t status = 0, devStatus = 0, cachedStatus = 0;
-    int32_t tmp = 0;
+    bool disconnect = false;
     bool a2dpSuspend = false;
-
     mStreamMutex.lock();
 
     PAL_VERBOSE(LOG_TAG,"Enter, session handle - %p mStreamAttr->direction - %d",
@@ -455,23 +454,12 @@ int32_t StreamCompress::start()
         switch (mStreamAttr->direction) {
         case PAL_AUDIO_OUTPUT:
             PAL_VERBOSE(LOG_TAG, "Inside PAL_AUDIO_OUTPUT device count - %zu", mDevices.size());
-            // handle scenario where BT device is not ready
-            if (rm->IsDummyDevEnabled()) {
-                status = rm->handleBTDeviceNotReadyToDummy(this, a2dpSuspend);
-            } else {
-                status = rm->handleBTDeviceNotReady(this, a2dpSuspend);
-            }
-            if (0 != status)
-                goto exit;
-
-            rm->lockGraph();
             /* Any device start success will be treated as positive status.
              * This allows stream be played even if one of devices failed to start.
              */
             status = -EINVAL;
             if (!mDevices.size()) {
                 PAL_ERR(LOG_TAG, "No Rx device available to start the usecase");
-                rm->unlockGraph();
                 goto exit;
             }
 
@@ -480,30 +468,32 @@ int32_t StreamCompress::start()
                 if (devStatus == 0) {
                     status = 0;
                 } else {
-                    cachedStatus = devStatus;
-
-                    tmp = session->disconnectSessionDevice(this, mStreamAttr->type, mDevices[i]);
-                    if (0 != tmp) {
-                        PAL_ERR(LOG_TAG, "disconnectSessionDevice failed:%d", tmp);
+                    disconnect = false;
+                    pal_device_id_t failedDevId = (pal_device_id_t) mDevices[i]->getSndDeviceId();
+                    std::shared_ptr<Device> failedDev = mDevices[i];
+                    devStatus = handleDeviceStartFailure(devStatus, mDevices[i], disconnect);
+                    if (devStatus == 0) {
+                        status = 0;
                     }
-
-                    tmp = mDevices[i]->close();
-                    if (0 != tmp) {
-                        PAL_ERR(LOG_TAG, "device close failed with status %d", tmp);
+                    if (devStatus && rm->isBtA2dpDevice(failedDevId) &&
+                        !rm->isDeviceReady(failedDevId) &&
+                        !rm->IsDummyDevEnabled()) {
+                            a2dpSuspend = true;
                     }
-                    mDevices.erase(mDevices.begin() + i);
-                    i--;
+                    PAL_DBG(LOG_TAG, "disconnect: %d", disconnect);
+                    // retry may mutate mDevices even on success; re-sync via find
+                    bool devicesMutated = disconnect ||
+                        std::find(mDevices.begin(), mDevices.end(), failedDev) == mDevices.end();
+                    i = devicesMutated ? i - 1 : i;
                 }
             }
             if (0 != status) {
-                status = cachedStatus;
                 PAL_ERR(LOG_TAG, "Rx device start failed with status %d", status);
-                rm->unlockGraph();
                 goto exit;
             } else {
                 PAL_VERBOSE(LOG_TAG, "devices started successfully");
             }
-
+            rm->lockGraph();
             status = session->prepare(this);
             if (0 != status) {
                 PAL_ERR(LOG_TAG,"Rx session prepare is failed with status %d",status);
@@ -542,8 +532,6 @@ int32_t StreamCompress::start()
         case PAL_AUDIO_INPUT:
             PAL_VERBOSE(LOG_TAG, "Inside PAL_AUDIO_INPUT device count - %zu", mDevices.size());
 
-            rm->lockGraph();
-
             for (int32_t i = 0; i < mDevices.size(); i++) {
                 PAL_ERR(LOG_TAG, "device %d name %s, going to start",
                         mDevices[i]->getSndDeviceId(),
@@ -552,12 +540,19 @@ int32_t StreamCompress::start()
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "Tx device start failed with status %d",
                             status);
-                    rm->unlockGraph();
-                    goto exit;
+                    disconnect = false;
+                    std::shared_ptr<Device> failedDev = mDevices[i];
+                    status = handleDeviceStartFailure(status, mDevices[i], disconnect);
+                    if (0 != status) {
+                        goto exit;
+                    }
+                    bool devicesMutated = disconnect ||
+                        std::find(mDevices.begin(), mDevices.end(), failedDev) == mDevices.end();
+                    i = devicesMutated ? i - 1 : i;
                 }
             }
             PAL_VERBOSE(LOG_TAG,"devices started successfully");
-
+            rm->lockGraph();
             status = session->prepare(this);
             if (0 != status) {
                 PAL_ERR(LOG_TAG, "Tx session prepare is failed with status %d",
