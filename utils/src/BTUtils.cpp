@@ -15,6 +15,7 @@
 
 static std::map<std::pair<uint32_t, std::string>, std::string> btCodecMap;
 static std::map<uint32_t, uint32_t> btSlimClockSrcMap;
+static int32_t disableSCODeviceForStream(Stream * sIter, std::shared_ptr<Device> dev);
 int32_t scoOutConnectCount = 0;
 int32_t scoInConnectCount = 0;
 
@@ -48,6 +49,82 @@ void SortAndUnique(std::vector<T> &streams)
 void BTUtilsInit() {
     btCodecMap.clear();
     btSlimClockSrcMap.clear();
+}
+
+bool isMediaPlayabckStream(pal_stream_type_t streamType)
+{
+    bool result = false;
+    switch (streamType) {
+        case PAL_STREAM_LOW_LATENCY:
+        case PAL_STREAM_ULTRA_LOW_LATENCY:
+        case PAL_STREAM_VOIP_RX:
+        case PAL_STREAM_PCM_OFFLOAD:
+        case PAL_STREAM_DEEP_BUFFER:
+        case PAL_STREAM_SPATIAL_AUDIO:
+        case PAL_STREAM_COMPRESSED:
+        case PAL_STREAM_GENERIC:
+            result = true;
+            break;
+        default:
+            result = false;
+            break;
+    }
+    return result;
+}
+
+bool isVoiceCallMusic(pal_stream_type_t streamType)
+{
+    bool result = false;
+    switch (streamType) {
+        case PAL_STREAM_VOICE_CALL_MUSIC:
+        case PAL_STREAM_CALL_TRANSLATION:
+            result = true;
+            break;
+        default:
+            result = false;
+            break;
+    }
+    return result;
+}
+
+int32_t disableSCODeviceForStream(Stream * sIter, std::shared_ptr<Device> dev) {
+    int32_t status = -EINVAL;
+    if (sIter == nullptr || dev == nullptr)
+        return status;
+    Session *session = nullptr;
+    struct pal_stream_attributes sAttr;
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+
+    status = sIter->getStreamAttributes(&sAttr);
+
+    if (status != 0) {
+        PAL_ERR(LOG_TAG,"getStreamAttributes failed");
+        return status;
+    }
+    sIter->getAssociatedSession(&session);
+    if (!session) {
+        PAL_ERR(LOG_TAG, "getAssociatedSession returned null session");
+        status = -EINVAL;
+        return status;
+    }
+
+    PAL_DBG(LOG_TAG,"disable dev %d for stream %d", dev->getSndDeviceId(), sAttr.type);
+    rm->lockGraph();
+    status = session->disconnectSessionDevice(sIter, sAttr.type, dev);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "disconnectSessionDevice failed:%d", status);
+        goto exit;
+    }
+    status = dev->close();
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "device close failed with status %d", status);
+        goto exit;
+    }
+    sIter->removemDevice(dev->getSndDeviceId());
+    sIter->removePalDevice(sIter, dev->getSndDeviceId());
+exit:
+    rm->unlockGraph();
+    return status;
 }
 
 int32_t BTUtilsDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend)
@@ -2375,14 +2452,12 @@ int setBTParameter(uint32_t param_id, void *param_payload,
                                 PAL_ERR(LOG_TAG, "getStreamType failed with status = %d", status);
                                 continue;
                             }
-                            if ((streamType == PAL_STREAM_LOW_LATENCY) ||
-                                (streamType == PAL_STREAM_ULTRA_LOW_LATENCY) ||
-                                (streamType == PAL_STREAM_VOIP_RX) ||
-                                (streamType == PAL_STREAM_PCM_OFFLOAD) ||
-                                (streamType == PAL_STREAM_DEEP_BUFFER) ||
-                                (streamType == PAL_STREAM_SPATIAL_AUDIO) ||
-                                (streamType == PAL_STREAM_COMPRESSED) ||
-                                (streamType == PAL_STREAM_GENERIC)) {
+                            PAL_DBG(LOG_TAG, "checking running SCO device on stream %d", streamType)
+                            if (isVoiceCallMusic(streamType)) {
+                                if (!disableSCODeviceForStream((*sIter), sco_rx_dev))
+                                    PAL_DBG(LOG_TAG, "closed SCO device for stream %d", streamType);
+                            }
+                            if (isMediaPlayabckStream(streamType)) {
                                 if ((*sIter)->suspendedOutDevIds.empty()) {
                                     (*sIter)->suspendedOutDevIds.
                                         push_back(PAL_DEVICE_OUT_BLUETOOTH_SCO);
@@ -2454,14 +2529,12 @@ int setBTParameter(uint32_t param_id, void *param_payload,
                                 PAL_ERR(LOG_TAG, "getStreamType failed with status = %d", status);
                                 continue;
                             }
-                            if ((streamType == PAL_STREAM_LOW_LATENCY) ||
-                                (streamType == PAL_STREAM_ULTRA_LOW_LATENCY) ||
-                                (streamType == PAL_STREAM_VOIP_RX) ||
-                                (streamType == PAL_STREAM_PCM_OFFLOAD) ||
-                                (streamType == PAL_STREAM_DEEP_BUFFER) ||
-                                (streamType == PAL_STREAM_SPATIAL_AUDIO) ||
-                                (streamType == PAL_STREAM_COMPRESSED) ||
-                                (streamType == PAL_STREAM_GENERIC)) {
+                            PAL_DBG(LOG_TAG, "checking running SCO device on stream %d", streamType)
+                            if (isVoiceCallMusic(streamType)) {
+                                if (!disableSCODeviceForStream((*sIter), sco_rx_dev))
+                                    PAL_DBG(LOG_TAG, "closed SCO device for stream %d", streamType);
+                            }
+                            if (isMediaPlayabckStream(streamType)) {
                                 if ((*sIter)->suspendedOutDevIds.empty()) {
                                     (*sIter)->suspendedOutDevIds.
                                         push_back(PAL_DEVICE_OUT_BLUETOOTH_SCO);
