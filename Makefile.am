@@ -91,7 +91,7 @@ libpal_la_LIBADD   += -lar-gsl -lacdbdata
 libpal_la_CPPFLAGS  = -DFEATURE_IPQ_OPENWRT
 else
 libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar-osal -lexpat -ltinycompress
-libpal_la_CPPFLAGS  =  -DPAL_USE_SYSLOG -DLINUX_ENABLED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
+libpal_la_CPPFLAGS  =  -DPAL_USE_SYSLOG -DLINUX_ENABLED -DATRACE_UNSUPPORTED -DPAL_MEMLOG_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
 endif
 if IS_SDXLEMUR
 libpal_la_LIBADD    += -lagmclientwrapper
@@ -165,12 +165,14 @@ install-data-hook:
 	chmod  go+r $(DESTDIR)$(root_etcdir)/mixer_paths_qcm6490_rb3_ia.xml
 	chmod  go+r $(DESTDIR)$(root_etcdir)/resourcemanager_qcm6490_rb3_ia.xml
 
+if COMPILE_ADSPRPCD
 adsprpc_sources = adsprpcd/adsprpcd.c
 
 bin_PROGRAMS = audioadsprpcd
 audioadsprpcd_SOURCES = $(adsprpc_sources)
 audioadsprpcd_LDADD = -ldl
 audioadsprpcd_la_CFLAGS = -fPIC
+endif
 
 endif
 
