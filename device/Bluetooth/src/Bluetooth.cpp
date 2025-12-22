@@ -2712,6 +2712,11 @@ int32_t BtSco::setDeviceParameter(uint32_t param_id, void *param)
         }
         break;
     }
+    case PAL_PARAM_ID_DISABLE_HFP_SYNC: {
+        sIsHFPSyncEnabled = false;
+        PAL_INFO(LOG_TAG, "HFP sync with BT Host disabled");
+        break;
+    }
     default:
         return -EINVAL;
     }
