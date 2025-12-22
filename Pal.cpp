@@ -1175,23 +1175,14 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     kpiEnqueue(__func__, true);
 
     rm->lockActiveStream();
-    if (!rm->isActiveStream(stream_handle)) {
-        PAL_ERR(LOG_TAG, "Stream handle :%pK is inactive,", stream_handle);
-        rm->unlockActiveStream();
-        // when device is set to NONE due to removal of pluggable devices
-        // send success status if stream is already inactive
-        status = devices[0].id == PAL_DEVICE_NONE ? 0 : -EINVAL;
-        kpiEnqueue(__func__, false);
-        return status;
-    }
-
     /* Choose best device config for this stream */
     /* TODO: Decide whether to update device config or not based on flag */
     s = reinterpret_cast<Stream *>(stream_handle);
     status = rm->increaseStreamUserCounter(s);
     if (0 != status) {
         rm->unlockActiveStream();
-        PAL_ERR(LOG_TAG, "failed to increase stream user count");
+        int status = (devices[0].id == PAL_DEVICE_NONE) ? 0 : -EINVAL;
+        PAL_ERR(LOG_TAG,"Failed to increase stream user count");
         kpiEnqueue(__func__, false);
         return status;
     }
