@@ -44,6 +44,7 @@
         <param key="context_manager_enable" value ="true" />
         <param key="upd_dedicated_be" value ="true" />
         <param key="dual_mono" value ="false" />
+        <param key="dummy_dev_enable" value ="true" />
     </config_params>
     <config_volume>
         <use_volume_set_param>0</use_volume_set_param>
@@ -371,10 +372,10 @@
             <id>PAL_DEVICE_IN_VI_FEEDBACK</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-TX-0</back_end_name>
             <max_channels>2</max_channels>
-            <channels>2</channels>
+            <channels>1</channels>
             <samplerate>48000</samplerate>
             <bit_width>32</bit_width>
-            <snd_device_name>vi-feedback</snd_device_name>
+            <snd_device_name>vi-feedback-mono-2</snd_device_name>
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
@@ -456,6 +457,15 @@
                 <name>PAL_STREAM_RAW</name>
             </usecase>
         </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_DUMMY</id>
+            <back_end_name>PCM_DUMMY-TX-1</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
+        </in-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
@@ -468,11 +478,11 @@
         <out-device>
             <id>PAL_DEVICE_OUT_SPEAKER</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
-            <max_channels>2</max_channels>
-            <channels>2</channels>
+            <max_channels>1</max_channels>
+            <channels>1</channels>
             <samplerate>48000</samplerate>
             <!--bit_width>16</bit_width -->
-            <snd_device_name>speaker</snd_device_name>
+            <snd_device_name>speaker-mono</snd_device_name>
             <speaker_protection_enabled>0</speaker_protection_enabled>
             <fractional_sr>0</fractional_sr>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
@@ -514,7 +524,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>
-            <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-0</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
@@ -785,6 +795,15 @@
             <channels>1</channels>
             <snd_device_name>ultrasound-handset</snd_device_name>
             <samplerate>96000</samplerate>
+            <bit_width>16</bit_width>
+        </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_DUMMY</id>
+            <back_end_name>PCM_DUMMY-RX-0</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
         </out-device>
     </device_profile>
