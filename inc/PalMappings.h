@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -140,6 +140,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_A2B_MIC" },               PAL_DEVICE_IN_A2B_MIC},
     {std::string{ "PAL_DEVICE_IN_A2B2_MIC" },              PAL_DEVICE_IN_A2B2_MIC},
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET" },PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET},
+    {std::string{ "PAL_DEVICE_IN_EAVB" },PAL_DEVICE_IN_EAVB},
 };
 
 //reverse mapping
@@ -205,6 +206,7 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_A2B_MIC,               std::string{"PAL_DEVICE_IN_A2B_MIC"}},
     {PAL_DEVICE_IN_A2B2_MIC,              std::string{"PAL_DEVICE_IN_A2B2_MIC"}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET,std::string{"PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET"}},
+    {PAL_DEVICE_IN_EAVB,std::string{"PAL_DEVICE_IN_EAVB"}},
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -240,6 +242,7 @@ const std::map<std::string, uint32_t> usecaseIdLUT {
     {std::string{ "PAL_STREAM_SENSOR_PCM_RENDERER" },      PAL_STREAM_SENSOR_PCM_RENDERER},
     {std::string{ "PAL_STREAM_PLAYBACK_BUS" },             PAL_STREAM_PLAYBACK_BUS},
     {std::string{ "PAL_STREAM_CAPTURE_BUS" },              PAL_STREAM_CAPTURE_BUS},
+    {std::string{ "PAL_STREAM_EAVB_CAPTURE" },             PAL_STREAM_EAVB_CAPTURE},
 };
 
 /* Update the reverse mapping as well when new stream is added */
@@ -276,6 +279,7 @@ const std::map<uint32_t, std::string> streamNameLUT {
     {PAL_STREAM_SENSOR_PCM_RENDERER,std::string{ "PAL_STREAM_SENSOR_PCM_RENDERER" } },
     {PAL_STREAM_PLAYBACK_BUS,       std::string{ "PAL_STREAM_PLAYBACK_BUS" } },
     {PAL_STREAM_CAPTURE_BUS,        std::string{ "PAL_STREAM_CAPTURE_BUS" } },
+    {PAL_STREAM_EAVB_CAPTURE,       std::string{ "PAL_STREAM_EAVB_CAPTURE" } },
 };
 
 const std::map<uint32_t, std::string> vsidLUT {
