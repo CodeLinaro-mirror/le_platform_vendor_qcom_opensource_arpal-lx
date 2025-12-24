@@ -3157,7 +3157,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
 
     streamHandle->getStreamAttributes(&curStrAttr);
     *ec_enable = true;
-    status = tx_dev->getDeviceAttributes(&DevDattr);
+    status = tx_dev->getDeviceAttributes(&DevDattr, streamHandle);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "getDeviceAttributes Failed");
         goto exit;
@@ -3221,17 +3221,16 @@ int ResourceManager::checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_de
     PAL_DBG(LOG_TAG, "Enter: setting EC[%s] for usecase %d of device %d.",
                       ec_on ? "ON" : "OFF", sAttr.type, tx_dev->getSndDeviceId());
 
-    status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
-    if (status !=0) {
-        PAL_ERR(LOG_TAG, "getECEnableSetting failed.");
-        goto exit;
-    } else if (!ec_enable_setting) {
-        PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d.",
-                          sAttr.type, tx_dev->getSndDeviceId());
-        goto exit;
-    }
-
     if (ec_on) {
+        status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "getECEnableSetting failed.");
+            goto exit;
+        } else if (!ec_enable_setting) {
+            PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d.",
+                            sAttr.type, tx_dev->getSndDeviceId());
+            goto exit;
+        }
         rx_dev = getActiveEchoReferenceRxDevices_l(tx_stream);
         if (!rx_dev) {
             PAL_VERBOSE(LOG_TAG, "EC device not found, skip EC set");
@@ -3255,8 +3254,8 @@ int ResourceManager::checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_de
         }
     }
     rxdevcount = updateECDeviceMap(rx_dev, tx_dev, tx_stream, rxdevcount, !ec_on);
-    if (rxdevcount <= 0 && ec_on) {
-        PAL_DBG(LOG_TAG, "No need to enable EC ref");
+    if ((rxdevcount <= 0 && ec_on) || (rxdevcount != 0 && !ec_on)) {
+        PAL_DBG(LOG_TAG, "No need to %s EC ref", ec_on ? "enable" : "disable");
     } else {
         mResourceManagerMutex.unlock();
         status = tx_stream->setECRef_l(rx_dev, ec_on);
@@ -3320,14 +3319,16 @@ int ResourceManager::checkandEnableECForRXStream_l(std::shared_ptr<Device> rx_de
         }
         // TODO: add support for stream with multi Tx devices
         tx_dev = tx_devices[0];
-        status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
-        if (status != 0) {
-            PAL_DBG(LOG_TAG, "getECEnableSetting failed.");
-            continue;
-        } else if (!ec_enable_setting) {
-            PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d",
-                              sAttr.type, tx_dev->getSndDeviceId());
-            continue;
+        if (ec_on) {
+            status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
+            if (status != 0) {
+                PAL_DBG(LOG_TAG, "getECEnableSetting failed.");
+                continue;
+            } else if (!ec_enable_setting) {
+                PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d",
+                                sAttr.type, tx_dev->getSndDeviceId());
+                continue;
+            }
         }
         ec_map_rx_dev_count = ec_on ? 1 : 0;
         rxdevcount = updateECDeviceMap(rx_dev, tx_dev, tx_stream, ec_map_rx_dev_count, false);
