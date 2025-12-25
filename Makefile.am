@@ -86,7 +86,7 @@ btbundle_plugin_sources = ${top_srcdir}/plugins/codecs/bt_base.c \
                           ${top_srcdir}/plugins/codecs/bt_bundle.c
 
 
-AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DSOUND_TRIGGER_FEATURES_DISABLED
+AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED
 AM_CPPFLAGS += -DCONFIG_GSL
 if DEF_SPKR_CAL_PATH
 AM_CPPFLAGS += -DPAL_SP_TEMP_PATH=\"$(SPKR_CAL_PATH)\"

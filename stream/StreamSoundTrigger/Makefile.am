@@ -32,7 +32,8 @@ lib_LTLIBRARIES     = libstream_soundtrigger.la
 libstream_soundtrigger_la_SOURCES   = $(stream_soundtrigger_sources)
 libstream_soundtrigger_la_LIBADD    = @GLIB_LIBS@ -llog -lcutils -lexpat
 libstream_soundtrigger_la_LIBADD    += -L${abs_top_builddir}/plugins/vui_interface/.libs -lvui_intf
-libstream_soundtrigger_la_LIBADD    +=  -L${abs_top_builddir}/.libs -lpal
+libstream_soundtrigger_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal
+libstream_soundtrigger_la_LIBADD    += -L${abs_top_builddir}/session/SessionAR/.libs -lsession_ar
 libstream_soundtrigger_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_soundtrigger_la_CPPFLAGS += -std=c++14
 libstream_soundtrigger_la_LDFLAGS   = -shared -avoid-version
