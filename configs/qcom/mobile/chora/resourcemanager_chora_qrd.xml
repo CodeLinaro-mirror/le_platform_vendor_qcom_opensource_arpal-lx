@@ -591,7 +591,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_VI_FEEDBACK</id>
-            <back_end_name>TDM-LPAIF_WSA-TX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-TX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <samplerate>48000</samplerate>
@@ -699,7 +699,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_HAPTICS_VI_FEEDBACK</id>
-            <back_end_name>TDM-LPAIF_WSA-TX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-TX-SECONDARY</back_end_name>
             <snd_device_name>haptics-vi-feedback-mono</snd_device_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
@@ -750,7 +750,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_SPEAKER</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-RX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
             <samplerate>48000</samplerate>
@@ -818,7 +818,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-RX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
@@ -1093,7 +1093,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HAPTICS_DEVICE</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-RX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <bit_width>32</bit_width>
@@ -1102,7 +1102,7 @@
             <usecase>
                 <name>PAL_STREAM_HAPTICS</name>
                 <custom-config key="haptics-over-wsa">
-                    <backend_name>TDM-LPAIF_WSA-RX-PRIMARY</backend_name>
+                    <backend_name>TDM-LPAIF_AUD-RX-SECONDARY</backend_name>
                     <snd_device_name>haptics-dev</snd_device_name>
                     <samplerate>48000</samplerate>
                     <bit_width>32</bit_width>
@@ -1111,7 +1111,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-RX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>handset-wsa-ultrasound</snd_device_name>
@@ -1133,7 +1133,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND_DEDICATED</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>TDM-LPAIF_AUD-RX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>handset-wsa</snd_device_name>
