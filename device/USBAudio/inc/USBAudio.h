@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -82,7 +82,7 @@
 // Supported sample rates for USB
 #define USBID_SIZE                16
 /* support positional and index masks to 8ch */
-#define MAX_SUPPORTED_CHANNEL_MASKS 8
+#define MAX_SUPPORTED_USB_CHANNEL_MASKS 8
 #define MAX_HIFI_CHANNEL_COUNT 8
 #define MIN_CHANNEL_COUNT 1
 #define DEFAULT_CHANNEL_COUNT 2
@@ -156,8 +156,8 @@ public:
                                     bool uhqa);
     unsigned int getMax(unsigned int a, unsigned int b);
     unsigned int getMin(unsigned int a, unsigned int b);
-    static const unsigned int out_chn_mask_[MAX_SUPPORTED_CHANNEL_MASKS];
-    static const unsigned int in_chn_mask_[MAX_SUPPORTED_CHANNEL_MASKS];
+    static const unsigned int out_chn_mask_[MAX_SUPPORTED_USB_CHANNEL_MASKS];
+    static const unsigned int in_chn_mask_[MAX_SUPPORTED_USB_CHANNEL_MASKS];
     bool isCaptureProfileSupported();
     bool readDefaultJackStatus(bool is_playback);
     bool getJackConnectionStatus (int usb_card, const char* suffix);
