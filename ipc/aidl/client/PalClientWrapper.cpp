@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear.
  */
 
 #define LOG_TAG "PalClientWrapper"
@@ -114,9 +114,15 @@ int32_t pal_stream_open(struct pal_stream_attributes *attr, uint32_t no_of_devic
     std::shared_ptr<IPALCallback> ClbkBinder = ::ndk::SharedRefBase::make<PalCallback>(cb);
     struct pal_stream_info info = attr->info.opt_stream_info;
 
+#if defined( __aarch64__) || defined(__arm64__) || defined(__LP64__) || defined(__x86_64__)
     ALOGV("%s: ver [%ld] sz [%ld] dur[%ld] has_video [%d] is_streaming [%d] lpbk_type [%d]",
           __func__, info.version, info.size, info.duration_us, info.has_video, info.is_streaming,
           info.loopback_type);
+#else
+    ALOGV("%s: ver [%lld] sz [%lld] dur[%lld] has_video [%d] is_streaming [%d] lpbk_type [%d]",
+          __func__, info.version, info.size, info.duration_us, info.has_video, info.is_streaming,
+          info.loopback_type);
+#endif
 
     std::vector<PalDevice> aidlDevVec;
     std::vector<ModifierKV> aidlKvVec;
