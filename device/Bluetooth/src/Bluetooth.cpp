@@ -2599,7 +2599,7 @@ audio_lc3_codec_cfg_t BtSco::sLc3CodecInfo = {};
 bool BtSco::sIsNrecEnabled = false;
 std::shared_ptr<Device> BtSco::sObjHfpRx = nullptr;
 std::shared_ptr<Device> BtSco::sObjHfpTx = nullptr;
-bool BtSco::sIsHFPSyncEnabled = false;
+bool BtSco::sIsHFPSyncEnabled = true;
 
 BtSco::BtSco(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     : Bluetooth(device, Rm)
