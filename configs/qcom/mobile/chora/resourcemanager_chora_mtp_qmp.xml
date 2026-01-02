@@ -561,7 +561,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_FM_TUNER</id>
-            <back_end_name>MI2S-LPAIF-TX-SECONDARY</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_AUD-TX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
             <snd_device_name>play-fm</snd_device_name>
@@ -758,7 +758,7 @@
             <channels>2</channels>
             <samplerate>48000</samplerate>
             <snd_device_name>speaker</snd_device_name>
-            <speaker_protection_enabled>1</speaker_protection_enabled>
+            <speaker_protection_enabled>0</speaker_protection_enabled>
             <fractional_sr>0</fractional_sr>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
             <ext_ec_ref_enabled>0</ext_ec_ref_enabled>
