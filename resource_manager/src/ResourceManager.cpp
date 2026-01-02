@@ -7191,7 +7191,9 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
 
 exit:
     PAL_DBG(LOG_TAG,"Exit, status %d", ret);
-    if(value != NULL)
+    if (kv_pairs)
+        free(kv_pairs);
+    if (value != NULL)
         free(value);
     return ret;
 }
