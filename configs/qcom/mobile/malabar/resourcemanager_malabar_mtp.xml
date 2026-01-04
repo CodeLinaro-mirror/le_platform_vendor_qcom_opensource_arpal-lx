@@ -1,8 +1,35 @@
 <?xml version="1.0" encoding="ISO-8859-1"?>
-<!--
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries. 
- * SPDX-License-Identifier: BSD-3-Clause-Clear
- * -->
+<!-- Copyright (c) 2020-2021, The Linux Foundation. All rights reserved.
+
+* Redistribution and use in source and binary forms, with or without
+* modification, are permitted provided that the following conditions are
+* met:
+*     * Redistributions of source code must retain the above copyright
+*       notice, this list of conditions and the following disclaimer.
+*     * Redistributions in binary form must reproduce the above
+*       copyright notice, this list of conditions and the following
+*       disclaimer in the documentation and/or other materials provided
+*       with the distribution.
+*     * Neither the name of The Linux Foundation nor the names of its
+*       contributors may be used to endorse or promote products derived
+*       from this software without specific prior written permission.
+
+* THIS SOFTWARE IS PROVIDED "AS IS" AND ANY EXPRESS OR IMPLIED
+* WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
+* MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT
+* ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR CONTRIBUTORS
+* BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+* CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+* SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR
+* BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+* WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
+* OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
+* IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+* Changes from Qualcomm Technologies, Inc. are provided under the following license:
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+* -->
 
 <resource_manager_info>
     <version>2.0</version>
@@ -593,7 +620,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_VI_FEEDBACK</id>
-            <back_end_name>TDM-LPAIF_WSA-TX-PRIMARY</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_WSA-TX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
             <samplerate>48000</samplerate>
@@ -753,7 +780,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_SPEAKER</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_WSA-RX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
             <samplerate>48000</samplerate>
@@ -768,7 +795,7 @@
                         Pandeiro     : 3
                         Pandeiro I2S : 4
             -->
-            <wsa_used>4</wsa_used>
+            <wsa_used>3</wsa_used>
             <!-- Flag to specify cps mode which is applicable
                  Values: disable CPS: 0
                          CPS streaming: 1
@@ -819,7 +846,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_WSA-RX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
@@ -1111,10 +1138,10 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_WSA-RX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
-            <snd_device_name>handset-wsa-ultrasound</snd_device_name>
+            <snd_device_name>ultrasound-handset-wsa</snd_device_name>
             <samplerate>96000</samplerate>
             <bit_width>16</bit_width>
             <usecase>
@@ -1133,7 +1160,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND_DEDICATED</id>
-            <back_end_name>TDM-LPAIF_WSA-RX-PRIMARY</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_WSA-RX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>handset-wsa</snd_device_name>

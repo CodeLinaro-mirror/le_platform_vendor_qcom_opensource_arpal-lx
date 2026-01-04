@@ -108,8 +108,8 @@ int32_t BTUtilsDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                iter = mDevices.erase(iter);
                 s->removemDevice((*iter)->getSndDeviceId());
+                iter = mDevices.erase(iter);
                 s->removePalDevice(s, PAL_DEVICE_OUT_BLUETOOTH_SCO);
                 rm->unlockGraph();
             }
@@ -177,8 +177,8 @@ int32_t BTUtilsDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                iter = mDevices.erase(iter);
                 s->removemDevice((*iter)->getSndDeviceId());
+                iter = mDevices.erase(iter);
                 s->removePalDevice(s, sndDevId);
                 rm->unlockGraph();
             } else {
@@ -303,8 +303,8 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                iter = mDevices.erase(iter);
                 s->removemDevice((*iter)->getSndDeviceId());
+                iter = mDevices.erase(iter);
                 rm->unlockGraph();
             }
         } else {
@@ -372,8 +372,8 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                     rm->unlockGraph();
                     goto exit;
                 }
-                iter = mDevices.erase(iter);
                 s->removemDevice((*iter)->getSndDeviceId());
+                iter = mDevices.erase(iter);
                 rm->unlockGraph();
             }
         } else {

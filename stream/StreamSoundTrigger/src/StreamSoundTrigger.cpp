@@ -647,6 +647,8 @@ int32_t StreamSoundTrigger::setParameters(uint32_t param_id, void *payload) {
             break;
         }
         case PAL_PARAM_ID_RECOGNITION_CONFIG: {
+            if (reader_)
+                reader_->reset();
             new_rec_config =
                 (struct pal_st_recognition_config *)param_payload->payload;
             std::shared_ptr<StEventConfig> ev_cfg(
@@ -1052,8 +1054,11 @@ int32_t StreamSoundTrigger::SetEngineDetectionState(int32_t det_type) {
         return -EINVAL;
     }
 
-    if (det_type == GMM_DETECTED)
+    if (det_type == GMM_DETECTED) {
         rm->acquireWakeLock();
+        if (reader_)
+            reader_->updateState(READER_PREPARED);
+    }
 
     std::shared_ptr<StEventConfig> ev_cfg(
        new StDetectedEventConfig(det_type));
@@ -1613,6 +1618,7 @@ int32_t StreamSoundTrigger::SendRecognitionConfig(
     uint32_t ring_buffer_len = 0;
     uint32_t ring_buffer_size = 0;
     uint32_t mmap_buf_len = 0;
+    uint32_t mmap_frame_len = 0;
     vui_intf_param_t param {};
     struct buffer_config buf_config;
 
@@ -1712,13 +1718,17 @@ int32_t StreamSoundTrigger::SendRecognitionConfig(
     // update input buffer size for mmap usecase
     if (vui_ptfm_info_->GetMmapEnable()) {
         mmap_buf_len = vui_ptfm_info_->GetMmapBufferDuration();
-        inBufSize = vui_ptfm_info_->GetMmapFrameLength() *
+        mmap_frame_len = vui_ptfm_info_->GetMmapFrameLength();
+        inBufSize = mmap_frame_len *
             ((hist_buffer_duration + mmap_buf_len - 1) / mmap_buf_len) *
             sm_cfg_->GetSampleRate() * sm_cfg_->GetBitWidth() *
             sm_cfg_->GetOutChannels() / (MS_PER_SEC * BITS_PER_BYTE);
         if (!inBufSize) {
-            PAL_ERR(LOG_TAG, "Invalid frame size, use default value");
-            inBufSize = BUF_SIZE_CAPTURE;
+            PAL_ERR(LOG_TAG, "Invalid frame size");
+            status = -EINVAL;
+            goto error_exit;
+        } else {
+            inBufCount = (mmap_buf_len + mmap_frame_len - 1) / mmap_frame_len;
         }
     }
 
@@ -1955,7 +1965,6 @@ int32_t StreamSoundTrigger::notifyClient(uint32_t detection) {
     if (callback_) {
         // update stream state to stopped before unlock stream mutex
         currentState = STREAM_STOPPED;
-        reader_->updateState(READER_PREPARED);
         notify_time = std::chrono::steady_clock::now();
         total_process_duration =
             std::chrono::duration_cast<std::chrono::milliseconds>(
@@ -3583,6 +3592,9 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 if (st_stream_.vui_ptfm_info_->GetNotifySecondStageFailure()) {
                     st_stream_.rejection_notified_ = true;
                     st_stream_.notifyClient(PAL_RECOGNITION_STATUS_FAILURE);
+                    if (st_stream_.reader_) {
+                        st_stream_.reader_->reset();
+                    }
                 } else {
                     if (st_stream_.reader_) {
                         st_stream_.reader_->reset();
