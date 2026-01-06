@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -245,6 +245,7 @@ public:
     virtual int32_t flush() {return 0;}
     virtual int32_t suspend() {return 0;}
     virtual int32_t read(struct pal_buffer *buf) = 0;
+    virtual int32_t ResetMmapBuff() {return 0;}
 
     virtual int32_t addRemoveEffect(pal_audio_effect_t effect, bool enable) = 0; //TBD: make this non virtual and prrovide implementation as StreamPCM and StreamCompressed are doing the same things
     virtual int32_t setParameters(uint32_t param_id, void *payload) = 0;
