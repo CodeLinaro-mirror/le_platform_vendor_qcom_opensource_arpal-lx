@@ -36,12 +36,14 @@
 #include "SessionAlsaUtils.h"
 #include "Device.h"
 #include "kvh2xml.h"
+#include "SessionGsl.h"
 #include <dlfcn.h>
 #include <unistd.h>
 #include <cutils/properties.h>
 #include <sstream>
 #include <string>
 #include <regex>
+#include <agm/agm_api.h>
 
 #define BT_IPC_SOURCE_LIB "btaudio_offload_if.so"
 #define BT_IPC_SOURCE_LIB_LINUX_EMBEDDED "libbthost_if.so"
@@ -395,6 +397,28 @@ int Bluetooth::configureA2dpEncoderDecoder()
                 goto error;
             } else {
                 builder->payloadRATConfig(&paramData, &paramSize, ratMiid, &codecConfig);
+
+                // --- BLE broadcast RAT channel-map override ---
+                do {
+                    const uint8_t numCh = codecConfig.ch_info.channels;
+                    const size_t hdrSz = sizeof(struct apm_module_param_data_t) +
+                                        sizeof(struct param_id_rat_mf_t);
+                    const size_t needSz = hdrSz + (numCh * sizeof(uint16_t));
+                    if (!paramData || paramSize < needSz) {
+                        break;  // insufficient buffer; skip override
+                    }
+
+                    if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+                        uint16_t* pcmChannel = reinterpret_cast<uint16_t*>(paramData + hdrSz);
+                        if (numCh == 3) {
+                            pcmChannel[2] = PCM_CHANNEL_LS;
+                        } else if (numCh == 4) {
+                            pcmChannel[2] = PCM_CHANNEL_LS;
+                            pcmChannel[3] = PCM_CHANNEL_RS;
+                        }
+                    }
+                } while (0);
+
                 if (paramSize) {
                     dev->updateCustomPayload(paramData, paramSize);
                     free(paramData);
@@ -416,6 +440,29 @@ int Bluetooth::configureA2dpEncoderDecoder()
             }
 
             builder->payloadPcmCnvConfig(&paramData, &paramSize, cnvMiid, &codecConfig, false /* isRx */);
+
+            // --- BLE broadcast PCM CNV channel-map override ---
+            do {
+                const uint8_t numCh = codecConfig.ch_info.channels;
+                const size_t hdrSz = sizeof(struct apm_module_param_data_t) +
+                                    sizeof(struct media_format_t) +
+                                    sizeof(struct payload_pcm_output_format_cfg_t);
+                const size_t needSz = hdrSz + (numCh * sizeof(uint8_t));
+                if (!paramData || paramSize < needSz) {
+                    break;  // insufficient buffer; skip override
+                }
+
+                if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+                    uint8_t* pcmChannel = reinterpret_cast<uint8_t*>(paramData + hdrSz);
+                    if (numCh == 3) {
+                        pcmChannel[2] = PCM_CHANNEL_LS;
+                    } else if (numCh == 4) {
+                        pcmChannel[2] = PCM_CHANNEL_LS;
+                        pcmChannel[3] = PCM_CHANNEL_RS;
+                    }
+                }
+            } while (0);
+
             if (paramSize) {
                 dev->updateCustomPayload(paramData, paramSize);
                 delete [] paramData;
