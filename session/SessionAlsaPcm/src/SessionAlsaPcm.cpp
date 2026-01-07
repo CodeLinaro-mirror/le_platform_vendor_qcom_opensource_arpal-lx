@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -63,8 +63,6 @@ bool SessionAlsaPcm::silenceEventRegistered = false;
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_MIN 64
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_MAX 2048
 #define SESSION_ALSA_MMAP_PERIOD_COUNT_DEFAULT (SESSION_ALSA_MMAP_PERIOD_COUNT_MAX)
-/* Param ID definitions */
-#define PARAM_ID_FFV_DOA_TRACKING_MONITOR 0x080010A4
 
 extern "C" Session* CreatePcmSession(const std::shared_ptr<ResourceManager> rm) {
     return new SessionAlsaPcm(rm);
@@ -2768,6 +2766,13 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
                                     PARAM_ID_FFV_DOA_TRACKING_MONITOR, configSize);
             break;
         }
+        case PAL_PARAM_ID_FLUENCE_SOURCETRACKING:
+        {
+            configSize = sizeof(struct source_track_meta_fnn);
+            builder->payloadGetParam(s, &payloadData, &payloadSize, miid,
+                                    PARAM_ID_FLUENCE_SOURCETRACKING, configSize);
+            break;
+        }
         case PAL_PARAM_ID_WAKEUP_MODULE_VERSION:
         {
             payloadData = (uint8_t *)*payload;
@@ -2827,10 +2832,13 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
 
     ar_mem_cpy(config, configSize, ptr, configSize);
     *payload = (void *)config;
-
+    config = NULL;
 
 exit:
     builder->freeCustomPayload(&payloadData, &payloadSize);
+    if (config) {
+        free(config);
+    }
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
 }
