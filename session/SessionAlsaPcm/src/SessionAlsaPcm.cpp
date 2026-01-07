@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
- * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: SessionAlsaPcm"
@@ -81,7 +81,6 @@
 #define RX_SWR_PROC_INTF   "/proc/rx_swr_ctrl/swr_mstr_ctrl_regdump"
 
 #define KMSG_FILE     "kernel_log"
-#define SILENCE_EVENT_INFO DUMP_OUT_PATH "silence_event_info"
 #define BOLERO_REGDUMP_OUT_FILE          "lpass_cdc_regdump"
 #define WCD939X_REGDUMP_OUT_FILE         "wcd939x_regdump"
 #define VA_SWR_REGDUMP_OUT_FILE          "va_swr_regdump"
@@ -3149,7 +3148,7 @@ int SessionAlsaPcm::write(Stream *s, struct pal_buffer *buf, int * size)
             if (sAttr.out_media_config.sample_rate)
                 ns = pcm_bytes_to_frames(pcm, sizeWritten)*1000000000LL/
                     sAttr.out_media_config.sample_rate;
-            PAL_DBG(LOG_TAG, "1.bufsize:%u ns:%ld", sizeWritten, ns);
+            PAL_DBG(LOG_TAG, "1.bufsize:%u ns:%ld", (int32_t)sizeWritten, ns);
             requestAdmFocus(s, ns);
             status =  pcm_mmap_write(pcm, data,  sizeWritten);
             releaseAdmFocus(s);
@@ -3181,7 +3180,7 @@ int SessionAlsaPcm::write(Stream *s, struct pal_buffer *buf, int * size)
             if (sAttr.out_media_config.sample_rate)
                 ns = pcm_bytes_to_frames(pcm, sizeWritten)*1000000000LL/
                     sAttr.out_media_config.sample_rate;
-            PAL_DBG(LOG_TAG, "2.bufsize:%u ns:%ld", sizeWritten, ns);
+            PAL_DBG(LOG_TAG, "2.bufsize:%u ns:%ld", (int32_t)sizeWritten, ns);
             requestAdmFocus(s, ns);
             status =  pcm_mmap_write(pcm, data,  sizeWritten);
             releaseAdmFocus(s);
@@ -3742,6 +3741,21 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             }
             return 0;
         }
+        case PAL_PARAM_ID_ASRC:
+        {
+            status = getPCMDeviceID(streamHandle, &device);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get Device id for ASRC, status= %d", status);
+                return status;
+            }
+
+            status = handleASRCSetting(streamHandle, (asrc_ratio_t *)payload, device, mixer, builder, rxAifBackEnds);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to set handle for ASRC, status= %d", status);
+                return status;
+            }
+            return 0;
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -4119,7 +4133,8 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
             status = -ENOMEM;
             goto exit;
         } else {
-            PAL_ERR(LOG_TAG, "Payload size %d exceeds max permissible value %d", payloadSize, MAX_PCM_PAYLOAD_SIZE);
+            PAL_ERR(LOG_TAG, "Payload size %d exceeds max permissible value %d",
+                (int32_t)payloadSize, (int32_t)MAX_PCM_PAYLOAD_SIZE);
             status = -EINVAL;
             goto exit;
         }
@@ -4825,7 +4840,7 @@ int dump_registers(char *in_file_path, char *regdump_out_file)
        read_out_size = -1;
        goto close_regdump_file;
     }
-    PAL_INFO(LOG_TAG, "Bolero Regmap Dump Size %ld and file %s", regdump_size, regdump_out_file);
+    PAL_INFO(LOG_TAG, "Bolero Regmap Dump Size %ld and file %s", (long)regdump_size, regdump_out_file);
 
 close_regdump_file:
     close(regdump_wr_fd);
@@ -4896,21 +4911,21 @@ void handleSilenceDetectionCb(uint64_t hdl __unused, uint32_t event_id, void *ev
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         BOLERO_REGDUMP_OUT_PATH, timenow);
-        dump_registers(BOLERO_PROC_INTF, out_file_name);
+        dump_registers((char*)BOLERO_PROC_INTF, out_file_name);
 
         /*
          * Read SWR VA Macro Registers
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         VA_SWR_REGDUM_OUT_PATH, timenow);
-        dump_registers(VA_SWR_PROC_INTF, out_file_name);
+        dump_registers((char*)VA_SWR_PROC_INTF, out_file_name);
 
         /*
          * Read WCD939X  Registers
          **/
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         WCD939X_REGDUMP_OUT_PATH, timenow);
-        dump_registers(WCD939X_PROC_INTF, out_file_name);
+        dump_registers((char*)WCD939X_PROC_INTF, out_file_name);
 
         /*
          * kernel msg (/dev/kmsg) read

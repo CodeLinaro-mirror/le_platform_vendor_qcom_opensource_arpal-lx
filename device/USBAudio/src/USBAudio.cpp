@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -328,7 +328,7 @@ int32_t USB::checkAndUpdateSampleRate(unsigned int *sampleRate __unused)
 
 int32_t USB::getParameter(uint32_t param_id, void **inputParam)
 {
-    int *ckv;
+    int *ckv = nullptr;
     int32_t status = 0;
     switch(param_id) {
         case PAL_PARAM_ID_VENDOR_UUID:
@@ -463,11 +463,11 @@ int USB::selectBestConfig(struct pal_device *dattr,
 
 }
 
-const unsigned int USBCardConfig::out_chn_mask_[MAX_SUPPORTED_CHANNEL_MASKS] =
+const unsigned int USBCardConfig::out_chn_mask_[MAX_SUPPORTED_USB_CHANNEL_MASKS] =
     {0x3, 0x80000003, 0x80000007, 0x8000000f, 0x8000001f, 0x8000003f,
     0x8000007f, 0x800000ff};
 
-const unsigned int USBCardConfig::in_chn_mask_[MAX_SUPPORTED_CHANNEL_MASKS] =
+const unsigned int USBCardConfig::in_chn_mask_[MAX_SUPPORTED_USB_CHANNEL_MASKS] =
     {0x10, 0x80000001, 0xc, 0x80000003, 0x80000007, 0x8000000f, 0x8000001f,
     0x8000003f};
 

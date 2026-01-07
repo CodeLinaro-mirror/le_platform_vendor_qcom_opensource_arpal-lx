@@ -26,10 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef _BLUETOOTH_H_
@@ -95,7 +94,7 @@ typedef enum {
     CTRL_SKT_DISCONNECTED,
     CTRL_ACK_UNKNOWN,
     CTRL_ACK_RECONFIGURATION,
-};
+}tCTRL_ACK_TYPE;
 
 typedef void (*bt_audio_pre_init_t)(void);
 typedef int (*audio_source_open_api_t)(tSESSION_TYPE session_type);
