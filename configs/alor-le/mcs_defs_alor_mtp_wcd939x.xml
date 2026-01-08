@@ -1,0 +1,13 @@
+<!--
+* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+* SPDX-License-Identifier: BSD-3-Clause-Clear
+-->
+
+<mcs_defs>
+    <device key_value="0xA2000001"
+            snd_device_name="speaker"
+            back_end_name="CODEC_DMA-LPAIF_WSA-RX-3"/>
+    <device key_value="0xA3000009"
+            snd_device_name="vi-feedback"
+            back_end_name="CODEC_DMA-LPAIF_WSA-TX-3"/>
+</mcs_defs>
