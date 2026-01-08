@@ -341,8 +341,7 @@ int32_t voicePluginConfigSetConfigStart(Stream* s, void* pluginPayload)
     /* configuring RAT_RENDER, updating custom payload if it is a NB/WB SCO usecase*/
     status = populateRatPayload(s, session, builder);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"Exit Configuring RAT_RENDER failed with status %d", status);
-        goto exit;
+        PAL_ERR(LOG_TAG,"Configuring RAT_RENDER failed with status %d", status);
     }
 
     /* configuring Rx MFC's, updating custom payload and send mixer controls at once*/
