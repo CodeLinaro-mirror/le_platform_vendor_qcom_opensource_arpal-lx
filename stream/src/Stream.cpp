@@ -1600,7 +1600,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             && (!rm->isDeviceReady(curDevId))) ||
             curDevId == PAL_DEVICE_OUT_PROXY ||
             rm->isPluginDevice(curDevId) ||
-            rm->isDpDevice(curDevId))) {
+            rm->isDpDevice(curDevId) ||
+            rm->isPluginPlaybackDevice(curDevId))) {
             checkNoneDevice = true;
         }
 
