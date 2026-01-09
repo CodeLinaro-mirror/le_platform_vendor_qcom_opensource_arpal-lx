@@ -7367,7 +7367,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
                     device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BLE ||
-                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
+                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST ||
+                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
+                    device_connection->id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
+                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_HFP ||
+                    device_connection->id == PAL_DEVICE_IN_BLUETOOTH_HFP)) {
                     dattr.id = device_connection->id;
                     dattr.addressV1 = device_connection->device.addressV1;
                     dev = Device::getInstance(&dattr, rm);
