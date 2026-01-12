@@ -458,26 +458,23 @@ int SessionAlsaVoice::open(Stream * s)
         goto exit;
     }
 
-    if (sAttr.type == PAL_STREAM_VOICE_CALL){
-        PAL_DBG(LOG_TAG, "before registerMixerEventCallback");
-        registerRxCallBack(HandleRxDtmfCallBack, (uint64_t)s);
-
-        status = rm->registerMixerEventCallback(pcmDevRxIds,
-            sessionRxCb, rxCbCookie, true);
+    if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+        status = registerArEvent(EVENT_ID_DTMF_DETECTION,
+                                 SessionAlsaVoice::HandleRxDtmfCallBack,
+                                 (uint64_t)s,
+                                 this->pcmDevRxIds, true);
         if (status != 0) {
-            PAL_ERR(LOG_TAG, "Failed to register callback to rm for RX");
+            PAL_ERR(LOG_TAG, "Failed to register Rx DTMF with SessionAR");
         }
 
-        registerTxCallBack(HandleTxDtmfCallBack, (uint64_t)s);
-
-        status = rm->registerMixerEventCallback(pcmDevTxIds,
-            sessionTxCb, txCbCookie, true);
+        status = registerArEvent(EVENT_ID_DTMF_DETECTION,
+                                 SessionAlsaVoice::HandleTxDtmfCallBack,
+                                 (uint64_t)s,
+                                 this->pcmDevTxIds, true);
         if (status != 0) {
-            PAL_ERR(LOG_TAG, "Failed to register callback to rm for TX");
+            PAL_ERR(LOG_TAG, "Failed to register Tx DTMF with SessionAR");
         }
-        PAL_DBG(LOG_TAG, "after registerMixerEventCallback for DTMF RX/TX");
     }
-
 exit:
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
