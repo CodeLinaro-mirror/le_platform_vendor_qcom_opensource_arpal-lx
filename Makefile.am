@@ -148,4 +148,4 @@ endif
 libpal_la_LIBADD   += -L${abs_top_builddir}/plugins/vui_interface/.libs -lvui_intf
 libpal_la_LIBADD   += -L${abs_top_builddir}/plugins/PluginManager/.libs -lplugin_manager
 
-SUBDIRS = plugins . session stream device plugins/configs
+SUBDIRS = plugins . session stream device plugins/configs adsprpcd

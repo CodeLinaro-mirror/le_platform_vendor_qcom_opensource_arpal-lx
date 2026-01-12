@@ -151,7 +151,12 @@ int SpeakerProtection::updateVICustomPayload(void *payload, size_t size)
     if (!viCustomPayloadSize) {
         viCustomPayload = calloc(1, size);
     } else {
-        viCustomPayload = realloc(viCustomPayload, viCustomPayloadSize + size);
+        void *temp = realloc(viCustomPayload, viCustomPayloadSize + size);
+        if (!temp) {
+            PAL_ERR(LOG_TAG, "failed to reallocate memory for custom payload for VI");
+            return -ENOMEM;
+        }
+        viCustomPayload = temp;
     }
 
     if (!viCustomPayload) {
@@ -164,7 +169,6 @@ int SpeakerProtection::updateVICustomPayload(void *payload, size_t size)
     PAL_INFO(LOG_TAG, "viCustomPayloadSize = %zu", viCustomPayloadSize);
     return 0;
 }
-
 /* Function to check if Speaker is in use or not.
  * It returns the time as well for which speaker is not in use.
  */
@@ -1829,10 +1833,7 @@ int SpeakerProtection::viTxSetupThreadLoop()
 
     if (!spR0T0confg) {
         PAL_ERR(LOG_TAG," unable to create speaker config payload\n");
-        if (builder) {
-            delete builder;
-            builder = NULL;
-        }
+        ret = -ENOMEM;
         goto free_fe;
     }
     spR0T0confg->num_ch = vi_device.channels;
@@ -1946,7 +1947,7 @@ free_fe:
             disconnectFeandBe(pcmDevIdTx, backEndName);
         }
         //rm->freeFrontEndIds(PCM_RECORD_HOSTLESS, pcmDevIdTx);
-	rm->freeFrontEndIds(pcmDevIdTx, sAttr, dir);
+        rm->freeFrontEndIds(pcmDevIdTx, sAttr, dir);
         pcmDevIdTx.clear();
     }
 
@@ -2064,18 +2065,16 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
          * Move the complete vi tx setup path to that
          * and return back */
         if(!viTxSetupThrdCreated) {
-            viTxSetupThrdCreated = true; // Set flag before thread creation
             try {
                 viTxSetupThread = std::thread(&SpeakerProtection::viTxSetupThreadLoop, this);
+                viTxSetupThrdCreated = true; // Set flag AFTER successful thread creation
                 PAL_DBG(LOG_TAG, " Created vi tx thread :%s ", __func__);
             } catch (const std::exception& e) {
-                viTxSetupThrdCreated = false; // Reset flag if thread creation fails
                 PAL_ERR(LOG_TAG, "Failed to create VI setup thread: %s", e.what());
                 ret = -ENOMEM;
                 goto exit;
             }
-	}
-
+        }
         memset(&device, 0, sizeof(device));
         memset(&deviceCPS, 0, sizeof(device));
         memset(&sAttr, 0, sizeof(sAttr));
