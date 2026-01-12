@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -105,6 +105,9 @@
 #define DEFAULT_PERIOD_COUNT 4
 
 //TODO : remove this and add proper file
+#ifdef EVENT_ID_VI_CALIBRATION
+#undef EVENT_ID_VI_CALIBRATION
+#endif
 #define EVENT_ID_VI_CALIBRATION 0x08001511
 
 #define NORMAL_MODE 0
@@ -1963,6 +1966,7 @@ int32_t SpeakerProtection::spkrProtProcessingMode(bool flag)
 
                 // wsa883x specific cps payload
                 updateCpsCustomPayload(miid);
+                [[fallthrough]];
 
            default:
                 enableDevice(audioRoute, mSndDeviceName_vi);

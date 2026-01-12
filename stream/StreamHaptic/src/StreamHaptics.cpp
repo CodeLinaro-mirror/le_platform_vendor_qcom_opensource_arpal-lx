@@ -31,9 +31,9 @@
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ *  Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *  Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ *  SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: StreamHaptics"
@@ -86,7 +86,7 @@ int32_t  StreamHaptics::setParameters(uint32_t param_id, void *payload)
     } else {
        /* If Setparam for touch haptics is called when Ringtone Haptics is active
           skip the Setparam for touch haptics*/
-        PAL_DBG(LOG_TAG, "activestreams size %d",activeStreams.size());
+        PAL_DBG(LOG_TAG, "activestreams size %d",(int32_t)activeStreams.size());
         for (int i = 0; i<activeStreams.size(); i++) {
             stream = static_cast<Stream *>(activeStreams[i]);
             stream->getStreamAttributes(&ActivesAttr);
@@ -272,7 +272,7 @@ int32_t StreamHaptics::HandleHapticsConcurrency(struct pal_stream_attributes *sa
     } else {
        /* If incoming stream is Ringtone Haptics and active stream is Touch
           stop the Touch haptics and start Ringtone*/
-        PAL_DBG(LOG_TAG, "activestreams size %d",activeStreams.size());
+        PAL_DBG(LOG_TAG, "activestreams size %d",(int32_t)activeStreams.size());
         for (int i = 0; i<activeStreams.size(); i++) {
             stream = static_cast<Stream *>(activeStreams[i]);
             stream->getStreamAttributes(&ActivesAttr);

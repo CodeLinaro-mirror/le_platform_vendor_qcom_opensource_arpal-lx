@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -289,6 +289,14 @@ struct __attribute__((__packed__)) volume_ctrl_multichannel_gain_t
     uint32_t num_config;
     volume_ctrl_channels_gain_config_t gain_data[0];
 };
+
+/*ID of ASRC parameter used by AUTO_ASRC_RATIO*/
+#define PARAM_ID_AUTO_ASRC_RATIO 0x0800129E
+
+/*ASRC default value*/
+#define ASRC_RATIO_RAMP_DEFAULT 0x200000
+#define ASRC_RATIO_EFFECTIVE_DEFAULT 1
+
 
 std::vector<allKVs> PayloadBuilder::all_streams;
 std::vector<allKVs> PayloadBuilder::all_streampps;
@@ -686,7 +694,7 @@ void PayloadBuilder::payloadGainConfig(uint8_t** payload, size_t* size,
     uint8_t* payloadInfo = NULL;
     size_t payloadSize = 0, padBytes = 0;
 
-    PAL_VERBOSE(LOG_TAG,"Gain set:%f \n",gaindata->gain);
+    PAL_VERBOSE(LOG_TAG,"Gain set:%hu \n",gaindata->gain);
     uint16_t gainQ13 = gaindata->gain;
     payloadSize = sizeof(struct apm_module_param_data_t) +
                   sizeof(struct param_id_module_gain_cfg_t);
@@ -1504,7 +1512,7 @@ int PayloadBuilder::payloadACDBTunnelParam(uint8_t **alsaPayload,
 
     if (effectCustomPayload->paramId) {
         paddedPayloadSize = PAL_ALIGN_8BYTE(payloadSize);
-        PAL_INFO(LOG_TAG, "payloadSize=%d paddedPayloadSize=%x",
+        PAL_INFO(LOG_TAG, "payloadSize=%d paddedPayloadSize=%zx",
                     payloadSize, paddedPayloadSize);
         payloadACDBTunnelInfo = (struct agm_acdb_tunnel_param *)calloc(1,
             sizeof(struct agm_acdb_tunnel_param) +
@@ -1576,7 +1584,7 @@ int PayloadBuilder::payloadACDBTunnelParam(uint8_t **alsaPayload,
         header->param_size = payloadSize;
         header->error_code = 0x0;
         PAL_DBG(LOG_TAG, "tag = 0x%x", acdbParam->tag);
-        PAL_DBG(LOG_TAG, "padded payload size = 0x%x", paddedPayloadSize);
+        PAL_DBG(LOG_TAG, "padded payload size = 0x%zx", paddedPayloadSize);
         if (paddedPayloadSize) {
             ptrDst = (uint8_t *)header + sizeof(struct apm_module_param_data_t);
             ptrSrc = (uint8_t *)effectCustomPayload->data;
@@ -1600,7 +1608,7 @@ int PayloadBuilder::payloadACDBTunnelParam(uint8_t **alsaPayload,
                 ((uint8_t *)(effectCustomPayload->data) + parsedSize);
             paddedPayloadSize = PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
                                                 + gefMultipleParamHeader->length);
-            PAL_INFO(LOG_TAG, "total padded size = 0x%x current padded size=0x%x",
+            PAL_INFO(LOG_TAG, "total padded size = 0x%x current padded size=0x%zx",
                         totalPaddedSize, paddedPayloadSize);
             PAL_INFO(LOG_TAG, "current param value length = 0x%x",
                         gefMultipleParamHeader->length);
@@ -1704,7 +1712,7 @@ int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
                         acdbParam->num_kvs * sizeof(struct gsl_key_value_pair)
                         - sizeof(pal_effect_custom_payload_t);
         paddedSize = PAL_ALIGN_8BYTE(payloadSize);
-        PAL_INFO(LOG_TAG, "payloadSize=%d paddedSize=%x", payloadSize, paddedSize);
+        PAL_INFO(LOG_TAG, "payloadSize=%d paddedSize=%zx", payloadSize, paddedSize);
         payloadInfo = (struct agm_acdb_param *)calloc(1,
             sizeof(struct agm_acdb_param) +
             (acdbParam->num_kvs + appendSampleRateInCKV) *
@@ -1802,7 +1810,7 @@ int PayloadBuilder::payloadACDBParam(uint8_t **alsaPayload, size_t *size,
                 ((uint8_t *)(effectCustomPayload->data) + parsedSize);
             paddedSize= PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
                                                 + gefMultipleParamHeader->length);
-            PAL_DBG(LOG_TAG, "total padded size = 0x%x paddedSize=0x%x",
+            PAL_DBG(LOG_TAG, "total padded size = 0x%x paddedSize=0x%zx",
                         totalPaddedSize, paddedSize);
             PAL_DBG(LOG_TAG, "current param value length = 0x%x",
                         gefMultipleParamHeader->length);
@@ -1887,7 +1895,7 @@ int PayloadBuilder::payloadCustomParam(uint8_t **alsaPayload, size_t *size,
                 (legacyGefParamHeader *)((uint8_t *)customPayload + parsedSize);
             alsaPayloadSize = PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
                                                 + gefMultipleParamHeader->length);
-            PAL_DBG(LOG_TAG, "total padded size = 0x%x alsapayloadsize=0x%x",
+            PAL_DBG(LOG_TAG, "total padded size = 0x%x alsapayloadsize=0x%zx",
                         totalPaddedSize, alsaPayloadSize);
             PAL_DBG(LOG_TAG, "current param length = 0x%x",
                         gefMultipleParamHeader->length);
@@ -5189,5 +5197,37 @@ int PayloadBuilder::freeCustomPayload()
         customPayload = NULL;
         customPayloadSize = 0;
     }
+    return 0;
+}
+
+int32_t PayloadBuilder::payloadASRCConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, asrc_ratio_t *asrc_params)
+{
+    struct apm_module_param_data_t* header = nullptr;
+    asrc_ratio_t *asrc_ratio = nullptr;
+    uint8_t* payloadInfo = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+                  sizeof(asrc_ratio_t);
+    padBytes = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = (uint8_t *) malloc((payloadSize + padBytes) * sizeof(uint8_t));
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return -1;
+    }
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = PARAM_ID_AUTO_ASRC_RATIO;
+    header->error_code = 0x0;
+    header->param_size = payloadSize -  sizeof(struct apm_module_param_data_t);
+    asrc_ratio = (asrc_ratio_t *)(payloadInfo + sizeof(struct apm_module_param_data_t));
+    asrc_ratio->ratio = asrc_params->ratio;
+    asrc_ratio->effective = asrc_params->effective;
+    asrc_ratio->ramp = asrc_params->ramp;
+    PAL_INFO(LOG_TAG, "ASRC header params IID:%x param_id:%x error_code:%d param_size:%d, asrc_ratio=%x, asrc_eff=%x, asrc_ramp=%x",
+                  header->module_instance_id, header->param_id,
+                  header->error_code, header->param_size, asrc_ratio->ratio, asrc_ratio->effective, asrc_ratio->ramp);
+    *size = payloadSize + padBytes;
+    *payload = payloadInfo;
     return 0;
 }

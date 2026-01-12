@@ -139,7 +139,7 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
                 if(!item.refCount){
                     try {
                         PAL_DBG(LOG_TAG, "Opening lib %s", item.libName.c_str());
-                        item.handle = dlopen(item.libName.c_str(), RTLD_LAZY);
+                        item.handle = dlopen(item.libName.c_str(),RTLD_NOW | RTLD_GLOBAL);
                         if (item.handle) {
                             item.plugin = (dlsym(item.handle, item.entryFunction.c_str()));
                             if (!item.plugin) {
