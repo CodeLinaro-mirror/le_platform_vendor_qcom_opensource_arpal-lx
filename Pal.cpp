@@ -1624,8 +1624,22 @@ int32_t pal_stream_get_volume(pal_stream_handle_t *stream_handle,
 }
 
 int32_t pal_stream_get_mute(pal_stream_handle_t *stream_handle, bool *state){
-    PAL_ERR(LOG_TAG, "error: API: pal_stream_get_mute not implemented");
-    return -ENOSYS;
+    Stream *s = NULL;
+    int status;
+    if (!stream_handle || !state) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        return status;
+    }
+    PAL_DBG(LOG_TAG, "Enter. Stream handle :%pK", stream_handle);
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = s->getMute(state);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "get mute failed with status %d", status);
+        return status;
+    }
+    PAL_DBG(LOG_TAG, "Exit. status %d", status);
+    return status;
 }
 
 int32_t pal_get_mic_mute(bool *state){

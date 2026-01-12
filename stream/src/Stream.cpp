@@ -570,6 +570,25 @@ exit:
     return status;
 }
 
+int32_t Stream::getMute(bool *state)
+{
+    int32_t status = 0;
+    PAL_DBG(LOG_TAG, "Enter. ");
+
+    if (!state) {
+        PAL_ERR(LOG_TAG, "NULL pointer sent");
+        status = -EINVAL;
+        return status;
+    }
+
+    mStreamMutex.lock();
+    *state = mMuteState;
+    mStreamMutex.unlock();
+
+    PAL_DBG(LOG_TAG, "Exit status: %d state: %d", status, *state);
+    return status;
+}
+
 int32_t Stream::setBufInfo(pal_buffer_config *in_buffer_cfg,
                            pal_buffer_config *out_buffer_cfg)
 {

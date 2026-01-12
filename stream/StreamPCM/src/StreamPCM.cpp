@@ -1165,6 +1165,9 @@ int32_t StreamPCM::mute_l(bool state)
         goto exit;
     }
     status = session->mute(this, state);
+    if (!status) {
+        mMuteState = state;
+    }
 
 exit:
     PAL_DBG(LOG_TAG, "Exit status: %d", status);
