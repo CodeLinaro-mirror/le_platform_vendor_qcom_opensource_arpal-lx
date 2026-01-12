@@ -819,6 +819,7 @@ silence_det_setup_done:
             goto exit;
         }
         if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+            Stream* foundStream = nullptr;
             status = configureCallTranslationModules(s, builder, mxr, session, rm);
             if (status) {
                 PAL_ERR(LOG_TAG, "Failed to set call RX path translation modules, status = %d", status);
@@ -833,16 +834,26 @@ silence_det_setup_done:
                 PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Mux-Demux module.");
                 stream_itr->getStreamAttributes(&sAttr);
                 if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+                    PAL_DBG(LOG_TAG, ": Found Voice Call. Configure Mux/Demux for Voice");
                     tag = MUX_DEMUX_VOICE;
+                    foundStream = stream_itr;
                     break;
                 } else if (sAttr.type == PAL_STREAM_VOIP_RX) {
+                    PAL_DBG(LOG_TAG, ": Found VoIP Call. Configure Mux/Demux for VoIP");
                     tag = MUX_DEMUX_VOIP;
+                    foundStream = stream_itr;
                     break;
                 }
             }
             status = session->setConfig(s, MODULE, tag);
             if (status) {
                 PAL_ERR(LOG_TAG, "Failed to set mux-demux tag data, status = %d", status);
+                goto exit;
+            }
+            tag = configureTranslationRxGain(foundStream);
+            status = session->setConfig(s, MODULE, tag);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to translation rx gain, status = %d", status);
                 goto exit;
             }
             goto exit;

@@ -672,6 +672,59 @@ exit:
     return status;
 }
 
+uint32_t configureTranslationRxGain(Stream* s)
+{
+    pal_stream_attributes sAttr = {};
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    struct pal_device dAttr = {};
+    int status;
+    uint32_t gainTag = 0;
+    std::shared_ptr<ResourceManager> rm = ResourceManager::getInstance();
+
+    PAL_DBG(LOG_TAG, "Enter");
+
+    status = s->getAssociatedDevices(associatedDevices);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+        status = 0;
+        goto exit;
+    }
+    for (int i = 0; i < associatedDevices.size();i++) {
+        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+            status = 0;
+            goto exit;
+        }
+        switch (dAttr.id) {
+            case PAL_DEVICE_OUT_HANDSET:
+                gainTag = GAIN_HANDSET;
+                break;
+            case PAL_DEVICE_OUT_SPEAKER:
+                gainTag = GAIN_SPEAKER;
+                break;
+            case PAL_DEVICE_OUT_WIRED_HEADSET:
+            case PAL_DEVICE_OUT_WIRED_HEADPHONE:
+                gainTag = GAIN_HEADPHONE;
+                break;
+            case PAL_DEVICE_OUT_USB_DEVICE:
+            case PAL_DEVICE_OUT_USB_HEADSET:
+                gainTag = GAIN_USB;
+                break;
+            case PAL_DEVICE_OUT_BLUETOOTH_SCO:
+            case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
+                gainTag = GAIN_BT;
+                break;
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit tag: %d", gainTag);
+    return gainTag;
+exit:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+
 int handleDeviceRotation(const std::shared_ptr<ResourceManager>& rm, Stream *s,
                     pal_speaker_rotation_type rotation_type, int device, struct mixer *mixer,
                     PayloadBuilder* builder, std::vector<std::pair<int32_t, std::string>> rxAifBackEnds)

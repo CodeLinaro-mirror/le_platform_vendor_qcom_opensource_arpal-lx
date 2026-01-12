@@ -3895,7 +3895,7 @@ exit:
     return status;
 }
 
-int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,int>> &tkv, int tag, uint32_t* gsltag)
+int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,int>> &tkv, uint32_t tag, uint32_t* gsltag)
 {
     int status = 0;
     PAL_VERBOSE(LOG_TAG,"enter, tag 0x%x", tag);
@@ -4149,6 +4149,26 @@ int PayloadBuilder::populateTagKeyVector(Stream *s, std::vector <std::pair<int,i
     case MUX_DEMUX_VOIP:
        tkv.push_back(std::make_pair(TAG_KEY_MUX_DEMUX_CONFIG, TAG_VALUE_MUX_DEMUX_CONFIG_VOIP));
        *gsltag = TAG_STREAM_MUX_DEMUX;
+       break;
+    case GAIN_HANDSET:
+       tkv.push_back(std::make_pair(TRANSLATION_RX_GAIN_VALUES, GAIN_HANDSET));
+       *gsltag = TAG_TRANSLATION_RX_GAIN;
+       break;
+    case GAIN_SPEAKER:
+       tkv.push_back(std::make_pair(TRANSLATION_RX_GAIN_VALUES, GAIN_SPEAKER));
+       *gsltag = TAG_TRANSLATION_RX_GAIN;
+       break;
+    case GAIN_HEADPHONE:
+       tkv.push_back(std::make_pair(TRANSLATION_RX_GAIN_VALUES, GAIN_HEADPHONE));
+       *gsltag = TAG_TRANSLATION_RX_GAIN;
+       break;
+    case GAIN_USB:
+       tkv.push_back(std::make_pair(TRANSLATION_RX_GAIN_VALUES, GAIN_USB));
+       *gsltag = TAG_TRANSLATION_RX_GAIN;
+       break;
+    case GAIN_BT:
+       tkv.push_back(std::make_pair(TRANSLATION_RX_GAIN_VALUES, GAIN_BT));
+       *gsltag = TAG_TRANSLATION_RX_GAIN;
        break;
     case LPI_LOGGING_ON:
        tkv.push_back(std::make_pair(LOGGING, LOGGING_ON));
