@@ -1,8 +1,6 @@
 /*
 * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
 *
-* Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
-*
 * Redistribution and use in source and binary forms, with or without
 * modification, are permitted provided that the following conditions are
 * met:
