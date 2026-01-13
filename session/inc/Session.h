@@ -112,6 +112,7 @@ public:
                                     void* param_payload, size_t payload_size, Stream *s) = 0;
     virtual int32_t getCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
                                     void* param_payload, size_t* payload_size, Stream *s) = 0;
+    virtual int getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) = 0;
     virtual int getTimestamp(struct pal_session_time *stime __unused) = 0;
     virtual int setupSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToCconnect) = 0;

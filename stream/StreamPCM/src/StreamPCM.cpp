@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1047,23 +1047,40 @@ int32_t StreamPCM::getDeviceMute(pal_stream_direction_t dir, bool *state)
 
 int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
 {
+    int32_t status = 0;
     pal_param_payload *param_payload = nullptr;
     PAL_DBG(LOG_TAG, "Enter.");
 
+    mStreamMutex.lock();
+    if (!payload) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "%s: Invalid argument, payload double pointer is NULL", __func__);
+        goto exit;
+    }
     switch(param_id) {
         case PAL_PARAM_ID_DEVICE_MUTE:
         {
             param_payload = (pal_param_payload *)(*payload);
-            pal_device_mute_t *deviceMutePayload = (pal_device_mute_t *) (param_payload + sizeof(pal_param_payload));
+            pal_device_mute_t *deviceMutePayload = (pal_device_mute_t *)(param_payload->payload);
             getDeviceMute(deviceMutePayload->dir, &(deviceMutePayload->mute));
+            break;
+        }
+        case PAL_PARAM_ID_FLUENCE_SOURCETRACKING:
+        {
+            PAL_DBG(LOG_TAG, "Enter, getParamWithTag %u", param_id);
+            status = session->getParamWithTag(this, TAG_ECNS,
+                                            param_id, payload);
+            PAL_DBG(LOG_TAG, "getParam for DOA done, status %d", status);
             break;
         }
         default:
             PAL_INFO(LOG_TAG, "Not supported for param id %u", param_id);
             break;
     }
-
-    return 0;
+exit:
+    mStreamMutex.unlock();
+    PAL_DBG(LOG_TAG, "exit, session parameter %u get with status %d", param_id, status);
+    return status;
 }
 
 int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
