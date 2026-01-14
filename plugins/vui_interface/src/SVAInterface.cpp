@@ -70,6 +70,45 @@ std::map<st_module_type_t, std::vector<std::shared_ptr<VoiceUIInterface>>>
     SVAInterface::intf_map_;
 std::mutex SVAInterface::intf_create_mutex_;
 
+extern "C" int32_t get_vui_interface(struct vui_intf_t *intf,
+    vui_intf_param_t *model) {
+
+    int32_t status = 0;
+    sound_model_config_t *config = nullptr;
+
+    if (!intf || !model || !model->data)
+        return -EINVAL;
+
+    config = (sound_model_config_t *)model->data;
+    switch (config->module_type) {
+        case ST_MODULE_TYPE_GMM:
+        case ST_MODULE_TYPE_PDK:
+        case ST_MODULE_TYPE_MMA:
+            intf->interface = SVAInterface::GetInstance(model);
+            break;
+        default:
+            ALOGE("%s: %d: Unsupported module type %d",
+                __func__, __LINE__, config->module_type);
+            status = -EINVAL;
+            break;
+    }
+
+    return status;
+}
+
+extern "C" int32_t release_vui_interface(struct vui_intf_t *intf) {
+    int32_t status = 0;
+
+    if (!intf)
+        return -EINVAL;
+
+    if (intf->interface) {
+        intf->interface = nullptr;
+    }
+
+    return status;
+}
+
 std::shared_ptr<VoiceUIInterface> SVAInterface::GetInstance(
     vui_intf_param_t *model) {
 
@@ -1004,6 +1043,7 @@ void* SVAInterface::GetGMMDetectedStream(void *event) {
     uint8_t confidence_levels[20] = {0};
     struct confidence_level_info_t *confidence_info = nullptr;
     void *st = nullptr;
+    SoundModelInfo *info = nullptr;
 
     generic_info = (struct event_id_detection_engine_generic_info_t *)event;
     payload_size = sizeof(struct event_id_detection_engine_generic_info_t);
@@ -1076,9 +1116,10 @@ void* SVAInterface::GetGMMDetectedStream(void *event) {
         if (!confidence_levels[i])
             continue;
         for (auto &iter: sm_info_map_) {
-            for (uint32_t k = 0; k < iter.second->info->GetNumKeyPhrases(); k++) {
+            info = (SoundModelInfo *)iter.second->info;
+            for (uint32_t k = 0; k < info->GetNumKeyPhrases(); k++) {
                 if (!strcmp(sound_model_info_->GetKeyPhrases()[i],
-                            iter.second->info->GetKeyPhrases()[k])) {
+                            info->GetKeyPhrases()[k])) {
                     return iter.first;
                 }
             }
@@ -1389,8 +1430,10 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
                 sizeof(struct st_keyword_indices_info) +
                 conf_levels_size + ext_payload_size;
         } else {
+            ext_payload_size = GetExtendedPayloadSize(s);
             opaque_size = sizeof(struct st_param_header) +
-                sizeof(struct event_id_mma_detection_event_t);
+                sizeof(struct event_id_mma_detection_event_t) +
+                ext_payload_size;
         }
 
         event_size = sizeof(struct pal_st_phrase_recognition_event) +
@@ -1438,13 +1481,16 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
         opaque_data = (uint8_t *)phrase_event +
                        phrase_event->common.data_offset;
 
-        if (module_type_ != ST_MODULE_TYPE_MMA) {
-            status = PackSVADetectionOpaqueData(s, opaque_data, ext_payload_size);
-        } else {
-            status = PackMMADetectionOpaqueData(s, opaque_data);
-        }
+        status = PackDetectionOpaqueData(s, opaque_data, ext_payload_size);
     } else if (sm_info->type == PAL_SOUND_MODEL_TYPE_GENERIC) {
-        event_size = sizeof(struct pal_st_generic_recognition_event);
+        if (module_type_ == ST_MODULE_TYPE_MMA) {
+            ext_payload_size = GetExtendedPayloadSize(s);
+            opaque_size = sizeof(struct st_param_header) +
+                sizeof(struct event_id_mma_detection_event_t) +
+                ext_payload_size;
+        }
+        event_size = sizeof(struct pal_st_generic_recognition_event) + opaque_size;
+
         generic_event = (struct pal_st_generic_recognition_event *)
                        calloc(1, event_size);
         if (!generic_event) {
@@ -1464,7 +1510,7 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
         (*event)->capture_delay_ms = 0;
         (*event)->capture_preamble_ms = 0;
         (*event)->trigger_in_data = true;
-        (*event)->data_size = 0;
+        (*event)->data_size = opaque_size;
         (*event)->data_offset = sizeof(struct pal_st_generic_recognition_event);
         (*event)->media_config.sample_rate =
             str_attr_.in_media_config.sample_rate;
@@ -1473,6 +1519,12 @@ int32_t SVAInterface::GenerateCallbackEvent(void *s,
         (*event)->media_config.ch_info.channels =
             str_attr_.in_media_config.ch_info.channels;
         (*event)->media_config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+        if (opaque_size) {
+            // Filling Opaque data
+            opaque_data = (uint8_t *)generic_event +
+                        generic_event->common.data_offset;
+            status = PackDetectionOpaqueData(s, opaque_data, ext_payload_size);
+        }
     }
     *size = event_size;
 exit:
@@ -1480,7 +1532,7 @@ exit:
     return status;
 }
 
-int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
+int32_t SVAInterface::PackDetectionOpaqueData(void *s,
     uint8_t *opaque_data, uint32_t ext_payload_size) {
 
     int32_t num_models = 0;
@@ -1495,6 +1547,31 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
     struct model_stats *det_model_stat = nullptr;
     struct detection_event_info_pdk *det_ev_info_pdk = nullptr;
     struct detection_event_info *det_ev_info = nullptr;
+    struct detection_event_info_mma *det_ev_info_mma = nullptr;
+
+    if (module_type_ == ST_MODULE_TYPE_MMA) {
+        det_ev_info_mma = &det_event_info_[s]->mma_event_info_;
+        if (!det_ev_info_mma) {
+            ALOGE("%s: %d: detection info mma not available",
+                __func__, __LINE__);
+            return -EINVAL;
+        }
+
+        /* Pack the opaque data mma detection result */
+        param_hdr = (struct st_param_header *)opaque_data;
+        param_hdr->key_id = ST_PARAM_KEY_MMA_DETECTION_RESULT;
+        param_hdr->payload_size =
+            sizeof(struct event_id_mma_detection_event_t);
+        opaque_data += sizeof(struct st_param_header);
+        ar_mem_cpy(opaque_data, param_hdr->payload_size,
+            det_ev_info_mma, param_hdr->payload_size);
+
+        if (ext_payload_size) {
+            opaque_data += sizeof(struct event_id_mma_detection_event_t);
+            FillExtendedDetectionPayload(s, opaque_data, ext_payload_size);
+        }
+        return 0;
+    }
 
     // sm_info_map_[s] validity is verified in GenerateCallbackEvent already
     sm_info = sm_info_map_[s];
@@ -1529,12 +1606,7 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
         opaque_data, param_hdr->payload_size);
 
     if (sm_info->model_id > 0) {
-        if (det_ev_info_pdk) {
-            num_models = det_ev_info_pdk->num_detected_models;
-        } else {
-            ALOGE("%s: %d: det_ev_info_pdk is null", __func__, __LINE__);
-            return -EINVAL;
-        }
+        num_models = det_ev_info_pdk->num_detected_models;
         for (int i = 0; i < num_models; ++i) {
             det_model_stat = &det_ev_info_pdk->detected_model_stats[i];
             if (sm_info->model_id == det_model_stat->detected_model_id) {
@@ -1552,16 +1624,12 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
         FillCallbackConfLevels(sm_info, opaque_data,
             det_keyword_id, best_conf_level);
     } else {
-        if (det_ev_info) {
-            detection_timestamp_lsw =
-                (uint64_t)det_ev_info->detection_timestamp_lsw;
-            detection_timestamp_msw =
-                (uint64_t)det_ev_info->detection_timestamp_msw;
-            PackEventConfLevels(sm_info, opaque_data);
-        } else {
-            ALOGE("%s: %d: det_ev_info is null", __func__, __LINE__);
-            return -EINVAL;
-        }
+        detection_timestamp_lsw =
+            (uint64_t)det_ev_info->detection_timestamp_lsw;
+        detection_timestamp_msw =
+            (uint64_t)det_ev_info->detection_timestamp_msw;
+        PackEventConfLevels(sm_info, opaque_data);
+
     }
     opaque_data += param_hdr->payload_size;
 
@@ -1606,29 +1674,6 @@ int32_t SVAInterface::PackSVADetectionOpaqueData(void *s,
     return 0;
 }
 
-int32_t SVAInterface::PackMMADetectionOpaqueData(void *s, uint8_t *opaque_data) {
-
-    struct st_param_header *param_hdr = nullptr;
-    struct detection_event_info_mma *det_ev_info_mma = nullptr;
-
-    det_ev_info_mma = &det_event_info_[s]->mma_event_info_;
-    if (!det_ev_info_mma) {
-        ALOGE("%s: %d: detection info mma not available",
-            __func__, __LINE__);
-        return -EINVAL;
-    }
-
-    /* Pack the opaque data mma detection result */
-    param_hdr = (struct st_param_header *)opaque_data;
-    param_hdr->key_id = ST_PARAM_KEY_MMA_DETECTION_RESULT;
-    param_hdr->payload_size =
-        sizeof(struct event_id_mma_detection_event_t);
-    opaque_data += sizeof(struct st_param_header);
-    ar_mem_cpy(opaque_data, param_hdr->payload_size,
-        det_ev_info_mma, param_hdr->payload_size);
-
-    return 0;
-}
 
 // Protected APIs
 int32_t SVAInterface::ParseOpaqueConfLevels(
@@ -2603,6 +2648,7 @@ void SVAInterface::PackEventConfLevels(struct sound_model_info *sm_info,
     struct st_confidence_levels_info *conf_levels = nullptr;
     struct st_confidence_levels_info_v2 *conf_levels_v2 = nullptr;
     uint32_t i = 0, j = 0, k = 0, user_id = 0, num_user_levels = 0;
+    SoundModelInfo *info = (SoundModelInfo *)sm_info->info;
 
     ALOGV("%s: %d: Enter", __func__, __LINE__);
 
@@ -2615,26 +2661,26 @@ void SVAInterface::PackEventConfLevels(struct sound_model_info *sm_info,
         for (i = 0; i < conf_levels->num_sound_models; i++) {
             if (conf_levels->conf_levels[i].sm_id == ST_SM_ID_SVA_F_STAGE_GMM) {
                 for (j = 0; j < conf_levels->conf_levels[i].num_kw_levels; j++) {
-                    if (j <= sm_info->info->GetConfLevelsSize())
+                    if (j <= info->GetConfLevelsSize())
                         conf_levels->conf_levels[i].kw_levels[j].kw_level =
-                            sm_info->info->GetDetConfLevels()[j];
+                            info->GetDetConfLevels()[j];
                     else
                         ALOGE("%s: %d: unexpected conf size %d < %d",
                             __func__, __LINE__,
-                            sm_info->info->GetConfLevelsSize(), j);
+                            info->GetConfLevelsSize(), j);
 
                     num_user_levels =
                         conf_levels->conf_levels[i].kw_levels[j].num_user_levels;
                     for (k = 0; k < num_user_levels; k++) {
                         user_id = conf_levels->conf_levels[i].kw_levels[j].
                             user_levels[k].user_id;
-                        if (user_id <= sm_info->info->GetConfLevelsSize())
+                        if (user_id <= info->GetConfLevelsSize())
                             conf_levels->conf_levels[i].kw_levels[j].user_levels[k].
-                                level = sm_info->info->GetDetConfLevels()[user_id];
+                                level = info->GetDetConfLevels()[user_id];
                         else
                             ALOGE("%s: %d: Unexpected conf size %d < %d",
                                 __func__, __LINE__,
-                                sm_info->info->GetConfLevelsSize(), user_id);
+                                info->GetConfLevelsSize(), user_id);
                     }
                 }
             } else if (conf_levels->conf_levels[i].sm_id & ST_SM_ID_SVA_S_STAGE_KWD ||
@@ -2658,34 +2704,34 @@ void SVAInterface::PackEventConfLevels(struct sound_model_info *sm_info,
         for (i = 0; i < conf_levels_v2->num_sound_models; i++) {
             if (conf_levels_v2->conf_levels[i].sm_id == ST_SM_ID_SVA_F_STAGE_GMM) {
                 for (j = 0; j < conf_levels_v2->conf_levels[i].num_kw_levels; j++) {
-                    if (j <= sm_info->info->GetConfLevelsSize())
+                    if (j <= info->GetConfLevelsSize())
                             conf_levels_v2->conf_levels[i].kw_levels[j].kw_level =
-                                    sm_info->info->GetDetConfLevels()[j];
+                                    info->GetDetConfLevels()[j];
                     else
                         ALOGE("%s: %d: unexpected conf size %d < %d",
                             __func__, __LINE__,
-                            sm_info->info->GetConfLevelsSize(), j);
+                            info->GetConfLevelsSize(), j);
 
                     ALOGI("%s: %d: First stage KW Conf levels[%d]-%d",
                         __func__, __LINE__,
-                        j, sm_info->info->GetDetConfLevels()[j]);
+                        j, info->GetDetConfLevels()[j]);
 
                     num_user_levels =
                         conf_levels_v2->conf_levels[i].kw_levels[j].num_user_levels;
                     for (k = 0; k < num_user_levels; k++) {
                         user_id = conf_levels_v2->conf_levels[i].kw_levels[j].
                             user_levels[k].user_id;
-                        if (user_id <=  sm_info->info->GetConfLevelsSize())
+                        if (user_id <=  info->GetConfLevelsSize())
                             conf_levels_v2->conf_levels[i].kw_levels[j].user_levels[k].
-                                level = sm_info->info->GetDetConfLevels()[user_id];
+                                level = info->GetDetConfLevels()[user_id];
                         else
                             ALOGE("%s: %d: Unexpected conf size %d < %d",
                                 __func__, __LINE__,
-                                sm_info->info->GetConfLevelsSize(), user_id);
+                                info->GetConfLevelsSize(), user_id);
 
                         ALOGI("%s: %d: First stage User Conf levels[%d]-%d",
                             __func__, __LINE__,
-                            k, sm_info->info->GetDetConfLevels()[user_id]);
+                            k, info->GetDetConfLevels()[user_id]);
                     }
                 }
             } else if (conf_levels_v2->conf_levels[i].sm_id & ST_SM_ID_SVA_S_STAGE_KWD ||
@@ -2780,6 +2826,7 @@ void SVAInterface::FillCallbackConfLevels(struct sound_model_info *sm_info,
 }
 
 void SVAInterface::CheckAndSetDetectionConfLevels(void *s) {
+    SoundModelInfo *info = nullptr;
     ALOGD("%s: %d: Enter", __func__, __LINE__);
 
     if (!s) {
@@ -2795,25 +2842,26 @@ void SVAInterface::CheckAndSetDetectionConfLevels(void *s) {
             sound_model_info_->GetConfLevelsSize());
         return;
     }
+    info = (SoundModelInfo *)sm_info_map_[s]->info;
     /* Reset any cached previous detection conf level values */
-    sm_info_map_[s]->info->ResetDetConfLevels();
+    info->ResetDetConfLevels();
 
     /* Extract the stream conf level values from SPF detection payload */
     for (uint32_t i = 0; i < sound_model_info_->GetConfLevelsSize(); i++) {
         if (!det_event_info_[s]->event_info_.confidence_levels[i])
             continue;
-        for (uint32_t j = 0; j < sm_info_map_[s]->info->GetConfLevelsSize(); j++) {
-            if (!strcmp(sm_info_map_[s]->info->GetConfLevelsKwUsers()[j],
+        for (uint32_t j = 0; j < info->GetConfLevelsSize(); j++) {
+            if (!strcmp(info->GetConfLevelsKwUsers()[j],
                  sound_model_info_->GetConfLevelsKwUsers()[i])) {
-                 sm_info_map_[s]->info->UpdateDetConfLevel(j,
+                 info->UpdateDetConfLevel(j,
                    det_event_info_[s]->event_info_.confidence_levels[i]);
             }
         }
     }
 
-    for (uint32_t i = 0; i < sm_info_map_[s]->info->GetConfLevelsSize(); i++)
+    for (uint32_t i = 0; i < info->GetConfLevelsSize(); i++)
         ALOGI("%s: %d: det_cf_levels[%d]-%d", __func__, __LINE__, i,
-            sm_info_map_[s]->info->GetDetConfLevels()[i]);
+            info->GetDetConfLevels()[i]);
 }
 
 int32_t SVAInterface::QuerySoundModel(
@@ -3717,6 +3765,7 @@ int32_t SVAInterface::SetModelState(void *s, bool state) {
     int32_t status = 0;
     uint8_t *conf_levels = nullptr;
     uint32_t num_conf_levels = 0;
+    SoundModelInfo *info = nullptr;
 
     if (sm_info_map_.find(s) == sm_info_map_.end()) {
         ALOGD("%s: %d: Stream not registered", __func__, __LINE__);
@@ -3732,9 +3781,10 @@ int32_t SVAInterface::SetModelState(void *s, bool state) {
         num_conf_levels = sm_info_map_[s]->wakeup_config_size;
         if (sm_info_map_[s]->info) {
             // GMM usecase
-            sm_info_map_[s]->info->UpdateConfLevelArray(
+            info = (SoundModelInfo *)sm_info_map_[s]->info;
+            info->UpdateConfLevelArray(
                 conf_levels, num_conf_levels);
-            status = UpdateMergeConfLevelsPayload(sm_info_map_[s]->info, state);
+            status = UpdateMergeConfLevelsPayload(info, state);
             if (status) {
                 ALOGE("%s: %d: Update merge conf levels failed %d",
                     __func__, __LINE__, status);
@@ -3799,7 +3849,7 @@ SoundModelInfo* SVAInterface::GetSoundModelInfo(void *s) {
         return sound_model_info_;
     } else {
         if (sm_info_map_.find(s) != sm_info_map_.end() && sm_info_map_[s]) {
-            return sm_info_map_[s]->info;
+            return (SoundModelInfo*)sm_info_map_[s]->info;
         } else {
             return nullptr;
         }
@@ -3823,6 +3873,7 @@ int32_t SVAInterface::RegisterModel(void *s,
     const std::vector<sound_model_data_t *> model_list) {
 
     int32_t status = 0;
+    SoundModelInfo *info = nullptr;
 
     if (sm_info_map_.find(s) == sm_info_map_.end()) {
         sm_info_map_[s] = (struct sound_model_info *)calloc(1,
@@ -3836,14 +3887,15 @@ int32_t SVAInterface::RegisterModel(void *s,
     }
 
     if (module_type_ == ST_MODULE_TYPE_GMM) {
-        sm_info_map_[s]->info = new SoundModelInfo();
-        if (!sm_info_map_[s]->info) {
+        info = new SoundModelInfo();
+        if (!info) {
             ALOGE("%s: %d: Failed to allocate memory for SoundModelInfo",
                 __func__, __LINE__);
             status = -ENOMEM;
             free(sm_info_map_[s]);
             goto exit;
         }
+        sm_info_map_[s]->info = info;
     }
 
     sm_info_map_[s]->model_list.clear();
@@ -3867,7 +3919,9 @@ void SVAInterface::DeregisterModel(void *s) {
         if (sm_info_map_[s]->info)
             delete(sm_info_map_[s]->info);
         sm_info_map_[s]->sec_threshold.clear();
+        sm_info_map_[s]->sec_threshold.shrink_to_fit();
         sm_info_map_[s]->sec_det_level.clear();
+        sm_info_map_[s]->sec_det_level.shrink_to_fit();
 
         for (int i = 0; i < sm_info_map_[s]->model_list.size(); i++) {
             sm_data = sm_info_map_[s]->model_list[i];
@@ -3878,6 +3932,7 @@ void SVAInterface::DeregisterModel(void *s) {
             }
         }
         sm_info_map_[s]->model_list.clear();
+        sm_info_map_[s]->model_list.shrink_to_fit();
         free(sm_info_map_[s]);
         sm_info_map_.erase(iter);
     } else {
@@ -3888,6 +3943,13 @@ void SVAInterface::DeregisterModel(void *s) {
     if (origin_hist_buf_duration_.find(s) != origin_hist_buf_duration_.end()) {
         origin_hist_buf_duration_.erase(s);
     }
+}
+
+uint32_t SVAInterface::getCallbackEventId(st_module_type_t model_type) {
+    if (model_type == ST_MODULE_TYPE_MMA)
+        return EVENT_ID_MMA_DETECTION_EVENT;
+    else
+        return EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
 }
 
 uint32_t SVAInterface::UsToBytes(uint64_t input_us) {

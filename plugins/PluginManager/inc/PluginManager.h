@@ -30,6 +30,7 @@ class PluginManager
         static std::vector<pm_item_t> registeredSessions;
         static std::vector<pm_item_t> registeredDevices;
         static std::vector<pm_item_t> registeredControls;
+        static std::vector<pm_item_t> registeredSoundModels;
         void deinitStreamPlugins();
         void deinitSessionPlugins();
         void deinitDevicePlugins();
