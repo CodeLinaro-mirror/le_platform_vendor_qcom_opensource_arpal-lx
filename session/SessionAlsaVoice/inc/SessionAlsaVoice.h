@@ -128,6 +128,7 @@ private:
                                           void *data, uint32_t event_size);
     static void HandleTxDtmfCallBack(uint64_t hdl, uint32_t event_id,
                                           void *data, uint32_t event_size);
+    static void setCacheVoiceVolume(Stream* streamHandle);
 };
 
 #endif //SESSION_ALSAVOICE_H

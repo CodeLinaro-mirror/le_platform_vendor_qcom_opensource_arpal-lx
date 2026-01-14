@@ -119,9 +119,14 @@ int Bluetooth::updateDeviceMetadata()
             return ret;
         }
     }
-
-    ret = PayloadBuilder::getBtDeviceKV(deviceAttr.id, keyVector, mCodecFormat,
+    if (mCodecVersion == APTX_R4_V2) {
+        ret = PayloadBuilder::getBtDeviceKV(deviceAttr.id, keyVector, CODEC_TYPE_APTX_AD_R4_V2,
             mIsAbrEnabled, false, false);
+    } else {
+        ret = PayloadBuilder::getBtDeviceKV(deviceAttr.id, keyVector, mCodecFormat,
+            mIsAbrEnabled, false, false);
+    }
+
     if (ret)
         PAL_ERR(LOG_TAG, "No KVs found for device id %d codec format:0x%x",
             deviceAttr.id, mCodecFormat);
@@ -518,6 +523,11 @@ int Bluetooth::configureGraphModules()
     if ((mCodecFormat == CODEC_TYPE_AAC) && mIsAbrEnabled)
         updateDeviceMetadata();
 
+    /* Reset device GKV for R4 V2 codec based on codec version */
+    if ((mCodecFormat == CODEC_TYPE_APTX_AD_R4) && (mCodecVersion == APTX_R4_V2))
+        updateDeviceMetadata();
+
+
     /* Update Device sampleRate based on encoder config */
     updateDeviceAttributes();
 
@@ -831,7 +841,11 @@ void Bluetooth::startAbr()
 
     builder = new PayloadBuilder();
 
-    ret = PayloadBuilder::getBtDeviceKV(fbDevice.id, keyVector, mCodecFormat,
+    if (mCodecVersion == APTX_R4_V2)
+        ret = PayloadBuilder::getBtDeviceKV(fbDevice.id, keyVector, CODEC_TYPE_APTX_AD_R4_V2,
+              true, true, isHWSpatializerEnabled);
+    else
+        ret = PayloadBuilder::getBtDeviceKV(fbDevice.id, keyVector, mCodecFormat,
               true, true, isHWSpatializerEnabled);
     if (ret)
         PAL_ERR(LOG_TAG, "No KVs found for device id %d codec format:0x%x",
@@ -977,7 +991,8 @@ void Bluetooth::startAbr()
         case CODEC_TYPE_LC3:
         case CODEC_TYPE_APTX_AD_QLEA:
         case CODEC_TYPE_APTX_AD_R4:
-             if (mCodecFormat == CODEC_TYPE_LC3 && isHDTEnabled && isHWSpatializerEnabled)
+             if ((mCodecFormat == CODEC_TYPE_LC3 && isHDTEnabled && isHWSpatializerEnabled) ||
+                  ((mCodecFormat == CODEC_TYPE_APTX_AD_R4) && mCodecVersion == APTX_R4_V2))
                 ret = configureCOPModule(mFBPcmDevIds.at(0), backEndName.c_str(), COP_DEPACKETIZER_V2, STREAM_MAP_IN | STREAM_MAP_OUT, true);
             else
                 ret = configureCOPModule(mFBPcmDevIds.at(0), backEndName.c_str(), COP_DEPACKETIZER_V2, STREAM_MAP_OUT, true);
