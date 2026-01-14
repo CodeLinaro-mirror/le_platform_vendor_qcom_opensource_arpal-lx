@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -636,6 +636,8 @@ uint32_t SessionAlsaPcm::getMIID(const char *backendName, uint32_t tagId, uint32
                 break;
             case RAT_RENDER:
             case BT_PCM_CONVERTER:
+            case MODULE_CONGESTION_BUFFER:
+            case MODULE_JITTER_BUFFER:
                 if(strstr(backendName,"TX")) {
                     if (!pcmDevTxIds.size()) {
                         PAL_ERR(LOG_TAG, "pcmDevTxIds not found.");

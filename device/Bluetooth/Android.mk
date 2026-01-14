@@ -19,6 +19,10 @@ ifneq ($(TARGET_BOARD_PLATFORM), anorak)
 LOCAL_CFLAGS        += -DA2DP_SINK_SUPPORTED
 endif
 
+ifeq ($(call is-board-platform-in-list,lahaina), true)
+LOCAL_CFLAGS        += -DBTSCO_NB_RAT_UNSUPPORTED
+endif
+
 LOCAL_SRC_FILES := \
     src/Bluetooth.cpp
 
