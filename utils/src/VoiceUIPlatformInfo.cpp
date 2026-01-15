@@ -215,7 +215,8 @@ VUIStreamConfig::VUIStreamConfig() :
     enable_intra_concurrent_detection_(false),
     curr_child_(nullptr),
     lpi_enable_(true),
-    batch_size_in_ms_(0)
+    batch_size_in_ms_(0),
+    enable_amd_(false)
 {
     ext_det_prop_list_.clear();
 }
@@ -409,6 +410,8 @@ void VUIStreamConfig::HandleStartTag(const std::string& tag, const char** attrib
             ReadDetectionPropertyList(value.c_str());
         } else if (key == "batch_size_in_ms") {
             batch_size_in_ms_ = std::stoi(value);
+        } else if (key == "enable_amd") {
+            enable_amd_ = (value == "true");
         } else {
             PAL_ERR(LOG_TAG, "Invalid attribute %s", key.c_str());
        }
