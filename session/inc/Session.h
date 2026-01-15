@@ -112,7 +112,6 @@ public:
                                     void* param_payload, size_t payload_size, Stream *s) = 0;
     virtual int32_t getCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
                                     void* param_payload, size_t* payload_size, Stream *s) = 0;
-    virtual int getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) = 0;
     virtual int getTimestamp(struct pal_session_time *stime __unused) = 0;
     virtual int setupSessionDevice(Stream* streamHandle, pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToCconnect) = 0;
@@ -131,6 +130,8 @@ public:
     virtual int ResetMmapBuffer(Stream *s __unused) {return -EINVAL;}
     virtual int openGraph(Stream *s __unused) { return 0; }
     virtual int addRemoveEffect(Stream *s, pal_audio_effect_t effect, bool enable) {return 0;}/*newly added;*/
+    virtual int setParamWithTag(Stream *streamHandle, int tagId, uint32_t param_id, void *payload) { return -ENOSYS; }
+    virtual int getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) { return -ENOSYS; }
 };
 
 #endif //SESSION_H
