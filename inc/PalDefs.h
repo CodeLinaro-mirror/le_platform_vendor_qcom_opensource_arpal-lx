@@ -55,6 +55,10 @@
 #define PAL_MAX_LATENCY_MODES 8
 #define PAL_CUSTOM_PARAM_MAX_STRING_LENGTH 64
 
+/* Param ID definitions */
+#define PARAM_ID_FFV_DOA_TRACKING_MONITOR 0x080010A4
+#define PARAM_ID_FLUENCE_SOURCETRACKING 0x080010BF
+
 #define PAL_VERSION "1.0"
 
 /** Audio stream handle */
@@ -811,6 +815,7 @@ typedef enum {
     PAL_PARAM_ID_DTMF_DETECTION_CFG = 86,
     PAL_PARAM_ID_DTMF_GEN_TONE_CFG = 87,
     PAL_PARAM_ID_HAPTICS_MODE = 88,
+    PAL_PARAM_ID_FLUENCE_SOURCETRACKING = 89,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1335,12 +1340,23 @@ struct detection_engine_multi_model_buffering_config {
     uint32_t pre_roll_duration_in_ms;
 };
 
+#define MAX_TOP_SPEAKERS 5
+#define MAX_POLAR_ACTIVITY_INDICATORS 360
 struct ffv_doa_tracking_monitor_t
 {
     int16_t target_angle_L16[2];
     int16_t interf_angle_L16[2];
-    int8_t polarActivityGUI[360];
+    int8_t polarActivityGUI[MAX_POLAR_ACTIVITY_INDICATORS];
 };
+
+struct source_track_meta_fnn {
+    int32_t speech_probablity_q20;
+    int16_t speakers[MAX_TOP_SPEAKERS];
+    int16_t reserved;
+    uint8_t polarActivity[MAX_POLAR_ACTIVITY_INDICATORS];
+    uint32_t session_time_lsw;
+    uint32_t session_time_msw;
+} __attribute__((packed));
 
 struct __attribute__((__packed__)) version_arch_payload {
     unsigned int version;
