@@ -1897,11 +1897,12 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote, bool force_nlp
             return ret;
         }
     } else {
-        // Using Haptics stream type when called without stream object, as its done only during
-        // calibration mode for Haptics, and as we use stream object only to get type, so that
-        // type of vote can be decided, and all low power streams will always call using stream
-        // object, hence using any NLPI stream type will work here.
-        type = PAL_STREAM_HAPTICS;
+        // Using Dummy stream type when called without stream object, as its done during
+        // Haptics calibration mode or mixer controls enablement during device open.
+        // As we use stream object only to get type, so that type of vote can be decided,
+        // and all the low power streams will always call using stream object,
+        // hence using any NLPI stream type will work here.
+        type = PAL_STREAM_DUMMY;
         PAL_VERBOSE(LOG_TAG, "Stream object was null using stream type %d", type);
     }
     PAL_VERBOSE(LOG_TAG, "Enter for stream type %d", type);
@@ -3157,7 +3158,7 @@ int ResourceManager::getECEnableSetting(std::shared_ptr<Device> tx_dev,
 
     streamHandle->getStreamAttributes(&curStrAttr);
     *ec_enable = true;
-    status = tx_dev->getDeviceAttributes(&DevDattr);
+    status = tx_dev->getDeviceAttributes(&DevDattr, streamHandle);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "getDeviceAttributes Failed");
         goto exit;
@@ -3221,17 +3222,16 @@ int ResourceManager::checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_de
     PAL_DBG(LOG_TAG, "Enter: setting EC[%s] for usecase %d of device %d.",
                       ec_on ? "ON" : "OFF", sAttr.type, tx_dev->getSndDeviceId());
 
-    status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
-    if (status !=0) {
-        PAL_ERR(LOG_TAG, "getECEnableSetting failed.");
-        goto exit;
-    } else if (!ec_enable_setting) {
-        PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d.",
-                          sAttr.type, tx_dev->getSndDeviceId());
-        goto exit;
-    }
-
     if (ec_on) {
+        status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "getECEnableSetting failed.");
+            goto exit;
+        } else if (!ec_enable_setting) {
+            PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d.",
+                            sAttr.type, tx_dev->getSndDeviceId());
+            goto exit;
+        }
         rx_dev = getActiveEchoReferenceRxDevices_l(tx_stream);
         if (!rx_dev) {
             PAL_VERBOSE(LOG_TAG, "EC device not found, skip EC set");
@@ -3255,8 +3255,8 @@ int ResourceManager::checkandEnableECForTXStream_l(std::shared_ptr<Device> tx_de
         }
     }
     rxdevcount = updateECDeviceMap(rx_dev, tx_dev, tx_stream, rxdevcount, !ec_on);
-    if (rxdevcount <= 0 && ec_on) {
-        PAL_DBG(LOG_TAG, "No need to enable EC ref");
+    if ((rxdevcount <= 0 && ec_on) || (rxdevcount != 0 && !ec_on)) {
+        PAL_DBG(LOG_TAG, "No need to %s EC ref", ec_on ? "enable" : "disable");
     } else {
         mResourceManagerMutex.unlock();
         status = tx_stream->setECRef_l(rx_dev, ec_on);
@@ -3320,14 +3320,16 @@ int ResourceManager::checkandEnableECForRXStream_l(std::shared_ptr<Device> rx_de
         }
         // TODO: add support for stream with multi Tx devices
         tx_dev = tx_devices[0];
-        status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
-        if (status != 0) {
-            PAL_DBG(LOG_TAG, "getECEnableSetting failed.");
-            continue;
-        } else if (!ec_enable_setting) {
-            PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d",
-                              sAttr.type, tx_dev->getSndDeviceId());
-            continue;
+        if (ec_on) {
+            status = getECEnableSetting(tx_dev, tx_stream, &ec_enable_setting);
+            if (status != 0) {
+                PAL_DBG(LOG_TAG, "getECEnableSetting failed.");
+                continue;
+            } else if (!ec_enable_setting) {
+                PAL_ERR(LOG_TAG, "EC is disabled for usecase %d of device %d",
+                                sAttr.type, tx_dev->getSndDeviceId());
+                continue;
+            }
         }
         ec_map_rx_dev_count = ec_on ? 1 : 0;
         rxdevcount = updateECDeviceMap(rx_dev, tx_dev, tx_stream, ec_map_rx_dev_count, false);
@@ -10219,6 +10221,7 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
     std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnect;
     std::vector <Stream *> streamsToSwitch;
     std::vector <Stream*>::iterator sIter;
+    std::vector <Stream *> tempMutedStreams;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -10291,6 +10294,11 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
                  sharedStream = std::get<0>(elem);
                  streamDevDisconnect.push_back({sharedStream,dev->getSndDeviceId()});
                  streamDevConnect.push_back({sharedStream,&curDevAttr});
+                 if (!rm->increaseStreamUserCounter(sharedStream)) {
+                    PAL_DBG(LOG_TAG, "mute stream %pk during restoreDevice", sharedStream);
+                    sharedStream->mute(true);
+                    tempMutedStreams.push_back(sharedStream);
+                 }
             }
         }
 
@@ -10324,6 +10332,16 @@ void ResourceManager::restoreDevice(std::shared_ptr<Device> dev)
     if (!streamDevDisconnect.empty() && !IsI2sDualMonoEnabled())
         streamDevSwitch(streamDevDisconnect, streamDevConnect);
 exit:
+    if (!tempMutedStreams.empty()) {
+        mActiveStreamMutex.lock();
+        for(sIter = tempMutedStreams.begin(); sIter != tempMutedStreams.end(); sIter++) {
+            (*sIter)->mute(false);
+            rm->decreaseStreamUserCounter(*sIter);
+            PAL_DBG(LOG_TAG, "unmute stream %pk during restoreDevice", *sIter);
+        }
+        mActiveStreamMutex.unlock();
+    }
+    tempMutedStreams.clear();
     PAL_DBG(LOG_TAG, "Exit");
     return;
 }

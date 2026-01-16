@@ -233,23 +233,6 @@ int SessionAlsaPcm::open(Stream * s)
                 }
             }
         }
-
-        if (setEffectParametersForDualMono) {
-            status = PayloadBuilder::payloadDualMono(&paramData);
-            if (status) {
-                PAL_ERR(LOG_TAG, "failed to create dual mono info");
-            } else {
-                pal_param_payload *pal_param = (pal_param_payload *)paramData;
-                effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
-                status = setEffectParameters(s, effectPayload);
-                if (status) {
-                    PAL_ERR(LOG_TAG, "failed to set dual mono param.");
-                } else {
-                    PAL_INFO(LOG_TAG, "dual mono setparameter succeeded.");
-                }
-                free(paramData);
-            }
-        }
     }
     status = rm->getVirtualAudioMixer(&mixer);
     if (status) {
@@ -437,6 +420,22 @@ int SessionAlsaPcm::open(Stream * s)
                              sessionCb, cbCookie, true);
         if (status != 0) {
             PAL_ERR(LOG_TAG, "Failed to register callback to rm");
+        }
+    }
+    if (setEffectParametersForDualMono) {
+        status = PayloadBuilder::payloadDualMono(&paramData);
+        if (status) {
+            PAL_ERR(LOG_TAG, "failed to create dual mono info");
+        } else {
+            pal_param_payload *pal_param = (pal_param_payload *)paramData;
+            effect_pal_payload_t *effectPayload = (effect_pal_payload_t *)pal_param->payload;
+            status = setEffectParameters(s, effectPayload);
+            if (status) {
+                PAL_ERR(LOG_TAG, "failed to set dual mono param.");
+            } else {
+                PAL_INFO(LOG_TAG, "dual mono setparameter succeeded.");
+            }
+            free(paramData);
         }
     }
 exit:

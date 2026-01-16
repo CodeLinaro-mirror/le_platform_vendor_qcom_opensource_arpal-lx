@@ -411,6 +411,26 @@ exit:
     return status;
 }
 
+int32_t StreamCallTranslation::mute_l(bool state)
+{
+    int32_t status = 0;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK state %d", session, state);
+    status = session->mute(this, state);
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
+int32_t StreamCallTranslation::mute(bool state)
+{
+    int32_t status = 0;
+
+    mStreamMutex.lock();
+    status = mute_l(state);
+    mStreamMutex.unlock();
+
+    return status;
+}
+
 int32_t StreamCallTranslation::stop()
 {
     int32_t status = 0;
