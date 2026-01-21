@@ -1424,7 +1424,6 @@ int32_t Stream::connectStreamDevice_l(Stream* streamHandle, struct pal_device *d
     }
 
 
-    rm->lockGraph();
    // if (currentState != STREAM_INIT && currentState != STREAM_STOPPED) {
     /* Special handling for aaudio usecase on A2DP/BLE/Speaker.
      * For mmap usecase, if device switch happens to A2DP/BLE/Speaker device
