@@ -1017,11 +1017,11 @@
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1" />
         <ctl name="VA DEC0 MUX" value="SWR_MIC" />
         <ctl name="VA_DEC0 MODE" value="ADC_LOW_PWR" />
-        <ctl name="TX0 MODE" value="ADC_LP" />
-        <ctl name="VA SMIC MUX0" value="SWR_MIC4" />
-        <ctl name="ADC1 MUX" value="CH1_AMIC1" />
-        <ctl name="ADC1 ChMap" value="SWRM_TX2_CH1" />
-        <ctl name="ADC1_MIXER Switch" value="1" />
+        <ctl name="TX2 MODE" value="ADC_LP" />
+        <ctl name="VA SMIC MUX0" value="SWR_MIC8" />
+        <ctl name="ADC3 MUX" value="CH3_AMIC1" />
+        <ctl name="ADC3 ChMap" value="SWRM_TX3_CH1" />
+        <ctl name="ADC3_MIXER Switch" value="1" />
         <ctl name="VA_AMIC1_MIXER Switch" value="1" />
     </path>
 
