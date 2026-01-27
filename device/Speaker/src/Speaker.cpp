@@ -34,6 +34,7 @@
 #define LOG_TAG "PAL: Speaker"
 #include "Speaker.h"
 #include "ResourceManager.h"
+#include "SpeakerProtectionwsa88xx.h"
 #include "SpeakerProtection.h"
 #include "Device.h"
 #include "kvh2xml.h"
@@ -77,10 +78,29 @@ std::shared_ptr<Device> Speaker::getInstance(struct pal_device *device,
 {
     if (!obj) {
         if (ResourceManager::IsSpeakerProtectionEnabled()) {
-            std::shared_ptr<Device> sp(new SpeakerProtection(device, Rm));
+            std::shared_ptr<Device> sp;
+            switch (Rm->getWsaUsed()) {
+                case WSA883X:
+                    sp = std::make_shared<SpeakerProtectionwsa883x>(device, Rm);
+                    break;
+                case WSA884X:
+                    sp = std::make_shared<SpeakerProtectionwsa884x>(device, Rm);
+                    break;
+                case WSA885X:
+                    sp = std::make_shared<SpeakerProtectionwsa885x>(device, Rm);
+                    break;
+                case WSA885X_I2S:
+                    sp = std::make_shared<SpeakerProtectionwsa885xI2s>(device, Rm);
+                    break;
+                case WSA_DEFAULT:
+                    sp = std::make_shared<SpeakerProtection>(device, Rm);
+                    break;
+                default:
+                    PAL_ERR(LOG_TAG, "Wrong CPS mode set in RM XML");
+                    return nullptr;
+            }
             obj = sp;
-        }
-        else {
+        } else {
             std::shared_ptr<Device> sp(new Speaker(device, Rm));
             obj = sp;
         }
