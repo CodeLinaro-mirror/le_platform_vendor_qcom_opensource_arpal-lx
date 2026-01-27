@@ -57,6 +57,7 @@
 
 /* Param ID definitions */
 #define PARAM_ID_FFV_DOA_TRACKING_MONITOR 0x080010A4
+#define PARAM_ID_FLUENCE_SOUNDFOCUS 0x080010BE
 #define PARAM_ID_FLUENCE_SOURCETRACKING 0x080010BF
 
 #define PAL_VERSION "1.0"
@@ -816,6 +817,7 @@ typedef enum {
     PAL_PARAM_ID_DTMF_GEN_TONE_CFG = 87,
     PAL_PARAM_ID_HAPTICS_MODE = 88,
     PAL_PARAM_ID_FLUENCE_SOURCETRACKING = 89,
+    PAL_PARAM_ID_FLUENCE_SOUNDFOCUS = 90,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1342,6 +1344,8 @@ struct detection_engine_multi_model_buffering_config {
 
 #define MAX_TOP_SPEAKERS 5
 #define MAX_POLAR_ACTIVITY_INDICATORS 360
+#define QCMN_MAX_SECTORS        (8)           // Maximum number of sectors for future expansion
+#define QCMN_MAX_SZ_DOF         (4)           // Maximum number of DOAs
 struct ffv_doa_tracking_monitor_t
 {
     int16_t target_angle_L16[2];
@@ -1349,6 +1353,7 @@ struct ffv_doa_tracking_monitor_t
     int8_t polarActivityGUI[MAX_POLAR_ACTIVITY_INDICATORS];
 };
 
+/* GetParameter structure for DoA Metadata in VoiP Fluence NN module */
 struct source_track_meta_fnn {
     int32_t speech_probablity_q20;
     int16_t speakers[MAX_TOP_SPEAKERS];
@@ -1356,6 +1361,22 @@ struct source_track_meta_fnn {
     uint8_t polarActivity[MAX_POLAR_ACTIVITY_INDICATORS];
     uint32_t session_time_lsw;
     uint32_t session_time_msw;
+} __attribute__((packed));
+
+/* GetParameter structure for DoA Metadata in Fluence Pro Voice Call module */
+struct qcmn_source_tracking_interf_param_t {
+    uint8_t vad[QCMN_MAX_SECTORS];           /**< Voice Activity Detection for each sector that has been configured to the module */
+    int16_t doa_speech;                      /**< Direction of Arrival of the dominant talker */
+    int16_t doa_noise[QCMN_MAX_SZ_DOF-1];    /**< Direction of Arrival of the interfering talker */
+    uint8_t polarActivity[MAX_POLAR_ACTIVITY_INDICATORS]; /**< Signal strength in 360 degree plane with 1 deg resolution */
+} __attribute__((packed));
+
+/* SetParameter structure for DoA Metadata in Fluence Pro Voice Call module */
+struct qcmn_sector_interf_param_t {
+    uint16_t  start_angle[QCMN_MAX_SECTORS]; /**< Starting angle of the sector */
+    uint8_t   enable[QCMN_MAX_SECTORS];      /**< Enable/disable for all sectors */
+    uint16_t  gain_step;                     /**< Gain step for Audio zoom gain functionality */
+    uint16_t  reserved;                      /**< Added for alignment */
 } __attribute__((packed));
 
 struct __attribute__((__packed__)) version_arch_payload {

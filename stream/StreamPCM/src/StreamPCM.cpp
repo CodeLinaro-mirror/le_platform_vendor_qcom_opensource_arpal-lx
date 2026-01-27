@@ -1049,9 +1049,9 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
 {
     int32_t status = 0;
     pal_param_payload *param_payload = nullptr;
-    PAL_DBG(LOG_TAG, "Enter.");
+    PAL_DBG(LOG_TAG, "Enter, get parameter %u, session handle - %p", param_id, session);
 
-    mStreamMutex.lock();
+    std::lock_guard<std::mutex> lock(mStreamMutex);
     if (!payload) {
         status = -EINVAL;
         PAL_ERR(LOG_TAG, "%s: Invalid argument, payload double pointer is NULL", __func__);
@@ -1067,10 +1067,7 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
         }
         case PAL_PARAM_ID_FLUENCE_SOURCETRACKING:
         {
-            PAL_DBG(LOG_TAG, "Enter, getParamWithTag %u", param_id);
-            status = session->getParamWithTag(this, TAG_ECNS,
-                                            param_id, payload);
-            PAL_DBG(LOG_TAG, "getParam for DOA done, status %d", status);
+            status = session->getParamWithTag(this, TAG_ECNS, param_id, payload);
             break;
         }
         default:
@@ -1078,43 +1075,49 @@ int32_t StreamPCM::getParameters(uint32_t param_id, void ** payload)
             break;
     }
 exit:
-    mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "exit, session parameter %u get with status %d", param_id, status);
     return status;
 }
 
-int32_t  StreamPCM::setParameters(uint32_t param_id, void *payload)
+int32_t StreamPCM::setParameters(uint32_t param_id, void *payload)
 {
     int32_t status = 0;
-    int32_t setConfigStatus = 0;
-    pal_param_payload *param_payload = NULL;
-    effect_pal_payload_t *effectPalPayload = nullptr;
-    pal_device_mute_t *deviceMutePayload = nullptr;
+    pal_param_payload *param_payload = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter, set parameter %u, session handle - %p", param_id, session);
 
-    if (!payload)
-    {
+    std::lock_guard<std::mutex> lock(mStreamMutex);
+    if (!payload) {
         status = -EINVAL;
-        PAL_ERR(LOG_TAG, "wrong params");
+        PAL_ERR(LOG_TAG, "%s: Invalid argument, payload pointer is NULL", __func__);
         goto exit;
     }
 
-    mStreamMutex.lock();
     if (currentState == STREAM_IDLE) {
         PAL_ERR(LOG_TAG, "Invalid stream state: IDLE for param ID: %d", param_id);
-        mStreamMutex.unlock();
-        return -EINVAL;
-    }
-    // Call Session for Setting the parameter.
-    if (NULL != session) {
-        status = session->setParameters(this, param_id, payload);
-    } else {
-        PAL_ERR(LOG_TAG, "Session is null");
         status = -EINVAL;
+        goto exit;
     }
 
-    mStreamMutex.unlock();
+    if (!session) {
+        PAL_ERR(LOG_TAG, "Session is null");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    switch (param_id) {
+        case PAL_PARAM_ID_FLUENCE_SOUNDFOCUS:
+        {
+            status = session->setParamWithTag(this, TAG_ECNS, param_id, payload);
+            break;
+        }
+        default:
+        {
+            status = session->setParameters(this, param_id, payload);
+            break;
+        }
+    }
+
 exit:
     PAL_DBG(LOG_TAG, "exit, session parameter %u set with status %d", param_id, status);
     return status;
