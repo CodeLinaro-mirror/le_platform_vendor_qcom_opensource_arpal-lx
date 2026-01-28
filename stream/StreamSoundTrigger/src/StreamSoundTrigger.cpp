@@ -2789,7 +2789,7 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
             if (st_stream_.state_for_restore_ == ST_STATE_NONE) {
                 st_stream_.state_for_restore_ = ST_STATE_LOADED;
             }
-            std::shared_ptr<StEventConfig> ev_cfg(new StUnloadEventConfig());
+            std::shared_ptr<StEventConfig> ev_cfg(new StFstageUnloadConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg);
             TransitTo(ST_STATE_SSR);
             break;
@@ -3168,8 +3168,7 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
                 new StStopRecognitionEventConfig(false));
             status = st_stream_.ProcessInternalEvent(ev_cfg1);
 
-            std::shared_ptr<StEventConfig> ev_cfg2(
-                new StUnloadEventConfig());
+            std::shared_ptr<StEventConfig> ev_cfg2(new StFstageUnloadConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg2);
             TransitTo(ST_STATE_SSR);
             break;
@@ -3366,8 +3365,7 @@ int32_t StreamSoundTrigger::StDetected::ProcessEvent(
                 new StStopRecognitionEventConfig(false));
             status = st_stream_.ProcessInternalEvent(ev_cfg1);
 
-            std::shared_ptr<StEventConfig> ev_cfg2(
-                new StUnloadEventConfig());
+            std::shared_ptr<StEventConfig> ev_cfg2(new StFstageUnloadConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg2);
             TransitTo(ST_STATE_SSR);
             break;
@@ -3724,8 +3722,7 @@ int32_t StreamSoundTrigger::StBuffering::ProcessEvent(
                 new StStopRecognitionEventConfig(false));
             status = st_stream_.ProcessInternalEvent(ev_cfg2);
 
-            std::shared_ptr<StEventConfig> ev_cfg3(
-                new StUnloadEventConfig());
+            std::shared_ptr<StEventConfig> ev_cfg3(new StFstageUnloadConfig());
             status = st_stream_.ProcessInternalEvent(ev_cfg3);
             TransitTo(ST_STATE_SSR);
             break;
@@ -3786,12 +3783,10 @@ int32_t StreamSoundTrigger::StSSR::ProcessEvent(
             }
             if (st_stream_.state_for_restore_ == ST_STATE_LOADED ||
                 st_stream_.state_for_restore_ == ST_STATE_ACTIVE) {
-                std::shared_ptr<StEventConfig> ev_cfg1(
-                    new StLoadEventConfig(st_stream_.sm_config_));
+                std::shared_ptr<StEventConfig> ev_cfg1(new StFstageLoadConfig());
                 status = st_stream_.ProcessInternalEvent(ev_cfg1);
                 if (0 != status) {
-                    PAL_ERR(LOG_TAG, "Failed to load sound model, status %d",
-                        status);
+                    PAL_ERR(LOG_TAG, "Failed to load first stage, status %d", status);
                     break;
                 }
                 if (st_stream_.rec_config_) {
