@@ -489,7 +489,6 @@ int SpeakerProtection::spkrStartCalibration()
     param_id_sp_op_mode_t spModeConfg;
     param_id_sp_ex_vi_mode_cfg_t viExModeConfg;
     session_callback sessionCb;
-    struct pal_device dattr;
 
     std::unique_lock<std::mutex> calLock(calibrationMutex);
 
@@ -539,8 +538,6 @@ int SpeakerProtection::spkrStartCalibration()
         break;
     }
 
-    this->Device::getDeviceAttributes(&dattr);
-    vi_device.samplerate = dattr.config.sample_rate;
     device.config.ch_info = ch_info;
     device.config.sample_rate = vi_device.samplerate;
     device.config.bit_width = vi_device.bit_width;
