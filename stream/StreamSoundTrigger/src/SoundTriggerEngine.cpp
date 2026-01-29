@@ -65,10 +65,18 @@
 
 #include "SoundTriggerEngine.h"
 
-#include "SoundTriggerEngineGsl.h"
-#include "SoundTriggerEngineCapi.h"
 #include "StreamSoundTrigger.h"
 #include "SoundTriggerPlatformInfo.h"
+
+#include "PluginManager.h"
+
+const std::map<uint32_t, std::string> smLUT {
+    {ST_SM_ID_SVA_F_STAGE_GMM,    std::string{ "ST_SM_ID_SVA_F_STAGE_GMM" } },
+    {ST_SM_ID_SVA_S_STAGE_PDK,    std::string{ "ST_SM_ID_SVA_S_STAGE_PDK" } },
+    {ST_SM_ID_SVA_S_STAGE_RNN,    std::string{ "ST_SM_ID_SVA_S_STAGE_RNN" } },
+    {ST_SM_ID_SVA_S_STAGE_USER,    std::string{ "ST_SM_ID_SVA_S_STAGE_USER" } },
+    {ST_SM_ID_SVA_S_STAGE_UDK,    std::string{ "ST_SM_ID_SVA_S_STAGE_UDK" } },
+};
 
 std::shared_ptr<SoundTriggerEngine> SoundTriggerEngine::Create(
     StreamSoundTrigger *s,
@@ -76,43 +84,55 @@ std::shared_ptr<SoundTriggerEngine> SoundTriggerEngine::Create(
     st_module_type_t module_type,
     std::shared_ptr<VUIStreamConfig> sm_cfg)
 {
+    EngineCreate engineCreate = nullptr;
+    int status = 0;
+    void* plugin = nullptr;
     PAL_VERBOSE(LOG_TAG, "Enter, type %d", type);
 
     if (!s) {
         PAL_ERR(LOG_TAG, "Invalid stream handle");
         return nullptr;
     }
+    SoundTriggerEngine *engine = NULL;
+    std::shared_ptr<PluginManager> pm;
 
-    std::shared_ptr<SoundTriggerEngine> st_engine(nullptr);
+    try {
+        pm = PluginManager::getInstance();
+        if(!pm){
+            PAL_ERR(LOG_TAG, "unable to get plugin manager instance");
+            return nullptr;
+        }
 
-    switch (type) {
-    case ST_SM_ID_SVA_F_STAGE_GMM:
-        if (!sm_cfg->GetMergeFirstStageSoundModels() &&
-            !IS_MODULE_TYPE_PDK(module_type))
-            st_engine = std::make_shared<SoundTriggerEngineGsl>(s, type,
-                                          module_type, sm_cfg);
-        else
-            st_engine = SoundTriggerEngineGsl::GetInstance(s, type,
-                                                   module_type, sm_cfg);
+        // Check if the sound model type exists in the map
+        if (smLUT.find(type) == smLUT.end()) {
+            PAL_ERR(LOG_TAG, "Invalid sound model type: %u", type);
+            return nullptr;
+        }
 
-        if (!st_engine)
-            PAL_ERR(LOG_TAG, "SoundTriggerEngine GSL creation failed");
-        break;
+        status = pm->openPlugin(PAL_PLUGIN_MANAGER_SOUND_MODEL, smLUT.at(type),
+                                plugin);
+        if ((plugin == nullptr) || status) {
+            PAL_ERR(LOG_TAG, "unable to get plugin for sound model type %s",
+                    smLUT.at(type).c_str());
+            return nullptr;
+        }
 
-    case ST_SM_ID_SVA_S_STAGE_PDK:
-    case ST_SM_ID_SVA_S_STAGE_RNN:
-    case ST_SM_ID_SVA_S_STAGE_USER:
-    case ST_SM_ID_SVA_S_STAGE_UDK:
-        st_engine = std::make_shared<SoundTriggerEngineCapi>(s, type,
-                                                              sm_cfg);
-        if (!st_engine)
-            PAL_ERR(LOG_TAG, "SoundTriggerEngine capi creation failed");
-        break;
-
-    default:
-        PAL_ERR(LOG_TAG, "Invalid model type: %u", type);
-        break;
+        engineCreate = reinterpret_cast<EngineCreate>(plugin);
+        engine = engineCreate(s, type, module_type, sm_cfg);
+        if (!engine) {
+            PAL_ERR(LOG_TAG, "Engine creation failed for sound model type %s",
+                    smLUT.at(type).c_str());
+            return nullptr;
+        }
     }
+    catch (const std::exception& e) {
+        PAL_ERR(LOG_TAG, "Engine create failed for sound model type %s",
+                smLUT.at(type).c_str());
+        throw std::runtime_error(e.what());
+    }
+
+    std::shared_ptr<SoundTriggerEngine> st_engine(engine);
+
 
     PAL_VERBOSE(LOG_TAG, "Exit, engine %p", st_engine.get());
 

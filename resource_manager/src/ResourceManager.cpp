@@ -49,7 +49,6 @@
 #include "Stream.h"
 #include "SndCardMonitor.h"
 #include "AudioHapticsInterface.h"
-#include "VUIInterfaceProxy.h"
 #include "VoiceUIPlatformInfo.h"
 #include "STUtils.h"
 #include "PluginManager.h"
@@ -10572,10 +10571,6 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
     int status = 0;
 
     PAL_DBG(LOG_TAG, "param_id=%d", param_id);
-    if (param_id == PAL_PARAM_ID_VUI_GET_META_DATA ||
-        param_id == PAL_PARAM_ID_VUI_CAPTURE_META_DATA) {
-        return VUIGetParameters(param_id, param_payload, payload_size);
-    }
 
     mResourceManagerMutex.lock();
     switch (param_id) {
@@ -10782,10 +10777,6 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
     int status = 0;
 
     PAL_DBG(LOG_TAG, "Enter param id: %d", param_id);
-
-    if (param_id == PAL_PARAM_ID_VUI_SET_META_DATA) {
-        return VUISetParameters(param_id, param_payload, payload_size);
-    }
 
     if (!param_payload) {
         PAL_ERR(LOG_TAG, "Invalid input payload ptr");
@@ -11870,6 +11861,50 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             PAL_ERR(LOG_TAG, "Failed to find the BUS00_MEDIA stream");
             status = -EIO;
             goto exit;
+        }
+        break;
+        case PAL_PARAM_ID_CAPTURE_ZONE:
+        {
+            PAL_DBG(LOG_TAG, "zonal_capture enter param set zone");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (((st_attr.type == PAL_STREAM_LOW_LATENCY) ||
+                     (st_attr.type == PAL_STREAM_DEEP_BUFFER) ||
+                     (st_attr.type == PAL_STREAM_CAPTURE_BUS)) &&
+                    st_attr.direction == PAL_AUDIO_INPUT) {
+                    PAL_DBG(LOG_TAG, "found active stream to set capture zone");
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_CAPTURE_ZONE,
+                            (int *)param_payload); //zone_id
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set zoneid for ECNR");
+                        goto exit;
+                    }
+                }
+            }
+        }
+        break;
+        case PAL_PARAM_ID_RENDER_ZONE:
+        {
+            PAL_DBG(LOG_TAG, "zonal_render enter param set zone");
+            std::list<Stream*>::iterator sIter;
+            pal_stream_attributes st_attr;
+            for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                (*sIter)->getStreamAttributes(&st_attr);
+                if (((st_attr.type == PAL_STREAM_LOW_LATENCY) ||
+                     (st_attr.type == PAL_STREAM_DEEP_BUFFER) ||
+                     (st_attr.type == PAL_STREAM_PLAYBACK_BUS)) &&
+                    st_attr.direction == PAL_AUDIO_OUTPUT) {
+                    PAL_DBG(LOG_TAG, "found active stream to set render zone");
+                    status = (*sIter)->setParameters(PAL_PARAM_ID_RENDER_ZONE,
+                            (int *)param_payload); //zone_id
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to set render zoneid");
+                        goto exit;
+                    }
+                }
+            }
         }
         break;
         default:

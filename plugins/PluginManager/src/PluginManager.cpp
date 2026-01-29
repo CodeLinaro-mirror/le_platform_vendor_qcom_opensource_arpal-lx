@@ -19,6 +19,7 @@ std::vector<pm_item_t> PluginManager::registeredStreams = {};
 std::vector<pm_item_t> PluginManager::registeredSessions = {};
 std::vector<pm_item_t> PluginManager::registeredDevices = {};
 std::vector<pm_item_t> PluginManager::registeredControls = {};
+std::vector<pm_item_t> PluginManager::registeredSoundModels = {};
 
 #define XML_PATH_MAX_LENGTH 100
 #define PLUGIN_MANAGER_FILENAME "plugin_manager.xml"
@@ -33,6 +34,7 @@ static const std::map<std::string, pal_plugin_manager_t> PmNameToType
     { "device",  PAL_PLUGIN_MANAGER_DEVICE},
     { "config",  PAL_PLUGIN_MANAGER_CONFIG},
     { "control",  PAL_PLUGIN_MANAGER_CONTROL},
+    { "sound_model",  PAL_PLUGIN_MANAGER_SOUND_MODEL},
 };
 
 struct xml_userdata {
@@ -85,6 +87,9 @@ int32_t PluginManager::getRegisteredPluginList(pal_plugin_manager_t type, std::v
         case PAL_PLUGIN_MANAGER_CONTROL:
             *pluginList = &registeredControls;
             break;
+        case PAL_PLUGIN_MANAGER_SOUND_MODEL:
+            *pluginList = &registeredSoundModels;
+            break;
         default:
             PAL_ERR(LOG_TAG, "unsupported Plugin type %d", type);
             status = -EINVAL;
@@ -114,6 +119,7 @@ int32_t PluginManager::registeredPlugin(pm_item_t item, pal_plugin_manager_t typ
         }
         if (!foundLib){
             PAL_ERR(LOG_TAG, "%s registered", item.libName.c_str());
+            item.refCount = 0;
             pluginList->push_back(item);
         }
 
@@ -219,7 +225,7 @@ int32_t  PluginManager::closePlugin(pal_plugin_manager_t type, std::string keyNa
 
 // Callback function for handling start elements
 void PluginManager::startElement(void* userData, const char* name, const char** attrs) {
-    if (strcmp(name, "stream") == 0 || strcmp(name, "session") == 0 || strcmp(name, "device") == 0) {
+    if (strcmp(name, "stream") == 0 || strcmp(name, "session") == 0 || strcmp(name, "device") == 0 || strcmp(name, "sound_model") == 0) {
         pm_item_t item;
         // std::string stream;
         PAL_DBG(LOG_TAG, "enter");
