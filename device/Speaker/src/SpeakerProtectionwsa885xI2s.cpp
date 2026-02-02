@@ -32,44 +32,27 @@ SpeakerProtectionwsa885xI2s::~SpeakerProtectionwsa885xI2s()
 }
 
 int SpeakerProtectionwsa885xI2s::getSpeakerTemperature(int spkr_pos) {
-    int ret;
-    struct mixer_ctl *trigger_temp_ctl;
-    struct mixer_ctl *temp_ctl;
     int status = 0;
+    FILE *fp = NULL;
+    int temp_val = 0;
 
     PAL_DBG(LOG_TAG, "Enter Speaker Get Temperature");
 
-    trigger_temp_ctl = mixer_get_ctl_by_name(hwMixer, "SA1 Trigger Die Temperature");
-    if (!trigger_temp_ctl) {
-       PAL_ERR(LOG_TAG, "Invalid mixer control: SA1 Trigger Die Temperature");
-       return -ENOENT;
+    fp = fopen("/sys/class/thermal/thermal_zone1/temp", "r");
+    if (!fp) {
+         PAL_ERR(LOG_TAG, "Failed to open file /sys/class/thermal/thermal_zone1/temp");
+         return -EINVAL;
     }
 
-    ret = mixer_ctl_set_value(trigger_temp_ctl, 0, 1);
-    if (ret) {
-         PAL_ERR(LOG_TAG, "Could not Enable ctl for mixer cmd - %s ret %d\n",
-                  "SA1 Trigger Die Temperature", ret);
-        return -EINVAL;
+    if (fscanf(fp, "%d", &temp_val) != 1) {
+         PAL_ERR(LOG_TAG, "Failed to read temperature from file");
+         fclose(fp);
+         return -EINVAL;
     }
+    fclose(fp);
 
-    temp_ctl = mixer_get_ctl_by_name(hwMixer, "SA1 Die Temperature");
-    if (!temp_ctl) {
-       PAL_ERR(LOG_TAG, "Invalid mixer control: SA1 Die Temperature");
-       status = -EINVAL;
-       goto exit;
-    }
-
-    status = mixer_ctl_get_value(temp_ctl, 0);
-
+    status = temp_val/1000;
     PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", status);
-exit:
-
-   ret = mixer_ctl_set_value(trigger_temp_ctl, 0, 0);
-   if (ret)
-      PAL_ERR(LOG_TAG, "Could not Disable ctl for mixer cmd - %s ret %d\n",
-         "SA1 Trigger Die Temperature", ret);
-
-    PAL_DBG(LOG_TAG, "Status : %d", status);
     return status;
 }
 
