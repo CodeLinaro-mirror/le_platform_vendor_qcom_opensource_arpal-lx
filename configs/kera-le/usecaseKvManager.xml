@@ -200,6 +200,10 @@
             <keys_and_values Direction="RX" SubType="PAL_STREAM_LOOPBACK_PLAYBACK_ONLY">
                 <!-- STREAMRX - PCM_RX_LOOPBACK -->
                 <graph_kv key="0xA1000000" value="0xA1000003"/>
+            <keys_and_values Direction="RX" SubType="PAL_STREAM_LOOPBACK_HFP_RX">
+                <!-- STREAMRX - HFP_RX_PLAYBACK -->
+                <graph_kv key="0xA1000000" value="0xA100000C"/>
+            </keys_and_values>
             </keys_and_values>
         </stream>
         <!-- Voice UI stream -->
@@ -822,6 +826,14 @@
                 <!-- BT_FORMAT - LC3 -->
                 <graph_kv key="0xB5000000" value="0xB5000005"/>
             </keys_and_values>
+            <keys_and_values CodecFormat="CODEC_TYPE_SBC,CODEC_TYPE_AAC" Hostless="FALSE">
+                <!-- DEVICETX - BT_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000002"/>
+                <!-- BT_PROFILE - A2DP -->
+                <graph_kv key="0xB4000000" value="0xB4000002"/>
+                <!-- BT_FORMAT - GENERIC -->
+                <graph_kv key="0xB5000000" value="0xB5000001"/>
+            </keys_and_values>
         </device>
         <!-- BT BLE IN Device -->
         <device id="PAL_DEVICE_IN_BLUETOOTH_BLE">
@@ -969,11 +981,9 @@
                 <!-- DEVICEPP_RX - DEVICEPP_RX_VOIP_MBDRC -->
                 <graph_kv key="0xAC000000" value="0xAC000003"/>
             </keys_and_values>
-            <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_HFP_RX">
-                <!-- DEVICERX - SPEAKER -->
-                <graph_kv key="0xA2000000" value="0xA2000001"/>
-                <!-- DEVICEPP_RX - DEVICEPP_RX_HFPSINK -->
-                <graph_kv key="0xAC000000" value="0xAC000004"/>
+            <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_PCM" CustomConfig="btsink-usecase">
+                <!-- DEVICEPP_RX - Device_PP_RX_BtSink -->
+                <graph_kv key="0xAC000000" value="0xAC00000C"/>
             </keys_and_values>
             <keys_and_values StreamType="PAL_STREAM_VOICE_CALL">
                 <!-- DEVICERX - SPEAKER -->
@@ -1126,8 +1136,6 @@
                 <graph_kv key="0xAC000000" value="0xAC000005"/>
             </keys_and_values>
             <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_HFP_TX">
-                <!-- DEVICERX - BT_RX -->
-                <graph_kv key="0xA2000000" value="0xA2000003"/>
                 <!-- DEVICEPP_RX - DEVICEPP_RX_HFPSINK  -->
                 <graph_kv key="0xAC000000" value="0xAC000004"/>
             </keys_and_values>
@@ -1416,6 +1424,10 @@
                 <graph_kv key="0xA3000000" value="0xA3000001"/>
                 <!-- DEVICEPP_TX - DEVICEPP_TX_VOIP_FLUENCE_NN_SM -->
                 <graph_kv key="0xAD000000" value="0xAD000010"/>
+            </keys_and_values>
+           <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_HFP_TX">
+                <!-- DEVICETX - SPEAKER_MIC -->
+                <graph_kv key="0xA3000000" value="0xA3000001"/>
             </keys_and_values>
             <keys_and_values StreamType="PAL_STREAM_VOICE_UI"
                 DevicePPType="DUAL_HANDSET_MIC_48KHZ_16BIT_FFECNS">
