@@ -70,9 +70,9 @@
     </config_lpm>
     <config_gapless key="gapless_supported" value="1"/>
     <bt_codecs>
-        <codec codec_format="CODEC_TYPE_AAC" codec_type="enc|dec" codec_library="lib_bt_bundle.so" />
-        <codec codec_format="CODEC_TYPE_SBC" codec_type="enc|dec" codec_library="lib_bt_bundle.so" />
-        <codec codec_format="CODEC_TYPE_LDAC" codec_type="enc" codec_library="lib_bt_bundle.so" />
+        <codec codec_format="CODEC_TYPE_AAC" codec_type="enc|dec" codec_library="libbt_bundle.so" />
+        <codec codec_format="CODEC_TYPE_SBC" codec_type="enc|dec" codec_library="libbt_bundle.so" />
+        <codec codec_format="CODEC_TYPE_LDAC" codec_type="enc" codec_library="libbt_bundle.so" />
         <codec codec_format="CODEC_TYPE_APTX" codec_type="enc" codec_library="lib_bt_aptx.so" />
         <codec codec_format="CODEC_TYPE_APTX_HD" codec_type="enc" codec_library="lib_bt_aptx.so" />
         <codec codec_format="CODEC_TYPE_APTX_AD" codec_type="enc" codec_library="lib_bt_aptx.so" />
@@ -636,7 +636,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
-            <back_end_name>BTFM_PROXY-TX-0</back_end_name>
+            <back_end_name>BTFM_PROXY-TX-2</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
             <snd_device_name>bt-a2dp-mic</snd_device_name>
