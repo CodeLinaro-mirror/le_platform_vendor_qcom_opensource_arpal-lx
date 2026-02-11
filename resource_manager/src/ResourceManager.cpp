@@ -7191,7 +7191,9 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
 
 exit:
     PAL_DBG(LOG_TAG,"Exit, status %d", ret);
-    if(value != NULL)
+    if (kv_pairs)
+        free(kv_pairs);
+    if (value != NULL)
         free(value);
     return ret;
 }
@@ -8209,16 +8211,28 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
         {
             std::list<Stream*>::iterator sIter;
             pal_stream_attributes st_attr;
+            mResourceManagerMutex.unlock();
+            lockActiveStream();
             for(sIter = mActiveStreams.begin(); sIter != mActiveStreams.end(); sIter++) {
+                if (increaseStreamUserCounter(*sIter) < 0) {
+                    continue;
+                }
                 (*sIter)->getStreamAttributes(&st_attr);
                 if (st_attr.type == PAL_STREAM_HAPTICS) {
+                    unlockActiveStream();
                     status = (*sIter)->setVolume((struct pal_volume_data *)param_payload);
+                    lockActiveStream();
                     if (status) {
+                        decreaseStreamUserCounter(*sIter);
+                        unlockActiveStream();
                         PAL_ERR(LOG_TAG, "Failed to set volume for haptics");
-                        goto exit;
+                        goto exit_no_unlock;
                     }
                 }
+                decreaseStreamUserCounter(*sIter);
             }
+            unlockActiveStream();
+            mResourceManagerMutex.lock();
         }
         break;
         case PAL_PARAM_ID_MSPP_LINEAR_GAIN:
