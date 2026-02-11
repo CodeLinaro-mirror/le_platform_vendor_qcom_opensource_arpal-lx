@@ -1154,16 +1154,38 @@ int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
                                     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                     void* param_payload, size_t payload_size)
 {
-    PAL_ERR(LOG_TAG, "error: API: pal_stream_set_custom_param  not implemented");
-    return -ENOSYS;
+    int32_t status = 0;
+    //Check if param_str matches the string representation of the UI Effect ID
+    //If it matches then only call pal_stream_set_param
+    if (strncmp(param_str, PAL_CUSTOM_PARAM_AR_UI_EFFECT, PAL_CUSTOM_PARAM_MAX_STRING_LENGTH) == 0) {
+        status = pal_stream_set_param(handle, PAL_PARAM_ID_UIEFFECT, (pal_param_payload *)param_payload);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "Failed to set custom param, status = %d", status);
+        }
+    } else {
+        PAL_ERR(LOG_TAG, "error: API: pal_stream_set_custom_param  not implemented");
+        status = -ENOSYS;
+    }
+    return status;
 }
 
 int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
                                     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                     void* param_payload, size_t *payload_size)
 {
-    PAL_ERR(LOG_TAG, "error: API: pal_stream_get_custom_param  not implemented");
-    return -ENOSYS;
+    int32_t status = 0;
+    //Check if param_str matches the string representation of the UI Effect ID
+    //If it matches then only call pal_stream_get_param
+    if (strncmp(param_str, PAL_CUSTOM_PARAM_AR_UI_EFFECT, PAL_CUSTOM_PARAM_MAX_STRING_LENGTH) == 0) {
+        status = pal_stream_get_param(handle, PAL_PARAM_ID_UIEFFECT, (pal_param_payload **)param_payload);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "Failed to get custom param, status = %d", status);
+        }
+    } else {
+        PAL_ERR(LOG_TAG, "error: API: pal_stream_get_custom_param  not implemented");
+        status = -ENOSYS;
+    }
+    return status;
 }
 
 int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
