@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
@@ -1431,3 +1431,47 @@ int32_t pal_set_mic_mute(bool state){
     PAL_ERR(LOG_TAG, "error: API: pal_set_mic_mute not implemented");
     return -ENOSYS;
 }
+
+int32_t pal_stream_reset_mmap_buf(pal_stream_handle_t *stream_handle) {
+    int32_t status = 0;
+    Stream *s = NULL;
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    if (!stream_handle) {
+        PAL_ERR(LOG_TAG, "Invalid stream handle");
+        return -EINVAL;
+    }
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
+    }
+
+    PAL_DBG(LOG_TAG, "Enter. Stream handle: %pK", stream_handle);
+    kpiEnqueue(__func__, true);
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        rm->unlockActiveStream();
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Stream handle not active");
+        kpiEnqueue(__func__, false);
+        return status;
+    }
+
+    rm->unlockActiveStream();
+
+    s = reinterpret_cast<Stream *>(stream_handle);
+    status = s->ResetMmapBuff();
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "pal_stream_reset_mmap_buf failed with status %d", status);
+        kpiEnqueue(__func__, false);
+    }
+
+    PAL_DBG(LOG_TAG, "Exit. status %d", status);
+    kpiEnqueue(__func__, false);
+    return status;
+}
+

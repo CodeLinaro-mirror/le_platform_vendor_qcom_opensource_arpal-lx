@@ -28,7 +28,7 @@
  */
 /* Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted (subject to the limitations in the
@@ -610,6 +610,7 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
                       pal_stream_type_t pal_stream_type, uint32_t sample_rate,
                       uint32_t instance_id, uint32_t dir, bool is_play);
 
+int32_t pal_stream_reset_mmap_buf(pal_stream_handle_t *stream_handle);
 
 #ifdef __cplusplus
 }  /* extern "C" */

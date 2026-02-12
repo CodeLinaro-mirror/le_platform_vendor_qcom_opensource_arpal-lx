@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -4060,7 +4060,7 @@ int SessionAlsaPcm::ResetMmapBuffer(Stream *s) {
         return status;
     }
 
-    if (sAttr.type != PAL_STREAM_VOICE_UI) {
+    if (sAttr.type != PAL_STREAM_VOICE_UI && !SessionAlsaUtils::isMmapUsecase(sAttr)) {
         return -EINVAL;
     }
 

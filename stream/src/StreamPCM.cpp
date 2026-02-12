@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1799,3 +1799,20 @@ int32_t StreamPCM::GetMmapPosition(struct pal_mmap_position *position)
 
     return status;
 }
+
+int32_t StreamPCM::ResetMmapBuff()
+{
+    int32_t status = 0;
+    PAL_DBG(LOG_TAG, "Enter");
+
+    mStreamMutex.lock();
+    status = session->ResetMmapBuffer(this);
+    mStreamMutex.unlock();
+
+    if (0 != status)
+        PAL_ERR(LOG_TAG, "ResetMmapBuff failed with status = %d", status);
+
+    PAL_DBG(LOG_TAG, "Exit. status - %d", status);
+    return status;
+}
+
