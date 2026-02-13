@@ -277,6 +277,7 @@ int32_t  StreamPCM::close()
     mStreamMutex.lock();
 
     if (currentState == STREAM_IDLE) {
+        cachedState = STREAM_IDLE;
         PAL_INFO(LOG_TAG, "Stream is already closed");
         mStreamMutex.unlock();
         return status;
@@ -649,6 +650,7 @@ int32_t StreamPCM::stop()
         }
         currentState = STREAM_STOPPED;
     } else if (currentState == STREAM_STOPPED || currentState == STREAM_IDLE) {
+        cachedState = currentState;
         PAL_INFO(LOG_TAG, "Stream is already in Stopped state %d", currentState);
         goto exit;
     } else {
