@@ -69,7 +69,7 @@ protected:
     uint32_t mCurrentPriority;
     //device atrributues per stream are stored by priority in a map
     std::multimap<uint32_t, std::pair<Stream *, struct pal_device *>> mStreamDevAttr;
-    uint32_t mSampleRate;
+    uint32_t mSampleRate = 0;
 
     Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     Device();
@@ -88,7 +88,7 @@ public:
     static std::shared_ptr<Device> getInstance(struct pal_device *device,
                                                std::shared_ptr<ResourceManager> Rm);
     int getSndDeviceId();
-    int getDeviceCount() { return deviceCount; }
+    int getDeviceCount();
     std::string getPALDeviceName();
     int setDeviceAttributes(struct pal_device dattr);
     virtual int getDeviceAttributes(struct pal_device *dattr,

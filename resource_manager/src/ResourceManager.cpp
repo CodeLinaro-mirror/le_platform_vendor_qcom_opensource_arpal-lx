@@ -66,6 +66,7 @@
 #include <mutex>
 #include "kvh2xml.h"
 #include <sys/ioctl.h>
+#include "fluence_ffv_common_calibration.h"
 #ifdef EC_REF_CAPTURE_ENABLED
 #include "ECRefDevice.h"
 #endif
@@ -79,6 +80,9 @@
 #define XML_PATH_MAX_LENGTH 100
 #define HW_INFO_ARRAY_MAX_SIZE 32
 
+#define PRIMARY_MIC 0
+#define SECONDARY_MIC 1
+
 #define VBAT_BCL_SUFFIX "-vbat"
 
 #if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
@@ -88,7 +92,7 @@
 #endif
 
 #if defined(ADSP_SLEEP_MONITOR)
-#include <adsp_sleepmon.h>
+#include <misc/adsp_sleepmon.h>
 #endif
 
 #if LINUX_ENABLED
@@ -718,6 +722,69 @@ void ResourceManager::sendCrashSignal(int signal, pid_t pid, uid_t uid)
     ALOGV("%s: signal %d, pid %u, uid %u", __func__, signal, pid, uid);
     struct agm_dump_info dump_info = {signal, (uint32_t)pid, (uint32_t)uid};
     agm_dump(&dump_info);
+}
+
+int32_t ResourceManager::updateMicOcclusionInfo(Stream *s, void *data)
+{
+    PAL_DBG(LOG_TAG, "Enter %s", __func__);
+
+    event_id_mic_occlusion_status_info_t *mic_info = nullptr;
+    uint16_t occlusionState;
+
+    mic_info = (struct event_id_mic_occlusion_status_info_t *)data;
+    occlusionState = mic_info->occlusion_state;
+
+    auto it = micOcclusionInfoMap.find(s);
+
+    if (it == micOcclusionInfoMap.end()) {
+        /*if didn't find entry add new and update*/
+        addMicOcclusionInfo(s);
+        it = micOcclusionInfoMap.find(s);  // Check if addition was successful
+        if (it == micOcclusionInfoMap.end()) {  // Verify the entry exists now
+           PAL_ERR(LOG_TAG, "Failed to add mic occlusion info for stream");
+           return -EINVAL;
+         }
+    }
+
+    switch (occlusionState) {
+        case MIC_OCC_STATE_NO_OCCLUSION:
+            PAL_DBG(LOG_TAG," mic occ state: %d", occlusionState);
+            for (int i = 0; i < micOcclusionInfoMap[s].size(); i++) {
+                if (micOcclusionInfoMap[s][i].is_occluded) {
+                    /* previously mic was occluded , mark recovered*/
+                    micOcclusionInfoMap[s][i].is_occluded = false;
+                    micOcclusionInfoMap[s][i].num_of_recovery++;
+                }
+            }
+        break;
+        case MIC_OCC_STATE_MIC0_BLOCKED:
+            PAL_DBG(LOG_TAG," mic occ state: %d", occlusionState);
+            if (micOcclusionInfoMap[s][SECONDARY_MIC].is_occluded) {
+                /* previously secondary mic was occluded , mark it recovered.*/
+                micOcclusionInfoMap[s][SECONDARY_MIC].is_occluded = false;
+                micOcclusionInfoMap[s][SECONDARY_MIC].num_of_recovery++;
+            } /* previously none of the mic occluded */
+
+            micOcclusionInfoMap[s][PRIMARY_MIC].is_occluded = true;
+            micOcclusionInfoMap[s][PRIMARY_MIC].num_of_occlusion++;
+        break;
+        case MIC_OCC_STATE_MIC1_BLOCKED:
+            PAL_DBG(LOG_TAG," mic occ state: %d", occlusionState);
+            if (micOcclusionInfoMap[s][PRIMARY_MIC].is_occluded) {
+                /* previously primary mic was occluded , mark it recovered. */
+                micOcclusionInfoMap[s][PRIMARY_MIC].is_occluded = false;
+                micOcclusionInfoMap[s][PRIMARY_MIC].num_of_recovery++;
+            } /* previously none of the mic occluded */
+
+            micOcclusionInfoMap[s][SECONDARY_MIC].is_occluded = true;
+            micOcclusionInfoMap[s][SECONDARY_MIC].num_of_occlusion++;
+        break;
+        default:
+            PAL_DBG(LOG_TAG," Incorrect mic occ state: %d", occlusionState);
+    }
+
+    PAL_DBG(LOG_TAG, "Exit %s", __func__);
+    return 0;
 }
 
 ResourceManager::ResourceManager()
@@ -2880,6 +2947,61 @@ int ResourceManager::isActiveStream(pal_stream_handle_t *handle) {
     return false;
 }
 
+void ResourceManager::addMicOcclusionInfo(Stream *s) {
+    std::vector<std::shared_ptr<Device>> palDevices;
+    pal_device_id_t dev_id = PAL_DEVICE_NONE;
+
+    if (s == nullptr) {
+        PAL_ERR(LOG_TAG,"stream handle s is null");
+        return;
+    }
+
+    s->getAssociatedPalDevices(palDevices);
+
+    if (palDevices.size() == 0) {
+       PAL_ERR(LOG_TAG,"empty device vector can't add new entry in map");
+       return;
+    }
+
+    for (size_t i = 0; i < palDevices.size(); i++) {
+        if (palDevices[i]) {
+            PAL_ERR(LOG_TAG, "micocclusion: palDevices[i]->device_id %d ",palDevices[i]->getSndDeviceId());
+            pal_device_id_t id = (pal_device_id_t) palDevices[i]->getSndDeviceId();
+            if (isInputDevId(id)) {
+                dev_id = id;
+                PAL_DBG(LOG_TAG," device = %d for mic map", dev_id);
+                break;
+            }
+        }
+    }
+
+    if (dev_id == PAL_DEVICE_NONE) {
+       PAL_ERR(LOG_TAG,"no input device found, can't add new entry in map");
+       return;
+    }
+
+    if (micOcclusionInfoMap.find(s) == micOcclusionInfoMap.end()) {
+        pal_param_mic_occlusion_info_t mic_info = {dev_id, false, 0, 0};
+        std::vector<pal_param_mic_occlusion_info_t> micInfoVector;
+        micInfoVector.push_back(mic_info);
+        micInfoVector.push_back(mic_info);
+        micOcclusionInfoMap[s]= micInfoVector;
+    }
+}
+
+void ResourceManager::removeMicOcclusionInfo(Stream *s)
+{
+    if (s == nullptr) {
+        PAL_ERR(LOG_TAG,"stream handle s is null");
+        return;
+    }
+
+    auto it = micOcclusionInfoMap.find(s);
+    if (it != micOcclusionInfoMap.end()) {
+        micOcclusionInfoMap.erase(it);
+    }
+}
+
 int ResourceManager::initStreamUserCounter(Stream *s)
 {
     lockActiveStream();
@@ -4223,6 +4345,35 @@ void ResourceManager::mixerEventWaitThreadLoop(
     mixer_subscribe_events(mixer, 0);
 }
 
+int ResourceManager::getPcmIdByDevInfoName(char *mixer_str) {
+    int pcm_id = 0;
+    std::string event_str(mixer_str);
+
+    if (!mixer_str) {
+        PAL_ERR(LOG_TAG,"empty mixer str");
+        return -EINVAL;
+    }
+
+    int idx = event_str.find(" ");
+    if (idx == std::string::npos) {
+        PAL_ERR(LOG_TAG,"space index not found");
+        return -EINVAL;
+    }
+
+    std::string event_name = event_str.substr(0,idx);
+
+    for (int i = 0; i < devInfo.size();i++) {
+        if (strcmp(event_name.c_str(), devInfo[i].name) == 0) {
+            pcm_id = devInfo[i].deviceId;
+            return pcm_id;
+        }
+    }
+
+    //not found.
+    PAL_ERR(LOG_TAG,"pcm id not found");
+    return -EINVAL;
+}
+
 int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     int status = 0;
     int pcm_id = 0;
@@ -4232,6 +4383,7 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     // TODO: hard code in common defs
     std::string pcm_prefix = "PCM";
     std::string compress_prefix = "COMPRESS";
+    std::string voice_prefix = "VOICEMMODE";
     std::string event_suffix = "event";
     size_t prefix_idx = 0;
     size_t suffix_idx = 0;
@@ -4281,9 +4433,20 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     if (prefix_idx == event_str.npos) {
         prefix_idx = event_str.find(compress_prefix);
         if (prefix_idx == event_str.npos) {
-            PAL_ERR(LOG_TAG, "Invalid mixer event");
-            status = -EINVAL;
-            goto exit;
+           prefix_idx = event_str.find(voice_prefix);
+           if (prefix_idx == event_str.npos) {
+              PAL_ERR(LOG_TAG, "Invalid mixer event");
+              status = -EINVAL;
+              goto exit;
+           } else { /*find pcm_id for voice call case*/
+               pcm_id = getPcmIdByDevInfoName(mixer_str);
+               if (pcm_id < 0) {
+                  PAL_ERR(LOG_TAG, "Invalid mixer event");
+                  status = -EINVAL;
+                  goto exit;
+               }
+               goto acquire_cb;
+           }
         } else {
             prefix_idx += compress_prefix.length();
         }
@@ -4301,6 +4464,7 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     length = suffix_idx - prefix_idx;
     pcm_id = std::stoi(event_str.substr(prefix_idx, length));
 
+acquire_cb:
     // acquire callback/cookie with pcm dev id
     it = mixerEventCallbackMap.find(pcm_id);
     if (it != mixerEventCallbackMap.end()) {
@@ -4624,6 +4788,7 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
     bool do_st_stream_switch = false;
     bool use_lpi_temp = use_lpi_;
     bool st_stream_conc_en = true;
+    bool notify_resources_available = false;
 
     mActiveStreamMutex.lock();
     PAL_DBG(LOG_TAG, "Enter, stream type %d, direction %d, active %d", type, dir, active);
@@ -4640,6 +4805,9 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
                            &st_stream_rx_conc, &st_stream_tx_conc, &st_stream_conc_en);
 
         if (!st_stream_conc_en) {
+            if (st_stream_type == PAL_STREAM_VOICE_UI &&
+                concurrencyDisableCount == 1 && !active)
+                notify_resources_available = true;
             HandleStreamPauseResume(st_stream_type, active);
             continue;
         }
@@ -4674,7 +4842,7 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
      * The usecases using ST framework register the onResourcesAvailable callback.
      * Notify the framework upon concurrency is inactive.
      */
-    if (onResourceAvailCb && !st_stream_conc_en && !active) {
+    if (onResourceAvailCb && notify_resources_available) {
         onResourceAvailCb(onResourceAvailCookie);
     }
 
@@ -6691,6 +6859,7 @@ error:
 int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, struct pal_device *>> streamDevConnectList){
     int status = 0;
     std::vector <std::tuple<Stream *, struct pal_device *>>::iterator sIter;
+    std::set<Stream *> connected_streams;
 
     PAL_DBG(LOG_TAG, "Enter");
     /* connect active list from the current devices they are attached to */
@@ -6704,7 +6873,9 @@ int32_t ResourceManager::streamDevConnect_l(std::vector <std::tuple<Stream *, st
                 PAL_DBG(LOG_TAG,"connected stream %pK from device %d",
                         std::get<0>(*sIter), (std::get<1>(*sIter))->id);
             }
-            std::get<0>(*sIter)->unlockStreamMutex();
+            auto result = connected_streams.insert(std::get<0>(*sIter));
+            if (result.second)
+                std::get<0>(*sIter)->unlockStreamMutex();
         }
     }
 
@@ -8665,6 +8836,18 @@ int ResourceManager::getParameter(uint32_t param_id, void **param_payload,
             }
         }
         break;
+        case PAL_PARAM_ID_MIC_OCCLUSION_INFO:
+        {
+            PAL_INFO(LOG_TAG, "get parameter for Mic Occlusion Info");
+            auto micInfoVec = new std::vector<std::vector<pal_param_mic_occlusion_info_t>>;
+            for (const auto& it : micOcclusionInfoMap )
+            {
+                micInfoVec->push_back(it.second);
+            }
+            *payload_size = sizeof(micInfoVec);
+            *param_payload = static_cast<void*>(micInfoVec);
+        }
+        break;
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unknown ParamID:%d", param_id);
@@ -9050,7 +9233,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             std::vector <Stream *> activeA2dpStreams;
             struct pal_device dattr;
             pal_param_bta2dp_t *current_param_bt_a2dp = nullptr;
-            pal_param_bta2dp_t param_bt_a2dp;
+            pal_param_bta2dp_t param_bt_a2dp = {};
             int retrycnt = 3;
             const int retryPeriodMs = 100;
 
@@ -9137,6 +9320,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (!isDeviceAvailable(param_bt_a2dp->dev_id))
                 skip_switch = true;
 
+            if (param_bt_a2dp->dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP && param_bt_a2dp->is_in_call)
+                    skip_switch = true;
+
             if (ResourceManager::isDummyDevEnabled) {
                 if (param_bt_a2dp->a2dp_suspended == false) {
                     struct pal_device sco_tx_dattr = {};
@@ -9191,7 +9377,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     mActiveStreamMutex.unlock();
                 }
             } else {
-                if (param_bt_a2dp->a2dp_suspended == false) {
+                if (param_bt_a2dp->a2dp_suspended == false && !skip_switch) {
                     struct pal_device sco_tx_dattr;
                     struct pal_device sco_rx_dattr;
                     std::shared_ptr<Device> sco_tx_dev = nullptr;
@@ -9409,6 +9595,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (!isDeviceAvailable(param_bt_a2dp->dev_id))
                 skip_switch = true;
 
+            if (param_bt_a2dp->dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP && param_bt_a2dp->is_in_call)
+                  skip_switch = true;
+
             if (ResourceManager::isDummyDevEnabled) {
                 if (param_bt_a2dp->a2dp_capture_suspended == false) {
                     struct pal_device sco_rx_dattr = {};
@@ -9432,7 +9621,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     }
                 }
             } else {
-                if (param_bt_a2dp->a2dp_capture_suspended == false) {
+                if (param_bt_a2dp->a2dp_capture_suspended == false && !skip_switch) {
                     /* Handle bt sco out running usecase */
                     struct pal_device sco_rx_dattr;
                     struct pal_stream_attributes sAttr;

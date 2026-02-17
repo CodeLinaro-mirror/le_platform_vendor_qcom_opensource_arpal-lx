@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2084,6 +2084,7 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
 {
     int32_t status = 0;
     pal_param_bta2dp_t* param_a2dp = (pal_param_bta2dp_t *)param;
+    bool skip_switch = false;
 
     if (isA2dpOffloadSupported == false) {
        PAL_VERBOSE(LOG_TAG, "no supported encoders identified,ignoring a2dp setparam");
@@ -2157,13 +2158,18 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                     goto exit;
                 }
             }
-            if (ResourceManager::isDummyDevEnabled) {
-                status = rm->a2dpResumeFromDummy(param_a2dp->dev_id);
-            } else {
-                status = rm->a2dpResume(param_a2dp->dev_id);
+            if (param_a2dp->dev_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP && param_a2dp->is_in_call)
+                skip_switch = true;
+
+            if (!skip_switch){
+                if (ResourceManager::isDummyDevEnabled) {
+                      rm->a2dpResumeFromDummy(param_a2dp->dev_id);
+                } else {
+                    rm->a2dpResume(param_a2dp->dev_id);
+                }
             }
+            break;
         }
-        break;
     }
     case PAL_PARAM_ID_BT_A2DP_TWS_CONFIG:
     {
@@ -2252,13 +2258,18 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                     goto exit;
                 }
             }
-            if (ResourceManager::isDummyDevEnabled) {
-                rm->a2dpCaptureResumeFromDummy(param_a2dp->dev_id);
-            } else {
-                rm->a2dpCaptureResume(param_a2dp->dev_id);
-            }
-        }
-        break;
+            if (param_a2dp->dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP && param_a2dp->is_in_call)
+                skip_switch = true;
+
+            if (!skip_switch) {
+                if (ResourceManager::isDummyDevEnabled) {
+                     rm->a2dpCaptureResumeFromDummy(param_a2dp->dev_id);
+                } else {
+                    rm->a2dpCaptureResume(param_a2dp->dev_id);
+                }
+             }
+             break;
+       }
     }
     case PAL_PARAM_ID_SET_SINK_METADATA:
         if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE) {
@@ -2478,7 +2489,7 @@ void BtSco::convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo,
     lc3CodecInfo.enc_cfg.toAirConfig.api_version          = lc3Cfg.api_version;
     lc3CodecInfo.enc_cfg.toAirConfig.num_blocks           = lc3Cfg.num_blocks;
     lc3CodecInfo.enc_cfg.toAirConfig.default_q_level      = 0;
-    lc3CodecInfo.enc_cfg.toAirConfig.mode                 = 0x1;
+    lc3CodecInfo.enc_cfg.toAirConfig.mode                 = lc3Cfg.mode;
     lc3CodecInfo.is_enc_config_set                        = true;
 
     // convert and fill in decoder cfg
@@ -2491,7 +2502,7 @@ void BtSco::convertCodecInfo(audio_lc3_codec_cfg_t &lc3CodecInfo,
     lc3CodecInfo.dec_cfg.fromAirConfig.api_version          = lc3Cfg.api_version;
     lc3CodecInfo.dec_cfg.fromAirConfig.num_blocks           = lc3Cfg.num_blocks;
     lc3CodecInfo.dec_cfg.fromAirConfig.default_q_level      = 0;
-    lc3CodecInfo.dec_cfg.fromAirConfig.mode                 = 0x1;
+    lc3CodecInfo.dec_cfg.fromAirConfig.mode                 = lc3Cfg.mode;
     lc3CodecInfo.is_dec_config_set                          = true;
 
     // parse vendor specific string

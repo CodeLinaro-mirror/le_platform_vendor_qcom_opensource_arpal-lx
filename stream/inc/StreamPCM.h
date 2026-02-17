@@ -25,9 +25,9 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
- *Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ *
+ *Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  *SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -47,7 +47,6 @@ public:
              const uint32_t no_of_devices,
              const struct modifier_kv *modifiers, const uint32_t no_of_modifiers,
              const std::shared_ptr<ResourceManager> rm); //make this just pass parameters to Stream and avoid duplicating code between StreamPCM and StreamCompress
-   //StreamPCM();
    ~StreamPCM();
    int32_t open() override;
    int32_t close() override;
@@ -81,9 +80,11 @@ public:
    static int32_t isSampleRateSupported(uint32_t sampleRate);
    static int32_t isChannelSupported(uint32_t numChannels);
    static int32_t isBitWidthSupported(uint32_t bitWidth);
-
+   static void handleSessionCallBack(uint64_t hdl, uint32_t event_id, void *data,
+                                                           uint32_t event_size);
 private:
     uint32_t volRampPeriodms;
+   bool isMMap = false;
 };
 
 #endif//STREAMPCM_H_

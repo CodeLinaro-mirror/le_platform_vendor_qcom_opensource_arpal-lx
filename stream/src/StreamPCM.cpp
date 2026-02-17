@@ -1,7 +1,5 @@
 /*
  * Copyright (c) 2019-2021, The Linux Foundation. All rights reserved.
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025, Qualcomm Innovation Center, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -27,8 +25,11 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
-
 #define LOG_TAG "PAL: StreamPCM"
 
 #include "StreamPCM.h"
@@ -39,6 +40,28 @@
 #include "Device.h"
 #include <unistd.h>
 #include <chrono>
+
+void StreamPCM::handleSessionCallBack(uint64_t hdl, uint32_t event_id,
+                                        void *data, uint32_t event_size)
+{
+    Stream *s = (Stream *) hdl;
+    pal_device_id_t dev_id;
+
+    PAL_DBG(LOG_TAG,"Event id %x ", event_id);
+
+    if (!rm) {
+        rm = ResourceManager::getInstance();
+        if (!rm) {
+            PAL_ERR(LOG_TAG, "ResourceManager getInstance failed");
+            return;
+        }
+    }
+
+    if (event_id == EVENT_ID_MIC_OCCLUSION_STATUS_INFO) {
+        PAL_DBG(LOG_TAG,"LOG_AS: Mic Occlusion info received");
+        rm->updateMicOcclusionInfo(s, data);
+     }
+}
 
 StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                     const uint32_t no_of_devices, const struct modifier_kv *modifiers,
@@ -53,6 +76,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         usleep(SSR_RECOVERY);
         mStreamMutex.unlock();
         throw std::runtime_error("Sound card offline");
+    }
+
+    if (!sattr || !dattr) {
+        PAL_ERR(LOG_TAG,"invalid arguments");
+        mStreamMutex.unlock();
+        throw std::runtime_error("invalid arguments");
     }
 
     session = NULL;
@@ -90,20 +119,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     mVolumeData->volume_pair[0].vol = 1.0f;
     volRampPeriodms = 0x28;
 
-    if (!sattr || !dattr) {
-        PAL_ERR(LOG_TAG,"invalid arguments");
-        free(mVolumeData);
-        mVolumeData = nullptr;
-        mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
-    }
-
     attribute_size = sizeof(struct pal_stream_attributes);
     mStreamAttr = (struct pal_stream_attributes *) calloc(1, attribute_size);
     if (!mStreamAttr) {
         PAL_ERR(LOG_TAG, "malloc for stream attributes failed %s", strerror(errno));
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to malloc for stream attributes");
     }
@@ -123,10 +144,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     session = Session::makeSession(rm, sattr);
     if (!session) {
         PAL_ERR(LOG_TAG, "session creation failed");
-        free(mStreamAttr);
-        mStreamAttr = nullptr;
         free(mVolumeData);
-        mVolumeData = nullptr;
+        mVolumeData = NULL;
+        delete session;
+        session = nullptr;
+        free(mStreamAttr);
+        mStreamAttr = NULL;
         mStreamMutex.unlock();
         throw std::runtime_error("failed to create session object");
     }
@@ -142,11 +165,11 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         if (!dev) {
             PAL_ERR(LOG_TAG, "Device creation failed");
             free(mStreamAttr);
-            mStreamAttr = nullptr;
+            mStreamAttr = NULL;
             free(mVolumeData);
-            mVolumeData = nullptr;
-
-            //TBD::free session too
+            mVolumeData = NULL;
+            delete session;
+            session = nullptr;
             mStreamMutex.unlock();
             throw std::runtime_error("failed to create device object");
         }
@@ -179,6 +202,12 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     if (mStreamAttr->direction == PAL_AUDIO_OUTPUT )
         session->registerCallBack(handleSoftPauseCallBack, (uint64_t)this);
 
+    //Register for Mic Occlusion events for capture voip & voice call
+    if ((mStreamAttr->direction == PAL_AUDIO_INPUT) ||
+            (mStreamAttr->direction == PAL_AUDIO_INPUT_OUTPUT)) {
+        session->registerCallBack(handleSessionCallBack, (uint64_t)this);
+    }
+
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
     return;
@@ -203,8 +232,12 @@ int32_t  StreamPCM::open()
     /* Check for BT device connected state */
     for (int32_t i = 0; i < mDevices.size(); i++) {
         pal_device_id_t dev_id = (pal_device_id_t) mDevices[i]->getSndDeviceId();
-        if (rm->isBtDevice(dev_id) && !(rm->isDeviceAvailable(dev_id))) {
-            PAL_ERR(LOG_TAG, "BT device %d not connected, cannot open stream", dev_id);
+        if (rm->isBtDevice(dev_id) &&
+            (!rm->isDeviceAvailable(dev_id) ||
+             (!rm->isDeviceReady(dev_id) && mDevices.size() == 1))) {
+            PAL_ERR(LOG_TAG,
+                "BT device %d not connected or not ready, cannot open stream",
+                 dev_id);
             status = -ENODEV;
             goto exit;
         }
@@ -304,6 +337,21 @@ int32_t  StreamPCM::close()
         if (0 != status)
             PAL_ERR(LOG_TAG, "stream stop failed. status %d",  status);
         mStreamMutex.lock();
+    } else if (currentState == STREAM_INIT || currentState == STREAM_STOPPED) {
+        /* Special handling for aaudio usecase on A2DP/BLE/Speaker.
+         * A2DP/BLE device starts even when stream is still in STREAM_INIT state,
+         * hence stop A2DP/BLE/Speaker device to match device start&stop count.
+         */
+        for (int32_t i=0; i < mDevices.size(); i++) {
+            if (((mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ||
+                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_BLUETOOTH_BLE) ||
+                 (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) && isMMap) {
+                status = mDevices[i]->stop();
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "BT A2DP/BLE device stop failed with status %d", status);
+                }
+            }
+        }
     }
 
     rm->lockGraph();
@@ -400,6 +448,14 @@ int32_t StreamPCM::start()
              */
             status = -EINVAL;
             for (int32_t i=0; i < mDevices.size(); i++) {
+                if ((rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId())
+                   || (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER))
+                    && isMMap) {
+                    PAL_DBG(LOG_TAG, "skip BT device start as it's done already");
+                    status = 0;
+                    continue;
+                }
+
                 devStatus = mDevices[i]->start();
                 if (devStatus == 0) {
                     status = 0;
@@ -684,6 +740,12 @@ int32_t StreamPCM::stop()
             PAL_VERBOSE(LOG_TAG, "session stop successful");
 
             for (int32_t i=0; i < mDevices.size(); i++) {
+                if ((rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId())||
+                     (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) && isMMap) {
+                    PAL_DBG(LOG_TAG, "skip BT A2DP/BLE/Speaker device stop, to be done in close/disconnect");
+                    status = 0;
+                    continue;
+                }
                 status = mDevices[i]->stop();
                 if (0 != status) {
                     PAL_ERR(LOG_TAG, "Rx device stop failed with status %d", status);
@@ -1649,19 +1711,49 @@ int32_t StreamPCM::createMmapBuffer(int32_t min_size_frames,
                                    struct pal_mmap_buffer *info)
 {
     int32_t status = 0;
+    bool btDevStarted = false;
 
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
+    mStreamMutex.lock();
     if (currentState == STREAM_INIT) {
-        mStreamMutex.lock();
+        rm->lockGraph();
+        for (int32_t i=0; i < mDevices.size(); i++) {
+            if (rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId()) ||
+                (mDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_SPEAKER)) {
+                PAL_DBG(LOG_TAG, "start BT devices as to populate the full GKVs");
+                status = mDevices[i]->start();
+                btDevStarted = !status;
+                if (!btDevStarted && mDevices.size() == 1) {
+                    PAL_ERR(LOG_TAG, "BT device start failed: %d", status);
+                    rm->unlockGraph();
+                    goto exit;
+                }
+            }
+        }
         status = session->createMmapBuffer(this, min_size_frames, info);
-        if (0 != status)
-            PAL_ERR(LOG_TAG, "session prepare failed with status = %d", status);
-        mStreamMutex.unlock();
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "createMmapBuffer failed with status = %d", status);
+            for (int32_t i=0; i < mDevices.size(); i++) {
+                if (rm->isBtDevice((pal_device_id_t) mDevices[i]->getSndDeviceId())) {
+                    if (btDevStarted) {
+                        int32_t tempStatus = mDevices[i]->stop();
+                        if (0 != tempStatus)
+                            PAL_ERR(LOG_TAG, "BT device stop failed: %d", tempStatus);
+                    }
+                }
+            }
+            rm->unlockGraph();
+            goto exit;
+        }
+        isMMap = true;
+        rm->unlockGraph();
     } else {
         status = -EINVAL;
     }
-    PAL_DBG(LOG_TAG, "Exit. status - %d", status);
 
+exit:
+    mStreamMutex.unlock();
+    PAL_DBG(LOG_TAG, "Exit. status - %d", status);
     return status;
 }
 
@@ -1671,11 +1763,9 @@ int32_t StreamPCM::GetMmapPosition(struct pal_mmap_position *position)
 
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
 
-    mStreamMutex.lock();
     status = session->GetMmapPosition(this, position);
     if (0 != status)
-        PAL_ERR(LOG_TAG, "session prepare failed with status = %d", status);
-    mStreamMutex.unlock();
+        PAL_ERR(LOG_TAG, "GetMmapPosition failed with status = %d", status);
     PAL_DBG(LOG_TAG, "Exit. status - %d", status);
 
     return status;

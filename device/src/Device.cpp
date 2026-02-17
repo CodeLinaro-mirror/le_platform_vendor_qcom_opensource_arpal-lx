@@ -306,7 +306,7 @@ int Device::getDeviceAttributes(struct pal_device *dattr, Stream* streamHandle)
     mDeviceMutex.lock();
     if (streamHandle != NULL) {
         if (mStreamDevAttr.empty()) {
-            PAL_ERR(LOG_TAG,"empty device attr for device %d", getSndDeviceId());
+            PAL_DBG(LOG_TAG, "no device attr for associated streams for dev %d", getSndDeviceId());
             mDeviceMutex.unlock();
             return 0;
         }
@@ -387,6 +387,13 @@ int Device::getSndDeviceId()
 
 void Device::getCurrentSndDevName(char *name){
     strlcpy(name, mSndDeviceName, DEVICE_NAME_MAX_SIZE);
+}
+
+int Device::getDeviceCount(){
+    mDeviceMutex.lock();
+    int devCount = deviceCount;
+    mDeviceMutex.unlock();
+    return devCount;
 }
 
 std::string Device::getPALDeviceName()
