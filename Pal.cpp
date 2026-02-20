@@ -866,7 +866,6 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
         goto exit;
     }
 
-    s->lockStreamMutex();
     s->getAssociatedDevices(aDevices);
     s->getPalDevices(palDevices);
     if (!aDevices.empty() && !palDevices.empty()) {
@@ -904,23 +903,14 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                     force_switch = true;
                     break;
                 }
-                if (rm->isPluginPlaybackDevice(devices[i].id) ||
-                    rm->isDpDevice(devices[i].id)) {
-                    PAL_DBG(LOG_TAG, "always switch device for plugin and DP device");
-                    force_switch = true;
-                    break;
-                }
             }
         }
-        if (!force_switch && (activeDevices == newDevices) &&
-                             (curPalDevices == newDevices)) {
+        if (!force_switch && (activeDevices == newDevices)) {
             status = 0;
             PAL_DBG(LOG_TAG, "devices are same, no need to switch");
-            s->unlockStreamMutex();
             goto exit;
         }
     }
-    s->unlockStreamMutex();
 
     pDevices = (struct pal_device *) calloc(no_of_devices, sizeof(struct pal_device));
 
