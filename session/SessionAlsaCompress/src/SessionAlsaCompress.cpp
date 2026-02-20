@@ -26,7 +26,7 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * ​​​​​Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
  * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
@@ -51,6 +51,7 @@
 
 #define CHS_2 2
 #define AACObjHE_PS 29
+#define SND_CARD_VIRTUAL 100
 
 std::condition_variable cvPause;
 
@@ -1389,7 +1390,11 @@ int SessionAlsaCompress::start(Stream * s)
             compress_config.fragment_size = out_buf_size;
             compress_config.fragments = out_buf_count;
             compress_config.codec = &codec;
-            snprintf(name, 128,"agm:%d,%d", rm->getVirtualSndCard(), compressDevIds.at(0));
+            if (rm->getVirtualSndCard() == SND_CARD_VIRTUAL) {
+                snprintf(name, 128,"agm:%d,%d", rm->getVirtualSndCard(), compressDevIds.at(0));
+            } else {
+                snprintf(name, 128,"agm_native:%d,%d", rm->getVirtualSndCard(), compressDevIds.at(0));
+            }
             // compress_open
             PAL_INFO(LOG_TAG," compress_open with %s", toString(codec).c_str());
             compress = compress_open_by_name(name, COMPRESS_IN, &compress_config);
@@ -1444,8 +1449,12 @@ int SessionAlsaCompress::start(Stream * s)
             compress_config.codec = &codec;
             // compress_open for capture
             //can use PAL_STREAM_FLAG_FRAME_BY_FRAME
-            snprintf(name, 128,"agm:%d,%d", rm->getVirtualSndCard(), compressDevIds.at(0));
-                compress = compress_open_by_name(name, COMPRESS_OUT, &compress_config);
+            if (rm->getVirtualSndCard() == SND_CARD_VIRTUAL) {
+                snprintf(name, 128,"agm:%d,%d", rm->getVirtualSndCard(), compressDevIds.at(0));
+            } else {
+                snprintf(name, 128,"agm_native:%d,%d", rm->getVirtualSndCard(), compressDevIds.at(0));
+            }
+            compress = compress_open_by_name(name, COMPRESS_OUT, &compress_config);
             if (!compress) {
                 PAL_ERR(LOG_TAG, "compress open failed");
                 status = -EINVAL;
