@@ -24,6 +24,7 @@ SpeakerProtectionwsa885xI2s::SpeakerProtectionwsa885xI2s(struct pal_device *devi
                         std::shared_ptr<ResourceManager> Rm):SpeakerProtection(device, Rm)
 {
     viTxSetupThrdCreated = false;
+    wsaTemp = -1002;
 }
 
 SpeakerProtectionwsa885xI2s::~SpeakerProtectionwsa885xI2s()
@@ -32,45 +33,31 @@ SpeakerProtectionwsa885xI2s::~SpeakerProtectionwsa885xI2s()
 }
 
 int SpeakerProtectionwsa885xI2s::getSpeakerTemperature(int spkr_pos) {
-    int ret;
-    struct mixer_ctl *trigger_temp_ctl;
-    struct mixer_ctl *temp_ctl;
-    int status = 0;
+    FILE *fp = NULL;
+    int temp_val = 0;
 
     PAL_DBG(LOG_TAG, "Enter Speaker Get Temperature");
 
-    trigger_temp_ctl = mixer_get_ctl_by_name(hwMixer, "SA1 Trigger Die Temperature");
-    if (!trigger_temp_ctl) {
-       PAL_ERR(LOG_TAG, "Invalid mixer control: SA1 Trigger Die Temperature");
-       return -ENOENT;
+    if (wsaTemp != -1002) {
+        PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", wsaTemp);
+        return wsaTemp;
     }
-
-    ret = mixer_ctl_set_value(trigger_temp_ctl, 0, 1);
-    if (ret) {
-         PAL_ERR(LOG_TAG, "Could not Enable ctl for mixer cmd - %s ret %d\n",
-                  "SA1 Trigger Die Temperature", ret);
-        return -EINVAL;
+    fp = fopen("/sys/class/thermal/thermal_zone1/temp", "r");
+    if (!fp) {
+         PAL_ERR(LOG_TAG, "Failed to open file /sys/class/thermal/thermal_zone1/temp");
+         return -EINVAL;
     }
-
-    temp_ctl = mixer_get_ctl_by_name(hwMixer, "SA1 Die Temperature");
-    if (!temp_ctl) {
-       PAL_ERR(LOG_TAG, "Invalid mixer control: SA1 Die Temperature");
-       status = -EINVAL;
-       goto exit;
+    if (fscanf(fp, "%d", &temp_val) != 1) {
+         PAL_ERR(LOG_TAG, "Failed to read temperature from file");
+         fclose(fp);
+         return -EINVAL;
     }
+    fclose(fp);
 
-    status = mixer_ctl_get_value(temp_ctl, 0);
+    wsaTemp = temp_val/1000;
+    PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", wsaTemp);
 
-    PAL_DBG(LOG_TAG, "Exiting Speaker Get Temperature %d", status);
-exit:
-
-   ret = mixer_ctl_set_value(trigger_temp_ctl, 0, 0);
-   if (ret)
-      PAL_ERR(LOG_TAG, "Could not Disable ctl for mixer cmd - %s ret %d\n",
-         "SA1 Trigger Die Temperature", ret);
-
-    PAL_DBG(LOG_TAG, "Status : %d", status);
-    return status;
+    return wsaTemp;
 }
 
 int SpeakerProtectionwsa885xI2s::spkrStartCalibration()
@@ -416,14 +403,6 @@ int SpeakerProtectionwsa885xI2s::spkrStartCalibration()
 
     enableDevice(audioRoute, mSndDeviceName_vi);
 
-    PAL_DBG(LOG_TAG, "pcm start for TX path");
-    if (pcm_start(txPcm) < 0) {
-        PAL_ERR(LOG_TAG, "pcm start failed for TX path");
-        ret = -ENOSYS;
-        goto err_pcm_open;
-    }
-    isTxStarted = true;
-
     // Setup RX path
     deviceRx.id = PAL_DEVICE_OUT_SPEAKER;
     rm->getDeviceInfo(deviceRx.id, PAL_STREAM_PROXY, "", &deviceRxSpkr);
@@ -605,6 +584,18 @@ int SpeakerProtectionwsa885xI2s::spkrStartCalibration()
         ret = -ENOSYS;
         goto err_pcm_open;
     }
+
+    /* For i2s mode we need to start both the graphs (rx and vi) together
+     * Moving it just before rx helps removing all the delay between the
+     * graph_starts of rx and vi
+     */
+    PAL_DBG(LOG_TAG, "pcm start for TX path");
+    if (pcm_start(txPcm) < 0) {
+        PAL_ERR(LOG_TAG, "pcm start failed for TX path");
+        ret = -ENOSYS;
+        goto err_pcm_open;
+    }
+    isTxStarted = true;
 
 
     enableDevice(audioRoute, mSndDeviceName_rx);
@@ -1456,7 +1447,7 @@ int32_t SpeakerProtectionwsa885xI2s::spkrProtProcessingMode(bool flag)
 
         payloadSize = 0;
         builder->payloadSPConfig(&payload, &payloadSize, miid,
-                PARAM_ID_SP_OP_MODE_V5, (void *)&spModeConfg);
+                PARAM_ID_SP_OP_MODE, (void *)&spModeConfg);
         if (payloadSize) {
             if (customPayload) {
                 free (customPayload);

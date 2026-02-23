@@ -1702,7 +1702,7 @@
                 <param out_channels="1" />
                 <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
                 <!-- move stream container in ACDB to NLPI when this is uncommented -->
-                <!--param lpi_enable="false" /-->
+                <param lpi_enable="false" />
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_LPI" />
                     <high_performance capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
