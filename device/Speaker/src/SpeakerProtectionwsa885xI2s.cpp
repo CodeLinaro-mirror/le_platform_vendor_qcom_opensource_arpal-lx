@@ -407,6 +407,7 @@ int SpeakerProtectionwsa885xI2s::spkrStartCalibration()
     deviceRx.id = PAL_DEVICE_OUT_SPEAKER;
     rm->getDeviceInfo(deviceRx.id, PAL_STREAM_PROXY, "", &deviceRxSpkr);
     strlcpy(mSndDeviceName_rx, deviceRxSpkr.sndDevName.c_str(), DEVICE_NAME_MAX_SIZE);
+    strlcat(mSndDeviceName_rx, "-prot", DEVICE_NAME_MAX_SIZE);
     rm->getChannelMap(&(deviceRx.config.ch_info.ch_map[0]), numberOfChannels);
 
     switch (numberOfChannels) {
