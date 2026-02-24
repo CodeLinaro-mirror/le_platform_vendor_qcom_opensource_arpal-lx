@@ -469,6 +469,7 @@ int32_t compressPluginConfigSetConfigStart(Stream* s, void* pluginPayload)
                 {
                     status = session->enableDisableWnrModule(s);
                     PAL_DBG(LOG_TAG, "Enabling WNR module status: %d", status);
+                    status = 0;
                 }
             }
             if (dAttr.id == PAL_DEVICE_IN_PROXY || dAttr.id == PAL_DEVICE_IN_RECORD_PROXY)
