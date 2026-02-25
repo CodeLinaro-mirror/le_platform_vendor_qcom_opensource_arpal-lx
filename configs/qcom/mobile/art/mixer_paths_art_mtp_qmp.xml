@@ -439,7 +439,7 @@
         <ctl name="VA_SWR_DMIC Enable" value="1" />
         <ctl name="VA DEC0 MUX" value="SWR_MIC"/>
         <ctl name="VA SMIC MUX0" value="SWR_MIC1" />
-        <ctl name="VA PORT SEL MUX0" value="PORT0"/>
+        <ctl name="VA PORT SEL MUX0" value="PORT1"/>
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1"/>
         <path name="qmp2-normal-nlpi" />
     </path>
