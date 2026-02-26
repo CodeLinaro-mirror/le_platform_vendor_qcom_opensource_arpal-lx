@@ -78,7 +78,6 @@ public:
     void HandleEventData(struct eventPayload event);
 private:
     bool exitThread;
-    Session *session;
     Stream *streamHandle;
     pal_nmt_config nmtConfig;
     param_id_nmt_output_config_t *outputTxConfig;

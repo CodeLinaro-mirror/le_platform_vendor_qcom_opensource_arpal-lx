@@ -5,7 +5,7 @@
 
 <mixer>
 <!-- Common File Contents  -->
-    <ctl name="Rx Slot Mask" value="0" />
+    <ctl name="Rx Slot Mask" value="3" />
     <ctl name="OT23 Usage Mode" value="0" />
     <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
 
@@ -1004,6 +1004,7 @@
         <ctl name="Rx Slot Mask" value="3" />
         <ctl name="OT23 Usage Mode" value="0" />
         <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="speaker-prot">
@@ -1029,6 +1030,7 @@
         <ctl name="Rx Slot Mask" value="1" />
         <ctl name="OT23 Usage Mode" value="0" />
         <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="speaker-mono-prot">
@@ -1040,6 +1042,7 @@
         <ctl name="Rx Slot Mask" value="2" />
         <ctl name="OT23 Usage Mode" value="0" />
         <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="speaker-mono-2-prot">
@@ -1102,6 +1105,7 @@
         <ctl name="Rx Slot Mask" value="1" />
         <ctl name="OT23 Usage Mode" value="8" />
         <ctl name="SA1 FU21 Stereo Gain Offset dB" value="66" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="handset">
@@ -1111,6 +1115,7 @@
     <path name="handset-wsa-ultrasound">
         <ctl name="Rx Slot Mask" value="1" />
         <ctl name="OT23 Usage Mode" value="4" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="handset-wsa-vbat-ultrasound">
@@ -1120,11 +1125,13 @@
     <path name="speaker-mono-2-ultrasound">
         <ctl name="Rx Slot Mask" value="2" />
         <ctl name="OT23 Usage Mode" value="0" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="speaker-ultrasound">
         <path name="handset-wsa-ultrasound" />
         <path name="speaker-mono-2-ultrasound" />
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="ultrasound-dmic">

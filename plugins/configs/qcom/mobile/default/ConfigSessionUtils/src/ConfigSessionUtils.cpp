@@ -89,16 +89,103 @@
 
 bool silenceEventRegistered = false;
 
+int32_t configureCallTranslationRxDeviceMFC(PayloadBuilder* builder, struct mixer *mxr, SessionAlsaPcm* session, std::shared_ptr<ResourceManager> rm) {
+    uint8_t* paramData = NULL;
+    size_t paramSize = 0;
+    uint32_t miid = 0;
+    pal_stream_attributes sAttr = {};
+    std::vector<std::shared_ptr<Device>> associatedDevices;
+    struct pal_device dAttr = {};
+    sessionToPayloadParam deviceData = {};
+    int status;
+    std::vector<int> pcmDevIds;
+    bool streamFound = false;
+
+    PAL_DBG(LOG_TAG, "Enter");
+    status = session->getFrontEndIds(pcmDevIds);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getFrontEndIds failed %d", status);
+        goto exit;
+    }
+    status = SessionAlsaUtils::getModuleInstanceId(mxr, pcmDevIds.at(0),"ZERO", DEVICE_MFC, &miid);
+    if (status) {
+        PAL_ERR(LOG_TAG, "getModuleInstanceId failed %d", status);
+        goto exit;
+    }
+    for (auto& stream_itr: rm->getActiveStreamList()) {
+        PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the Device MFC.");
+        stream_itr->getStreamAttributes(&sAttr);
+        if (sAttr.type == PAL_STREAM_VOICE_CALL || sAttr.type == PAL_STREAM_VOIP_RX) {
+            status = stream_itr->getAssociatedDevices(associatedDevices);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"getAssociatedDevices Failed\n");
+                goto exit;
+            }
+            if (associatedDevices.empty()) {
+                PAL_ERR(LOG_TAG,"No devices associated with stream\n");
+                status = -EINVAL;
+                goto exit;
+            }
+            streamFound = true;
+            break;
+        }
+    }
+    if (!streamFound) {
+        PAL_ERR(LOG_TAG,"No active Voice/VoIP stream found\n");
+        status = -EINVAL;
+        goto exit;
+    }
+    for (int i = 0; i < associatedDevices.size();i++) {
+        status = associatedDevices[i]->getDeviceAttributes(&dAttr);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG,"get Device Attributes Failed\n");
+            goto exit;
+        }
+        if (dAttr.id > PAL_DEVICE_IN_MIN && dAttr.id < PAL_DEVICE_IN_MAX) {
+            PAL_DBG(LOG_TAG,"Input device, skip\n");
+            continue;
+        }
+        deviceData.bitWidth = dAttr.config.bit_width;
+        deviceData.sampleRate = dAttr.config.sample_rate;
+        deviceData.numChannel = dAttr.config.ch_info.channels;
+        deviceData.ch_info = nullptr;
+        builder->payloadMFCConfig(&paramData, &paramSize, miid, &deviceData);
+        if (paramSize && paramData) {
+            PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", paramData,paramSize);
+            status = builder->updateCustomPayload(paramData, paramSize);
+            builder->freeCustomPayload(&paramData, &paramSize);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG,"updateCustomPayload Failed\n");
+                goto exit;
+            }
+        }
+    }
+    builder->getCustomPayload(&paramData, &paramSize);
+    status = SessionAlsaUtils::setMixerParameter(mxr, pcmDevIds.at(0),
+                                                paramData, paramSize);
+    builder->freeCustomPayload();
+
+    if (status != 0) {
+        PAL_ERR(LOG_TAG, "setMixerParameter failed");
+        goto exit;
+    }
+exit:
+    PAL_DBG(LOG_TAG, "Exit status: %d", status);
+    return status;
+}
+
 int reconfigCommon(Stream* streamHandle, void* pluginPayload)
 {
     int status = 0;
     uint32_t miid = 0;
     bool is_out_dev = false;
     struct pal_stream_attributes sAttr = {};
+    struct pal_stream_attributes streamAttr = {};
     pal_stream_type_t streamType;
     struct sessionToPayloadParam streamData = {};
     struct pal_device dAttr = {};
     Session* sess = nullptr;
+    SessionAlsaPcm* session = nullptr;
     PayloadBuilder* builder = new PayloadBuilder();
     std::shared_ptr<ResourceManager> rmHandle = ResourceManager::getInstance();
     uint8_t* payload = nullptr;
@@ -109,6 +196,7 @@ int reconfigCommon(Stream* streamHandle, void* pluginPayload)
     std::vector<std::pair<int32_t, std::string>> aifBackEndsToConnect;
     std::vector<int> pcmDevIds;
     std::vector<int> frontEndIds;
+    std::list<Stream*> activeStreams;
 
     PAL_DBG(LOG_TAG,"Enter");
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
@@ -164,10 +252,45 @@ int reconfigCommon(Stream* streamHandle, void* pluginPayload)
         }
     } else {
         // /*Setup inCall MFC configuration before the speaker device subgraph moves to START state*/
+        // /*Setup the Call Translation Rx MFC Configuration at device switch*/
         // /*Make sure the speaker protection module can apply the correct media format*/
         if (SessionAlsaUtils::isRxDevice(aifBackEndsToConnect[0].first))
             reconfigureInCallMusicStream(dAttr.config, builder);
 
+            status = rmHandle->getActiveStreamByType_l(activeStreams, PAL_STREAM_CALL_TRANSLATION);
+            if(status){
+                PAL_DBG(LOG_TAG, "failed to get active streams for stream type PAL_STREAM_CALL_TRANSLATION");
+            }
+            if (!activeStreams.size()) {
+                PAL_DBG(LOG_TAG, "No Translation stream found to configure");
+            }
+            for (auto& str: activeStreams) {
+                status = str->getStreamAttributes(&streamAttr);
+                if (status != 0) {
+                    PAL_ERR(LOG_TAG, "stream get attributes failed");
+                    goto exit;
+                }
+                if (streamAttr.type == PAL_STREAM_CALL_TRANSLATION && streamAttr.direction == PAL_AUDIO_OUTPUT) {
+                    PAL_INFO(LOG_TAG, ": found rx translation stream to configure with stream_handle %pK", str);
+                    status = str->getAssociatedSession(&sess);
+                    if (!sess) {
+                        PAL_ERR(LOG_TAG, "No associated session found for stream exist");
+                        status = -EINVAL;
+                        goto exit;
+                    }
+                    session = static_cast<SessionAlsaPcm*>(sess);
+                    if (!session) {
+                        PAL_ERR(LOG_TAG, "Session Cast Failed");
+                        status = -EINVAL;
+                        goto exit;
+                    }
+                    status = configureCallTranslationRxDeviceMFC(builder, mixerHandle, session, rmHandle);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "Failed to configure translation rx device mfc, status = %d", status);
+                        goto exit;
+                    }
+                }
+            }
         /* Configure MFC to match to device config */
         /* This has to be done after sending all mixer controls and before connect */
         if (PAL_STREAM_VOICE_CALL != sAttr.type) {
