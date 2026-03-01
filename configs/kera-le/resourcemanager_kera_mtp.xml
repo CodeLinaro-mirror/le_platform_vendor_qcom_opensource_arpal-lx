@@ -1238,7 +1238,7 @@
             <param concurrent_capture="true" />
             <param concurrent_voice_call="true" />
             <param concurrent_voip_call="true" />
-            <param low_latency_bargein_enable="false" />
+            <param low_latency_bargein_enable="true" />
         </common_config>
         <capture_profile_list>
             <!-- Common Profiles -->
@@ -1785,7 +1785,7 @@
                 <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
                 <!--param lpi_enable="false" /-->
                 <operating_modes>
-                    <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
+                    <low_power capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
                     <high_performance_and_charging capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
