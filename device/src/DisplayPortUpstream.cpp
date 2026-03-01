@@ -295,6 +295,7 @@ int DisplayPort::init(pal_param_device_connection_t device_conn)
     int status = 0;
     struct mixer *mixer;
     status = rm->getHwAudioMixer(&mixer);
+    pal_param_disp_port_config_params* dp_config = (pal_param_disp_port_config_params*) &device_conn.device_config.dp_config;
     if (status) {
         PAL_ERR(LOG_TAG," mixer error");
         return status;
@@ -312,7 +313,7 @@ int DisplayPort::init(pal_param_device_connection_t device_conn)
         extDisp[dp_controller][dp_stream].type = EXT_DISPLAY_TYPE_DP;
     }
     PAL_DBG(LOG_TAG," DP contr: %d  stream: %d", dp_controller, dp_stream);
-    cacheEld(mixer, dp_controller, dp_stream);
+    cacheEld(mixer, dp_controller, dp_stream, dp_config->pcmId);
     PAL_DBG(LOG_TAG," Exit");
     return 0;
 }
@@ -340,7 +341,7 @@ void DisplayPort::resetEldInfo() {
     }
 }
 
-int DisplayPort::getEldInfo(struct audio_mixer *mixer, int controller, int stream)
+int DisplayPort::getEldInfo(struct audio_mixer *mixer, int controller, int stream, int pcmId)
 {
     char block[ELD_FIXED_BYTES + ELD_MAX_MNL + MAX_SAD_BLOCKS * SAD_BLOCK_SIZE];
     int ret, count;
@@ -362,7 +363,7 @@ int DisplayPort::getEldInfo(struct audio_mixer *mixer, int controller, int strea
 
     PAL_VERBOSE(LOG_TAG," mixer ctl name: %s", mixerCtlName);
 
-    ctl = mixer_get_ctl_by_name(mixer, mixerCtlName);
+    ctl = mixer_get_ctl_by_name_and_device(mixer, mixerCtlName, pcmId);
     if (!ctl) {
         PAL_ERR(LOG_TAG," Could not get ctl for mixer cmd - %s", mixerCtlName);
         goto fail;
@@ -401,13 +402,13 @@ fail:
     return -EINVAL;
 }
 
-void DisplayPort::cacheEld(struct audio_mixer *mixer, int controller, int stream)
+void DisplayPort::cacheEld(struct audio_mixer *mixer, int controller, int stream, int pcmId)
 {
 /*
     1) getEldInfo()
     2) parseEldInfo()
 */
-    getEldInfo(mixer, controller, stream);
+    getEldInfo(mixer, controller, stream, pcmId);
 }
 
 int32_t DisplayPort::isSampleRateSupported(uint32_t sampleRate)
