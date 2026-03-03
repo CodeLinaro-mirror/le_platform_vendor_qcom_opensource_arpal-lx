@@ -56,6 +56,7 @@ using ChronoSteadyClock_t = std::chrono::time_point<std::chrono::steady_clock>;
 
 class StreamSoundTrigger;
 class VoiceUIInterface;
+class PluginManager;
 
 class SoundTriggerEngine
 {

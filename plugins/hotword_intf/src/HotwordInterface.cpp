@@ -637,6 +637,13 @@ void HotwordInterface::DeregisterModel(void *s) {
     }
 }
 
+uint32_t HotwordInterface::getCallbackEventId(st_module_type_t model_type) {
+    if (model_type == ST_MODULE_TYPE_MMA)
+        return EVENT_ID_MMA_DETECTION_EVENT;
+    else
+        return EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+}
+
 uint32_t HotwordInterface::UsToBytes(uint64_t input_us) {
     uint32_t bytes = 0;
 
