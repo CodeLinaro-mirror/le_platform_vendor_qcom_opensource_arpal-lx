@@ -46,10 +46,9 @@ endif
 endif
 endif
 
-#TODO: to be enabled later
-# ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
-# LOCAL_CFLAGS += -DEC_REF_CAPTURE_ENABLED
-# endif
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
+LOCAL_CFLAGS += -DEC_REF_CAPTURE_ENABLED
+endif
 
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/include
 LOCAL_C_INCLUDES              += $(TARGET_OUT_INTERMEDIATES)/KERNEL_OBJ/usr/techpack/audio/include
@@ -113,10 +112,9 @@ LOCAL_SRC_FILES := \
     utils/src/SignalHandler.cpp \
     utils/src/MetadataParser.cpp
 
-#TODO: to be enabled later
-# ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
-# LOCAL_SRC_FILES += device/src/ECRefDevice.cpp
-# endif
+ifeq ($(strip $(AUDIO_FEATURE_ENABLED_EC_REF_CAPTURE)),true)
+LOCAL_SRC_FILES += device/src/ECRefDevice.cpp
+endif
 
 LOCAL_HEADER_LIBRARIES := \
     libspf-headers \
