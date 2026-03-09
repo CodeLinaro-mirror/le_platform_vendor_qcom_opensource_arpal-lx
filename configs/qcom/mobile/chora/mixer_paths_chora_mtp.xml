@@ -846,13 +846,16 @@
     </path>
 
     <path name="vi-feedback">
+	<ctl name="VOTE Against Sleep" value="Enable" />
     </path>
 
     <path name="vi-feedback-mono-1">
-    </path>
+    <ctl name="VOTE Against Sleep" value="Enable" />
+	</path>
 
     <path name="vi-feedback-mono-2">
-    </path>
+    <ctl name="VOTE Against Sleep" value="Enable" />
+	</path>
 
     <path name="cps-feedback">
     </path>
