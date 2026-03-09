@@ -1216,9 +1216,11 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
     std::vector <std::pair<int, int>> streamRxCKV, streamTxCKV;
     std::vector <std::pair<int, int>> streamDeviceRxKV, streamDeviceTxKV;
     std::vector <std::pair<int, int>> deviceRxKV, deviceTxKV, deviceCKV;
+    std::shared_ptr<ResourceManager> rm;
     // Using as empty key vector pairs
     std::vector <std::pair<int, int>> emptyKV;
     int status = 0;
+    int numberOfChannels;
     struct pal_stream_attributes sAttr;
     struct agmMetaData streamRxMetaData(nullptr, 0);
     struct agmMetaData streamTxMetaData(nullptr, 0);
@@ -1361,11 +1363,31 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 status = 0; /**< ignore device MUX CKV failures */
             }
     }
+
+    rm->getDeviceInfo(PAL_DEVICE_OUT_SPEAKER, PAL_STREAM_PROXY, "", &devinfo);
+    numberOfChannels = devinfo.channels;
+    PAL_DBG(LOG_TAG, "Number of Channels %d", numberOfChannels);
+
     if(!ResourceManager::isSpeakerProtectionEnabled) {
         if (rxBackEnds[0].first == PAL_DEVICE_OUT_SPEAKER) {
             deviceCKV.push_back(std::make_pair(SPK_PRO_DEV_MAP, SP_DISABLED));
         }
+    } else {
+        if (rxBackEnds[0].first == PAL_DEVICE_OUT_SPEAKER) {
+            switch (numberOfChannels) {
+                case 1 :
+                    deviceCKV.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_MONO));
+                    break;
+                case 2 :
+                    deviceCKV.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));
+                    deviceCKV.push_back(std::make_pair(CHANNELS, CHANNELS_2));
+                    break;
+                default :
+                    break;
+            }
+        }
     }
+
     if (deviceRxKV.size() > 0) {
         SessionAlsaUtils::getAgmMetaData(deviceRxKV, deviceCKV,
                 (struct prop_data *)devicePropId, deviceRxMetaData);
