@@ -203,7 +203,9 @@ protected :
     static struct pcm *cpsPcm;
     static int numberOfChannels;
     static bool mDspCallbackRcvd;
+    static bool mDspCallbackRcvdSp;
     static param_id_sp_th_vi_calib_res_per_spkr_cfg_param_t *callback_data;
+    static param_id_sp_th_vi_calib_res_cfg_t *callback_datasp;
     struct pal_device mDeviceAttr;
     std::vector<int> pcmDevIdTx;
     std::vector<int> pcmDevIdCPS;
