@@ -26,5 +26,7 @@ int32_t configureInCallRxMFC(SessionAlsaPcm* session, std::shared_ptr<ResourceMa
 int reconfigureModule(SessionAlsaPcm* session, PayloadBuilder* builder, uint32_t tagID,
                         const char* BE, struct sessionToPayloadParam *data);
 int32_t reconfigureInCallMusicStream(struct pal_media_config config, PayloadBuilder* builder);
+uint32_t configureTranslationRxGain(Stream* s);
+
 
 #endif
