@@ -40,6 +40,10 @@
     <!-- RX Controls -->
     <ctl name="RX_MACRO RX0 MUX" value="ZERO" />
     <ctl name="RX_MACRO RX1 MUX" value="ZERO" />
+    <ctl name="RX_MACRO RX2 MUX" value="ZERO" />
+    <ctl name="RX_MACRO RX3 MUX" value="ZERO" />
+    <ctl name="RX INT0_2 MUX" value="ZERO" />
+     <ctl name="RX INT1_2 MUX" value="ZERO" />
     <ctl name="RX INT0_1 MIX1 INP0" value="ZERO" />
     <ctl name="RX INT0_1 MIX1 INP1" value="ZERO" />
     <ctl name="RX INT0_1 MIX1 INP2" value="ZERO" />
@@ -161,6 +165,9 @@
     <ctl name="VA_DEC1 Volume" value="84" />
     <ctl name="VA_DEC2 Volume" value="84" />
     <ctl name="VA_DEC3 Volume" value="84" />
+
+    <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
+    <ctl name="DEC_HPF_ADAPT_BYPASS Enable" value="0"/>
 
     <!-- Compander controls -->
     <ctl name="WSA_COMP1 Switch" value="0" />
@@ -663,7 +670,7 @@
         <ctl name="VA DEC0 MUX" value="SWR_MIC"/>
         <ctl name="VA_DEC0 Volume" value="102" />
         <ctl name="VA SMIC MUX0" value="SWR_MIC1" />
-        <ctl name="VA PORT SEL MUX0" value="PORT0"/>
+        <ctl name="VA PORT SEL MUX0" value="PORT1"/>
         <ctl name="VA_AIF1_CAP Mixer DEC0" value="1"/>
         <path name="qmp2-normal-nlpi" />
     </path>
@@ -742,7 +749,7 @@
         <ctl name="VA_SWR_DMIC Enable" value="1" />
         <ctl name="VA DEC2 MUX" value="SWR_MIC" />
         <ctl name="VA SMIC MUX2" value="SWR_MIC0" />
-        <ctl name="VA PORT SEL MUX0" value="PORT0"/>
+        <ctl name="VA PORT SEL MUX2" value="PORT1"/>
         <ctl name="VA_AIF1_CAP Mixer DEC2" value="1" />
         <path name="qmp1-normal-lpi" />
     </path>
@@ -1297,6 +1304,8 @@
         <ctl name="TX WSA MUX7" value="NO_WSA"/>
         <ctl name="TX PORT SEL MUX6" value="PORT0"/>
         <ctl name="TX PORT SEL MUX7" value="PORT0"/>
+        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="DEC_HPF_ADAPT_BYPASS Enable" value="1"/>
     </path>
 
     <path name="haptics-vi-feedback">
