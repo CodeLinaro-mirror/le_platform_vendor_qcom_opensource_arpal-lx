@@ -67,6 +67,8 @@
 
 #if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #define USECASE_XML_FILE "/etc/usecaseKvManager.xml"
+#elif defined TARGET_HGY
+#define USECASE_XML_FILE "/vendor/etc/usecaseKvManager-VIOSND.xml"
 #else
 #define USECASE_XML_FILE "/vendor/etc/usecaseKvManager.xml"
 #endif

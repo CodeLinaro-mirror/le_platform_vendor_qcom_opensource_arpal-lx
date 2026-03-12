@@ -47,6 +47,9 @@ LOCAL_SHARED_LIBRARIES := \
     libaudioroute \
     libar-gsl
 
+ifeq ($(TARGET_USES_GY),true)
+LOCAL_CPPFLAGS += -DTARGET_HGY
+endif
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
