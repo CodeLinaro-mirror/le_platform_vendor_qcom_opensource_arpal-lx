@@ -44,8 +44,6 @@
 #include "ResourceManager.h"
 #include "Device.h"
 #include "kvh2xml.h"
-#include "VoiceUIInterface.h"
-#include "VUIInterfaceProxy.h"
 #include "MemLogBuilder.h"
 
 // TODO: find another way to print debug logs by default
@@ -61,6 +59,20 @@
 #define ST_MAX_FSTAGE_CONF_LEVEL      (100)
 
 ST_DBG_DECLARE(static int lab_cnt = 0);
+
+typedef int32_t (*get_vui_intf_f)(struct vui_intf_t *intf_handle,
+    vui_intf_param_t *model);
+
+typedef int32_t (*release_vui_intf_f)(struct vui_intf_t *intf_handle);
+
+typedef struct vui_intf_plugin {
+    void *handle;
+    release_vui_intf_f release_intf;
+    struct vui_intf_t *intf;
+} vui_intf_plugin_t;
+
+std::map<st_module_type_t, vui_intf_plugin_t *> vui_intf_plugin_map;
+
 
 extern "C" Stream* CreateSoundTriggerStream(const struct pal_stream_attributes *sattr,
                                             struct pal_device *dattr,
@@ -157,7 +169,6 @@ StreamSoundTrigger::StreamSoundTrigger(const struct pal_stream_attributes *sattr
         err = "incorrect number of devices expected 1, got " +
             std::to_string(no_of_devices);
         PAL_ERR(LOG_TAG, "%s", err.c_str());
-        free(mStreamAttr);
         throw std::runtime_error(err);
     }
 
@@ -3765,10 +3776,9 @@ bool StreamSoundTrigger::ConfigSupportLPI() {
 }
 
 uint32_t StreamSoundTrigger::getCallbackEventId() {
-    if (model_type_ == ST_MODULE_TYPE_MMA)
-        return EVENT_ID_MMA_DETECTION_EVENT;
-    else
-        return EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+
+    return vui_intf_->getCallbackEventId(model_type_);
+
 }
 
 int32_t StreamSoundTrigger::ssrDownHandler() {
@@ -4067,4 +4077,94 @@ std::shared_ptr<Device> StreamSoundTrigger::GetPalDevice(StreamSoundTrigger *str
 exit:
     PAL_DBG(LOG_TAG, "Exit");
     return device;
+}
+
+int32_t StreamSoundTrigger::GetVUIInterface(struct vui_intf_t *intf, vui_intf_param_t *model) {
+
+    int32_t status = 0;
+    get_vui_intf_f get_intf = nullptr;
+    sound_model_config_t *config = nullptr;
+    vui_intf_plugin_t *plugin = nullptr;
+
+    if (!intf || !model || !model->data)
+        return -EINVAL;
+
+    config = (sound_model_config_t *)model->data;
+    switch (config->module_type) {
+        case ST_MODULE_TYPE_GMM:
+        case ST_MODULE_TYPE_PDK:
+        case ST_MODULE_TYPE_MMA:
+        case ST_MODULE_TYPE_HW:
+        case ST_MODULE_TYPE_CUSTOM_1:
+        case ST_MODULE_TYPE_CUSTOM_2:
+            plugin = (vui_intf_plugin_t *)calloc(1, sizeof(vui_intf_plugin_t));
+            if (!plugin) {
+                status = -ENOMEM;
+                break;
+            }
+
+            plugin->handle = dlopen(config->intf_plugin_lib.c_str(), RTLD_NOW);
+            if (!plugin->handle) {
+                status = -ENOMEM;
+                free(plugin);
+                break;
+            }
+
+            get_intf = (get_vui_intf_f)dlsym(plugin->handle, "get_vui_interface");
+            if (!get_intf) {
+                status = -ENOMEM;
+                dlclose(plugin->handle);
+                free(plugin);
+                break;
+            }
+
+            plugin->release_intf = (release_vui_intf_f)dlsym(plugin->handle, "release_vui_interface");
+            if (!plugin->release_intf) {
+                status = -ENOMEM;
+                dlclose(plugin->handle);
+                free(plugin);
+                break;
+            }
+
+            status = get_intf(intf, model);
+            if (status != 0) {
+                dlclose(plugin->handle);
+                free(plugin);
+                break;
+            }
+            plugin->intf = intf;
+            vui_intf_plugin_map[config->module_type] = plugin;
+            break;
+        default:
+            status = -EINVAL;
+            break;
+    }
+
+    return status;
+}
+
+int32_t StreamSoundTrigger::ReleaseVUIInterface(struct vui_intf_t *intf) {
+    int32_t status = 0;
+    st_module_type_t type;
+    vui_intf_param_t param {};
+    vui_intf_plugin_t *plugin = nullptr;
+
+    if (!intf || !intf->interface)
+        return -EINVAL;
+
+    for (auto iter = vui_intf_plugin_map.begin();
+         iter != vui_intf_plugin_map.end(); ) {
+        plugin = iter->second;
+        if (plugin->intf == intf) {
+            status = plugin->release_intf(intf);
+            dlclose(plugin->handle);
+            free(plugin);
+            vui_intf_plugin_map.erase(iter);
+            break;
+        } else {
+            iter++;
+        }
+    }
+
+    return status;
 }

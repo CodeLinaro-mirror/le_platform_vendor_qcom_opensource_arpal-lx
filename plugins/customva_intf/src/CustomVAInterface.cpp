@@ -2326,6 +2326,13 @@ void CustomVAInterface::DeregisterModel(void *s) {
     }
 }
 
+uint32_t CustomVAInterface::getCallbackEventId(st_module_type_t model_type) {
+    if (model_type == ST_MODULE_TYPE_MMA)
+        return EVENT_ID_MMA_DETECTION_EVENT;
+    else
+        return EVENT_ID_DETECTION_ENGINE_GENERIC_INFO;
+}
+
 void CustomVAInterface::GetKeywordIndex(struct keyword_index *index) {
 
     index->start_index = start_index_;
