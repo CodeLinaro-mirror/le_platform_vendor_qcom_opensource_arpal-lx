@@ -191,6 +191,10 @@
                 <!-- STREAMRX - PCM_RX_LOOPBACK -->
                 <graph_kv key="0xA1000000" value="0xA1000003"/>
             </keys_and_values>
+            <keys_and_values Direction="RX_TX" SubType="PAL_STREAM_LOOPBACK_BT_AC_RX">
+                <!-- STREAMRX - BT_AC_RX_LOOPBACK -->
+                <graph_kv key="0xA1000000" value="0xA1000003"/>
+            </keys_and_values>
         </stream>
         <!-- Voice UI stream -->
         <stream type="PAL_STREAM_VOICE_UI">
@@ -586,8 +590,6 @@
             <keys_and_values CodecFormat="CODEC_TYPE_LC3" Hostless="TRUE">
                 <!-- DEVICETX - BT_TX -->
                 <graph_kv key="0xA3000000" value="0xA3000002"/>
-                <!-- BT_PROFILE - A2DP -->
-                <graph_kv key="0xB4000000" value="0xB4000002"/>
                 <!-- BT_FORMAT - LC3 -->
                 <graph_kv key="0xB5000000" value="0xB5000005"/>
             </keys_and_values>
@@ -606,6 +608,23 @@
                 <graph_kv key="0xB4000000" value="0xB4000002"/>
                 <!-- BT_FORMAT - GENERIC -->
                 <graph_kv key="0xB5000000" value="0xB5000001"/>
+            </keys_and_values>
+        </device>
+        <!-- BT A2DP IN AC broadcast Device -->
+        <device id="PAL_DEVICE_IN_BLUETOOTH_BROADCAST">
+            <keys_and_values CodecFormat="CODEC_TYPE_LC3" Hostless="TRUE">
+                <!-- DEVICETX - BT_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000002"/>
+                <!-- BT_FORMAT - LC3 -->
+                <graph_kv key="0xB5000000" value="0xB5000005"/>
+            </keys_and_values>
+            <keys_and_values CodecFormat="CODEC_TYPE_LC3" Hostless="FALSE">
+                <!-- DEVICETX - BT_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000002"/>
+                <!-- BT_PROFILE - A2DP -->
+                <graph_kv key="0xB4000000" value="0xB4000002"/>
+                <!-- BT_FORMAT - LC3 -->
+                <graph_kv key="0xB5000000" value="0xB5000005"/>
             </keys_and_values>
         </device>
         <!-- BT SCO OUT Device -->
@@ -685,6 +704,10 @@
             <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_PCM" CustomConfig="btsink-usecase">
                 <!-- DEVICEPP_RX - Device_PP_RX_BtSink -->
                   <graph_kv key="0xAC000000" value="0xAC00000C"/>
+            </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_BT_AC_RX" CustomConfig="bt-ac-usecase">
+                <!-- DEVICEPP_RX - Device_PP_RX_BtAchat -->
+                  <graph_kv key="0xAC000000" value="0xAC00000D"/>
             </keys_and_values>
             <keys_and_values StreamType="PAL_STREAM_VOICE_CALL">
                 <!-- DEVICERX - SPEAKER -->
@@ -1024,9 +1047,13 @@
                 <!-- DEVICETX - SPEAKER_MIC -->
                 <graph_kv key="0xA3000000" value="0xA3000001"/>
             </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_BT_AC_TX">
+                <!-- DEVICEPP_TX - DEVICEPP_TX_BT_ACHAT -->
+                <graph_kv key="0xAC000000" value="0xAC00000E"/>
+            </keys_and_values>
         </devicepp>
         <devicepp id="PAL_DEVICE_OUT_BLUETOOTH_SCO">
-         <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_HFP_TX">
+            <keys_and_values StreamType="PAL_STREAM_LOOPBACK" SubType="PAL_STREAM_LOOPBACK_HFP_TX">
                 <!-- DEVICEPP_RX - DEVICEPP_RX_HFPSINK  -->
                 <graph_kv key="0xAC000000" value="0xAC000004"/>
             </keys_and_values>

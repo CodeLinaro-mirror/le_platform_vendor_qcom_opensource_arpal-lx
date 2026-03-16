@@ -1951,7 +1951,7 @@ int PayloadBuilder::getBtDeviceKV(int dev_id, std::vector<std::pair<int,int>>& d
             isAbrEnabled ? "TRUE" : "FALSE"));
         filled_selector_pairs.push_back(std::make_pair(HOSTLESS_SEL,
             isHostless ? "TRUE" : "FALSE"));
-    } else if (dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP) {
+    } else if (dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP || dev_id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
         filled_selector_pairs.push_back(std::make_pair(HOSTLESS_SEL,
             isHostless ? "TRUE" : "FALSE"));
     }
@@ -1997,7 +1997,8 @@ int PayloadBuilder::populateStreamKV(Stream* s, std::vector<std::pair<int,int>> 
             filled_selector_pairs.push_back(std::make_pair(SUB_TYPE_SEL,
                 loopbackLUT.at(sattr->info.opt_stream_info.loopback_type)));
             retrieveKVs(filled_selector_pairs ,sattr->type, all_streams, keyVectorTx);
-        } else if (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) {
+        } else if ((sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_HFP_TX) || 
+                   (sattr->info.opt_stream_info.loopback_type == PAL_STREAM_LOOPBACK_BT_AC_TX)) {
            /* no StreamKV for HFP TX */
         } else {
             selector_names = retrieveSelectors(sattr->type, all_streams);

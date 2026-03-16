@@ -424,8 +424,9 @@ typedef enum {
     PAL_DEVICE_IN_TELEPHONY_RX = PAL_DEVICE_IN_MIN + 18,
     PAL_DEVICE_IN_ULTRASOUND_MIC = PAL_DEVICE_IN_MIN +19,
     PAL_DEVICE_IN_EXT_EC_REF = PAL_DEVICE_IN_MIN + 20,
+    PAL_DEVICE_IN_BLUETOOTH_BROADCAST = PAL_DEVICE_IN_MIN + 21,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 21,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 22,
 } pal_device_id_t;
 
 typedef enum {
@@ -442,6 +443,8 @@ typedef enum {
     PAL_STREAM_LOOPBACK_COMPRESS,
     PAL_STREAM_LOOPBACK_FM,
     PAL_STREAM_LOOPBACK_KARAOKE,
+    PAL_STREAM_LOOPBACK_BT_AC_TX,
+    PAL_STREAM_LOOPBACK_BT_AC_RX,
 } pal_stream_loopback_type_t;
 
 typedef enum {
@@ -494,6 +497,7 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_TELEPHONY_RX" },          PAL_DEVICE_IN_TELEPHONY_RX},
     {std::string{ "PAL_DEVICE_IN_ULTRASOUND_MIC" },        PAL_DEVICE_IN_ULTRASOUND_MIC},
     {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
+    {std::string{ "PAL_DEVICE_IN_BLUETOOTH_BROADCAST" },PAL_DEVICE_IN_BLUETOOTH_BROADCAST},
 };
 
 //reverse mapping
@@ -539,7 +543,8 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_VI_FEEDBACK,           std::string{"PAL_DEVICE_IN_VI_FEEDBACK"}},
     {PAL_DEVICE_IN_TELEPHONY_RX,          std::string{"PAL_DEVICE_IN_TELEPHONY_RX"}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        std::string{"PAL_DEVICE_IN_ULTRASOUND_MIC"}},
-    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}}
+    {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
+    {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,std::string{"PAL_DEVICE_IN_BLUETOOTH_BROADCAST"}}
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -613,6 +618,8 @@ const std::map<uint32_t, std::string> loopbackLUT {
     {PAL_STREAM_LOOPBACK_COMPRESS,   std::string{ "PAL_STREAM_LOOPBACK_COMPRESS" } },
     {PAL_STREAM_LOOPBACK_FM,         std::string{ "PAL_STREAM_LOOPBACK_FM" } },
     {PAL_STREAM_LOOPBACK_KARAOKE,    std::string{ "PAL_STREAM_LOOPBACK_KARAOKE" }},
+    {PAL_STREAM_LOOPBACK_BT_AC_TX,    std::string{ "PAL_STREAM_LOOPBACK_BT_AC_TX" }},
+    {PAL_STREAM_LOOPBACK_BT_AC_RX,    std::string{ "PAL_STREAM_LOOPBACK_BT_AC_RX" }},
 };
 
 #endif
