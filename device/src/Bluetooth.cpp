@@ -1195,8 +1195,8 @@ int32_t Bluetooth::configureSlimbusClockSrc(void)
 // definition of static BtA2dp member variables
 std::shared_ptr<Device> BtA2dp::objRx = nullptr;
 std::shared_ptr<Device> BtA2dp::objTx = nullptr;
+std::shared_ptr<Device> BtA2dp::objBleBroadcastTx = nullptr;
 void *BtA2dp::bt_lib_source_handle = nullptr;
-void *BtA2dp::bt_lib_sink_handle = nullptr;
 bt_audio_pre_init_t BtA2dp::bt_audio_pre_init = nullptr;
 audio_source_open_t BtA2dp::audio_source_open = nullptr;
 audio_source_close_t BtA2dp::audio_source_close = nullptr;
@@ -1209,22 +1209,21 @@ audio_get_enc_config_t BtA2dp::audio_get_enc_config = nullptr;
 audio_source_check_a2dp_ready_t BtA2dp::audio_source_check_a2dp_ready = nullptr;
 audio_is_tws_mono_mode_enable_t BtA2dp::audio_is_tws_mono_mode_enable = nullptr;
 
-audio_sink_get_a2dp_latency_t BtA2dp::audio_sink_get_a2dp_latency = nullptr;
-audio_sink_start_t BtA2dp::audio_sink_start = nullptr;
-audio_sink_stop_t BtA2dp::audio_sink_stop = nullptr;
-audio_get_dec_config_t BtA2dp::audio_get_dec_config = nullptr;
-audio_sink_session_setup_complete_t BtA2dp::audio_sink_session_setup_complete = nullptr;
-audio_sink_check_a2dp_ready_t BtA2dp::audio_sink_check_a2dp_ready = nullptr;
-audio_is_scrambling_enabled_t BtA2dp::audio_is_scrambling_enabled = nullptr;
-audio_sink_suspend_t BtA2dp::audio_sink_suspend = nullptr;
-btsink_audio_pre_init_t BtA2dp::btsink_audio_pre_init = nullptr;
-audio_sink_open_t BtA2dp::audio_sink_open = nullptr;
-audio_sink_close_t BtA2dp::audio_sink_close = nullptr;
-
-
 BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
       : Bluetooth(device, Rm),
-        a2dpState(A2DP_STATE_DISCONNECTED)
+        a2dpState(A2DP_STATE_DISCONNECTED),
+        bt_lib_sink_handle(nullptr),
+        btsink_audio_pre_init(nullptr),
+        audio_sink_open(nullptr),
+        audio_sink_close(nullptr),
+        audio_sink_start(nullptr),
+        audio_sink_stop(nullptr),
+        audio_get_dec_config(nullptr),
+        audio_sink_session_setup_complete(nullptr),
+        audio_sink_check_a2dp_ready(nullptr),
+        audio_is_scrambling_enabled(nullptr),
+        audio_sink_suspend(nullptr),
+        audio_sink_get_a2dp_latency(nullptr)
 {
     a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? SINK : SOURCE;
     codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? DEC : ENC;
@@ -1356,7 +1355,7 @@ void BtA2dp::init_a2dp_sink()
         PAL_DBG(LOG_TAG, "Requesting for BT lib handle");
         bt_lib_sink_handle = dlopen(BT_IPC_SINK_LIB, RTLD_NOW);
 
-        if (bt_lib_sink_handle == nullptr || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP) {
+        if (bt_lib_sink_handle == nullptr || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
 #ifndef LINUX_ENABLED
             // On Mobile LE VoiceBackChannel implemented as A2DPSink Profile.
             // However - All the BT-Host IPC calls are exposed via Source LIB itself.
@@ -2058,8 +2057,10 @@ std::shared_ptr<Device> BtA2dp::getObject(pal_device_id_t id)
 {
     if (id == PAL_DEVICE_OUT_BLUETOOTH_A2DP)
         return objRx;
-    else
+    else if (id == PAL_DEVICE_IN_BLUETOOTH_A2DP)
         return objTx;
+    else
+        return objBleBroadcastTx;
 }
 
 std::shared_ptr<Device>
@@ -2072,6 +2073,13 @@ BtA2dp::getInstance(struct pal_device *device, std::shared_ptr<ResourceManager> 
             objRx = sp;
         }
         return objRx;
+    } else if (device->id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+        if (!objBleBroadcastTx) {
+            PAL_INFO(LOG_TAG, "creating instance for  %d", device->id);
+            std::shared_ptr<Device> sp(new BtA2dp(device, Rm));
+            objBleBroadcastTx = sp;
+        }
+        return objBleBroadcastTx;
     } else {
         if (!objTx) {
             PAL_INFO(LOG_TAG, "creating instance for  %d", device->id);
