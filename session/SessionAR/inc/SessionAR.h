@@ -111,6 +111,10 @@ typedef enum {
 #define DTMF_DETECT_DISABLE 55
 #define MUX_DEMUX_VOICE 56
 #define MUX_DEMUX_VOIP 57
+/*
+ * From here on directly map the TKVs directly from kvh2xml.h instead of exposing
+ * new #define values individually until and unless there is need for explicitley being used.
+ */
 
 #define MSPP_SOFT_PAUSE_DELAY 150
 #define DEFAULT_RAMP_PERIOD 0x28

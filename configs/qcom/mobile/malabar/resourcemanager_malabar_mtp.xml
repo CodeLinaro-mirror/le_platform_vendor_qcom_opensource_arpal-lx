@@ -846,7 +846,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>
-            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-1</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-0</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
@@ -1930,7 +1930,7 @@
                 <!-- Module output channels -->
                 <param out_channels="1" />
                 <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
-                <param lpi_enable="false" />
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
@@ -2003,7 +2003,7 @@
                 <!-- Module output channels -->
                 <param out_channels="1" />
                 <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
-                <param lpi_enable="false" />
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_NLPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_NLPI" />
@@ -2041,7 +2041,7 @@
                 <!-- Module output channels -->
                 <param out_channels="1" />
                 <!-- Uncomment param lpi_enable="false" to run usecase in NLPI by default -->
-                <param lpi_enable="false" />
+                <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="DUAL_MIC_16KHZ_16BIT_CUSTOM_NS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_CUSTOM_NS" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_CUSTOM_ECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_CUSTOM_ECNS" />
