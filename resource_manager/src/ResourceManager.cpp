@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -123,6 +122,10 @@
 
 #define WAIT_LL_PB 4
 #define WAIT_RECOVER_FET 150000
+
+#ifdef PAL_SSR_ENABLE
+#define PAL_SSR_UP_DELAY_S 1
+#endif
 
 /*this can be over written by the config file settings*/
 uint32_t pal_log_lvl = (PAL_LOG_ERR|PAL_LOG_INFO);
@@ -1367,6 +1370,18 @@ void ResourceManager::ssrHandlingLoop(std::shared_ptr<ResourceManager> rm)
                 }
                 prevState = state;
             } else if (PAL_CARD_STATUS_UP(state)) {
+#ifdef PAL_SSR_ENABLE
+                /*
+                 * On OpenWrt/Ravelin, audioadsprpcd uses non-domain FastRPC
+                 * which cannot recover in-process after SSR. The daemon must
+                 * exit and be restarted by procd (current respawn timeout ~1s).
+                 * Wait here so the fresh daemon is ready before graph_open.
+                 */
+                mActiveStreamMutex.unlock();
+                sleep(PAL_SSR_UP_DELAY_S);
+                mActiveStreamMutex.lock();
+                PAL_DBG(LOG_TAG, "SSR UP: delay complete, proceeding with recovery");
+#endif
                 if (isContextManagerEnabled) {
                     mActiveStreamMutex.unlock();
                     ret = ctxMgr->ssrUpHandler();

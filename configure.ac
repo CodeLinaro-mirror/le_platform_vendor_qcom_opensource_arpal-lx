@@ -40,6 +40,12 @@ AC_ARG_WITH([openwrt],
     [with_openwrt=no])
 AM_CONDITIONAL([BUILDSYSTEM_OPENWRT], [test "x${with_openwrt}" = "xyes"])
 
+AC_ARG_ENABLE([ssr],
+    AS_HELP_STRING([--enable-ssr], [Enable SSR/PDR recovery (default is no)]),
+    [enable_ssr=$enableval],
+    [enable_ssr=no])
+AM_CONDITIONAL([PAL_SSR_ENABLE], [test "x${enable_ssr}" = "xyes"])
+
 AC_ARG_WITH([glib],
       AS_HELP_STRING([--with-glib],
          [enable glib, Build against glib. Use this when building for HLOS systems which use glib]))
@@ -187,3 +193,4 @@ plugins/codecs/codecs.pc \
 plugins/vui_interface/Makefile \
 plugins/vui_interface/vui_interface.pc ])
 AC_OUTPUT
+

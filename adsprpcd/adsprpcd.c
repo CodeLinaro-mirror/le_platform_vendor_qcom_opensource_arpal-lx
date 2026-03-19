@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -42,10 +42,21 @@
 #include <dlfcn.h>
 #include <unistd.h>
 #include <errno.h>
+#include <time.h>
 #include "verify.h"
 #include "AEEStdErr.h"
 
 #define ADSP_DEFAULT_LISTENER_NAME "libadsp_default_listener.so"
+
+#ifdef PAL_SSR_ENABLE
+/*
+ * After SSR, the fastrpc session in this process becomes permanently broken.
+ * Only a fresh process can recover. If listener_start() returns rapidly
+ * (< RAPID_RETURN_THRESH_S), exit with _exit(1) so procd restarts us.
+ * PAL ssrHandlingLoop waits PAL_SSR_UP_DELAY_S before graph_open.
+ */
+#define RAPID_RETURN_THRESH_S  1  /* listener returning faster = SSR/broken */
+#endif
 
 typedef int (*adsp_default_listener_start_t)(int argc, char *argv[]);
 
@@ -54,15 +65,19 @@ int main(int argc, char *argv[]) {
     int nErr = 0;
     void *adsphandler = NULL;
     adsp_default_listener_start_t listener_start;
+
     while (1) {
-        if(NULL != (adsphandler = dlopen(ADSP_DEFAULT_LISTENER_NAME, RTLD_NOW))) {
-            if(NULL != (listener_start =
+#ifdef PAL_SSR_ENABLE
+        time_t t_start = time(NULL);
+#endif
+        if (NULL != (adsphandler = dlopen(ADSP_DEFAULT_LISTENER_NAME, RTLD_NOW))) {
+            if (NULL != (listener_start =
                         (adsp_default_listener_start_t)dlsym(adsphandler,
                             "adsp_default_listener_start"))) {
                 VERIFY_IPRINTF("adsp_default_listener_start called");
                 nErr = listener_start(argc, argv);
             }
-            if(0 != dlclose(adsphandler)) {
+            if (0 != dlclose(adsphandler)) {
                 VERIFY_EPRINTF("dlclose failed");
             }
         } else {
@@ -71,6 +86,16 @@ int main(int argc, char *argv[]) {
         if (nErr == AEE_ECONNREFUSED) {
             VERIFY_EPRINTF("fastRPC device driver is disabled, retrying...");
         }
+#ifdef PAL_SSR_ENABLE
+        time_t elapsed = time(NULL) - t_start;
+
+        if (elapsed < RAPID_RETURN_THRESH_S) {
+            VERIFY_EPRINTF("audio adsp daemon: listener returned in %ds "
+                           "(SSR/PDR?), exiting for procd clean restart",
+                           (int)elapsed);
+            _exit(1);
+        }
+#endif
         VERIFY_EPRINTF("audio adsp daemon will restart after 25ms...");
         usleep(25000);
     }

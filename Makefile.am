@@ -89,6 +89,9 @@ libpal_la_LIBADD   += -lar-gsl -lacdbdata
 else
 libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar_osal -lexpat -ltinycompress
 endif
+if PAL_SSR_ENABLE
+AM_CPPFLAGS += -DPAL_SSR_ENABLE
+endif
 if IS_SDXLEMUR
 libpal_la_LIBADD    += -lagmclientwrapper
 endif
