@@ -82,8 +82,10 @@
 
 #if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #define SNDPARSER "/etc/card-defs.xml"
+#define SNDPARSER_NATIVE "/etc/card-defs-native.xml"
 #else
 #define SNDPARSER "/vendor/etc/card-defs.xml"
+#define SNDPARSER_NATIVE "/vendor/etc/card-defs-native.xml"
 #endif
 
 #if defined(ADSP_SLEEP_MONITOR)
@@ -890,9 +892,18 @@ ResourceManager::ResourceManager()
         PAL_ERR(LOG_TAG, "error in initializing KPI queue %d", ret);
     }
 #endif
-    ret = ResourceManager::XmlParser(SNDPARSER);
+    ret = ResourceManager::XmlParser(SNDPARSER_NATIVE);
     if (ret) {
-        PAL_ERR(LOG_TAG, "error in snd xml parsing ret %d", ret);
+        if (ret == -ENOENT) {
+            PAL_INFO(LOG_TAG, "native xml file %s not exist", SNDPARSER_NATIVE);
+            PAL_INFO(LOG_TAG, "retry origin xml file %s", SNDPARSER);
+            ret = ResourceManager::XmlParser(SNDPARSER);
+            if (ret) {
+                PAL_ERR(LOG_TAG, "error in snd xml parsing ret %d", ret);
+            }
+        } else {
+            PAL_ERR(LOG_TAG, "error in snd xml parsing ret %d", ret);
+        }
     }
 
     ret = ResourceManager::init_audio();
@@ -1744,6 +1755,14 @@ int32_t ResourceManager::voteSleepMonitor(Stream *str, bool vote, bool force_nlp
             PAL_INFO(LOG_TAG, "Avoiding vote/unvote for stream type : %d", type);
             return ret;
         }
+    } else {
+        // Using Dummy stream type when called without stream object, as its done during
+        // Haptics calibration mode or mixer controls enablement during device open.
+        // As we use stream object only to get type, so that type of vote can be decided,
+        // and all the low power streams will always call using stream object,
+        // hence using any NLPI stream type will work here.
+        type = PAL_STREAM_DUMMY;
+        PAL_VERBOSE(LOG_TAG, "Stream object was null using stream type %d", type);
     }
 
     PAL_VERBOSE(LOG_TAG, "Enter for stream type %d", type);
@@ -7389,7 +7408,11 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
                     device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BLE ||
-                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)) {
+                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST ||
+                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
+                    device_connection->id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET ||
+                    device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_HFP ||
+                    device_connection->id == PAL_DEVICE_IN_BLUETOOTH_HFP)) {
                     dattr.id = device_connection->id;
                     dattr.addressV1 = device_connection->device.addressV1;
                     dev = Device::getInstance(&dattr, rm);
@@ -9323,7 +9346,6 @@ void ResourceManager::startTag(void *userdata, const XML_Char *tag_name,
     static std::shared_ptr<SoundTriggerPlatformInfo> st_info = nullptr;
 
     if (st_info && data->is_parsing_sound_trigger) {
-        PAL_INFO(LOG_TAG, "Parsing sound trigger tags");
         st_info->HandleStartTag((const std::string)tag_name, (const char **)attr);
         snd_reset_data_buf(data);
         return;

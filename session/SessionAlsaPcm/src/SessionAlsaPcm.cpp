@@ -3181,34 +3181,43 @@ exit:
 
 void SessionAlsaPcm::freeFrontEndIds(const struct pal_stream_attributes &sAttr, int lDirection) {
 
-    if (sAttr.type == PAL_STREAM_VOICE_CALL_RECORD)
+    if (sAttr.type == PAL_STREAM_VOICE_CALL_RECORD) {
         rm->freeFrontEndIds(PCM_RECORD_NONTUNNEL, pcmDevIds);
-    else if (sAttr.type == PAL_STREAM_VOICE_CALL_MUSIC)
+        pcmDevIds.clear();
+    } else if (sAttr.type == PAL_STREAM_VOICE_CALL_MUSIC) {
         rm->freeFrontEndIds(PCM_PLAYBACK_NONTUNNEL, pcmDevIds);
-    else if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
+        pcmDevIds.clear();
+    } else if (sAttr.type == PAL_STREAM_CALL_TRANSLATION) {
         if(sAttr.direction == PAL_AUDIO_OUTPUT)
             rm->freeFrontEndIds(PCM_PLAYBACK_NOCONFIG, pcmDevIds);
         else
             rm->freeFrontEndIds(PCM_RECORD_NOCONFIG, pcmDevIds);
-    }
-    else if (sAttr.type == PAL_STREAM_CONTEXT_PROXY || sAttr.type == PAL_STREAM_COMMON_PROXY)
+        pcmDevIds.clear();
+    } else if (sAttr.type == PAL_STREAM_CONTEXT_PROXY ||
+               sAttr.type == PAL_STREAM_COMMON_PROXY) {
         rm->freeFrontEndIds(PCM_RECORD_NOCONFIG, pcmDevIds);
-    else {
+        pcmDevIds.clear();
+    } else {
         if (sAttr.direction == PAL_AUDIO_OUTPUT) {
             if (lDirection == RX_HOSTLESS)
                 rm->freeFrontEndIds(PCM_PLAYBACK_HOSTLESS, pcmDevIds);
             else
                 rm->freeFrontEndIds(PCM_PLAYBACK, pcmDevIds);
+            pcmDevIds.clear();
         } else if (sAttr.direction == PAL_AUDIO_INPUT) {
             if (lDirection == TX_HOSTLESS)
                 rm->freeFrontEndIds(PCM_RECORD_HOSTLESS, pcmDevIds);
             else
                 rm->freeFrontEndIds(PCM_RECORD, pcmDevIds);
+            pcmDevIds.clear();
         } else {
-            if (lDirection == RX_HOSTLESS)
+            if (lDirection == RX_HOSTLESS) {
                 rm->freeFrontEndIds(PCM_PLAYBACK_HOSTLESS, pcmDevRxIds);
-            else
+                pcmDevRxIds.clear();
+            } else {
                 rm->freeFrontEndIds(PCM_RECORD_HOSTLESS, pcmDevTxIds);
+                pcmDevTxIds.clear();
+            }
         }
     }
     return;
@@ -3299,12 +3308,15 @@ int SessionAlsaPcm::getTagsWithModuleInfo(custom_payload_uc_info_t* uc_info,
 
     }
 
-    if (uc_info->pal_stream_type == PAL_STREAM_SENSOR_PCM_RENDERER)
+    if (uc_info->direction == PAL_AUDIO_INPUT) {
         status = SessionAlsaUtils::getTagsWithModuleInfo(mixer, DeviceId,
-                                      rxAifBackEnds[0].second.data(), payload);
-    else
+                                                         txAifBackEnds[0].second.data(), payload);
+    } else if (uc_info->direction == PAL_AUDIO_OUTPUT) {
         status = SessionAlsaUtils::getTagsWithModuleInfo(mixer, DeviceId,
-                                      txAifBackEnds[0].second.data(), payload);
+                                                         rxAifBackEnds[0].second.data(), payload);
+    } else {
+        return -EINVAL;
+    }
     if (0 != status)
         PAL_ERR(LOG_TAG, "get tags failed = %d", status);
 

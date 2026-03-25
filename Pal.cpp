@@ -56,6 +56,8 @@
 #ifndef PAL_MEMLOG_UNSUPPORTED
 #include "MemLogBuilder.h"
 #endif
+#include <agm/agm_api.h>
+
 class Stream;
 
 /**
@@ -1370,21 +1372,6 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
                 break;
         }
 
-        /*
-        * When headset is disconnected the music playback pauses
-        * and the policy manager sends routing=0. But if the headset is connected
-        * back before the standby time, it can not switch device to headset any more
-        * because current pal device is headset which equals new device when resuming playback.
-        * So routing to default device first during handling routing = 0 msg will guarantee
-        * the device switch to headset can be executed once headset is connected again.
-        */
-              if (devices[0].id == PAL_DEVICE_NONE &&
-             (rm->isDisconnectedDeviceStillActive(curPalDevices,
-                            activeDevices, pluginDeviceList)))
-        {
-            devices[0].id = PAL_DEVICE_OUT_SPEAKER;
-        }
-
         if (!force_switch) {
             for (int i = 0; i < no_of_devices; i++) {
                 newDevices.insert(devices[i].id);
@@ -1730,6 +1717,37 @@ int32_t pal_set_mic_mute(bool state){
     return -ENOSYS;
 }
 
+int32_t pal_cshm_alloc(uint32_t size, pal_cshm_info_t *memInfo) {
+
+    int ret = -EINVAL;
+    agm_cshm_info agmInfo = {};
+
+    PAL_INFO(LOG_TAG, "Enter. Allocating memory of size: 0x%x", size);
+
+    agmInfo.flags = memInfo->flags;
+    agmInfo.type = (agm_cshm_type) memInfo->type;
+
+    ret = agm_cshm_alloc(size, &agmInfo);
+    memInfo->memID = agmInfo.mem_id;
+    memInfo->fd = agmInfo.fd;
+
+    PAL_INFO(LOG_TAG, "Exit. ret: %d, mem_id: 0x%x", ret, memInfo->memID);
+
+    return ret;
+}
+
+int32_t pal_cshm_dealloc(pal_cshm_id_t memID) {
+
+    int status = -EINVAL;
+
+    PAL_INFO(LOG_TAG, "Enter mem_id: 0x%x", memID);
+
+    status = agm_cshm_dealloc(memID);
+
+    PAL_INFO(LOG_TAG, "Exit");
+    return status;
+}
+
 int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
                                     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                     void* param_payload, size_t payload_size){
@@ -1778,7 +1796,10 @@ int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
         PAL_ERR(LOG_TAG, "could not get stream type ");
         goto exit;
     }
-    PAL_ERR(LOG_TAG, "calling get");
+    status = s->getStreamDirection(&(info.direction));
+    if (status) {
+        PAL_ERR(LOG_TAG, "could not get direction");
+    }
     status = s->getCustomParam(&info,std::string(param_str),param_payload,payload_size);
     exit:
 #ifndef PAL_MEMLOG_UNSUPPORTED

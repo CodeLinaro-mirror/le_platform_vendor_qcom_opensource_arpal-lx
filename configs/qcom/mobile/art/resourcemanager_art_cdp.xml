@@ -26,6 +26,7 @@
         <param key="i2s_dual_mono" value ="false" />
         <param key="haptics_priority" value ="touch_haptics" />
         <param key="haptics_through_wsa" value ="true" />
+        <param key="haptics_cshm_support" value="true"/>
         <param key="dummy_dev_enable" value ="true" />
     </config_params>
     <config_gapless key="gapless_supported" value="1"/>
@@ -846,7 +847,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_WIRED_HEADPHONE</id>
-            <back_end_name>CODEC_DMA-QAIF-RX-2</back_end_name>
+            <back_end_name>CODEC_DMA-QAIF-RX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
             <fractional_sr>1</fractional_sr>
@@ -886,7 +887,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_WIRED_HEADSET</id>
-            <back_end_name>CODEC_DMA-QAIF-RX-2</back_end_name>
+            <back_end_name>CODEC_DMA-QAIF-RX-3</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
             <fractional_sr>1</fractional_sr>
@@ -1090,16 +1091,16 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HAPTICS_DEVICE</id>
-            <back_end_name>CODEC_DMA-QAIF-RX-3</back_end_name>
+            <back_end_name>CODEC_DMA-QAIF-RX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <bit_width>32</bit_width>
             <snd_device_name>haptics-dev</snd_device_name>
-            <haptics_protection_enabled>0</haptics_protection_enabled>
+            <haptics_protection_enabled>1</haptics_protection_enabled>
             <usecase>
                 <name>PAL_STREAM_HAPTICS</name>
                 <custom-config key="haptics-over-wsa">
-                    <backend_name>CODEC_DMA-QAIF-RX-3</backend_name>
+                    <backend_name>CODEC_DMA-QAIF-RX-2</backend_name>
                     <snd_device_name>haptics-dev</snd_device_name>
                     <samplerate>48000</samplerate>
                     <bit_width>32</bit_width>
@@ -2078,7 +2079,7 @@
                 <!-- NOTE: HIST_CAP usecase is typically running with ASR concurrency -->
                 <!-- supposed to use same capture profile as ASR due to shared dam and device pp -->
                 <operating_modes>
-                    <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI_AAD" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
+                    <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
                     <high_performance capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
                     <high_performance_and_charging capture_profile_handset="DUAL_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
