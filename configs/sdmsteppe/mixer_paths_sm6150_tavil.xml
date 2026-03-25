@@ -2509,6 +2509,18 @@
         <ctl name="RX HPH Mode" value="CLS_H_ULP" />
     </path>
 
+    <path name="lpi-pcm-logging">
+        <ctl name="LPI PCM Logging Enable" value="1" />
+     </path>
+
+    <path name="PM_QOS_Vote">
+        <ctl name="PM_QOS Vote" value="Enable" />
+    </path>
+
+    <path name="VOTE Against Sleep">
+        <ctl name="VOTE Against Sleep" value="Enable" />
+    </path>
+
     <path name="true-native-mode">
     </path>
 
