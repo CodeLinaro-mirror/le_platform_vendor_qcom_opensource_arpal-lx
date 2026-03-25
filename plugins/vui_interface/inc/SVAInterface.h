@@ -9,6 +9,7 @@
 #include <mutex>
 
 #include "VoiceUIInterface.h"
+#include "SoundTriggerUtils.h"
 #include "detection_cmn_api.h"
 #include "mma_api.h"
 #include "ar_osal_mem_op.h"
@@ -33,6 +34,7 @@ class SVAInterface: public VoiceUIInterface {
         struct pal_st_sound_model *model,
         const std::vector<sound_model_data_t *> model_list) override;
     void DeregisterModel(void *s) override;
+    uint32_t getCallbackEventId(st_module_type_t model_type) override;
 
   private:
     static int32_t ParseSoundModel(struct pal_st_sound_model *sound_model,
@@ -69,11 +71,10 @@ class SVAInterface: public VoiceUIInterface {
     int32_t GenerateCallbackEvent(void *s,
                                   struct pal_st_recognition_event **event,
                                   uint32_t *event_size);
-    int32_t PackSVADetectionOpaqueData(void *s,
+    int32_t PackDetectionOpaqueData(void *s,
                                     uint8_t *opaque_data,
                                     uint32_t ext_payload_size);
-    int32_t PackMMADetectionOpaqueData(void *s,
-                                    uint8_t *opaque_data);
+
 
     int32_t UpdateEngineModel(void *s, uint8_t *data,
                 uint32_t data_size, bool add);

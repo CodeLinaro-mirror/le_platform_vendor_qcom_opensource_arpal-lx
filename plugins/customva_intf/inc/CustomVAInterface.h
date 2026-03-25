@@ -8,6 +8,7 @@
 
 #include "VoiceUIInterface.h"
 #include "detection_cmn_api.h"
+#include "mma_api.h"
 #include "ar_osal_mem_op.h"
 
 class CustomVAInterface: public VoiceUIInterface {
@@ -29,6 +30,7 @@ class CustomVAInterface: public VoiceUIInterface {
         struct pal_st_sound_model *model,
         const std::vector<sound_model_data_t *> model_list) override;
     void DeregisterModel(void *s) override;
+    uint32_t getCallbackEventId(st_module_type_t model_type) override;
 
   private:
     static int32_t ParseSoundModel(struct pal_st_sound_model *sound_model,

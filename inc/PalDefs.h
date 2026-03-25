@@ -812,6 +812,8 @@ typedef enum {
     PAL_PARAM_ID_PLUGIN_CLOSE = 89,
     PAL_PARAM_ID_SET_HFP_ZONE = 90,
     PAL_PARAM_ID_ASRC = 91,
+    PAL_PARAM_ID_RENDER_ZONE = 92,
+    PAL_PARAM_ID_CAPTURE_ZONE = 93,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 
