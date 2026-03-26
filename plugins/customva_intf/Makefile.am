@@ -15,6 +15,7 @@ AM_CPPFLAGS += -I $(srcdir)/../../plugins/PluginManager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../api/vui-interface
 AM_CPPFLAGS += -I $(srcdir)/../../resource_manager/inc
 AM_CPPFLAGS += -I $(srcdir)/../../context_manager/inc
+AM_CPPFLAGS += -I $(srcdir)/../codecs
 AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += @SPFHEADERS_CFLAGS@
 

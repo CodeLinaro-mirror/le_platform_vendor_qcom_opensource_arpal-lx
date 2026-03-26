@@ -2330,7 +2330,7 @@
         <path name="dmic1" />
     </path>
 
-    <path name="speaker-protected">
+    <path name="speaker-prot">
         <ctl name="AIF4_VI Mixer SPKR_VI_1" value="1" />
         <ctl name="AIF4_VI Mixer SPKR_VI_2" value="1" />
         <ctl name="SLIM_4_TX Format" value="PACKED_16B" />

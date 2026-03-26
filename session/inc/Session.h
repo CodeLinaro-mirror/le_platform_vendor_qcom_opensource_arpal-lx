@@ -28,7 +28,7 @@
  *
  * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -123,12 +123,15 @@ public:
     virtual int registerCallBack(session_callback cb __unused, uint64_t cookie __unused) {return 0;};
     virtual int setECRef(Stream *s, std::shared_ptr<Device> rx_dev, bool is_enable) {return -EINVAL; };
     virtual int32_t getFrontEndIds(std::vector<int>& devices, uint32_t ldir) const {return -EINVAL;}
+    virtual uint32_t getMIID(const char *backendName __unused, uint32_t tagId __unused, uint32_t *miid __unused) { return -EINVAL; }
     virtual int createMmapBuffer(Stream *s __unused, int32_t min_size_frames __unused,
                                    struct pal_mmap_buffer *info __unused) {return -EINVAL;}
     virtual int GetMmapPosition(Stream *s __unused, struct pal_mmap_position *position __unused) {return -EINVAL;}
     virtual int ResetMmapBuffer(Stream *s __unused) {return -EINVAL;}
     virtual int openGraph(Stream *s __unused) { return 0; }
     virtual int addRemoveEffect(Stream *s, pal_audio_effect_t effect, bool enable) {return 0;}/*newly added;*/
+    virtual int setParamWithTag(Stream *streamHandle, int tagId, uint32_t param_id, void *payload) { return -ENOSYS; }
+    virtual int getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) { return -ENOSYS; }
 };
 
 #endif //SESSION_H
