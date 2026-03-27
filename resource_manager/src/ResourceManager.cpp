@@ -9929,6 +9929,13 @@ int32_t ResourceManager::a2dpCaptureResumeFromDummy(pal_device_id_t dev_id)
     status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
     if (status) {
         PAL_ERR(LOG_TAG, "streamDevSwitch failed %d", status);
+        mActiveStreamMutex.lock();
+        for (sIter = restoredStreams.begin(); sIter != restoredStreams.end(); sIter++) {
+            if (rm->decreaseStreamUserCounter(*sIter)) {
+                PAL_ERR(LOG_TAG, "restoredStreams %pk decreaseStreamUserCounter failed", *sIter);
+            }
+        }
+        mActiveStreamMutex.unlock();
         goto exit;
     }
 
