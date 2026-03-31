@@ -2508,6 +2508,59 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
             }
             return 0;
         }
+        case PAL_PARAM_ID_FLUENCE_SOUNDFOCUS:
+        {
+            pal_param_payload *param_payload = (pal_param_payload *)payload;
+
+            if (!param_payload || !param_payload->payload) {
+                PAL_ERR(LOG_TAG, "Set SOUNDFOCUS: Invalid payload structure");
+                status = -EINVAL;
+                goto exit;
+            }
+
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                                       txAifBackEnds[0].second.data(), TAG_ECNS, &miid);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Set SOUNDFOCUS: Failed to get MIID, status = %d", status);
+                goto exit;
+            }
+
+            size_t actual_size = param_payload->payload_size;
+            size_t expected_size = sizeof(qcmn_sector_interf_param_t);
+
+            if (actual_size != expected_size) {
+                PAL_ERR(LOG_TAG,
+                        "Set SOUNDFOCUS: Size mismatch! Input: %zu, Expected: %zu "
+                        "(sizeof qcmn_sector_interf_param_t). Check data structure.",
+                        actual_size, expected_size);
+                status = -EINVAL;
+                goto exit;
+            }
+
+            PAL_DBG(LOG_TAG, "Set SOUNDFOCUS: miid = 0x%08x, param_id = 0x%08x, size = %zu",
+                     miid, PARAM_ID_FLUENCE_SOUNDFOCUS, actual_size);
+            status = builder->payloadCustomParam(&paramData, &paramSize,
+                                                 (uint32_t *)param_payload->payload,
+                                                 actual_size,
+                                                 miid,
+                                                 PARAM_ID_FLUENCE_SOUNDFOCUS);
+
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Set SOUNDFOCUS: payloadCustomParam failed, status = %d", status);
+                goto exit;
+            }
+
+            if (paramSize > 0) {
+                status = SessionAlsaUtils::setMixerParameter(mixer, device,
+                                                             paramData, paramSize);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG, "Set SOUNDFOCUS: setMixerParameter FAILED, status = %d",
+                            status);
+                }
+            }
+
+            goto exit;
+        }
         default:
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Unsupported param id %u status %d", param_id, status);
@@ -2523,8 +2576,10 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
     PAL_VERBOSE(LOG_TAG, "%pK - payload and %zu size", paramData , paramSize);
 
 exit:
-    if (paramData)
+    if (paramData) {
         free(paramData);
+        paramData = nullptr;
+    }
 
     PAL_DBG(LOG_TAG, "Exit. status %d", status);
     return status;
@@ -2764,13 +2819,17 @@ int SessionAlsaPcm::getParamWithTag(Stream *s __unused, int tagId, uint32_t para
         case PAL_PARAM_ID_DIRECTION_OF_ARRIVAL:
         {
             configSize = sizeof(struct ffv_doa_tracking_monitor_t);
+            PAL_DBG(LOG_TAG, "Get DOA: miid = 0x%08x, param_id = 0x%08x",
+                     miid, PARAM_ID_FFV_DOA_TRACKING_MONITOR);
             builder->payloadGetParam(s, &payloadData, &payloadSize, miid,
                                     PARAM_ID_FFV_DOA_TRACKING_MONITOR, configSize);
             break;
         }
         case PAL_PARAM_ID_FLUENCE_SOURCETRACKING:
         {
-            configSize = sizeof(struct source_track_meta_fnn);
+            configSize = sizeof(struct qcmn_source_tracking_interf_param_t);
+            PAL_DBG(LOG_TAG, "Get SOURCETRACKING: miid = 0x%08x, param_id = 0x%08x",
+                     miid, PARAM_ID_FLUENCE_SOURCETRACKING);
             builder->payloadGetParam(s, &payloadData, &payloadSize, miid,
                                     PARAM_ID_FLUENCE_SOURCETRACKING, configSize);
             break;
