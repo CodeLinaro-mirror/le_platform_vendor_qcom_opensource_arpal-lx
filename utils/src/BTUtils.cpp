@@ -32,7 +32,8 @@ static std::map<std::string, uint32_t> btFmtTable = {
     MAKE_STRING_FROM_ENUM(CODEC_TYPE_LC3),
     MAKE_STRING_FROM_ENUM(CODEC_TYPE_PCM),
     MAKE_STRING_FROM_ENUM(CODEC_TYPE_APTX_AD_QLEA),
-    MAKE_STRING_FROM_ENUM(CODEC_TYPE_APTX_AD_R4)
+    MAKE_STRING_FROM_ENUM(CODEC_TYPE_APTX_AD_R4),
+    MAKE_STRING_FROM_ENUM(CODEC_TYPE_APTX_PLUS)
 };
 
 template <class T>
@@ -433,6 +434,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
             dattr.id = spkrDattr.id;
             dev = spkrDev;
 
+            rm->lockActiveStream();
             rm->getActiveStream_l(activeStreams, spkrDev);
             if (activeStreams.empty()) {
                 rm->getActiveStream_l(activeStreams, handsetDev);
@@ -454,6 +456,7 @@ int32_t BTUtilsDeviceNotReady(Stream *s, bool& a2dpSuspend)
                     dev->setDeviceAttributes(dattr);
                 }
             }
+            rm->unlockActiveStream();
 
             PAL_INFO(LOG_TAG, "mute stream and route to device %d", dattr.id);
 
@@ -524,7 +527,9 @@ void handleA2dpBleConcurrency(std::shared_ptr<Device> *inDev,
             PAL_ERR(LOG_TAG, "getting a2dp/ble device instance failed");
             return;
         }
+        rm->lockActiveStream();
         rm->getActiveStream_l(streams, dev);
+        rm->unlockActiveStream();
         if (streams.size() == 0) {
             return;
         }
@@ -540,7 +545,9 @@ void handleA2dpBleConcurrency(std::shared_ptr<Device> *inDev,
     } else if (inDevAttr->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) {
         devAttr.id = PAL_DEVICE_IN_BLUETOOTH_BLE;
         dev = Device::getInstance(&devAttr, rm);
+        rm->lockActiveStream();
         rm->getActiveStream_l(streams, dev);
+        rm->unlockActiveStream();
         if (streams.size() > 0) {
             inDevAttr->id = PAL_DEVICE_OUT_DUMMY;
             if (rm->getDeviceConfig(inDevAttr, NULL)) {
