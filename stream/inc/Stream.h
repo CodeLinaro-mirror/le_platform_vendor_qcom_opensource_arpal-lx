@@ -160,6 +160,7 @@ public:
     virtual int32_t prepare() = 0;
     virtual int32_t drain(pal_drain_type_t type __unused) = 0;
     virtual int32_t setVolume(struct pal_volume_data *volume) = 0;
+    virtual int32_t getVolume(struct pal_volume_data *volume);
     virtual int32_t mute(bool state) = 0;
     virtual int32_t mute_l(bool state) = 0;
     virtual int32_t getMute(bool *state);

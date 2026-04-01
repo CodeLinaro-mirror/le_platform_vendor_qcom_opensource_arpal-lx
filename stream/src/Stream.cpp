@@ -1692,6 +1692,30 @@ done:
     return status;
 }
 
+int32_t Stream::getVolume(struct pal_volume_data *volume)
+{
+    int32_t status = 0;
+    if (!volume) {
+        PAL_ERR(LOG_TAG, "NULL volume pointer sent");
+        status = -EINVAL;
+        return status;
+    }
+
+    if (mVolumeData) {
+        if (volume->no_of_volpair < mVolumeData->no_of_volpair) {
+            PAL_ERR(LOG_TAG, "Buffer too small. Client capacity: %d, Required: %d", volume->no_of_volpair, mVolumeData->no_of_volpair);
+            volume->no_of_volpair = mVolumeData->no_of_volpair;
+            return -ENOMEM;
+        }
+        size_t copy_size = sizeof(struct pal_volume_data) + (sizeof(struct pal_channel_vol_kv) * mVolumeData->no_of_volpair);
+        ar_mem_cpy(volume, copy_size, mVolumeData, copy_size);
+    } else {
+        PAL_ERR(LOG_TAG, "mVolumeData is not initialized");
+        status = -EINVAL;
+    }
+    return status;
+}
+
 bool Stream::checkStreamMatch(pal_device_id_t pal_device_id,
                                         pal_stream_type_t pal_stream_type)
 {
