@@ -1508,6 +1508,8 @@ int ResourceManager::init_audio()
                     strstr(snd_card_name, "diwali") ||
                     strstr(snd_card_name, "bengal") ||
                     strstr(snd_card_name, "monaco") ||
+                    strstr(snd_card_name, "ravelin") ||
+                    strstr(snd_card_name, "bourtzi") ||
                     strstr(snd_card_name, "canoe") ||
                     strstr(snd_card_name, "alor") ||
                     strstr(snd_card_name, "chora") ||

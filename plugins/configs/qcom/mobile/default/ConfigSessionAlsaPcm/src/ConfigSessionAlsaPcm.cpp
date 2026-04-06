@@ -708,6 +708,7 @@ set_mixer:
                 {
                     status = session->enableDisableWnrModule(s);
                     PAL_DBG(LOG_TAG, "Enabling WNR module status: %d", status);
+                    status = 0;
                 }
             }
         }
@@ -784,6 +785,13 @@ silence_det_setup_done:
                 status = -EINVAL;
                 goto exit;
             }
+            /*if in call music plus playback configure MFC*/
+            if(sAttr.info.incall_music_info.local_playback){
+                status = configureInCallRxMFC(session, rm, builder);
+                if (0 != status) {
+                    PAL_INFO(LOG_TAG, "Unable to configure MFC voice call has not started %d", status);
+                }
+            }
             bool isCallActive = false;
             for (auto& stream_itr: rm->getActiveStreamList()) {
                 PAL_DBG(LOG_TAG, ": Looking for active Voice/Voip call for configuring the ICMD Mux-Demux module.");
@@ -808,13 +816,6 @@ silence_det_setup_done:
                 }
             } else {
                 PAL_DBG(LOG_TAG, ": No active Voice or VoIP call found. Skipping setConfig.");
-            }
-            /*if in call music plus playback configure MFC*/
-            if(sAttr.info.incall_music_info.local_playback){
-                status = configureInCallRxMFC(session, rm, builder);
-            }
-            if (0 != status) {
-                PAL_INFO(LOG_TAG, "Unable to configure MFC voice call has not started %d", status);
             }
             goto exit;
         }

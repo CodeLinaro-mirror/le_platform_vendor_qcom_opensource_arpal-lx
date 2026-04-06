@@ -55,6 +55,7 @@
         <param key="haptics_priority" value ="touch_haptics" />
         <param key="haptics_through_wsa" value ="false" />
         <param key="dummy_dev_enable" value ="true" />
+        <param key="multiple_sample_rate_combo_supported" value ="false" />
     </config_params>
     <config_volume>
         <use_volume_set_param>0</use_volume_set_param>
@@ -1138,10 +1139,10 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND</id>
-            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-1</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-0</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
-            <snd_device_name>ultrasound-handset</snd_device_name>
+            <snd_device_name>handset</snd_device_name>
             <samplerate>96000</samplerate>
             <bit_width>16</bit_width>
             <usecase>
@@ -1160,7 +1161,7 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND_DEDICATED</id>
-            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-1</back_end_name>
+            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-0</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>handset</snd_device_name>

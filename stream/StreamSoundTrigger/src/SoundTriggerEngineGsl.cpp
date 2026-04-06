@@ -551,7 +551,10 @@ SoundTriggerEngineGsl::SoundTriggerEngineGsl(
 
 SoundTriggerEngineGsl::~SoundTriggerEngineGsl() {
     PAL_INFO(LOG_TAG, "Enter");
-    eng_det_stat_map_.erase(this);
+    {
+        std::lock_guard<std::mutex> g(global_det_mutex_);
+        eng_det_stat_map_.erase(this);
+    }
     {
         exit_buffering_ = true;
         std::unique_lock<std::mutex> lck(mutex_);
@@ -1957,6 +1960,19 @@ int32_t SoundTriggerEngineGsl::UpdateSessionPayload(StreamSoundTrigger *s, st_pa
                 if (mode_bit & (1 << NVD)) {
                     mode_bit &= ~(1 << NVD);
                     mode_bit |= (1 << SPEECH);
+                }
+                /*
+                 * Platforms not supporting TILT_TO_WAKE/INTENT2SPEAK_ACCEL
+                 * need to replace sensor modality with Any Motion Detect(AMD)
+                 */
+                if (sm_cfg_ && sm_cfg_->GetEnableAMD()) {
+                    if (mode_bit & (1 << TILT_TO_WAKE)) {
+                        mode_bit &= ~(1 << TILT_TO_WAKE);
+                        mode_bit |= (1 << AMD);
+                    } else if (mode_bit & (1 << INTENT2SPEAK_ACCEL)) {
+                        mode_bit &= ~(1 << INTENT2SPEAK_ACCEL);
+                        mode_bit |= (1 << AMD);
+                    }
                 }
                 intf_param.data = (void *)&mode_bit;
                 intf_param.size = sizeof(uint32_t);
