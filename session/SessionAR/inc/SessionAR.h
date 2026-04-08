@@ -52,6 +52,11 @@ typedef enum {
     PM_QOS_VOTE_ENABLE  = 1
 } pmQosVote;
 
+typedef enum {
+    VOTE_AGAINST_SLEEP_DISABLE = 0,
+    VOTE_AGAINST_SLEEP_ENABLE  = 1
+} voteagainstsleep;
+
 #define INVALID_TAG -1
 #define MUTE_TAG 0
 #define UNMUTE_TAG 1
@@ -139,6 +144,7 @@ public:
     static void handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id, void *data, uint32_t event_size);
     int HDRConfigKeyToDevOrientation(const char* hdr_custom_key);
     void setPmQosMixerCtl(pmQosVote vote);
+    void setVoteAgainstSleepMixerCtl(voteagainstsleep vote);
     virtual int32_t getParameters(Stream *s, uint32_t param_id, void **payload) override;
     virtual int32_t getParamWithTag(Stream *s, int tagId, uint32_t param_id, void **payload) = 0;
     virtual int setParameters(Stream *s, uint32_t param_id, void *payload) override;
