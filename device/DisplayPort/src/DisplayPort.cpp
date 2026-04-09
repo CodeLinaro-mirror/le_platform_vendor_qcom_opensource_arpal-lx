@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -80,6 +79,19 @@ static struct extDispState {
 std::shared_ptr<Device> DisplayPort::objRx = nullptr;
 std::shared_ptr<Device> DisplayPort::objRx1 = nullptr;
 std::shared_ptr<Device> DisplayPort::objTx = nullptr;
+
+const char* DisplayPort::getExtDispMixerString()
+{
+    int device = getSndDeviceId();
+
+    if ((device == PAL_DEVICE_OUT_AUX_DIGITAL) ||
+        (device == PAL_DEVICE_OUT_AUX_DIGITAL_1))
+        return "External Display";
+    else if (device == PAL_DEVICE_OUT_HDMI)
+        return "External HDMI";
+
+    return NULL;
+}
 
 std::shared_ptr<Device> DisplayPort::getInstance(struct pal_device *device,
                                              std::shared_ptr<ResourceManager> Rm)
@@ -355,7 +367,7 @@ int DisplayPort::updateAudioAckState(int node_value, int controller, int stream)
     int ret = 0;
     int ctl_index = 0;
     struct mixer_ctl *ctl = NULL;
-    const char *ctl_prefix = "External Display";
+    const char *ctl_prefix = getExtDispMixerString();
     const char *ctl_suffix = "Audio Ack";
     char mixer_ctl_name[MIXER_PATH_MAX_LENGTH] = {0};
     struct mixer *mixer;
@@ -499,15 +511,14 @@ int32_t DisplayPort::getDisplayPortCtlIndex(int controller, int stream)
         return -EINVAL;
     }
 
-    return ((controller % MAX_CONTROLLERS) * MAX_STREAMS_PER_CONTROLLER) +
-            (stream % MAX_STREAMS_PER_CONTROLLER);
+    return stream % MAX_STREAMS_PER_CONTROLLER;
 }
 
 int32_t DisplayPort::setExtDisplayDevice(struct audio_mixer *mixer, int controller, int stream)
 {
     struct mixer_ctl *ctl = NULL;
     int ctlIndex = 0;
-    const char *ctlNamePrefix = "External Display";
+    const char *ctlNamePrefix = getExtDispMixerString();
     const char *ctlNameSuffix = "Audio Device";
     char mixerCtlName[MIXER_PATH_MAX_LENGTH] = {0};
     long deviceValues[2] = {-1, -1};
@@ -564,7 +575,7 @@ int32_t DisplayPort::getExtDispType(struct audio_mixer *mixer, int controller, i
 
     if (isDisplayPortEnabled()) {
         struct mixer_ctl *ctl = NULL;
-        const char *ctlNamePrefix = "External Display";
+        const char *ctlNamePrefix = getExtDispMixerString();
         const char *ctlNameSuffix = "Type";
         char mixerCtlName[MIXER_PATH_MAX_LENGTH] = {0};
 

@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022, 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  */
@@ -128,6 +127,7 @@ public:
     int32_t checkAndUpdateSampleRate(uint32_t *sampleRate) override;
     static bool isDisplayPortEnabled ();
     void resetEdidInfo();
+    const char* getExtDispMixerString();
     int32_t getDisplayPortCtlIndex(int controller, int stream);
     int32_t setExtDisplayDevice(struct audio_mixer *mixer, int controller, int stream);
     int32_t getExtDispType(struct audio_mixer *mixer, int controller, int stream);
