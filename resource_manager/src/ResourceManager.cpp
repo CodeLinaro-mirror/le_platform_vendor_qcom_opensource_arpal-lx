@@ -1441,6 +1441,7 @@ int ResourceManager::init_audio()
     char mixer_xml_file_wo_variant[XML_PATH_MAX_LENGTH] = {0};
     char file_name_extn[XML_PATH_EXTN_MAX_SIZE] = {0};
     char file_name_extn_wo_variant[XML_PATH_EXTN_MAX_SIZE] = {0};
+    char usb_path[128];
 
     PAL_DBG(LOG_TAG, "Enter.");
 
@@ -1462,12 +1463,14 @@ int ResourceManager::init_audio()
                 PAL_INFO(LOG_TAG, "mixer_open success. snd_card_num = %d, snd_card_name %s",
                 snd_hw_card, snd_card_name);
 
-                if (strstr(snd_card_name, VENDOR_SKU)) {
-                    PAL_DBG(LOG_TAG, "Found Codec sound card, %s", VENDOR_SKU);
+                snprintf(usb_path, sizeof(usb_path), "/proc/asound/card%d/usbid", snd_hw_card);
+                if (access(usb_path, F_OK) != 0) {
+                    PAL_DBG(LOG_TAG, "Found Codec sound card, %s", snd_card_name);
                     snd_card_found = true;
                     audio_hw_mixer = tmp_mixer;
                     break;
                 } else {
+                    PAL_DBG(LOG_TAG, "Ignore USB sound card, %s", snd_card_name);
                     if (snd_card_name) {
                         free(snd_card_name);
                         snd_card_name = NULL;
@@ -7871,6 +7874,7 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
     pal_stream_type_t streamType;
     struct pal_device dattr;
     int status = 0;
+    bool speakerHandled = false;
     PAL_INFO(LOG_TAG, "Device Rotation Changed %d", rotation_type.rotation_type);
     rotation_type_ = rotation_type.rotation_type;
 
@@ -7886,7 +7890,8 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
         PAL_INFO(LOG_TAG, "Device Got %d with channel %d",deviceId,
                                                  dattr.config.ch_info.channels);
         if ((PAL_DEVICE_OUT_SPEAKER == deviceId) &&
-            (2 == dattr.config.ch_info.channels)) {
+            (2 == dattr.config.ch_info.channels) &&
+            (!speakerHandled)) {
 
             PAL_INFO(LOG_TAG, "Device is Stereo Speaker");
             std::vector <Stream *> activeStreams;
@@ -7919,6 +7924,7 @@ int ResourceManager::handleDeviceRotationChange (pal_param_device_rotation_t
                     }
                 }
             }
+            speakerHandled = true;
         }
     }
 error :

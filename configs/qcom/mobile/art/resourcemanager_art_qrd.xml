@@ -84,6 +84,7 @@
         <codec codec_format="CODEC_TYPE_LC3" codec_type="enc|dec" codec_library="lib_bt_ble.so" />
         <codec codec_format="CODEC_TYPE_APTX_AD_QLEA" codec_type="enc" codec_library="lib_bt_ble.so" />
         <codec codec_format="CODEC_TYPE_APTX_AD_R4" codec_type="enc|dec" codec_library="lib_bt_ble.so" />
+        <codec codec_format="CODEC_TYPE_APTX_PLUS" codec_type="enc|dec" codec_library="lib_bt_ble.so" />
     </bt_codecs>
     <gain_db_to_level_mapping>
         <gain_level_map db="-59" level="5"/>
@@ -167,7 +168,7 @@
         <stream name="PAL_STREAM_SPATIAL_AUDIO" max_size="1" />
         <stream name="PAL_STREAM_COMMON_PROXY" max_size="8" />
         <stream name="PAL_STREAM_SENSOR_PCM_RENDERER" max_size="1" />
-        <stream name="PAL_STREAM_ASR" max_size="1" />
+        <stream name="PAL_STREAM_ASR" max_size="2" />
         <stream name="PAL_STREAM_CALL_TRANSLATION" max_size="2" />
     </config_max_sessions>
     <device_profile>
@@ -626,6 +627,12 @@
             <samplerate>48000</samplerate>
             <bit_width>32</bit_width>
             <snd_device_name>vi-feedback</snd_device_name>
+            <sp_vi_ch_map>
+                <channel>2</channel>
+                <channel>1</channel>
+                <channel>4</channel>
+                <channel>3</channel>
+            </sp_vi_ch_map>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <channels>1</channels>
@@ -1844,7 +1851,29 @@
                 <param buffering_mode_out_buf_size="102400" />
                 <!-- Output buffer size for speaker diarization in bytes -->
                 <param sdz_output_buffer_size="102400" />
+                <!-- Whether life logger is enabled -->
+                <param enable_life_logger="false"/>
+                <!-- ASR input DAM buffer size for life logger usecase -->
+                <!-- Valid only when it is set to non-zero value -->
+                <!-- Config from ASPS is used when this is set to 0 -->
+                <param life_logger_asr_input_buf_size_ms="0"/>
             </common_config>
+            <default_config>
+                <!-- Default ASR configurations for LLS -->
+                <param input_language_code="0"/>
+                <param output_language_code="0"/>
+                <param enable_language_detection="false"/>
+                <param enable_translation="false"/>
+                <param enable_continuous_mode="false"/>
+                <param enable_partial_transcription="false"/>
+                <param enable_logger_mode="false"/>
+                <param enable_timestamp="true"/>
+                <param enable_speaker_diarization="false"/>
+                <param threshold="50"/>
+                <param timeout_duration="0"/>
+                <param silence_detection_duration="5000"/>
+                <param outputBufferMode="false"/>
+            </default_config>
             <stream_config>
                 <name>QC_ASR</name>
                 <param vendor_uuid = "018ebfb8-1364-7417-b92e-f6ab16b55431" />
@@ -1862,6 +1891,12 @@
                     <param sdz_output_config_id = "0xC0000064, 0x08001B0D" />
                     <param sdz_force_output_id = "0xC0000064, 0x08001B0E" />
                     <param sdz_output_id = "0xC0000064, 0x08001B0C" />
+                    <param asr_output_config_v2_id ="0xC0000057, 0x08001BC3" />
+                    <param asr_input_buffer_duration_v2_id = "0xC0000057, 0x08001BC5" />
+                    <param asr_force_output_v2_id = "0xC0000057, 0x08001BC6" />
+                    <param sdz_output_config_v2_id = "0xC0000064, 0x08001BDA" />
+                    <param sdz_input_buffer_duration_v2_id = "0xC0000064, 0x08001BC7" />
+                    <param sdz_force_output_v2_id = "0xC0000064, 0x08001B0E" />
                 </module_Info>
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_RAW_LPI_AAD" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_RAW_LPI" />
@@ -1876,10 +1911,6 @@
                 <param version="0x0103" />
                 <param enable_failure_detection="false" />
                 <param notify_second_stage_failure="false" />
-                <param mmap_enable="true" />
-                <param mmap_buffer_duration="5000" />
-                <!-- 5ms duration of data -->
-                <param mmap_frame_length="5" />
                 <!-- Move this flag to common_config if ACD/Sensor PCM Data support car mode in the future -->
                 <param transit_to_non_lpi_on_charging="false" />
                 <!-- whether concurrent detection is supported across different VoiceUI sessions(SVA/Hotword/MMA)-->
@@ -1893,6 +1924,10 @@
                 <param vendor_uuid="68ab2d40-e860-11e3-95ef-0002a5d5c51b" />
                 <param interface_plugin_lib="sva_plugin.so" />
                 <param merge_first_stage_sound_models="false" />
+                <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
                 <!-- Property for extended detection payload, disabled by default -->
                 <!-- OEM can enable this by adding properties defined in SoundTriggerUtils.h-->
                 <!-- Example: param detection_property_list="0x10001,0x10002,0x10003,0x10004"-->
@@ -1990,6 +2025,10 @@
                 <param interface_plugin_lib="hotword_plugin.so" />
                 <param get_module_version="false" />
                 <param merge_first_stage_sound_models="false" />
+                <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
                 <param capture_keyword="2000" />
                 <param client_capture_read_delay="2000" />
                 <param kw_start_tolerance="100" />
@@ -2023,6 +2062,10 @@
                 <param vendor_uuid="c51c508a-ee1b-11ec-8ea0-0242ac120002" />
                 <param interface_plugin_lib="customva_plugin.so" />
                 <param merge_first_stage_sound_models="false" />
+                <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->
                 <param client_capture_read_delay="2000" /> <!-- reserved buffer duration for rt data -->
@@ -2058,6 +2101,10 @@
                 <name>QC_MMA</name>
                 <param vendor_uuid="018f8585-3890-7419-b0f3-e5b6ec961d9c" />
                 <param interface_plugin_lib="sva_plugin.so" />
+                <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->
                 <param client_capture_read_delay="2000" /> <!-- reserved buffer duration for rt data -->
@@ -2098,6 +2145,10 @@
                 <name>QC_HIST_CAP</name>
                 <param vendor_uuid="1b9cabd9-4eb9-4012-9766-2ce6597a9658" />
                 <param interface_plugin_lib="sva_plugin.so" />
+                <param mmap_enable="true" />
+                <param mmap_buffer_duration="120000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
                 <!-- batch size (in ms) for BATCHING buffer mode -->
                 <param batch_size_in_ms="5000" />
                 <param capture_keyword="10000" /> <!-- Default history buffer length -->

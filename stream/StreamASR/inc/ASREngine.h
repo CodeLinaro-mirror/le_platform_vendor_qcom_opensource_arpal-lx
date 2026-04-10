@@ -37,7 +37,6 @@
 #include <map>
 
 #include "ASRPlatformInfo.h"
-#include "StreamASR.h"
 #include "PayloadBuilder.h"
 #include "asr_module_calibration_api.h"
 #include "sdz_api.h"
@@ -49,33 +48,35 @@ typedef enum {
 } asr_eng_state_t;
 
 class Session;
-class Stream;
+class StreamASR;
 
 class ASREngine
 {
 public:
-    ASREngine(Stream *s, std::shared_ptr<ASRStreamConfig> smCfg);
+    ASREngine(StreamASR *s, std::shared_ptr<ASRStreamConfig> smCfg);
     ~ASREngine();
 
-    static std::shared_ptr<ASREngine> GetInstance(Stream *s,
+    static std::shared_ptr<ASREngine> GetInstance(StreamASR *s,
                           std::shared_ptr<ASRStreamConfig> smCfg);
-    int32_t StartEngine(Stream *s);
-    int32_t StopEngine(Stream *s);
+    int32_t StartEngine(StreamASR *s);
+    int32_t StopEngine(StreamASR *s);
     int32_t ConnectSessionDevice(
-        Stream* stream_handle,
+        StreamASR *stream_handle,
         pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToConnect);
     int32_t DisconnectSessionDevice(
-        Stream* streamHandle,
+        StreamASR *streamHandle,
         pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToDisconnect);
     int32_t SetupSessionDevice(
-        Stream* streamHandle,
+        StreamASR *streamHandle,
         pal_stream_type_t streamType,
         std::shared_ptr<Device> deviceToDisconnect);
-    int32_t setECRef(Stream *s, std::shared_ptr<Device> dev,
+    int32_t setECRef(StreamASR *s, std::shared_ptr<Device> dev,
                      bool is_enable, bool setECForFirstTime = false);
-    int32_t setParameters(Stream *s, asr_param_id_type_t pid, void* paramPayload = nullptr);
+    int32_t getCustomParam(custom_payload_uc_info_t* uc_info, std::string param_str,
+                           void* param_payload, size_t* payload_size, Stream *s);
+    int32_t setParameters(StreamASR *s, asr_param_id_type_t pid, void* paramPayload = nullptr);
     uint32_t GetNumOutput() { return numOutput; }
     uint32_t GetOutputToken() { return outputToken; }
     uint32_t GetPayloadSize() { return payloadSize; }
@@ -93,6 +94,10 @@ private:
     void ParseSdzEventAndNotifyStream(void* eventData);
     void HandleSessionEvent(uint32_t eventId __unused, void *data, uint32_t size);
     bool IsEngineActive();
+    int32_t UpdateASRConfiguration(StreamASR *s);
+    int32_t UpdateSDZConfiguration(StreamASR *s);
+    int32_t AttachStream(StreamASR *s);
+    int32_t DetachStream(StreamASR *s);
 
     bool isCrrDevUsingExtEc;
     bool exitThread;
@@ -113,8 +118,10 @@ private:
     std::queue<std::pair<uint32_t, void *>> eventQ;
     static std::shared_ptr<ASREngine> eng;
     param_id_asr_config_t *speechCfg;
-    param_id_asr_output_config_t *outputCfg;
-    param_id_asr_input_threshold_t *inputCfg;
+    uint32_t outputCfgSize;
+    param_id_asr_output_config_v2_t *outputCfg;
+    uint32_t sdzOutputCfgSize;
+    param_id_sdz_output_config_v2_t *sdzOutputCfg;
     std::shared_ptr<Device> rxEcDev;
     std::recursive_mutex ecRefMutex;
     std::shared_ptr<ASRPlatformInfo> asrInfo;
@@ -126,7 +133,7 @@ private:
     std::condition_variable cv;
 
     Session *session;
-    Stream *streamHandle;
     PayloadBuilder *builder;
+    std::vector<StreamASR *> streamList;
 };
 #endif  // ASRENGINE_H
