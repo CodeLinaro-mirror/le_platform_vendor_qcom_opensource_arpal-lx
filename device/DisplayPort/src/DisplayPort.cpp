@@ -202,11 +202,13 @@ int DisplayPort::start()
 
     customPayload = NULL;
     customPayloadSize = 0;
-
-    status = configureDpEndpoint();
-    if (status != 0) {
-        PAL_ERR(LOG_TAG,"Endpoint Configuration Failed");
-        return status;
+    if ((deviceAttr.id == PAL_DEVICE_OUT_AUX_DIGITAL) ||
+            (deviceAttr.id == PAL_DEVICE_OUT_AUX_DIGITAL_1)) {
+        status = configureDpEndpoint();
+        if (status != 0) {
+            PAL_ERR(LOG_TAG,"Endpoint Configuration Failed");
+            return status;
+        }
     }
     status = Device::start();
     return status;
