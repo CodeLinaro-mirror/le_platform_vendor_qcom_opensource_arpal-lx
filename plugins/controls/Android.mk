@@ -7,6 +7,8 @@ LOCAL_CFLAGS += -Wall -Werror
 #--------------------------------------------
 include $(CLEAR_VARS)
 
+LOCAL_CFLAGS   += -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
+
 LOCAL_SRC_FILES := \
     defaultPluginControls.cpp
 

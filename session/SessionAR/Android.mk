@@ -11,6 +11,7 @@ LOCAL_MODULE        := libsession_ar
 LOCAL_MODULE_OWNER  := qti
 LOCAL_VENDOR_MODULE := true
 
+LOCAL_CFLAGS   += -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 LOCAL_CPPFLAGS += -fexceptions -frtti
 
 LOCAL_SRC_FILES := \
