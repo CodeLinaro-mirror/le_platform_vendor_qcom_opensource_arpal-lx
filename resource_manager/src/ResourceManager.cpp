@@ -903,6 +903,11 @@ int32_t ResourceManager::updateMicOcclusionInfo(Stream *s, void *data)
 
     PAL_DBG(LOG_TAG, "Enter %s", __func__);
 
+    if (!s || !data) {
+        PAL_ERR(LOG_TAG, "Invalid input: stream (%p) or data (%p) is null", s, data);
+        return -EINVAL;
+    }
+
     mic_info = (struct event_id_mic_occlusion_status_info_t *)data;
     occlusionState = mic_info->occlusion_state;
 
@@ -911,6 +916,13 @@ int32_t ResourceManager::updateMicOcclusionInfo(Stream *s, void *data)
     if (it == micOcclusionInfoMap.end()) {
         /*if didn't find entry, add new and update*/
         addMicOcclusionInfo(s);
+
+        /* Re-lookup if add was successful */
+        it = micOcclusionInfoMap.find(s);
+        if (it == micOcclusionInfoMap.end()) {
+             PAL_ERR(LOG_TAG, "Failed to add mic occlusion info for stream %p", s);
+             return -ENOMEM;
+        }
     }
 
     PAL_DBG(LOG_TAG," mic occ state: %d", occlusionState);
