@@ -10206,21 +10206,43 @@ done:
 }
 
 /* Function to get audio vendor configs path */
-void ResourceManager::getVendorConfigPath (char* config_file_path, int path_size)
+void ResourceManager::getVendorConfigPath(char* config_file_path, int path_size)
 {
-   char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
-   if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
+    char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
+
+    if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
 #if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
-       /* Audio configs are stored in /etc */
-       snprintf(config_file_path, path_size, "%s", "/etc");
+        /* Audio configs are stored in /etc */
+        snprintf(config_file_path, path_size, "%s", "/etc");
 #else
-       /* Audio configs are stored in /vendor/etc */
-       snprintf(config_file_path, path_size, "%s", "/vendor/etc");
+        /* Audio configs are stored in /vendor/etc */
+        snprintf(config_file_path, path_size, "%s", "/vendor/etc");
 #endif
     } else {
-       /* Audio configs are stored in /vendor/etc/audio/sku_${vendor_sku} */
-       snprintf(config_file_path, path_size,
-                       "%s%s", "/vendor/etc/audio/sku_", vendor_sku);
+        /* Audio configs are stored in /vendor/etc/audio/sku_${vendor_sku} */
+        snprintf(config_file_path, path_size,
+                 "%s%s", "/vendor/etc/audio/sku_", vendor_sku);
+
+        /* Additional check for specific SKU */
+        if (!strcmp(vendor_sku, "ravelin") || !strcmp(vendor_sku, "bourtzi")) {
+            int ret1 = property_set("vendor.audio.compress_capture.enabled", "0");
+            int ret2 = property_set("vendor.audio.compress_capture.aac", "0");
+            if (ret1 != 0 || ret2 != 0) {
+                  PAL_ERR(LOG_TAG, "Failed to set compress capture properties for SKU %s, ret1=%d ret2=%d",
+                        vendor_sku, ret1, ret2);
+            } else {
+                /* Optional: verify the properties after setting */
+                char enabled_val[PROPERTY_VALUE_MAX] = {'\0'};
+                char aac_val[PROPERTY_VALUE_MAX] = {'\0'};
+                property_get("vendor.audio.compress_capture.enabled", enabled_val, "");
+                property_get("vendor.audio.compress_capture.aac", aac_val, "");
+                if (strcmp(enabled_val, "0") || strcmp(aac_val, "0")) {
+                    PAL_ERR(LOG_TAG, "Verification failed for SKU %s, enabled=%s aac=%s",
+                           vendor_sku, enabled_val, aac_val);
+              }
+
+            }
+        }
     }
 }
 
