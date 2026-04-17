@@ -309,7 +309,7 @@ struct mixer_ctl *SessionAlsaUtils::getFeMixerControl(struct mixer *am, std::str
     PAL_DBG(LOG_TAG, "mixer control %s", cntrlName.str().data());
     ctl = mixer_get_ctl_by_name(am, cntrlName.str().data());
     if (!ctl)
-        PAL_FATAL(LOG_TAG, "invalid mixer control: %s", cntrlName.str().data());
+        PAL_ERR(LOG_TAG, "invalid mixer control: %s", cntrlName.str().data());
 
     return ctl;
 }
