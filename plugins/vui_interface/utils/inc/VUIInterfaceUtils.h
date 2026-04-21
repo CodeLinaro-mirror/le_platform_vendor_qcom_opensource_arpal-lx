@@ -37,6 +37,8 @@
 
 #include <memory>
 #include <cstring>
+#include <cstdlib>
+#include <cstdint>
 
 #include "ListenSoundModelLib.h"
 
