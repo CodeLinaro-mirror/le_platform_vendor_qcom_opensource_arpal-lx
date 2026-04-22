@@ -93,12 +93,14 @@ struct pcm * SpeakerProtection::rxPcm = NULL;
 struct pcm * SpeakerProtection::txPcm = NULL;
 struct pcm * SpeakerProtection::cpsPcm = NULL;
 struct param_id_sp_th_vi_calib_res_per_spkr_cfg_param_t * SpeakerProtection::callback_data;
+struct param_id_sp_th_vi_calib_res_cfg_t * SpeakerProtection::callback_datasp;
 int SpeakerProtection::numberOfChannels;
 struct pal_device_info SpeakerProtection::vi_device;
 struct pal_device_info SpeakerProtection::cps_device;
 int SpeakerProtection::calibrationCallbackStatus;
 int SpeakerProtection::numberOfRequest;
 bool SpeakerProtection::mDspCallbackRcvd;
+bool SpeakerProtection::mDspCallbackRcvdSp;
 std::shared_ptr<Device> SpeakerFeedback::obj = nullptr;
 int SpeakerFeedback::numSpeaker;
 
@@ -192,6 +194,7 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
                                             void *event_data, uint32_t event_size)
 {
     param_id_sp_th_vi_calib_res_per_spkr_cfg_param_t *param_data = nullptr;
+    param_id_sp_th_vi_calib_res_cfg_t *param_data_ptr = nullptr;
     param_id_sp_vi_spkr_diag_getpkt_param_t *diag_data = nullptr;
     bool calSuccess = true, calFailure = false;
 
@@ -234,6 +237,35 @@ void SpeakerProtection::handleSPCallback (uint64_t hdl __unused, uint32_t event_
                     calibrationCallbackStatus = CALIBRATION_STATUS_FAILURE;
                     cv.notify_all();
                 }
+        }
+        break;
+    case EVENT_ID_VI_CALIBRATION:
+        // Received callback for Calibration state
+        param_data_ptr = (param_id_sp_th_vi_calib_res_cfg_t *) event_data;
+        PAL_DBG(LOG_TAG, "Calibration state %d", param_data_ptr->state);
+
+        if (param_data_ptr->state == CALIBRATION_STATUS_SUCCESS) {
+            PAL_DBG(LOG_TAG, "Calibration is successfull");
+            callback_datasp = (param_id_sp_th_vi_calib_res_cfg_t *) calloc(1, event_size);
+            if (!callback_datasp) {
+                PAL_ERR(LOG_TAG, "Unable to allocate memory");
+            } else {
+                callback_datasp->num_ch = param_data_ptr->num_ch;
+                callback_datasp->state = param_data_ptr->state;
+                for (int i = 0; i < callback_datasp->num_ch; i++) {
+                  callback_datasp->r0_cali_q24[i] = param_data_ptr->r0_cali_q24[i];
+                }
+            }
+            mDspCallbackRcvdSp = true;
+            calibrationCallbackStatus = CALIBRATION_STATUS_SUCCESS;
+            cv.notify_all();
+        }
+        else if (param_data_ptr->state == CALIBRATION_STATUS_FAILURE) {
+            PAL_DBG(LOG_TAG, "Calibration is unsuccessfull");
+            // Restart the calibration and abort current run.
+            mDspCallbackRcvdSp = true;
+            calibrationCallbackStatus = CALIBRATION_STATUS_FAILURE;
+            cv.notify_all();
         }
         break;
     case EVENT_ID_SPv5_SPEAKER_DIAGNOSTICS:

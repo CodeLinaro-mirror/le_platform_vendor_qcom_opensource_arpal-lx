@@ -97,7 +97,7 @@
         <avoid_vote_stream_type>PAL_STREAM_CONTEXT_PROXY</avoid_vote_stream_type>
     </sleep_monitor_vote_streams>
     <perf_lock library="libqti-perfd-client.so" config="0x40400000, 0x1, 0x40800000, 0x514" />
-    <silence_detection_config pcm="1" voice="1" duration="3000"/>
+    <silence_detection_config pcm="0" voice="0" duration="0"/>
     <group_device_cfg>
         <upd_rx>
             <snd_device name="handset" />
@@ -622,7 +622,7 @@
             <channels>2</channels>
             <samplerate>48000</samplerate>
             <bit_width>32</bit_width>
-            <snd_device_name>vi-feedback-mono-2</snd_device_name>
+            <snd_device_name>vi-feedback</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <channels>1</channels>
@@ -781,8 +781,9 @@
             <channels>2</channels>
             <samplerate>48000</samplerate>
             <snd_device_name>speaker</snd_device_name>
-	    <!--speaker protection will need to be enabled after BU-->
-            <speaker_protection_enabled>0</speaker_protection_enabled>
+            <!--speaker protection will need to be enabled after BU-->
+            <speaker_protection_enabled>1</speaker_protection_enabled>
+            <sp_op_mode>5</sp_op_mode>
             <fractional_sr>0</fractional_sr>
             <!-- To enable external EC reference the flag extec_ref_enabled must be added as 1 -->
             <ext_ec_ref_enabled>0</ext_ec_ref_enabled>
@@ -808,7 +809,7 @@
             <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
             <supported_bit_format>PAL_AUDIO_FMT_PCM_S16_LE</supported_bit_format>
             <!-- RAS should be enabled with speaker protection always -->
-            <ras_enabled>0</ras_enabled>
+            <ras_enabled>1</ras_enabled>
             <!-- Flag to specify speaker in case Voice call is switched from
                  handset to speaker with only 1 speaker.
                  Values: Both speaker : 0
@@ -851,7 +852,7 @@
             <ext_ec_ref_enabled>0</ext_ec_ref_enabled>
             <samplerate>48000</samplerate>
             <fractional_sr>0</fractional_sr>
-            <snd_device_name>handset-wsa</snd_device_name>
+            <snd_device_name>handset</snd_device_name>
             <handset_protection_enabled>0</handset_protection_enabled>
           <usecase>
               <name>PAL_STREAM_VOICE_CALL</name>
