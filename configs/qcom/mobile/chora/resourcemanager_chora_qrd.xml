@@ -767,7 +767,6 @@
                         Pandeiro I2S : 4
             -->
             <wsa_used>4</wsa_used>
-            <bit_width>32</bit_width>
             <!-- Flag to specify cps mode which is applicable
                  Values: disable CPS: 0
                          CPS streaming: 1
