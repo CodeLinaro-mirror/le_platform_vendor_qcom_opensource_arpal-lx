@@ -6,6 +6,7 @@ LOCAL_MODULE := libplugin_manager
 LOCAL_MODULE_OWNER := qti
 LOCAL_VENDOR_MODULE := true
 
+LOCAL_CFLAGS   += -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 LOCAL_CPPFLAGS += -fexceptions
 
 ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
