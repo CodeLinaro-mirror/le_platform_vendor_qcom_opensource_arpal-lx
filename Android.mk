@@ -166,7 +166,8 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_ext_ec \
         libdev_ec_ref \
         libdev_hfpdownlink \
-        libdev_hfpuplink
+        libdev_hfpuplink \
+        libdev_eavb
 endif #end of static compilation
 
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)

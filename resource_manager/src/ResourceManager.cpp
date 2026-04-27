@@ -247,6 +247,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_A2B_MIC,               {std::string{ "" }}},
     {PAL_DEVICE_IN_A2B2_MIC,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET,{std::string{ "" }}},
+    {PAL_DEVICE_IN_EAVB,                  {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -314,6 +315,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_A2B_MIC,               0},
     {PAL_DEVICE_IN_A2B2_MIC,              0},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET,0},
+    {PAL_DEVICE_IN_EAVB,                  0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -382,6 +384,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_A2B_MIC,               {std::string{ "" }}},
     {PAL_DEVICE_IN_A2B2_MIC,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET,{std::string{ "" }}},
+    {PAL_DEVICE_IN_EAVB,                  {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -417,6 +420,7 @@ const std::map<uint32_t, uint32_t> streamPriorityLUT {
     {PAL_STREAM_SENSOR_PCM_RENDERER,4},
     {PAL_STREAM_PLAYBACK_BUS,       3},
     {PAL_STREAM_CAPTURE_BUS,        3},
+    {PAL_STREAM_EAVB_CAPTURE,       3},
 };
 
 const std::map<std::string, plugin_control_name_t> controlNameMap{
@@ -702,6 +706,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_A2B_MIC,               {std::string{ "" }}},
     {PAL_DEVICE_IN_A2B2_MIC,              {std::string{ "" }}},
     {PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET,{std::string{ "" }}},
+    {PAL_DEVICE_IN_EAVB,                  {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -3169,6 +3174,7 @@ bool ResourceManager::isStreamSupported(Stream *s, struct pal_device *devices, i
             break;
         case PAL_STREAM_PLAYBACK_BUS:
         case PAL_STREAM_CAPTURE_BUS:
+        case PAL_STREAM_EAVB_CAPTURE:
             cur_sessions = active_streams_bus.size();
             max_sessions = MAX_SESSIONS_DEEP_BUFFER;
             break;
@@ -3229,6 +3235,7 @@ bool ResourceManager::isStreamSupported(Stream *s, struct pal_device *devices, i
         case PAL_STREAM_VOICE_RECOGNITION:
         case PAL_STREAM_PLAYBACK_BUS:
         case PAL_STREAM_CAPTURE_BUS:
+        case PAL_STREAM_EAVB_CAPTURE:
             if (attributes.direction == PAL_AUDIO_INPUT) {
                 channels = attributes.in_media_config.ch_info.channels;
                 samplerate = attributes.in_media_config.sample_rate;
@@ -3529,6 +3536,12 @@ int ResourceManager::registerStream(Stream *s)
         case PAL_STREAM_SENSOR_PCM_RENDERER:
         {
             ret = registerstream(s, active_streams_sensor_renderer);
+            break;
+        }
+        case PAL_STREAM_EAVB_CAPTURE:
+        {
+            ret = 0;
+            PAL_ERR(LOG_TAG, "Skipping registerstream for eavb capture");
             break;
         }
         default:
@@ -7375,6 +7388,7 @@ const std::vector<int> ResourceManager::allocateFrontEndIds(const struct pal_str
             }
             break;
        case PAL_STREAM_CONTEXT_PROXY:
+       case PAL_STREAM_EAVB_CAPTURE:
        case PAL_STREAM_COMMON_PROXY:
             if (howMany > listAllPcmContextProxyFrontEnds.size()) {
                     PAL_ERR(LOG_TAG, "allocateFrontEndIds: requested for %d front ends, have only %zu error",
@@ -7572,6 +7586,7 @@ void ResourceManager::freeFrontEndIds(const std::vector<int> frontend,
             }
             break;
        case PAL_STREAM_CONTEXT_PROXY:
+       case PAL_STREAM_EAVB_CAPTURE:
        case PAL_STREAM_COMMON_PROXY:
             for (int i = 0; i < frontend.size(); i++) {
                  listAllPcmContextProxyFrontEnds.push_back(frontend.at(i));

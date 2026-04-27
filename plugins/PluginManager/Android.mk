@@ -94,6 +94,7 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_usb_headers \
         libdev_hfpdownlink_headers \
         libdev_hfpuplink_headers \
+        libdev_eavb_headers \
 
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress

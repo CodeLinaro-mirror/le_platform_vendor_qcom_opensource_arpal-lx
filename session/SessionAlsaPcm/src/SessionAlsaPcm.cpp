@@ -1332,6 +1332,11 @@ int SessionAlsaPcm::start(Stream * s)
                 status = -EINVAL;
                 goto exit;
             }
+            if (sAttr.type == PAL_STREAM_EAVB_CAPTURE)
+            {
+                PAL_ERR(LOG_TAG, "Skipping directly to pcm_start for eavb capture");
+                goto pcm_start_rec;
+            }
             if ((sAttr.type != PAL_STREAM_VOICE_UI) &&
                 (sAttr.type != PAL_STREAM_ACD) &&
                 (sAttr.type != PAL_STREAM_ASR) &&
@@ -1798,6 +1803,7 @@ set_mixer:
 
             }
 
+pcm_start_rec:
             if (ResourceManager::isLpiLoggingEnabled()) {
                 struct audio_route *audioRoute;
 
