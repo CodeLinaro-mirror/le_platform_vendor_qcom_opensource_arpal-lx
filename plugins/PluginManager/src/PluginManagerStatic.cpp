@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -223,6 +223,8 @@ int32_t getDeviceFunc(void** func, std::string name) {
         case PAL_DEVICE_OUT_AUX_DIGITAL:
         case PAL_DEVICE_OUT_AUX_DIGITAL_1:
         case PAL_DEVICE_OUT_HDMI:
+        case PAL_DEVICE_IN_AUX_DIGITAL:
+        case PAL_DEVICE_IN_HDMI:
             PAL_VERBOSE(LOG_TAG, "Display Port device");
             *reinterpret_cast<DeviceCreate*>(func) = &CreateDisplayDevice;
             break;

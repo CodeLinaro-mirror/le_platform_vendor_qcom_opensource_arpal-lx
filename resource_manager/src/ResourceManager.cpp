@@ -2682,7 +2682,21 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
         PAL_ERR(LOG_TAG, "failed to get device instance");
         return -EINVAL;
     }
-    status = tempDev->getDeviceConfig(deviceattr, sAttr);
+
+    if ((deviceattr->id == PAL_DEVICE_IN_HDMI) ||
+            (deviceattr->id == PAL_DEVICE_IN_AUX_DIGITAL)) {
+        status = (tempDev->checkAndUpdateBitWidth(&deviceattr->config.bit_width) |
+                  tempDev->checkAndUpdateSampleRate(&deviceattr->config.sample_rate));
+        if (!status)
+            deviceattr->config.aud_fmt_id = bitWidthToFormat.at(deviceattr->config.bit_width);
+        else {
+            PAL_ERR(LOG_TAG, "failed to update samplerate/bitwidth for HDMI-IN/Display IN device");
+            status = -EINVAL;
+        }
+        PAL_DBG(LOG_TAG, "HDMI IN sucess in getdeviceconfig");
+    } else {
+        status = tempDev->getDeviceConfig(deviceattr, sAttr);
+    }
 
 exit:
     PAL_DBG(LOG_TAG, "device id 0x%x channels %d samplerate %d, bitwidth %d format %d SndDev %s priority 0x%x",
