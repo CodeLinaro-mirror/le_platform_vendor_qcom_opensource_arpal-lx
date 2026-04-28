@@ -114,7 +114,8 @@ std::shared_ptr<Device> DisplayPort::getInstance(struct pal_device *device,
             objRx1 = sp;
         }
         return objRx1;
-    } else if (device->id == PAL_DEVICE_IN_AUX_DIGITAL) {
+    } else if ((device->id == PAL_DEVICE_IN_AUX_DIGITAL) ||
+            (device->id == PAL_DEVICE_IN_HDMI)) {
         if (!objTx) {
             std::shared_ptr<Device> sp(new DisplayPort(device, Rm));
             objTx = sp;
@@ -137,7 +138,8 @@ std::shared_ptr<Device> DisplayPort::getObject(pal_device_id_t id)
             if (objRx1->getSndDeviceId() == id)
                 return objRx1;
         }
-    } else if (id == PAL_DEVICE_IN_AUX_DIGITAL) {
+    } else if ((id == PAL_DEVICE_IN_AUX_DIGITAL) ||
+            (id == PAL_DEVICE_IN_HDMI)) {
         if (objTx) {
             if (objTx->getSndDeviceId() == id)
                 return objTx;
