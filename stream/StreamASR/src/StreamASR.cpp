@@ -105,6 +105,7 @@ StreamASR::StreamASR(const struct pal_stream_attributes *sattr, struct pal_devic
     is_client_model_used_ = false;
     userCueEnabled = false;
     struct stat stats;
+    ssrPayload = nullptr;
 
     mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
                       +sizeof(struct pal_channel_vol_kv));
@@ -275,6 +276,13 @@ int32_t StreamASR::close()
     if (engine) {
         engine->releaseEngine();
         engine = nullptr;
+    }
+
+    if (ssrPayload) {
+        if (ssrPayload->payload)
+            free(ssrPayload->payload);
+        free(ssrPayload);
+        ssrPayload = nullptr;
     }
 
     if (is_client_model_used_) {
@@ -688,7 +696,71 @@ void StreamASR::HandleEventData(eventPayload engEvent) {
                   engEvent.payloadSize, cookie);
     }
 
+    if (eventId == TIMESTAMP_BASED_TEXT || eventId == PLAIN_TEXT) {
+        CacheEventData(engEvent);
+    }
+
     PAL_INFO(LOG_TAG, "Exit.");
+}
+
+int32_t StreamASR::CacheEventData(eventPayload engEvent) {
+    PAL_INFO(LOG_TAG, "Enter.");
+    int32_t status = 0;
+    bool isFinalEvent = true;
+
+    switch (engEvent.type) {
+        case TIMESTAMP_BASED_TEXT : {
+            pal_asr_ts_event *temp_ts_event = (pal_asr_ts_event *)engEvent.payload;
+            isFinalEvent = true;
+            for (int i = 0; i < temp_ts_event->num_events; ++i) {
+                isFinalEvent = isFinalEvent ? temp_ts_event->event[i].is_final : isFinalEvent;
+                temp_ts_event->event[i].is_final = true;
+            }
+            break;
+        }
+        case PLAIN_TEXT : {
+            pal_asr_event *temp_event = (pal_asr_event *)engEvent.payload;
+            isFinalEvent = true;
+            for (int i = 0; i < temp_event->num_events; ++i) {
+                isFinalEvent = isFinalEvent ? temp_event->event[i].is_final : isFinalEvent;
+                temp_event->event[i].is_final = true;
+            }
+            break;
+        }
+        default : {
+            PAL_INFO(LOG_TAG, "Not a text based event, hence not caching it.");
+            return status;
+        }
+    }
+
+    if (ssrPayload) {
+        if (ssrPayload->payload)
+            free(ssrPayload->payload);
+        free(ssrPayload);
+        ssrPayload = nullptr;
+    }
+
+    if (!isFinalEvent) {
+        ssrPayload = (struct eventPayload *)calloc(1, sizeof(struct eventPayload));
+        if (ssrPayload == nullptr) {
+            PAL_ERR(LOG_TAG, "Memory Allocation for eventPayload failed");
+            return -ENOMEM;
+        }
+        ssrPayload->type = engEvent.type;
+        ssrPayload->payloadSize = engEvent.payloadSize;
+        ssrPayload->payload = calloc(1, engEvent.payloadSize);
+        if (ssrPayload->payload == nullptr) {
+            PAL_ERR(LOG_TAG, "Memory Allocation for payload failed");
+            free(ssrPayload);
+            ssrPayload = nullptr;
+            return -ENOMEM;
+        }
+        ar_mem_cpy(ssrPayload->payload, engEvent.payloadSize, engEvent.payload,
+            engEvent.payloadSize);
+    }
+
+    PAL_INFO(LOG_TAG, "Exit.");
+    return status;
 }
 
 void StreamASR::sendAbort() {
@@ -713,6 +785,36 @@ void StreamASR::sendAbort() {
     cbEvent = NULL;
 exit:
     PAL_INFO(LOG_TAG, "Exit.");
+}
+
+int32_t StreamASR::HandleSSREvent() {
+
+    PAL_INFO(LOG_TAG, "Enter.");
+
+    int32_t status = 0;
+    uint32_t eventId = 0;
+
+    if (ssrPayload == nullptr || ssrPayload->payloadSize == 0) {
+        PAL_INFO(LOG_TAG, "No Payload to send.");
+        return status;
+    }
+
+    eventId = ssrPayload->type;
+    if (callback) {
+        callback((pal_stream_handle_t *)this, eventId, (uint32_t *)ssrPayload->payload,
+                  ssrPayload->payloadSize, cookie);
+    }
+
+    // Back-to-Back SSR with no Event in between will cause duplication
+    if (ssrPayload) {
+        if (ssrPayload->payload)
+            free(ssrPayload->payload);
+        free(ssrPayload);
+        ssrPayload = nullptr;
+    }
+
+    PAL_INFO(LOG_TAG, "Exit.");
+    return status;
 }
 
 int32_t StreamASR::registerCallBack(pal_stream_callback cb,
@@ -1644,6 +1746,7 @@ int32_t StreamASR::ASRActive::ProcessEvent(
             std::shared_ptr<ASREventConfig> evCfg1(
                 new ASRStopRecognitionEventConfig());
             status = asrStream.ProcessInternalEvent(evCfg1);
+            asrStream.HandleSSREvent();
             TransitTo(ASR_STATE_SSR);
             break;
         }
