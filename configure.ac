@@ -28,6 +28,10 @@ AC_ARG_WITH([openwrt],
     [with_openwrt=no])
 AM_CONDITIONAL([BUILDSYSTEM_OPENWRT], [test "x${with_openwrt}" = "xyes"])
 
+AC_CHECK_FUNCS([strlcpy],[STRLCPY=yes],[STRLCPY=no])
+AC_CHECK_FUNCS([strlcat],[STRLCAT=yes],[STRLCAT=no])
+AM_CONDITIONAL([NO_STRLCPY_STRLCAT], [test "x$STRLCPY" = "xno" && test "x$STRLCAT" = "xno"])
+
 AC_ARG_WITH([glib],
       AC_HELP_STRING([--with-glib],
          [enable glib, Build against glib. Use this when building for HLOS systems which use glib]))
@@ -45,6 +49,9 @@ if (test "x${with_glib}" = "xyes"); then
 fi
 
 AM_CONDITIONAL(USE_GLIB, test "x${with_glib}" = "xyes")
+
+PKG_CHECK_MODULES([MMHEADERS], [mm-audio-headers])
+AC_SUBST([MMHEADERS_CFLAGS])
 
 AC_ARG_WITH([spf],
       AC_HELP_STRING([--with-spf],
@@ -70,5 +77,5 @@ AC_ARG_WITH([compress],
     [with_compress=no])
 AM_CONDITIONAL([COMPILE_COMPRESS], [test "x${with_compress}" = "xyes"])
 
-AC_CONFIG_FILES([ Makefile pal.pc ])
+AC_CONFIG_FILES([ Makefile pal.pc adsprpcd/Makefile ])
 AC_OUTPUT
