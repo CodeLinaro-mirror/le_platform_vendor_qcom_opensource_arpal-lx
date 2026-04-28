@@ -129,13 +129,12 @@ AM_CPPFLAGS += -I $(top_srcdir)/utils/inc
 AM_CPPFLAGS += -I $(top_srcdir)/plugins/codecs
 AM_CPPFLAGS += -I $(top_srcdir)/context_manager/inc
 AM_CPPFLAGS += -I $(top_srcdir)/
-AM_CPPFLAGS += -I ${PKG_CONFIG_SYSROOT_DIR}/${includedir}/capiv2_api/
-AM_CPPFLAGS += $(SPF_CFLAGS)/
-AM_CPPFLAGS += $(ACDBDATA_CFLAGS)
+AM_CPPFLAGS += @SPF_CFLAGS@
+AM_CPPFLAGS += @ACDBDATA_CFLAGS@
+AM_CPPFLAGS += @MMHEADERS_CFLAGS@
 AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/agm
 AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/spf
 AM_CPPFLAGS += -I $(PKG_CONFIG_SYSROOT_DIR)/usr/include/
-AM_CPPFLAGS += -I ${WORKSPACE}/audio/mm-audio-headers/audio-listen/
 AM_CPPFLAGS += -Wno-sign-compare -Wno-unused-result
 AM_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
 AM_CPPFLAGS += -DSND_AUDIOCODEC_ALAC=0x00000020 -DSND_AUDIOCODEC_APE=0x00000021
@@ -190,7 +189,10 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/session/src/ACDEngine.cpp \
               ${top_srcdir}/utils/src/SoundTriggerXmlParser.cpp \
               ${top_srcdir}/utils/src/ACDPlatformInfo.cpp \
-              ${top_srcdir}/device/src/HeadsetVaMic.cpp
+              ${top_srcdir}/device/src/HeadsetVaMic.cpp \
+              ${top_srcdir}/device/src/DummyDev.cpp \
+              ${top_srcdir}/utils/src/SignalHandler.cpp \
+              ${top_srcdir}/stream/src/StreamACDB.cpp
 
 acl_sources = ${top_srcdir}/utils/src/ChargerListener.cpp
 
@@ -205,7 +207,12 @@ libpal_la_LIBADD    = $(GLIB_LIBS) -ltinyalsa -laudioroute -lar_osal -lspf -lexp
 libpal_la_CPPFLAGS := $(AM_CPPFLAGS)
 libpal_la_CPPFLAGS += -std=c++14
 libpal_la_LDFLAGS   = -shared -avoid-version
-libpal_la_CPPFLAGS += $(GLIB_CFLAGS) -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat -include glib.h
+libpal_la_CPPFLAGS += $(GLIB_CFLAGS) -include glib.h
+
+if NO_STRLCPY_STRLCAT
+libpal_la_CPPFLAGS += -Dstrlcpy=g_strlcpy -Dstrlcat=g_strlcat
+endif
+
 libpal_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 if BUILDSYSTEM_OPENWRT
 libpal_la_LIBADD += -lglib-2.0
@@ -220,3 +227,5 @@ libaudiocl_la_SOURCES   = $(acl_sources)
 libaudiocl_la_LIBADD    = $(GLIB_LIBS)
 libaudiocl_la_CPPFLAGS := $(AM_CPPFLAGS)
 libaudiocl_la_LDFLAGS   = -shared -avoid-version -lcutils -llog
+
+SUBDIRS = adsprpcd
