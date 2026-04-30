@@ -57,7 +57,7 @@ library_includedir = $(includedir)/stream_soundtrigger
 lib_LTLIBRARIES     = libstream_soundtrigger.la
 libstream_soundtrigger_la_SOURCES   = $(stream_soundtrigger_sources)
 libstream_soundtrigger_la_LIBADD    = @GLIB_LIBS@ -lexpat
-libstream_soundtrigger_la_LIBADD    += -L${abs_top_builddir}/.libs -lpal
+libstream_soundtrigger_la_LIBADD    += -L${abs_top_builddir}/.libs -lar-pal
 libstream_soundtrigger_la_CPPFLAGS := $(AM_CPPFLAGS)
 libstream_soundtrigger_la_CPPFLAGS += -std=c++14
 libstream_soundtrigger_la_LDFLAGS   = -shared -avoid-version
