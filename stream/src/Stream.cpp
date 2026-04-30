@@ -34,6 +34,7 @@
 
 #define LOG_TAG "PAL: Stream"
 #include <semaphore.h>
+#include <cutils/properties.h>
 #include "Stream.h"
 #include "Session.h"
 #include "ResourceManager.h"
@@ -149,10 +150,23 @@ Stream* Stream::create(struct pal_stream_attributes *sAttr, struct pal_device *d
         if (sAttr->type == PAL_STREAM_ULTRASOUND ||
             sAttr->type == PAL_STREAM_SENSOR_PCM_RENDERER) {
             if (i == 0) { // first assign output device
-                if (rm->IsVirtualPortForUPDEnabled())
-                    dAttr[i].id = PAL_DEVICE_OUT_ULTRASOUND;
-                else
-                    dAttr[i].id = PAL_DEVICE_OUT_ULTRASOUND_DEDICATED;
+                char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
+                if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
+                    PAL_ERR(LOG_TAG, "Failed to get vendor_sku property");
+                }
+                if((!strcmp(vendor_sku , "ravelin")) || (!strcmp(vendor_sku, "bourtzi"))) {
+                    if (rm->IsDedicatedBEForUPDEnabled()) {
+                        dAttr[i].id = PAL_DEVICE_OUT_ULTRASOUND;
+                    }
+                    else {
+                        dAttr[i].id = PAL_DEVICE_OUT_HANDSET;
+                    }
+                } else {
+                    if (rm->IsVirtualPortForUPDEnabled())
+                        dAttr[i].id = PAL_DEVICE_OUT_ULTRASOUND;
+                    else
+                        dAttr[i].id = PAL_DEVICE_OUT_ULTRASOUND_DEDICATED;
+                }
             } else { // then assign input device
                 dAttr[i].id = PAL_DEVICE_IN_ULTRASOUND_MIC;
             }

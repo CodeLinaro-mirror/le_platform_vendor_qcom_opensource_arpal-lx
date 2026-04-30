@@ -68,11 +68,16 @@
 #include "Stream.h"
 #include "PalCommon.h"
 #include "gsl_intf.h"
+#include <cutils/properties.h>
 
 #if defined(FEATURE_IPQ_OPENWRT) || defined(LINUX_ENABLED)
 #define USECASE_XML_FILE "/etc/usecaseKvManager.xml"
+#define USECASE_RAVELIN_XML_FILE "/etc/usecaseKvManager_ravelin.xml"
+#define USECASE_BOURTZI_XML_FILE "/etc/usecaseKvManager_bourtzi.xml"
 #else
 #define USECASE_XML_FILE "/vendor/etc/usecaseKvManager.xml"
+#define USECASE_RAVELIN_XML_FILE "/vendor/etc/usecaseKvManager_ravelin.xml"
+#define USECASE_BOURTZI_XML_FILE "/vendor/etc/usecaseKvManager_bourtzi.xml"
 #endif
 
 #define PARAM_ID_MEDIA_FORMAT 0x0800100C
@@ -1393,6 +1398,7 @@ int PayloadBuilder::init()
     int ret = 0;
     int bytes_read;
     void *buf = NULL;
+    char vendor_sku[PROPERTY_VALUE_MAX] = {'\0'};
     struct user_xml_data tag_data;
 
     std::lock_guard<std::mutex> lck(mInitMutex);
@@ -1403,8 +1409,21 @@ int PayloadBuilder::init()
         all_devices.clear();
         all_devicepps.clear();
 
-        PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_XML_FILE);
-        file = fopen(USECASE_XML_FILE, "r");
+        if (property_get("ro.boot.product.vendor.sku", vendor_sku, "") <= 0) {
+            PAL_ERR(LOG_TAG, "Failed to get vendor_sku property");
+        }
+
+        if(!strcmp(vendor_sku , "ravelin")) {
+            PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_RAVELIN_XML_FILE);
+            file = fopen(USECASE_RAVELIN_XML_FILE, "r");
+        } else if (!strcmp(vendor_sku, "bourtzi")) {
+            PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_BOURTZI_XML_FILE);
+            file = fopen(USECASE_BOURTZI_XML_FILE, "r");
+        } else {
+            PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_XML_FILE);
+            file = fopen(USECASE_XML_FILE, "r");
+        }
+
         if (!file) {
             PAL_ERR(LOG_TAG, "Failed to open xml");
             ret = -EINVAL;

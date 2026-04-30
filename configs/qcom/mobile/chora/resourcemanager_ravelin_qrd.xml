@@ -45,12 +45,11 @@
         <param key="context_manager_enable" value ="true" />
         <param key="lpi_logging_enable" value ="false" />
         <!-- change PAL_DEVICE_OUT_ULTRASOUND_DEDICATED backend name when set it to true -->
-        <param key="upd_dedicated_be" value ="false" />
+        <param key="upd_dedicated_be" value ="true" />
         <param key="upd_set_custom_gain" value ="false" />
         <param key="signal_handler" value ="true" />
         <param key="device_mux_config" value ="false" />
         <param key="upd_duty_cycle_enable" value="false" />
-        <param key="upd_virtual_port" value ="false" />
         <param key="i2s_dual_mono" value ="false" />
         <param key="haptics_priority" value ="touch_haptics" />
         <param key="haptics_through_wsa" value ="false" />
@@ -98,43 +97,6 @@
     </sleep_monitor_vote_streams>
     <perf_lock library="libqti-perfd-client.so" config="0x40400000, 0x1, 0x40800000, 0x514" />
     <silence_detection_config pcm="0" voice="0" duration="0"/>
-    <group_device_cfg>
-        <upd_rx>
-            <snd_device name="handset" />
-            <group_dev sample_rate = "0" channels="0" bit_fmt="PAL_AUDIO_FMT_PCM_S16_LE" slot_mask="1" />
-        </upd_rx>
-        <handset>
-            <group_dev sample_rate = "0" channels="0" bit_fmt="PAL_AUDIO_FMT_PCM_S16_LE" slot_mask="1" />
-        </handset>
-        <speaker>
-            <snd_device name="speaker" />
-            <devicepp_mfc sample_rate="48000" channels="2" bit_width="32" />
-            <group_dev sample_rate = "0" channels="2" bit_fmt="PAL_AUDIO_FMT_PCM_S32_LE" slot_mask="3" />
-        </speaker>
-        <haptics>
-            <snd_device name="speaker" />
-            <devicepp_mfc sample_rate="48000" channels="2" bit_width="32" />
-            <group_dev sample_rate = "48000" channels="2" bit_fmt="PAL_AUDIO_FMT_PCM_S32_LE" slot_mask="3" />
-        </haptics>
-        <speaker_voice>
-            <group_dev sample_rate = "0" channels="0" bit_fmt="PAL_AUDIO_FMT_PCM_S16_LE" slot_mask="1" />
-        </speaker_voice>
-        <upd_rx_handset>
-            <snd_device name="speaker" />
-            <devicepp_mfc sample_rate="48000" channels="2" bit_width="16" />
-            <group_dev sample_rate = "48000" channels="2" bit_fmt="PAL_AUDIO_FMT_PCM_S16_LE" slot_mask="3" />
-        </upd_rx_handset>
-        <upd_rx_speaker>
-            <snd_device name="speaker" />
-            <devicepp_mfc sample_rate="48000" channels="2" bit_width="16" />
-            <group_dev sample_rate = "48000" channels="2" bit_fmt="PAL_AUDIO_FMT_PCM_S32_LE" slot_mask="3" />
-        </upd_rx_speaker>
-        <haptics_rx_speaker>
-            <snd_device name="speaker" />
-            <devicepp_mfc sample_rate="48000" channels="2" bit_width="32" />
-            <group_dev sample_rate = "48000" channels="2" bit_fmt="PAL_AUDIO_FMT_PCM_S32_LE" slot_mask="3" />
-        </haptics_rx_speaker>
-    </group_device_cfg>
     <config_max_sessions>
         <stream name="PAL_STREAM_LOW_LATENCY" max_size="8" />
         <stream name="PAL_STREAM_DEEP_BUFFER" max_size="3" />
@@ -1142,22 +1104,9 @@
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-1</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
-            <snd_device_name>handset-wsa-ultrasound</snd_device_name>
+            <snd_device_name>handset-ultrasound</snd_device_name>
             <samplerate>96000</samplerate>
             <bit_width>16</bit_width>
-            <usecase>
-                <name>PAL_STREAM_SENSOR_PCM_RENDERER</name>
-                <custom-config key="stereo-spkr">
-                    <snd_device_name>speaker</snd_device_name>
-                    <channels>2</channels>
-                </custom-config>
-                <custom-config key="top-spkr">
-                    <snd_device_name>handset</snd_device_name>
-                </custom-config>
-                <custom-config key="bottom-spkr">
-                    <snd_device_name>speaker-mono-2</snd_device_name>
-                </custom-config>
-            </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND_DEDICATED</id>
