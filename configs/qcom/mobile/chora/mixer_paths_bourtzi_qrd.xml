@@ -497,7 +497,7 @@
         <path name="amic3" />
     </path>
 
-    <path name="ultrasound-handset">
+    <path name="handset-ultrasound">
         <ctl name="WSA RX_MIX0 MUX" value="AIF_MIX1_PB" />
         <ctl name="WSA_RX0 MIX INP" value="RX_MIX0" />
         <ctl name="WSA_COMP1 Switch" value="1" />
@@ -1065,4 +1065,6 @@
         <path name="headset-mic" />
     </path>
 
+    <path name="dummy-dev">
+    </path>
 </mixer>
