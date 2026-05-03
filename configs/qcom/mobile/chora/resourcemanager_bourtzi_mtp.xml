@@ -1732,36 +1732,27 @@
                 <!--param lpi_enable="false" /-->
                 <operating_modes>
                     <low_power capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_LPI" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_LPI" />
-                    <high_performance capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
+                    <high_performance capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
                 <sound_model_info>
                     <sound_model>
                         <name>ACD_SOUND_MODEL_ID_EVENT</name>
-                        <bin>event.eai</bin>
+                        <bin>event_cmn.eai</bin>
                         <uuid>0x0B001007</uuid>
                         <contexts>
                             <context id="0x0800132D" /> <!-- EVENT_ALARM -->
                             <context id="0x0800132E" /> <!-- EVENT_BABYCRYING -->
                             <context id="0x0800132F" /> <!-- EVENT_DOGBARKING -->
                             <context id="0x08001330" /> <!-- EVENT_DOORBELL -->
-                            <context id="0x08001331" /> <!-- EVENT_DOOROPENCLOSE -->
-                            <context id="0x08001332" /> <!-- EVENT_CRASH -->
+                            <context id="0x08001331" /> <!-- EVENT_DOORCLOSE -->
+                            <context id="0x08001332" /> <!-- EVENT_DOOROPEN -->
                             <context id="0x08001333" /> <!-- EVENT_GLASSBREAKING -->
                             <context id="0x08001334" /> <!-- EVENT_SIREN -->
-                            <context id="0x080013CC" /> <!-- EVENT_CARHONK -->
-                            <context id="0x080013CD" /> <!-- EVENT_GUNSHOT -->
-                            <context id="0x080013CE" /> <!-- EVENT_PHONERING -->
-                            <context id="0x080013CF" /> <!-- EVENT_SLEEPAPNEA -->
-                            <context id="0x080013D0" /> <!-- EVENT_SNORING -->
-                            <context id="0x080013D1" /> <!-- EVENT_CATMEOW -->
-                            <context id="0x080013D2" /> <!-- EVENT_DOORKNOCK -->
-                            <context id="0x080013D3" /> <!-- EVENT_WATERFLOW -->
-                            <context id="0x080013D4" /> <!-- EVENT_FIREALARM -->
                         </contexts>
                     </sound_model>
                     <sound_model>
                         <name>ACD_SOUND_MODEL_ID_SPEECH</name>
-                        <bin>speech.eai</bin>
+                        <bin>speech_cmn.eai</bin>
                         <uuid>0x0B001008</uuid>
                         <contexts>
                             <context id="0x08001335" /> <!-- AMBIENCE_SPEECH -->
@@ -1769,7 +1760,7 @@
                     </sound_model>
                     <sound_model>
                         <name>ACD_SOUND_MODEL_ID_MUSIC</name>
-                        <bin>music.eai</bin>
+                        <bin>music_cmn.eai</bin>
                         <uuid>0x0B001009</uuid>
                         <contexts>
                             <context id="0x08001336" /> <!-- AMBIENCE_MUSIC -->
@@ -1784,15 +1775,6 @@
                             <context id="0x08001338" /> <!-- AMBIENCE_SILENT_SPL -->
                             <context id="0x08001339" /> <!-- AMBIENCE_NOISY_SFLUX -->
                             <context id="0x0800133A" /> <!-- AMBIENCE_SILENT_SFLUX -->
-                            <context id="0x08001AE2" /> <!-- AMBIENCE_SPL_METER -->
-                        </contexts>
-                    </sound_model>
-                    <sound_model>
-                        <name>ACD_SOUND_MODEL_ID_CONVERSATION</name>
-                        <bin>conv_detection.eai</bin>
-                        <uuid>0x0B00100F</uuid>
-                        <contexts>
-                            <context id="0x08001AF2" /> <!-- EVENT_CONVERSATION -->
                         </contexts>
                     </sound_model>
                 </sound_model_info>
@@ -1812,7 +1794,7 @@
                     <low_power_ns capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFNS" />
                     <low_power_tx_macro capture_profile_handset="DUAL_MIC_48KHZ_16BIT_RAW_LPI_NO_BUFFER_TX_MACRO" />
                     <high_performance capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFEC" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFEC" />
-                    <high_performance_ns capture_profile_handset="SINGLE_MIC_48KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_48KHZ_16BIT_HEADSET_FFECNS" />
+                    <high_performance_ns capture_profile_handset="SINGLE_MIC_16KHZ_16BIT_FFECNS" capture_profile_headset="SINGLE_MIC_16KHZ_16BIT_HEADSET_FFECNS" />
                 </operating_modes>
             </stream_config>
             <!-- SDZ -->
