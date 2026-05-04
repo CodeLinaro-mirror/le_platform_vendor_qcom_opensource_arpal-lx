@@ -523,6 +523,7 @@ private:
     static int cpsMode;
     static bool isVbatEnabled;
     static bool isRasEnabled;
+    static bool isRatDisabled;
     static bool isGaplessEnabled;
     static bool isContextManagerEnabled;
     static bool isDualMonoEnabled;
@@ -1042,6 +1043,7 @@ public:
     uint8_t GetSpeakerProtectionVersion();
     bool IsChargeConcurrencyEnabled();
     bool IsRasEnabled();
+    bool IsRatDisabled();
     bool IsGaplessEnabled();
     bool IsDualMonoEnabled();
     bool IsDeviceMuxConfigEnabled();

@@ -474,6 +474,7 @@ int ResourceManager::wsaUsed = 0;
 bool ResourceManager::isVbatEnabled = false;
 static int max_nt_sessions;
 bool ResourceManager::isRasEnabled = false;
+bool ResourceManager::isRatDisabled = false;
 bool ResourceManager::is_multiple_sample_rate_combo_supported = true;
 bool ResourceManager::isMainSpeakerRight;
 int ResourceManager::spQuickCalTime;
@@ -9589,6 +9590,8 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         }else if (!strcmp(tag_name, "ras_enabled")) {
             if (atoi(data->data_buf))
                 isRasEnabled = true;
+        } else if (!strcmp(tag_name, "rat_disabled")) {
+                isRatDisabled = atoi(data->data_buf);
         } else if (!strcmp(tag_name, "fractional_sr")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].fractionalSRSupported = atoi(data->data_buf);
@@ -10724,6 +10727,10 @@ bool ResourceManager::IsChargeConcurrencyEnabled() {
 
 bool ResourceManager::IsRasEnabled() {
     return ResourceManager::isRasEnabled;
+}
+
+bool ResourceManager::IsRatDisabled() {
+    return ResourceManager::isRatDisabled;
 }
 
 bool ResourceManager::IsGaplessEnabled() {

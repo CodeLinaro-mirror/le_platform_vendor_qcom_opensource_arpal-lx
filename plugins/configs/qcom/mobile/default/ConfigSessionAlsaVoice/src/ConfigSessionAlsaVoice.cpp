@@ -287,6 +287,26 @@ exit:
     return status;
 }
 
+bool canSkipRatPayloadError(Stream* s, std::shared_ptr<ResourceManager> rm)
+{
+    std::vector<std::shared_ptr<Device>> associatedDevs;
+    bool isScoNbWb = false;
+
+    if (!rm->IsRatDisabled())
+        return false;
+
+    if (s->getAssociatedDevices(associatedDevs) == 0 &&
+        !associatedDevs.empty()) {
+        for (int idx = 0; idx < associatedDevs.size(); idx++) {
+            if (associatedDevs[idx]->isScoNbWbActive()) {
+                isScoNbWb = true;
+                break;
+            }
+        }
+    }
+
+    return isScoNbWb;
+}
 /**
  * Logic originally in SessionAlsaVoice::start(); after pcm_open()s, before pcm_start()s
  * for rx and tx paths. Module-specific logic moved here. e.g. configVSID.
@@ -342,8 +362,17 @@ int32_t voicePluginConfigSetConfigStart(Stream* s, void* pluginPayload)
     /* configuring RAT_RENDER, updating custom payload if it is a NB/WB SCO usecase*/
     status = populateRatPayload(s, session, builder);
     if (status != 0) {
-        PAL_ERR(LOG_TAG,"Exit Configuring RAT_RENDER failed with status %d", status);
-        goto exit;
+        if (canSkipRatPayloadError(s, rm)) {
+            /* Ignoring this error to continue configuring the MFCs.
+            * For BT SCO NB/WB, RAT_RENDER module (tag 0xc0000022) is
+            * not present in the graph — skip is intentional and safe. */
+            PAL_ERR(LOG_TAG, "Ignore, configuring RAT_RENDER failed with status %d ", status);
+            status = 0;
+        } else {
+            PAL_ERR(LOG_TAG,
+                    "Exit Configuring RAT_RENDER failed with status %d", status);
+            goto exit;
+        }
     }
 
     /* configuring Rx MFC's, updating custom payload and send mixer controls at once*/
@@ -864,8 +893,17 @@ int reconfigureSession(Stream* s, PayloadBuilder* builder, uint32_t vsid, pal_st
 
         status = populateRatPayload(s, session, builder);
         if (0 != status) {
-            PAL_ERR(LOG_TAG,"populateRatPayload failed:%d", status);
-            goto exit;
+            if (canSkipRatPayloadError(s, rm)) {
+                /* Ignoring this error to continue configuring the MFCs.
+                * For BT SCO NB/WB, RAT_RENDER module (tag 0xc0000022) is
+                * not present in the graph — skip is intentional and safe. */
+                PAL_ERR(LOG_TAG,
+                        "Ignore, populateRatPayload failed: %d ", status);
+                status = 0;
+            } else {
+                PAL_ERR(LOG_TAG,"populateRatPayload failed:%d", status);
+                goto exit;
+            }
         }
     } else {
         if (pcmDevTxIds.size()) {
