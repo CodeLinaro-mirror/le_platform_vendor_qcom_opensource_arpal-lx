@@ -72,6 +72,7 @@ int SpeakerProtectionwsa883x::spkrStartCalibration()
     param_id_sp_op_mode_t spModeConfg;
     param_id_sp_ex_vi_mode_cfg_t viExModeConfg;
     session_callback sessionCb;
+    uint32_t param_sp_op_mode = 0;
 
     std::unique_lock<std::mutex> calLock(calibrationMutex);
 
@@ -346,7 +347,12 @@ int SpeakerProtectionwsa883x::spkrStartCalibration()
     PAL_DBG(LOG_TAG, "registering event for VI module");
     payload_size = sizeof(struct agm_event_reg_cfg);
 
-    event_cfg.event_id = EVENT_ID_VI_PER_SPKR_CALIBRATION;
+    if (rm->GetSpeakerProtectionVersion() == SPV5) {
+        event_cfg.event_id = EVENT_ID_VI_CALIBRATION;
+    } else {
+        event_cfg.event_id = EVENT_ID_VI_PER_SPKR_CALIBRATION;
+    }
+
     event_cfg.event_config_payload_size = 0;
     event_cfg.is_register = 1;
 
@@ -515,8 +521,13 @@ int SpeakerProtectionwsa883x::spkrStartCalibration()
     }
 
     payloadSize = 0;
+    if (rm->GetSpeakerProtectionVersion() == SPV5)
+        param_sp_op_mode = PARAM_ID_SP_OP_MODE_V5;
+    else
+        param_sp_op_mode = PARAM_ID_SP_OP_MODE;
+
     builder->payloadSPConfig(&payload, &payloadSize, miid,
-            PARAM_ID_SP_OP_MODE,(void *)&spModeConfg);
+            param_sp_op_mode,(void *)&spModeConfg);
     if (payloadSize) {
         if (customPayloadSize) {
             free(customPayload);
@@ -577,7 +588,7 @@ int SpeakerProtectionwsa883x::spkrStartCalibration()
     cv.wait(calLock);
 
     // Store the R0T0 values
-    if (mDspCallbackRcvd) {
+    if (mDspCallbackRcvd || mDspCallbackRcvdSp) {
         if (calibrationCallbackStatus == CALIBRATION_STATUS_SUCCESS) {
             PAL_DBG(LOG_TAG, "Calibration is done");
             fp = fopen(PAL_SP_TEMP_PATH, "wb");
@@ -585,13 +596,22 @@ int SpeakerProtectionwsa883x::spkrStartCalibration()
                 PAL_ERR(LOG_TAG, "Unable to open file for write");
             } else {
                 PAL_DBG(LOG_TAG, "Write the R0T0 value to file");
-                for (i = 0; i < numberOfChannels; i++) {
-                    fwrite(&callback_data->cali_param[i].r0_cali_q24,
-                                sizeof(callback_data->cali_param[i].r0_cali_q24), 1, fp);
-                    fwrite(&spkerTempList[i], sizeof(int16_t), 1, fp);
+                if(mDspCallbackRcvdSp) {
+                    for (i = 0; i < numberOfChannels; i++) {
+                        fwrite(&callback_datasp->r0_cali_q24[i],
+                                    sizeof(callback_datasp->r0_cali_q24[i]), 1, fp);
+                        fwrite(&spkerTempList[i], sizeof(int16_t), 1, fp);
+                    }
+                    free(callback_datasp);
+                } else {
+                    for (i = 0; i < numberOfChannels; i++) {
+                        fwrite(&callback_data->cali_param[i].r0_cali_q24,
+                                        sizeof(callback_data->cali_param[i].r0_cali_q24), 1, fp);
+                        fwrite(&spkerTempList[i], sizeof(int16_t), 1, fp);
+                    }
+                    free(callback_data);
                 }
                 spkrCalState = SPKR_CALIBRATED;
-                free(callback_data);
                 fclose(fp);
             }
         }
@@ -1115,6 +1135,9 @@ int SpeakerProtectionwsa883x::viTxSetupThreadLoop()
                 (void *)&event_cfg, payloadSize);
     if (ret) {
         PAL_ERR(LOG_TAG, "Unable to register event to DSP");
+        /* To make the backward compatibility with DSP, error is not being propagated to */
+        /* avoid failing use case */
+        ret = 0;
     } else {
         ret = rm->registerMixerEventCallback(pcmDevIdTx, sessionCb, (uint64_t)this, true);
         if (ret != 0)
@@ -1200,6 +1223,7 @@ int32_t SpeakerProtectionwsa883x::spkrProtProcessingMode(bool flag)
     uint8_t* payload = NULL;
     uint32_t devicePropId[] = {0x08000010, 1, 0x2};
     uint32_t miid = 0;
+    uint32_t param_sp_op_mode = 0;
     bool isTxFeandBeConnected = true;
     bool isCPSFeandBeConnected = true;
     bool foundSpkrStream = false;
@@ -1374,8 +1398,12 @@ int32_t SpeakerProtectionwsa883x::spkrProtProcessingMode(bool flag)
         }
 
         payloadSize = 0;
+        if (rm->GetSpeakerProtectionVersion() == SPV5)
+            param_sp_op_mode = PARAM_ID_SP_OP_MODE_V5;
+        else
+            param_sp_op_mode = PARAM_ID_SP_OP_MODE;
         builder->payloadSPConfig(&payload, &payloadSize, miid,
-                PARAM_ID_SP_OP_MODE,(void *)&spModeConfg);
+                param_sp_op_mode,(void *)&spModeConfg);
         if (payloadSize) {
             if (customPayload) {
                 free (customPayload);

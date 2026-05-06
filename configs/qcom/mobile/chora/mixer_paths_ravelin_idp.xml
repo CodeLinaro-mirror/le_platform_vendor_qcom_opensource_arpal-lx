@@ -287,6 +287,11 @@
         <ctl name="SpkrRight SWR DAC_Port Switch" value="1" />
     </path>
 
+    <path name="speaker-mono-2-prot">
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
+        <path name="speaker-mono-2" />
+    </path>
+
    <path name="speaker-mono-vbat">
        <path name="speaker-mono" />
        <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="1" />
@@ -371,6 +376,11 @@
     </path>
 
     <path name="speaker-protected">
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
+        <path name="speaker" />
+    </path>
+    <path name="speaker-prot">
         <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
         <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
         <path name="speaker" />
