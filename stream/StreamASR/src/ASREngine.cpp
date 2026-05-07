@@ -849,6 +849,10 @@ int32_t ASREngine::StopEngine(StreamASR *s)
 
     DetachStream(s);
 
+    // clear event payload list when stopping hlos client
+    if (s->GetClientId() == ASR_CLIENT_HLOS)
+        dynamic_cast<SessionAR*>(session)->clearEventPayloadList();
+
     if (streamList.size()) {
         status = UpdateASRConfiguration(streamList[0]);
         if (status) {
@@ -1171,7 +1175,8 @@ void ASREngine::ParseSdzEventAndNotifyStream(void* eventData) {
                 temp = (uint8_t *)eventSpeakerSegment;
             }
             sdzOutputVector.push_back(speakerInfoVector);
-            sdzOverlapNumSpeakerVector.push_back({evV2->num_segments > 1, evV2->num_segments});
+            uint32_t numSegments = evV2->num_segments;
+            sdzOverlapNumSpeakerVector.push_back({numSegments > 1, numSegments});
             evV2 = (sdz_output_status_v2_t *)temp;
         }
         eventToStream.payloadSize = sizeof(pal_sdz_event) +
@@ -1197,7 +1202,9 @@ void ASREngine::ParseSdzEventAndNotifyStream(void* eventData) {
                 temp = (uint8_t *)eventSpeakerInfo;
             }
             sdzOutputVector.push_back(speakerInfoVector);
-            sdzOverlapNumSpeakerVector.push_back({ev->overlap_detected, ev->num_speakers});
+            uint32_t overlapDetectedVal = ev->overlap_detected;
+            uint32_t numSpeakersVal = ev->num_speakers;
+            sdzOverlapNumSpeakerVector.push_back({overlapDetectedVal, numSpeakersVal});
             ev = (sdz_output_status_t *)temp;
         }
         eventToStream.payloadSize = sizeof(pal_sdz_event) +

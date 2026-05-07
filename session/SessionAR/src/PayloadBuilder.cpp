@@ -101,6 +101,13 @@
 
 #define PARAM_ID_VOL_CTRL_MASTER_MUTE 0x08001036
 
+#define PARAM_ID_FNN_DYN_OUTPUT_TRANSITION_MODE 0x08001BA1
+struct param_id_fnn_dyn_output_transitioin_mode_t
+{
+    uint32_t enable;
+};
+typedef struct param_id_fnn_dyn_output_transitioin_mode_t param_id_fnn_dyn_output_transitioin_mode_t;
+
 #define MAX_CRS_VOL_INDEX 7
 
 struct volume_ctrl_master_gain_t
@@ -3843,15 +3850,23 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
                 goto exit;
             }
             if (dAttr.id == PAL_DEVICE_OUT_SPEAKER) {
-                if (dAttr.config.ch_info.channels > 1) {
-                    PAL_DBG(LOG_TAG, "Multi channel speaker");
-                    ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));
-                }
-                else {
-                    PAL_DBG(LOG_TAG, "Mono channel speaker");
-                    ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_MONO));
-                }
-                break;
+                switch (dAttr.config.ch_info.channels) {
+                    case 1:
+                        PAL_DBG(LOG_TAG, "Mono channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_MONO));
+                        break;
+                    case 2:
+                        PAL_DBG(LOG_TAG, "Stereo channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT));
+                        break;
+                    case 4:
+                        PAL_DBG(LOG_TAG, "QUAD channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, LEFT_RIGHT_QUAD));
+                        break;
+                    default:
+                        PAL_DBG(LOG_TAG, "Unsupport number of channels %d", dAttr.config.ch_info.channels);
+		}
+		break;
             }
         }
         break;
@@ -3869,14 +3884,22 @@ int PayloadBuilder::populateCalKeyVector(Stream *s, std::vector <std::pair<int,i
                 return status;
             }
             if (dAttr.id == PAL_DEVICE_OUT_HAPTICS_DEVICE) {
-                if (dAttr.config.ch_info.channels > 1) {
-                    PAL_DBG(LOG_TAG, "Multi channel Haptics Dev");
-                    ckv.push_back(std::make_pair(HAPTICS_PRO_DEV_MAP, HAPTICS_LEFT_RIGHT));
-                }
-                else {
-                    PAL_DBG(LOG_TAG, "Mono channel Haptics Dev");
-                    ckv.push_back(std::make_pair(HAPTICS_PRO_DEV_MAP, HAPTICS_LEFT_MONO));
-                }
+                switch (dAttr.config.ch_info.channels) {
+                    case 1:
+                        PAL_DBG(LOG_TAG, "Mono channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, RIGHT_SPKR));
+                        break;
+                    case 2:
+                        PAL_DBG(LOG_TAG, "Stereo channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, STEREO_SPKR));
+                        break;
+                    case 4:
+                        PAL_DBG(LOG_TAG, "QUAD channel speaker");
+                        ckv.push_back(std::make_pair(SPK_PRO_DEV_MAP, QUAD_SPKR));
+                        break;
+                    default:
+                        PAL_DBG(LOG_TAG, "Unsupport number of channels %d", dAttr.config.ch_info.channels);
+	        }
                 break;
             }
         }
@@ -5748,5 +5771,51 @@ void PayloadBuilder::payloadJBMConfig(uint8_t** payload, size_t* size,
     *payload = payloadInfo;
 
     PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo,
+            *size);
+}
+
+void PayloadBuilder::payloadVoiceNsRxConfigEnableDisable(uint8_t** payload, size_t* size,
+    uint32_t miid, bool mode)
+{
+    struct apm_module_param_data_t* header = NULL;
+    uint8_t* payloadInfo = NULL;
+    uint32_t param_id = 0;
+    size_t payloadSize = 0, customPayloadSize = 0;
+    param_id_fnn_dyn_output_transitioin_mode_t *module_payload;
+
+    if (payload == NULL || size == NULL) {
+        PAL_ERR(LOG_TAG, "invalid payload or size.");
+        return;
+    }
+
+    param_id = PARAM_ID_FNN_DYN_OUTPUT_TRANSITION_MODE;
+    customPayloadSize = sizeof(param_id_fnn_dyn_output_transitioin_mode_t);
+
+    payloadSize = PAL_ALIGN_8BYTE(sizeof(struct apm_module_param_data_t)
+                                        + customPayloadSize);
+    payloadInfo = (uint8_t *)calloc(1, (size_t)payloadSize);
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "failed to allocate memory.");
+        return;
+    }
+
+    header = (struct apm_module_param_data_t*)payloadInfo;
+    header->module_instance_id = miid;
+    header->param_id = param_id;
+    header->error_code = 0x0;
+    header->param_size = customPayloadSize;
+
+    module_payload =
+        (param_id_fnn_dyn_output_transitioin_mode_t *)(payloadInfo +
+         sizeof(struct apm_module_param_data_t));
+    module_payload->enable = (mode ? 1 : 0);
+    ar_mem_cpy(payloadInfo + sizeof(struct apm_module_param_data_t),
+                     customPayloadSize,
+                     module_payload,
+                     customPayloadSize);
+
+    *size = payloadSize;
+    *payload = payloadInfo;
+    PAL_DBG(LOG_TAG, "customPayload address %p and size %zu", payloadInfo,
             *size);
 }

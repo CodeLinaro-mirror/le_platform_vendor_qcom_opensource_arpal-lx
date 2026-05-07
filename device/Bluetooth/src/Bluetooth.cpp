@@ -1902,7 +1902,6 @@ int BtA2dp::stopPlayback()
         } else {
             ret = audio_source_stop();
         }
-
         if (ret < 0) {
             PAL_ERR(LOG_TAG, "stop stream to BT IPC lib failed");
         } else {
@@ -2327,9 +2326,14 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
                 return -EINVAL;
             }
             stream = static_cast<Stream *>(activestreams[0]);
-            stream->getAssociatedSession(&session);
-            param_lc3.isLC3MonoModeOn = mIsLC3MonoModeOn;
-            session->setParameters(stream, param_id, &param_lc3);
+            //This triggers DOWNMIX_2_MONO PARAM to ENCODER,
+            //If this happens before LC3_INIT PARAM, it causes crash
+            //So send this param only if stream/graph is started
+            if (stream && stream->isActive()) {
+                stream->getAssociatedSession(&session);
+                param_lc3.isLC3MonoModeOn = mIsLC3MonoModeOn;
+                session->setParameters(stream, param_id, &param_lc3);
+            }
         }
         break;
     }
@@ -2769,7 +2773,11 @@ int32_t BtSco::setDeviceParameter(uint32_t param_id, void *param)
             status = openBTHost();
         } else {
             // close BTHost with HFP
-            status = closeBTHost();
+            /* ignore status;
+             * disconnection for OUTPUT may arrive later where a INPUT
+             * stream is still active or vice versa.
+             */
+            closeBTHost();
         }
         break;
     }
