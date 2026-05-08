@@ -91,6 +91,7 @@
 
 #define MIXER_XML_BASE_STRING_NAME "mixer_paths"
 #define RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager"
+#define AR_RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager_ar"
 
 #define MAX_RETRY_CNT 20
 #define LOWLATENCY_PCM_DEVICE 15
@@ -1661,6 +1662,16 @@ int ResourceManager::init_audio()
 
     snprintf(rmngr_xml_file, sizeof(rmngr_xml_file),
             "%s/%s", vendor_config_path, RMNGR_XMLFILE_BASE_STRING_NAME);
+
+    {
+        char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
+        property_get("ro.boot.audio", audio_boot_prop, "");
+        if (strcmp(audio_boot_prop, "ar") == 0) {
+            snprintf(rmngr_xml_file, sizeof(rmngr_xml_file),
+                    "%s/%s", vendor_config_path, AR_RMNGR_XMLFILE_BASE_STRING_NAME);
+            PAL_INFO(LOG_TAG, "Using AR resourcemanager xml");
+        }
+    }
 
     strlcat(mixer_xml_file, XML_FILE_DELIMITER, XML_PATH_MAX_LENGTH);
     strlcat(mixer_xml_file_wo_variant, mixer_xml_file, XML_PATH_MAX_LENGTH);
