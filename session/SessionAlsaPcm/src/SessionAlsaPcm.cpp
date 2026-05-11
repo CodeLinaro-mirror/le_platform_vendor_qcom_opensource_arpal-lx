@@ -2754,6 +2754,66 @@ skip_ultrasound_gain:
             if (paramSize) {
                 status = SessionAlsaUtils::setMixerParameter(mixer, device, paramData, paramSize);
                 PAL_INFO(LOG_TAG, "mixer set playbackRate parameters status=%d", status);
+            }
+            break;
+        }
+        case PAL_PARAM_ID_AUDIO_ZOOM_FACTOR:
+        {
+            pal_param_payload *param_payload = (pal_param_payload *)payload;
+            status = streamHandle->getStreamAttributes(&sAttr);
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "getStreamAttributes Failed \n");
+                goto exit;
+            }
+            if (pcmDevIds.size()) {
+                device = pcmDevIds.at(0);
+            } else {
+                PAL_ERR(LOG_TAG, "No pcmDevIds found");
+                status = -EINVAL;
+                goto exit;
+            }
+
+            if (sAttr.direction != PAL_AUDIO_INPUT) {
+                status = 0;
+                PAL_INFO(LOG_TAG, "Unsupported stream direction %d(ignore)", sAttr.direction);
+                goto exit;
+            }
+
+            if (!param_payload) {
+                PAL_ERR(LOG_TAG, "no payload");
+                status = -EINVAL;
+                goto exit;
+            }
+
+            if (param_payload->payload_size != sizeof(float)) {
+                PAL_ERR(LOG_TAG, "not expected payload size");
+                status = -EINVAL;
+                goto exit;
+            }
+
+            if (txAifBackEnds.empty()) {
+                PAL_ERR(LOG_TAG, "No txAifBackEnds found");
+                status = -EINVAL;
+                goto exit;
+            }
+
+            float *zoomFactor = (float *)(param_payload->payload);
+            PAL_DBG(LOG_TAG, "zoom factor %f", *zoomFactor);
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                               txAifBackEnds[0].second.data(), TAG_AUDIO_ZOOM, &miid);
+
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get tag info %x, dir: %d (%d)", TAG_AUDIO_ZOOM,
+                       sAttr.direction, status);
+                goto exit;
+            }
+
+            builder->payloadAudioZoomConfig(&paramData, &paramSize,
+                                             miid, *zoomFactor);
+            if (paramSize) {
+                status = SessionAlsaUtils::setMixerParameter(mixer, device,
+                                               paramData, paramSize);
+                PAL_INFO(LOG_TAG, "mixer set audioZoom parameters status=%d", status);
                 builder->freeCustomPayload(&paramData, &paramSize);
             }
             break;

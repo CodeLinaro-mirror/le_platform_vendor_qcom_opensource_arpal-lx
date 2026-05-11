@@ -881,6 +881,14 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
                        status);
             break;
         }
+        case PAL_PARAM_ID_AUDIO_ZOOM_FACTOR:
+        {
+            status = this->setParamWithTag(s, TAG_AUDIO_ZOOM,
+                             PAL_PARAM_ID_AUDIO_ZOOM_FACTOR, payload);
+            if (status != 0)
+               PAL_ERR(LOG_TAG, "setting audio zoom factor failed with status %d", status);
+            break;
+        }
         case PAL_PARAM_ID_VOLUME_CTRL_RAMP:
             status = this->setParamWithTag(s, TAG_STREAM_VOLUME,
                                         param_id,

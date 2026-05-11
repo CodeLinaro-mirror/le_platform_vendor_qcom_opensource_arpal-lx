@@ -204,6 +204,8 @@ protected:
 public:
     void payloadWNRModuleEnableDisable(uint8_t** payload, size_t* size,
                             uint32_t miid, bool mode);
+    void payloadAudioZoomConfig(uint8_t** payload, size_t* size,
+                            uint32_t miid, float zoomValue);
     void payloadUsbAudioConfig(uint8_t** payload, size_t* size,
                            uint32_t miid,
                            struct usbAudioConfig *data);
