@@ -63,13 +63,18 @@
 extern "C" Stream* CreateCompressStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    try {
-        return new StreamCompress(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
-    } catch (const std::exception& e) {
-         PAL_ERR(LOG_TAG, "Stream create failed for stream type %s: %s",
-                streamNameLUT.at(sattr->type).c_str(), e.what());
-        return nullptr;
+    StreamCompress* stream = new(std::nothrow) StreamCompress(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream) {
+        if (stream->isInitialized()) {
+            return stream;
+        } else {
+            delete stream;
+        }
     }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    return nullptr;
 }
 
 StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
@@ -103,7 +108,7 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
     if (!mVolumeData) {
         PAL_ERR(LOG_TAG, "malloc for volume data failed");
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to malloc for volume data");
+        return;
     }
     mVolumeData->no_of_volpair = 1;
     mVolumeData->volume_pair[0].channel_mask = 0x03;
@@ -115,7 +120,7 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
         free(mVolumeData);
         mVolumeData = NULL;
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to malloc for stream attributes");
+        return;
     }
     ar_mem_cpy(mStreamAttr, sizeof(pal_stream_attributes), sattr, sizeof(pal_stream_attributes));
     PAL_VERBOSE(LOG_TAG, "Create new compress session");
@@ -128,7 +133,7 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
         free(mVolumeData);
         mVolumeData = NULL;
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to create session object");
+        return;
     }
 
     PAL_VERBOSE(LOG_TAG,"Create new Devices with no_of_devices - %d", no_of_devices);
@@ -163,7 +168,7 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
             delete session;
             session = nullptr;
             mStreamMutex.unlock();
-            throw std::runtime_error("failed to create device object");
+            return;
         }
         dev->insertStreamDeviceAttr(&dattr[i], this);
         mPalDevices.push_back(dev);
@@ -184,6 +189,7 @@ StreamCompress::StreamCompress(const struct pal_stream_attributes *sattr, struct
         mDevices.push_back(dev);
         dev = nullptr;
     }
+    mInitialized = true;
     mStreamMutex.unlock();
     PAL_VERBOSE(LOG_TAG,"exit, state %d", currentState);
 }

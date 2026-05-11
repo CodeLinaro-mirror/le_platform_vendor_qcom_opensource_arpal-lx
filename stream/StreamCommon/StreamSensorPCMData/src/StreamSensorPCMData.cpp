@@ -50,13 +50,18 @@ std::set<int> StreamSensorPCMData::InstAllocator::available_ids = {
 extern "C" Stream* CreateSensorPCMDataStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    try {
-        return new StreamSensorPCMData(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
-    } catch (const std::exception& e) {
-         PAL_ERR(LOG_TAG, "Stream create failed for stream type %s: %s",
-                 streamNameLUT.at(sattr->type).c_str(), e.what());
-        return nullptr;
+    StreamSensorPCMData* stream = new(std::nothrow) StreamSensorPCMData(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream) {
+        if (stream->isInitialized()) {
+            return stream;
+        } else {
+            delete stream;
+        }
     }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    return nullptr;
 }
 
 StreamSensorPCMData::StreamSensorPCMData(const struct pal_stream_attributes *sattr __unused,
@@ -67,6 +72,9 @@ StreamSensorPCMData::StreamSensorPCMData(const struct pal_stream_attributes *sat
                     const std::shared_ptr<ResourceManager> rm):
                     StreamCommon(sattr,dattr,no_of_devices,modifiers,no_of_modifiers,rm)
 {
+    if (!isInitialized()) {
+        return;
+    }
     int32_t disable_concurrency_count = 0;
     paused_ = false;
     conc_notified_ = false;
@@ -76,7 +84,8 @@ StreamSensorPCMData::StreamSensorPCMData(const struct pal_stream_attributes *sat
     acd_info_ = ACDPlatformInfo::GetInstance();
     if (!acd_info_) {
         PAL_ERR(LOG_TAG, "Error:%d Failed to get acd platform info", -EINVAL);
-        throw std::runtime_error("Failed to get acd platform info");
+        mInitialized = false;
+        return;
     }
 
     rm->registerStream(this);
@@ -105,6 +114,9 @@ StreamSensorPCMData::StreamSensorPCMData(const struct pal_stream_attributes *sat
 
 StreamSensorPCMData::~StreamSensorPCMData()
 {
+    if (!isInitialized()) {
+        return;
+    }
     PAL_DBG(LOG_TAG, "Enter");
     InstAllocator::release(spcm_param.spcm_type);
     rm->deregisterStream(this);

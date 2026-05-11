@@ -44,7 +44,18 @@
 extern "C" Stream* CreateUltraSoundStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    return new StreamUltraSound(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
+    StreamUltraSound* stream = new(std::nothrow) StreamUltraSound(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream) {
+        if (stream->isInitialized()) {
+            return stream;
+        } else {
+            delete stream;
+        }
+    }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    return nullptr;
 }
 
 StreamUltraSound::StreamUltraSound(const struct pal_stream_attributes *sattr __unused, struct pal_device *dattr __unused,
@@ -52,6 +63,9 @@ StreamUltraSound::StreamUltraSound(const struct pal_stream_attributes *sattr __u
                     const uint32_t no_of_modifiers __unused, const std::shared_ptr<ResourceManager> rm):
                   StreamCommon(sattr,dattr,no_of_devices,modifiers,no_of_modifiers,rm)
 {
+    if (!isInitialized()) {
+        return;
+    }
     gain = PAL_ULTRASOUND_GAIN_MUTE;
     session->registerCallBack((session_callback)HandleCallBack,((uint64_t) this));
     rm->registerStream(this);
@@ -59,6 +73,9 @@ StreamUltraSound::StreamUltraSound(const struct pal_stream_attributes *sattr __u
 
 StreamUltraSound::~StreamUltraSound()
 {
+    if (!isInitialized()) {
+        return;
+    }
     rm->resetStreamInstanceID(this);
     rm->deregisterStream(this);
 }
