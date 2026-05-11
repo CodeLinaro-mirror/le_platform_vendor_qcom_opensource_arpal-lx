@@ -719,8 +719,6 @@ std::shared_ptr<ClientInfo> PalServerWrapper::getClient_l() {
                                                             const std::vector<PalBuffer> &inBuf,
                                                             int32_t *aidlReturn) {
     struct pal_buffer buf = {0};
-    int fdToBeClosed = -1;
-    int inputFd = -1;
 
     if(!isValidStreamHandle(handle))
         return status_tToBinderResult(-EINVAL);
@@ -773,16 +771,6 @@ std::shared_ptr<ClientInfo> PalServerWrapper::getClient_l() {
 
     int32_t ret = pal_stream_write((pal_stream_handle_t *)handle, &buf);
 
-    int dupFd = buf.alloc_info.alloc_handle;
-    inputFd = removeSharedMemoryFdPairs(handle, dupFd);
-    fdToBeClosed = (inputFd != -1) ? dupFd : -1;
-    if (fdToBeClosed != -1) {
-        ALOGV("closing dup fd %d ", fdToBeClosed);
-        close(fdToBeClosed);
-    } else {
-        ALOGE("Error finding fd %d", buf.alloc_info.alloc_handle);
-    }
-
     if (buf.metadata) free(buf.metadata);
     if (buf.buffer) free(buf.buffer);
 
@@ -797,8 +785,6 @@ std::shared_ptr<ClientInfo> PalServerWrapper::getClient_l() {
                                                            const std::vector<PalBuffer> &inBuf,
                                                            PalReadReturnData *aidlReturn) {
     struct pal_buffer buf = {0};
-    int fdToBeClosed = -1;
-    int inputFd = -1;
 
     if(!isValidStreamHandle(handle))
         return status_tToBinderResult(-EINVAL);
@@ -818,17 +804,6 @@ std::shared_ptr<ClientInfo> PalServerWrapper::getClient_l() {
     buf.alloc_info.offset = inBuf.data()->allocInfo.offset;
 
     int32_t ret = pal_stream_read((pal_stream_handle_t *)handle, &buf);
-
-    int dupFd = buf.alloc_info.alloc_handle;
-    inputFd = removeSharedMemoryFdPairs(handle, dupFd);
-    fdToBeClosed = (inputFd != -1) ? dupFd : -1;
-    if (fdToBeClosed != -1) {
-        ALOGV("closing dup fd %d ", fdToBeClosed);
-        close(fdToBeClosed);
-    } else {
-        ALOGE("Error finding fd %d", buf.alloc_info.alloc_handle);
-    }
-
     aidlReturn->ret = ret;
     if (ret > 0) {
         aidlReturn->buffer.resize(sizeof(struct pal_buffer));
