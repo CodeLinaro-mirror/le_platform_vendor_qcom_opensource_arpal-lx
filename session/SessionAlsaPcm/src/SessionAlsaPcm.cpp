@@ -2512,7 +2512,7 @@ int SessionAlsaPcm::setParamWithTag(Stream *streamHandle, int tagId, uint32_t pa
         {
             pal_param_payload *param_payload = (pal_param_payload *)payload;
 
-            if (!param_payload || !param_payload->payload) {
+            if (!param_payload || !param_payload->payload_size) {
                 PAL_ERR(LOG_TAG, "Set SOUNDFOCUS: Invalid payload structure");
                 status = -EINVAL;
                 goto exit;
