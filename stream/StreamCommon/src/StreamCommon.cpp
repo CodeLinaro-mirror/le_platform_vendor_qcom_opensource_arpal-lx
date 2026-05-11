@@ -75,7 +75,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
     if (!sattr) {
         PAL_ERR(LOG_TAG,"Error:invalid arguments");
         mStreamMutex.unlock();
-        throw std::runtime_error("invalid arguments");
+        return;
     }
 
     attribute_size = sizeof(struct pal_stream_attributes);
@@ -83,7 +83,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
     if (!mStreamAttr) {
         PAL_ERR(LOG_TAG, "Error:malloc for stream attributes failed %s", strerror(errno));
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to malloc for stream attributes");
+        return;
     }
 
     memcpy(mStreamAttr, sattr, sizeof(pal_stream_attributes));
@@ -104,7 +104,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
         free(mStreamAttr);
         mStreamAttr = NULL;
         mStreamMutex.unlock();
-        throw std::runtime_error("failed to create session object");
+        return;
     }
 
     PAL_VERBOSE(LOG_TAG, "Create new Devices with no_of_devices - %d", no_of_devices);
@@ -138,7 +138,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
             delete session;
             session = nullptr;
             mStreamMutex.unlock();
-            throw std::runtime_error("failed to create device object");
+            return;
         }
         dev->insertStreamDeviceAttr(&dattr[i], this);
         mPalDevices.push_back(dev);
@@ -157,6 +157,7 @@ StreamCommon::StreamCommon(const struct pal_stream_attributes *sattr, struct pal
         mDevices.push_back(dev);
     }
 
+    mInitialized = true;
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit. state %d", currentState);
     return;
