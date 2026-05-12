@@ -1282,8 +1282,8 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         /* If mDevice[i] does not match with any of new device,
            then update disconnect list */
         if (matchFound == false) {
-            curDeviceSlots[disconnectCount] = i;
             disconnectCount++;
+            curDeviceSlots[disconnectCount] = i;
         }
     }
 
@@ -1615,7 +1615,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     /* Handle scenario when there is only device to disconnect.
        e.g. case 3 : device switch from spkr+hs to spkr */
     if (connectCount == 0) {
-        for (int j = 0; j < disconnectCount; j++) {
+        for (int j = 0; j <= disconnectCount; j++) {
             if (rm->matchDevDir(mDevices[curDeviceSlots[j]]->getSndDeviceId(), newDevices[0].id))
                 streamDevDisconnect.push_back({streamHandle, mDevices[curDeviceSlots[j]]->getSndDeviceId()});
         }
