@@ -880,13 +880,28 @@ int SessionAR::setParameters(Stream *s, uint32_t param_id, void *payload)
             }
             dtmf_payload = ((pal_param_dtmf_gen_tone_cfg_t *)param_payload->payload);
             if (dtmf_payload->dir == PAL_AUDIO_OUTPUT) {
-                if (!rxAifBackEnds.empty()) { /** search in RX GKV */
-                    mixer_ctl = getFEMixerCtl(control, &dev, PAL_AUDIO_OUTPUT);
-                    if (!mixer_ctl) {
-                        PAL_ERR(LOG_TAG, "Invalid mixer control\n");
-                        status = -ENOENT;
-                        break;
-                    }
+                std::vector<std::shared_ptr<Device>> associatedDevices;
+                status = s->getAssociatedDevices(associatedDevices);
+                if (0 != status) {
+                    PAL_ERR(LOG_TAG,"getAssociatedDevices Failed \n");
+                    goto exit;
+                }
+                rm->getBackEndNames(associatedDevices, rxAifBackEnds, txAifBackEnds);
+                if (!txAifBackEnds.empty()) {
+                    PAL_ERR(LOG_TAG, "Tone not supported on TX path");
+                    status = -EINVAL;
+                    break;
+                }
+                if (rxAifBackEnds.empty()) {
+                    PAL_ERR(LOG_TAG, "Rx device is not set");
+                    status = -EINVAL;
+                    break;
+                }
+                mixer_ctl = getFEMixerCtl(control, &dev, PAL_AUDIO_OUTPUT);
+                if (!mixer_ctl) {
+                    PAL_ERR(LOG_TAG, "Invalid mixer control\n");
+                    status = -ENOENT;
+                    break;
                 }
 
                 status = SessionAlsaUtils::getModuleInstanceId(mixer, dev,
