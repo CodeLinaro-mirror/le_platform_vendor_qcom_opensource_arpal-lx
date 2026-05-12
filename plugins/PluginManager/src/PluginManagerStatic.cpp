@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -263,6 +263,10 @@ int32_t getDeviceFunc(void** func, std::string name) {
         case PAL_DEVICE_IN_FM_TUNER:
             PAL_VERBOSE(LOG_TAG, "FM device");
             *reinterpret_cast<DeviceCreate*>(func) = &CreateFmDevice;
+            break;
+        case PAL_DEVICE_IN_EAVB:
+            PAL_VERBOSE(LOG_TAG, "In EAVB device");
+            *reinterpret_cast<DeviceCreate*>(func) = &CreateEavbDevice;
             break;
         case PAL_DEVICE_IN_ULTRASOUND_MIC:
         case PAL_DEVICE_OUT_ULTRASOUND:
