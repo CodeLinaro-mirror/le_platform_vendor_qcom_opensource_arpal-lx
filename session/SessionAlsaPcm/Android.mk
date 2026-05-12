@@ -42,7 +42,8 @@ LOCAL_SHARED_LIBRARIES := \
     libexpat \
     libagmclient \
     libaudioroute \
-    libsession_ar
+    libsession_ar \
+    libcutils
 
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
