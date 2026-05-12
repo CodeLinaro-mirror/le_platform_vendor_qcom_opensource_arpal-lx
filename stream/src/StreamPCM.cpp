@@ -1434,6 +1434,7 @@ int32_t StreamPCM::ssrUpHandler()
         status = start();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
+            close();
             goto exit;
         }
         /* For scenario when we get SSR down while handling SSR up,
@@ -1441,6 +1442,7 @@ int32_t StreamPCM::ssrUpHandler()
          * to keep the cached state as STREAM_STARTED.
          */
         if (currentState != STREAM_STARTED) {
+            close();
             goto exit;
         }
     } else if (cachedState == STREAM_PAUSED) {
@@ -1453,14 +1455,18 @@ int32_t StreamPCM::ssrUpHandler()
         status = start();
         if (0 != status) {
             PAL_ERR(LOG_TAG, "stream start failed. status %d", status);
+            close();
             goto exit;
         }
-        if (currentState != STREAM_STARTED)
+        if (currentState != STREAM_STARTED) {
+            close();
             goto exit;
+        }
         status = pause();
         if (0 != status) {
            PAL_ERR(LOG_TAG, "stream set pause failed. status %d", status);
-            goto exit;
+           close();
+           goto exit;
         }
     } else {
         mStreamMutex.unlock();
