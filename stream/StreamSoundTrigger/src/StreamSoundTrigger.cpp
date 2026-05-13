@@ -2300,6 +2300,18 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
             status = -EIO;
             break;
         }
+        case ST_EV_START_RECOGNITION: {
+            if (st_stream_.paused_) {
+                /*
+                 * Send -EBUSY (resource_contention) to framework when audio
+                 * concurrency is active. Framework attempts to start
+                 * recognition after we notify through OnResourcesAvailable API
+                 * when audio concurrency is inactive.
+                 */
+                status = -EBUSY;
+            }
+            break;
+        }
         case ST_EV_DEVICE_DISCONNECTED: {
             StDeviceDisconnectedEventConfigData *data =
                 (StDeviceDisconnectedEventConfigData *)ev_cfg->data_.get();
