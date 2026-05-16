@@ -33,6 +33,7 @@
 
 #define LOG_TAG "PAL: Device"
 
+#include <functional>
 #include "Device.h"
 #include <tinyalsa/asoundlib.h>
 #include "ResourceManager.h"

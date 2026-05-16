@@ -64,6 +64,10 @@
 #include "BTUtils.h"
 #endif
 
+#ifndef UVVOICECUE_FEATURES_DISABLED
+#include "UvVoiceCueUtils.h"
+#endif
+
 
 
 #ifdef PAL_CUTILS_SUPPORTED
@@ -881,6 +885,8 @@ ResourceManager::ResourceManager()
     rotation_type_ = PAL_SPEAKER_ROTATION_LR;
     mHighestPriorityActiveStream = nullptr;
     mPriorityHighestPriorityActiveStream = 0;
+    mActiveStreamUserCounter = {};
+    mActiveStreams = {};
 #ifndef PAL_MEMLOG_UNSUPPORTED
     ret = memLoggerInitQ(PAL_STATE_Q, MEMLOG_CFG_FILE); //initializes the queue for the debug logger
 
@@ -977,6 +983,7 @@ ResourceManager::ResourceManager()
     mNTStreamInstancesList[NT_PATH_ENCODE] = encodeMap;
     mNTStreamInstancesList[NT_PATH_DECODE] = decodeMap;
 
+    ResourceManager::loadAdmLib();
     ResourceManager::initWakeLocks();
 
     PAL_DBG(LOG_TAG, "Creating ContextManager");
@@ -985,6 +992,10 @@ ResourceManager::ResourceManager()
         throw std::runtime_error("Failed to allocate ContextManager");
 
     }
+    #ifndef UVVOICECUE_FEATURES_DISABLED
+        PAL_DBG(LOG_TAG, "Retrieve the Cue Data from bin file if it already exists.");
+        retrieveVoiceCueFromFile();
+    #endif
 
 #ifdef SOC_PERIPHERAL_PROT
     socPerithread = std::thread(loadSocPeripheralLib);
@@ -1138,6 +1149,44 @@ void ResourceManager::loadSocPeripheralLib()
     }
 }
 #endif
+
+void ResourceManager::loadAdmLib()
+{
+    if (access(ADM_LIBRARY_PATH, R_OK) == 0) {
+        admLibHdl = dlopen(ADM_LIBRARY_PATH, RTLD_NOW);
+        if (admLibHdl == NULL) {
+            PAL_ERR(LOG_TAG, "DLOPEN failed for %s %s", ADM_LIBRARY_PATH, dlerror());
+        } else {
+            PAL_VERBOSE(LOG_TAG, "DLOPEN successful for %s", ADM_LIBRARY_PATH);
+            admInitFn = (adm_init_t)
+                dlsym(admLibHdl, "adm_init");
+            admDeInitFn = (adm_deinit_t)
+                dlsym(admLibHdl, "adm_deinit");
+            admRegisterInputStreamFn = (adm_register_input_stream_t)
+                dlsym(admLibHdl, "adm_register_input_stream");
+            admRegisterOutputStreamFn = (adm_register_output_stream_t)
+                dlsym(admLibHdl, "adm_register_output_stream");
+            admDeregisterStreamFn = (adm_deregister_stream_t)
+                dlsym(admLibHdl, "adm_deregister_stream");
+            admRequestFocusFn = (adm_request_focus_t)
+                dlsym(admLibHdl, "adm_request_focus");
+            admAbandonFocusFn = (adm_abandon_focus_t)
+                dlsym(admLibHdl, "adm_abandon_focus");
+            admSetConfigFn = (adm_set_config_t)
+                dlsym(admLibHdl, "adm_set_config");
+            admRequestFocusV2Fn = (adm_request_focus_v2_t)
+                dlsym(admLibHdl, "adm_request_focus_v2");
+            admOnRoutingChangeFn = (adm_on_routing_change_t)
+                dlsym(admLibHdl, "adm_on_routing_change");
+            admRequestFocus_v2_1Fn = (adm_request_focus_v2_1_t)
+                dlsym(admLibHdl, "adm_request_focus_v2_1");
+
+            dlerror(); // clear error during dlsym, if any.
+            if (admInitFn)
+                admData = admInitFn();
+        }
+    }
+}
 
 int ResourceManager::initWakeLocks(void) {
 
@@ -2632,7 +2681,7 @@ bool ResourceManager::isStreamSupported(Stream *s, struct pal_device *devices, i
         }
 
         if (cur_sessions - 1 == max_sessions) {
-            PAL_DBG(LOG_TAG, "current sessions is %d, maximum sessions is %d", cur_sessions, max_sessions);
+            PAL_DBG(LOG_TAG, "current sessions is %zu, maximum sessions is %zu", cur_sessions, max_sessions);
             PAL_ERR(LOG_TAG, "no new session allowed for stream %d", attributes.type);
             goto exit;
         }
@@ -2705,7 +2754,7 @@ int ResourceManager::deregisterStream(Stream *s)
             if (it->second.empty())
                 activeStreamMap.erase(it);
         } else {
-            PAL_ERR(LOG_TAG, "Could not find stream to deregister", type);
+            PAL_ERR(LOG_TAG, "Could not find stream type %d to deregister", type);
             ret = -ENOENT;
         }
     } else {
@@ -5547,7 +5596,7 @@ int ResourceManager::findActiveStreamsNotInDisconnectList(
 
     rm->getActiveStream_l(activeStreams, devObj);
 
-    PAL_DBG(LOG_TAG, "activeStreams size = %d, device: %s", activeStreams.size(),
+    PAL_DBG(LOG_TAG, "activeStreams size = %zu, device: %s", activeStreams.size(),
             deviceNameLUT.at((pal_device_id_t)devObj->getSndDeviceId()).c_str());
 
     for (sIter = activeStreams.begin(); sIter != activeStreams.end(); sIter++) {
@@ -7693,6 +7742,24 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             PAL_DBG(LOG_TAG, "wnr module enable state updated to %d", rm->wnrEnableStatus);
         }
         break;
+        case PAL_PARAM_ID_UV_VOICE_CUE_ENABLE:
+        {
+            #ifndef UVVOICECUE_FEATURES_DISABLED
+                status = handleUvVoiceCueEnable(param_payload, payload_size);
+                if (status)
+                    PAL_ERR(LOG_TAG, "handleUvVoiceCueEnable failed, status %d", status);
+            #endif
+            break;
+        }
+        case PAL_PARAM_ID_UV_VOICE_CUE_DATA_BYTE:
+        {
+            #ifndef UVVOICECUE_FEATURES_DISABLED
+                status = handleUvVoiceCueData(param_payload, payload_size);
+                if (status)
+                    PAL_ERR(LOG_TAG, "handleUvVoiceCueData failed, status %d", status);
+            #endif
+            break;
+        }
         default:
     #ifndef SOUND_TRIGGER_FEATURES_DISABLED
             mResourceManagerMutex.unlock();
@@ -9855,12 +9922,27 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
                     ResourceManager::currentGroupDevConfig.grp_dev_hwep_cfg.slot_mask);
             ret = true;
         }
-        if (strcmp(ResourceManager::activeGroupDevConfig->snd_dev_name.c_str(),
-                   ResourceManager::currentGroupDevConfig.snd_dev_name.c_str())) {
+
+        const bool useFallbackSndCmp =
+                ResourceManager::activeGroupDevConfig->snd_dev_name.empty() ||
+                ResourceManager::currentGroupDevConfig.snd_dev_name.empty();
+        const char *inSndName = inDevAttr->sndDevName;
+        const char *curSndName = curDevAttr->sndDevName;
+        const char *activeSndName = ResourceManager::activeGroupDevConfig->snd_dev_name.c_str();
+        const char *runningSndName = ResourceManager::currentGroupDevConfig.snd_dev_name.c_str();
+        const int sndCmp = useFallbackSndCmp ? strcmp(inSndName, curSndName) :
+                strcmp(activeSndName, runningSndName);
+        if (useFallbackSndCmp) {
+            PAL_DBG(LOG_TAG,
+                    "UPD group snd name invalid, fallback snd compare in=%s cur=%s sndCmp=%d",
+                    inSndName, curSndName, sndCmp);
+        }
+        if (sndCmp != 0) {
             PAL_DBG(LOG_TAG, "found new snd device %s, device switch needed",
-                    ResourceManager::activeGroupDevConfig->snd_dev_name.c_str());
+                    useFallbackSndCmp ? inSndName : activeSndName);
             ret = true;
         }
+
         /* special case when we are switching with shared BE
          * always switch all to incoming device
          */
@@ -10005,7 +10087,7 @@ void ResourceManager::WbSpeechConfig(pal_device_id_t devId,
         dev->getDeviceAttributes(&curDevAttr);
         status = dev->setDeviceParameter(param_id, param_payload);
         if (status)
-            PAL_ERR(LOG_TAG, "set device param %d, status: ", param_id, status);
+            PAL_ERR(LOG_TAG, "set device param %d, status: %d", param_id, status);
         // check and force device switch if SCO is connected.
         if (!dev->isDeviceReady(devId))
             return;
@@ -10298,7 +10380,7 @@ int ResourceManager::setUltrasoundGain(pal_ultrasound_gain_t gain, Stream *s)
     } else {
         status = getActiveStream_l(activeStreams, NULL);
         if ((0 != status) || (activeStreams.size() == 0)) {
-            PAL_DBG(LOG_TAG, "No active stream available, status = %d, nStream = %d",
+            PAL_DBG(LOG_TAG, "No active stream available, status = %d, nStream = %zu",
                     status, activeStreams.size());
             return -ENOENT;
         }

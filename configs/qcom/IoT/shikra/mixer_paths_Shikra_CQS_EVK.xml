@@ -5,17 +5,13 @@
 
 <mixer>
 <!-- Common File Contents  -->
-    <ctl name="Rx Slot Mask" value="3" />
+    <ctl name="Rx Slot Mask" value="0" />
     <ctl name="OT23 Usage Mode" value="0" />
     <ctl name="SA1 FU21 Stereo Gain Offset dB" value="72" />
 
     <!-- RX Controls -->
     <ctl name="RX_MACRO RX0 MUX" value="ZERO" />
     <ctl name="RX_MACRO RX1 MUX" value="ZERO" />
-    <ctl name="RX_MACRO RX2 MUX" value="ZERO" />
-    <ctl name="RX_MACRO RX3 MUX" value="ZERO" />
-    <ctl name="RX INT0_2 MUX" value="ZERO" />
-     <ctl name="RX INT1_2 MUX" value="ZERO" />
     <ctl name="RX INT0_1 MIX1 INP0" value="ZERO" />
     <ctl name="RX INT0_1 MIX1 INP1" value="ZERO" />
     <ctl name="RX INT0_1 MIX1 INP2" value="ZERO" />
@@ -146,9 +142,6 @@
     <ctl name="RX_RX0 Digital Volume" value="84" />
     <ctl name="RX_RX1 Digital Volume" value="84" />
     <ctl name="RX_RX2 Digital Volume" value="84" />
-    <ctl name="RX_RX0 Mix Digital Volume" value="60" />
-    <ctl name="RX_RX1 Mix Digital Volume" value="60" />
-    <ctl name="RX_RX2 Mix Digital Volume" value="60" />
     <ctl name="HPHL Volume" value="20" />
     <ctl name="HPHR Volume" value="20" />
 
@@ -170,9 +163,6 @@
     <ctl name="VA_DEC1 Volume" value="84" />
     <ctl name="VA_DEC2 Volume" value="84" />
     <ctl name="VA_DEC3 Volume" value="84" />
-
-    <ctl name="DEC_GAIN_BYPASS Enable" value="0" />
-    <ctl name="DEC_HPF_ADAPT_BYPASS Enable" value="0"/>
 
     <!-- defaults for mmap record -->
 
@@ -571,10 +561,10 @@
         <ctl name="TX DMIC MUX4" value="DMIC2" />
     </path>
     <path name="headphones">
-        <ctl name="RX_MACRO RX2 MUX" value="AIF2_PB" />
-        <ctl name="RX_MACRO RX3 MUX" value="AIF2_PB" />
-        <ctl name="RX INT0_2 MUX" value="RX2" />
-        <ctl name="RX INT1_2 MUX" value="RX3" />
+        <ctl name="RX_MACRO RX0 MUX" value="AIF1_PB" />
+        <ctl name="RX_MACRO RX1 MUX" value="AIF1_PB" />
+        <ctl name="RX INT0_1 MIX1 INP0" value="RX0" />
+        <ctl name="RX INT1_1 MIX1 INP0" value="RX1" />
         <ctl name="RX INT0 DEM MUX" value="CLSH_DSM_OUT" />
         <ctl name="RX INT1 DEM MUX" value="CLSH_DSM_OUT" />
         <ctl name="HPHL Compander" value="1" />
@@ -584,10 +574,10 @@
     </path>
 
     <path name="headphones-and-haptics">
-        <ctl name="RX_MACRO RX2 MUX" value="AIF2_PB" />
-        <ctl name="RX_MACRO RX3 MUX" value="AIF2_PB" />
-        <ctl name="RX INT0_2 MUX" value="RX2" />
-        <ctl name="RX INT1_2 MUX" value="RX3" />
+        <ctl name="RX_MACRO RX0 MUX" value="AIF1_PB" />
+        <ctl name="RX_MACRO RX1 MUX" value="AIF1_PB" />
+        <ctl name="RX INT0_1 MIX1 INP0" value="RX0" />
+        <ctl name="RX INT1_1 MIX1 INP0" value="RX1" />
         <ctl name="RX INT0 DEM MUX" value="CLSH_DSM_OUT" />
         <ctl name="RX INT1 DEM MUX" value="CLSH_DSM_OUT" />
         <ctl name="HPHL Compander" value="1" />
@@ -1067,8 +1057,8 @@
     <!-- TTY devices -->
 
     <path name="tty-headphones">
-        <ctl name="RX_MACRO RX2 MUX" value="AIF2_PB" />
-        <ctl name="RX INT0_2 MUX" value="RX2" />
+        <ctl name="RX_MACRO RX0 MUX" value="AIF1_PB" />
+        <ctl name="RX INT0_1 MIX1 INP0" value="RX0" />
         <ctl name="RX INT0 DEM MUX" value="CLSH_DSM_OUT" />
         <ctl name="HPHL Compander" value="1" />
         <ctl name="HPHL_RDAC Switch" value="1" />
@@ -1170,8 +1160,6 @@
         <ctl name="TX WSA MUX7" value="NO_WSA"/>
         <ctl name="TX PORT SEL MUX6" value="PORT0"/>
         <ctl name="TX PORT SEL MUX7" value="PORT0"/>
-        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
-        <ctl name="DEC_HPF_ADAPT_BYPASS Enable" value="1"/>
     </path>
 
     <path name="haptics-vi-feedback">
@@ -1274,13 +1262,6 @@
         <ctl name="Rx Slot Mask" value="1" />
         <ctl name="OT23 Usage Mode" value="8" />
         <ctl name="SA1 FU21 Stereo Gain Offset dB" value="66" />
-    </path>
-
-    <path name="ultrasound-dmic">
-        <ctl name="TX_AIF2_CAP Mixer DEC3" value="1" />
-        <ctl name="TX DMIC MUX3" value="DMIC2" />
-        <ctl name="TX_AIF2_CAP Mixer DEC4" value="1" />
-        <ctl name="TX DMIC MUX4" value="DMIC0" />
     </path>
 
     <path name="ultrasound-handset-wsa">
