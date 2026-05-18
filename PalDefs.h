@@ -1042,6 +1042,7 @@ typedef enum {
     PAL_PARAM_ID_WNR_MODE = 90,
     PAL_PARAM_ID_CALL_TRANSLATION_CONFIG = 91,
     PAL_PARAM_ID_FORCE_RECOGNITION = 100,
+    PAL_PARAM_ID_ULTRASOUND_SET_GAIN = 101,
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1345,6 +1346,12 @@ typedef union {
     uint32_t ipv6[8];
     uint32_t alsa[2];
 } pal_address_type_t;
+
+typedef enum {
+    PAL_ULTRASOUND_GAIN_MUTE = 0,
+    PAL_ULTRASOUND_GAIN_LOW,
+    PAL_ULTRASOUND_GAIN_HIGH,
+} pal_ultrasound_gain_t;
 
 /**< PAL device */
 #define DEVICE_NAME_MAX_SIZE 128

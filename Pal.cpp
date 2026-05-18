@@ -441,7 +441,6 @@ int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle, uint32_t param_
     } else {
         status = s->setParameters(param_id, (void *)param_payload);
     }
-    status = s->setParameters(param_id, (void *)param_payload);
     if (0 != status) {
         PAL_ERR(LOG_TAG, "set parameters failed status %d param_id %u", status, param_id);
         return status;

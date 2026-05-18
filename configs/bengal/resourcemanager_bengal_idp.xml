@@ -34,6 +34,10 @@
         <param key="native_audio_mode" value="multiple_mix_dsp"/>
         <param key="max_sessions" value="128"/>
         <param key="logging_level" value ="3" />
+        <param key="dummy_dev_enable" value ="true" />
+        <param key="context_manager_enable" value ="true" />
+        <param key="upd_dedicated_be" value ="false" />
+        <param key="upd_set_custom_gain" value ="false" />
     </config_params>
     <config_lpm>
         <use_disable_lpm>1</use_disable_lpm>
@@ -401,6 +405,15 @@ should always be in sync with it -->
             </ec_rx_device>
         </in-device>
         <in-device>
+            <id>PAL_DEVICE_IN_DUMMY</id>
+            <back_end_name>PCM_DUMMY-TX-1</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
+        </in-device>
+        <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
             <back_end_name>SLIM-DEV1-TX-7</back_end_name>
             <max_channels>1</max_channels>
@@ -417,6 +430,18 @@ should always be in sync with it -->
             <snd_device_name>afe-proxy</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_PROXY</name>
+            </usecase>
+        </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_ULTRASOUND_MIC</id>
+            <back_end_name>CODEC_DMA-LPAIF_RXTX-TX-4</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>1</channels>
+            <samplerate>96000</samplerate>
+            <bit_width>16</bit_width>
+            <snd_device_name>ultrasound-mic</snd_device_name>
+            <usecase>
+                <name>PAL_STREAM_ULTRASOUND</name>
             </usecase>
         </in-device>
         <in-device>
@@ -478,6 +503,11 @@ should always be in sync with it -->
                 <samplerate>16000</samplerate>
                 <priority>3</priority>
             </usecase>
+             <usecase>
+                <name>PAL_STREAM_ULTRASOUND</name>
+                <priority>4</priority>
+                <samplerate>96000</samplerate>
+            </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HANDSET</id>
@@ -496,6 +526,11 @@ should always be in sync with it -->
                 <name>PAL_STREAM_VOIP_RX</name>
                 <priority>3</priority>
                 <snd_device_name>voice-handset</snd_device_name>
+            </usecase>
+            <usecase>
+                <name>PAL_STREAM_ULTRASOUND</name>
+                <priority>4</priority>
+                <samplerate>96000</samplerate>
             </usecase>
         </out-device>
         <out-device>
@@ -636,6 +671,15 @@ should always be in sync with it -->
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <priority>1</priority>
             </usecase>
+        </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_DUMMY</id>
+            <back_end_name>PCM_DUMMY-RX-0</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>dummy-dev</snd_device_name>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
         </out-device>
     </device_profile>
     <in_streams>

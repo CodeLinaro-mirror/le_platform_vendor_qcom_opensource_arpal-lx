@@ -163,18 +163,20 @@ int SessionAlsaPcm::open(Stream * s)
                 rm->freeFrontEndIds(pcmDevIds, sAttr, ldir);
                 frontEndIdAllocated = false;
             } else {
+                if (sAttr.type != PAL_STREAM_CONTEXT_PROXY) {
                 // Register for  mixer event callback for mic occlusion.
-                status = rm->registerMixerEventCallback(pcmDevIds, sessionCb,
-                        cbCookie, true);
-                if (status == 0) {
-                    PAL_DBG(LOG_TAG, "register mixer event callback is SUCCESS");
-                    isMixerEventCbRegd = true;
-                } else {
+                    status = rm->registerMixerEventCallback(pcmDevIds, sessionCb,
+                            cbCookie, true);
+                    if (status == 0) {
+                        PAL_DBG(LOG_TAG, "register mixer event callback is SUCCESS");
+                        isMixerEventCbRegd = true;
+                    } else {
                  // Not a fatal error
                     PAL_ERR(LOG_TAG, "Failed to register callback to mixer event");
                  // If registration fails for this then mic occlusion
                  // can't be notified to client.
                     status = 0;
+                    }
                 }
             }
             break;
@@ -1222,7 +1224,8 @@ set_mixer:
                 }
             }
 
-            if (!status && isMixerEventCbRegd) {
+            if (!status && isMixerEventCbRegd &&
+                (sAttr.type != PAL_STREAM_CONTEXT_PROXY)) {
                 // Register for callback for Mic Occlusion Notification
                 size_t payload_size = 0;
                 struct agm_event_reg_cfg event_cfg;
@@ -1441,7 +1444,8 @@ int SessionAlsaPcm::stop(Stream * s)
                 }
             }
             // Deregister for callback for Mic Occlusion
-            if (!status && isMicOcclusionRegistrationDone) {
+            if (!status && isMicOcclusionRegistrationDone &&
+               (sAttr.type != PAL_STREAM_CONTEXT_PROXY)) {
                 payload_size = sizeof(struct agm_event_reg_cfg);
                 memset(&event_cfg, 0, sizeof(event_cfg));
                 event_cfg.event_id = EVENT_ID_MIC_OCCLUSION_STATUS_INFO;
@@ -1643,7 +1647,8 @@ int SessionAlsaPcm::close(Stream * s)
                 ldir = TX_HOSTLESS;
 
             // Deregister callback for Mixer Event
-            if (!status && isMixerEventCbRegd) {
+            if (!status && isMixerEventCbRegd &&
+                (sAttr.type != PAL_STREAM_CONTEXT_PROXY)) {
                 status = rm->registerMixerEventCallback(pcmDevIds,
                     sessionCb, cbCookie, false);
                 if (status == 0) {
@@ -1833,7 +1838,8 @@ int SessionAlsaPcm::disconnectSessionDevice(Stream *streamHandle,
     if (!txAifBackEndsToDisconnect.empty()) {
         int cnt = 0;
             // Deregister for callback for Mic Occlusion during device switch
-            if (!status && isMicOcclusionRegistrationDone) {
+            if (!status && isMicOcclusionRegistrationDone &&
+                (streamType != PAL_STREAM_CONTEXT_PROXY)) {
                 payload_size = sizeof(struct agm_event_reg_cfg);
                 memset(&event_cfg, 0, sizeof(event_cfg));
                 event_cfg.event_id = EVENT_ID_MIC_OCCLUSION_STATUS_INFO;
@@ -1996,7 +2002,8 @@ int SessionAlsaPcm::connectSessionDevice(Stream* streamHandle, pal_stream_type_t
         }
         /* Re-register for the new device during device switch.*/
 
-        if (!status && isMixerEventCbRegd) {
+        if (!status && isMixerEventCbRegd &&
+            (streamType != PAL_STREAM_CONTEXT_PROXY)) {
             // Register for callback for Mic Occlusion Notification
             size_t payload_size = 0;
             struct agm_event_reg_cfg event_cfg;
@@ -2401,6 +2408,91 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 PAL_INFO(LOG_TAG, "mixer set vol ctrl ramp status=%d\n", status);
                 freeCustomPayload(&paramData, &paramSize);
             }
+            return 0;
+        }
+        case PAL_PARAM_ID_ULTRASOUND_SET_GAIN:
+        {
+            std::vector <std::pair<int, int>> tkv;
+            const char *setParamTagControl = " setParamTag";
+            const char *streamPcm = "PCM";
+            struct mixer_ctl *ctl;
+            std::ostringstream tagCntrlName;
+            int sendToRx = 1;
+            struct agm_tag_config* tagConfig = NULL;
+            int tkv_size = 0;
+            pal_ultrasound_gain_t gain = PAL_ULTRASOUND_GAIN_MUTE;
+
+            if (!rm->IsCustomGainEnabledForUPD()) {
+                PAL_ERR(LOG_TAG, "Custom Gain not enabled for UPD, returning");
+                goto skip_ultrasound_gain;
+            }
+
+            /* Search for the tag in Rx path first */
+            device = pcmDevRxIds.at(0);
+            status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                    rxAifBackEnds[0].second.data(),
+                    tagId, &miid);
+
+            /* Rx search failed, Check if we can find the tag in Tx path */
+            if ((0 != status) || (0 == miid)) {
+                PAL_DBG(LOG_TAG, "Fail to find module in Rx path status(%d), Now checking in Tx path", status);
+                device = pcmDevTxIds.at(0);
+                status = SessionAlsaUtils::getModuleInstanceId(mixer, device,
+                        txAifBackEnds[0].second.data(),
+                        tagId, &miid);
+                sendToRx = 0;
+            }
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to get tag info %x, status = %d", tagId, status);
+                goto skip_ultrasound_gain;
+            }
+
+            PAL_INFO(LOG_TAG, "Found module with TAG_ULTRASOUND_GAIN, miid = 0x%04x", miid);
+            gain = *((pal_ultrasound_gain_t *)payload);
+
+            tkv.clear();
+            tkv.push_back(std::make_pair(TAG_KEY_ULTRASOUND_GAIN, (uint32_t)gain));
+            PAL_INFO(LOG_TAG, "Setting TAG_KEY_ULTRASOUND_GAIN, Value %d\n", gain);
+
+            tagConfig = (struct agm_tag_config*)malloc(sizeof(struct agm_tag_config) +
+                    (tkv.size() * sizeof(agm_key_value)));
+
+            if (!tagConfig) {
+                status = -EINVAL;
+                goto skip_ultrasound_gain;
+            }
+
+            status = SessionAlsaUtils::getTagMetadata(TAG_ULTRASOUND_GAIN, tkv, tagConfig);
+            if (0 != status)
+                goto skip_ultrasound_gain;
+
+            if (sendToRx) {
+                tagCntrlName<<streamPcm<<pcmDevRxIds.at(0)<<setParamTagControl;
+                ctl = mixer_get_ctl_by_name(mixer, tagCntrlName.str().data());
+                if (!ctl) {
+                    PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", tagCntrlName.str().data());
+                    status = -EINVAL;
+                    goto skip_ultrasound_gain;
+                }
+                tkv_size = tkv.size()*sizeof(struct agm_key_value);
+                status = mixer_ctl_set_array(ctl, tagConfig, sizeof(struct agm_tag_config) + tkv_size);
+            } else {
+                tagCntrlName<<streamPcm<<pcmDevTxIds.at(0)<<setParamTagControl;
+                ctl = mixer_get_ctl_by_name(mixer, tagCntrlName.str().data());
+                if (!ctl) {
+                    PAL_ERR(LOG_TAG, "Invalid mixer control: %s\n", tagCntrlName.str().data());
+                    status = -EINVAL;
+                    goto skip_ultrasound_gain;
+                }
+                tkv_size = tkv.size()*sizeof(struct agm_key_value);
+                status = mixer_ctl_set_array(ctl, tagConfig, sizeof(struct agm_tag_config) + tkv_size);
+            }
+
+skip_ultrasound_gain:
+            if (tagConfig)
+                free(tagConfig);
+            if (status)
+                PAL_ERR(LOG_TAG, "Failed to set Ultrasound Gain %d", status);
             return 0;
         }
         default:
