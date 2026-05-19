@@ -447,9 +447,11 @@ cl_init_t ResourceManager::cl_init = NULL;
 cl_deinit_t ResourceManager::cl_deinit = NULL;
 cl_set_boost_state_t ResourceManager::cl_set_boost_state = NULL;
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 void* ResourceManager::feature_stats_handle = NULL;
 afs_init_t ResourceManager::feature_stats_init = NULL;
 afs_deinit_t ResourceManager::feature_stats_deinit = NULL;
+#endif
 
 std::mutex ResourceManager::cvMutex;
 std::queue<card_status_t> ResourceManager::msgQ;
@@ -1601,6 +1603,7 @@ exit:
     return status;
 }
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 void ResourceManager::checkQVAAppPresence(afs_param_payload_t *payload)
 {
     std::ifstream fp;
@@ -1780,6 +1783,7 @@ void ResourceManager::AudioFeatureStatsDeInit()
     feature_stats_init = NULL;
     feature_stats_deinit = NULL;
 }
+#endif
 
 int ResourceManager::initContextManager()
 {
@@ -1855,8 +1859,10 @@ int ResourceManager::init()
     else
         PAL_DBG(LOG_TAG, "Speaker instance not created");
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
     PAL_INFO(LOG_TAG, "Initialize Audio Feature Stats");
     AudioFeatureStatsInit();
+#endif
 
     return 0;
 }
@@ -5119,7 +5125,9 @@ void ResourceManager::deinit()
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
     STUtilsDeinit();
 #endif
+#ifdef AUDIO_FEATURE_STATS_ENABLED
     AudioFeatureStatsDeInit();
+#endif
 
     cvMutex.lock();
     msgQ.push(state);
