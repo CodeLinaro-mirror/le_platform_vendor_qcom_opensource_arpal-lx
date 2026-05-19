@@ -531,20 +531,20 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
     int32_t status = 0;
     pal_param_payload *paramPayload = (pal_param_payload *)payload;
 
-    if (!paramPayload && paramId != PAL_PARAM_ID_SDZ_USER_CUE_ENABLE) {
-        status = -EINVAL;
-        PAL_ERR(LOG_TAG, "Error:%d Invalid payload for param ID: %d",
-                         status, paramId);
-        return status;
-    }
-
     mStreamMutex.lock();
     switch (paramId) {
         case PAL_PARAM_ID_ASR_MODEL: {
+            if (!paramPayload) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Error:%d Invalid payload for param ID: %d",
+                                 status, paramId);
+                break;
+            }
             PAL_VERBOSE(LOG_TAG, "Currently model loading is not supported");
             if (paramPayload->payload_size != sizeof (struct pal_asr_model)) {
                 PAL_ERR(LOG_TAG, "wrong payload size %d", paramPayload->payload_size);
-                return -EINVAL;
+                status = -EINVAL;
+                break;
             }
             struct pal_asr_model *model = (struct pal_asr_model *)paramPayload->payload;
             PAL_INFO(LOG_TAG, "model size %d", model->size);
@@ -552,6 +552,12 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
             break;
         }
         case PAL_PARAM_ID_ASR_CONFIG: {
+            if (!paramPayload) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Error:%d Invalid payload for param ID: %d",
+                                 status, paramId);
+                break;
+            }
             std::shared_ptr<ASREventConfig> evCfg(
                            new ASRSpeechCfgEventConfig(paramPayload->payload));
             status = curState->ProcessEvent(evCfg);
@@ -563,6 +569,12 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
             break;
         }
         case PAL_PARAM_ID_SDZ_SET_USER_CUE: {
+            if (!paramPayload) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Error:%d Invalid payload for param ID: %d",
+                                 status, paramId);
+                break;
+            }
             status = writeToFile(USER_CUE_FILE, paramPayload->payload,
                 paramPayload->payload_size);
             if (status) {
@@ -597,6 +609,12 @@ int32_t StreamASR::setParameters(uint32_t paramId, void *payload)
             break;
         }
         case PAL_PARAM_ID_ASR_SET_PARAM: {
+            if (!paramPayload) {
+                status = -EINVAL;
+                PAL_ERR(LOG_TAG, "Error:%d Invalid payload for param ID: %d",
+                                 status, paramId);
+                break;
+            }
             if (inputConfig) {
                 inputConfig->buf_duration_ms = *(uint32_t*)paramPayload->payload;
                 PAL_INFO(LOG_TAG, "Update ASR input frame size as %d",
