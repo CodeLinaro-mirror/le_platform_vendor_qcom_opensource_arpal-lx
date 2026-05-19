@@ -1416,6 +1416,8 @@
         <ctl name="TX SMIC MUX7" value="SWR_MIC1" />
         <ctl name="TX_AIF2_CAP Mixer DEC7" value="1" />
         <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <ctl name="TX WSA MUX7" value="NO_WSA"/>
+        <ctl name="TX PORT SEL MUX7" value="PORT1"/>
         <path name="qmp2-normal" />
     </path>
 
