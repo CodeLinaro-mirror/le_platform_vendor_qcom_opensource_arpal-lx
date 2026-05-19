@@ -26,8 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ *
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -84,7 +85,7 @@
 #define PARAM_ID_CONN_PROXY_STREAM_INFO   0x080013C3
 #define PARAM_ID_DISPLAY_PORT_INTF_CFG   0x8001154
 
-#define PARAM_ID_USB_AUDIO_INTF_CFG                               0x080010D6
+#define PARAM_ID_USB_AUDIO_INTF_CFG      0x080010D6
 
 /* ID of the Master Gain parameter used by MODULE_ID_VOL_CTRL. */
 #define PARAM_ID_VOL_CTRL_MASTER_GAIN 0x08001035
@@ -4004,6 +4005,7 @@ void PayloadBuilder::payloadSPConfig(uint8_t** payload, size_t* size, uint32_t m
             }
         break;
         case PARAM_ID_SP_OP_MODE :
+        case PARAM_ID_SP_OP_MODE_V5 :
             {
                 param_id_sp_op_mode_t *spConf;
                 param_id_sp_op_mode_t *data;
@@ -4173,6 +4175,7 @@ void PayloadBuilder::payloadSPConfig(uint8_t** payload, size_t* size, uint32_t m
             }
         break;
         case PARAM_ID_CPS_CHANNEL_MAP :
+        case PARAM_ID_CPS_CHANNEL_MAP_V5:
             {
                 param_id_cps_ch_map_t *spConf;
                 param_id_cps_ch_map_t *data;
@@ -5085,4 +5088,98 @@ int PayloadBuilder::freeCustomPayload()
         customPayloadSize = 0;
     }
     return 0;
+}
+
+void PayloadBuilder::payloadCABConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, bt_enc_payload_t *bt_enc_payload)
+{
+    struct apm_module_param_data_t *header = NULL;
+    param_id_congestion_buf_config_t *cong_buff_cfg= NULL;
+    size_t payloadSize = 0, padBytes = 0;
+    uint8_t *payloadInfo = NULL;
+    void *src_data  = NULL;
+
+    if (bt_enc_payload == NULL) {
+        PAL_ERR(LOG_TAG, "null args passed for bt_enc_payload");
+        return;
+    }
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+        sizeof(param_id_congestion_buf_config_t);
+    padBytes    = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = new uint8_t[payloadSize + padBytes]();
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return;
+    }
+
+    header          = (struct apm_module_param_data_t*)payloadInfo;
+    cong_buff_cfg   = (param_id_congestion_buf_config_t*)(payloadInfo +
+            sizeof(struct apm_module_param_data_t));
+
+    header->module_instance_id = miid;
+    header->param_id           = PARAM_ID_CONGESTION_BUF_CONFIG;
+    header->error_code         = 0x0;
+    header->param_size         = payloadSize - sizeof(struct apm_module_param_data_t);
+    PAL_DBG(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
+            header->module_instance_id, header->param_id,
+            header->error_code, header->param_size);
+
+    cong_buff_cfg->sampling_rate = bt_enc_payload->sample_rate;
+    cong_buff_cfg->bit_rate_mode = bt_enc_payload->bitrate_mode;
+    cong_buff_cfg->bit_rate = bt_enc_payload->bitrate;
+    cong_buff_cfg->mtu_size = bt_enc_payload->mtu;
+    cong_buff_cfg->congestion_buffer_duration_ms = bt_enc_payload->congestion_buffer_duration_ms;
+    cong_buff_cfg->delay_buffer_duration_ms = bt_enc_payload->delay_buffer_duration_ms;
+    cong_buff_cfg->frame_size_mode = bt_enc_payload->frame_size_mode;
+    cong_buff_cfg->frame_size_value = bt_enc_payload->frame_size_value;
+
+    *size = (payloadSize + padBytes);
+    *payload = payloadInfo;
+
+    PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo,
+            *size);
+}
+
+void PayloadBuilder::payloadJBMConfig(uint8_t** payload, size_t* size,
+        uint32_t miid, bt_enc_payload_t *bt_enc_payload)
+{
+    struct apm_module_param_data_t *header = NULL;
+    param_id_jitter_buf_config_t *jitter_buff_cfg = NULL;
+    size_t payloadSize = 0, padBytes = 0;
+    uint8_t *payloadInfo = NULL;
+
+    if (bt_enc_payload == NULL) {
+        PAL_ERR(LOG_TAG, "null args passed for bt_enc_payload");
+        return;
+    }
+
+    payloadSize = sizeof(struct apm_module_param_data_t) +
+        sizeof(param_id_jitter_buf_config_t);
+    padBytes    = PAL_PADDING_8BYTE_ALIGN(payloadSize);
+    payloadInfo = new uint8_t[payloadSize + padBytes]();
+    if (!payloadInfo) {
+        PAL_ERR(LOG_TAG, "payloadInfo malloc failed %s", strerror(errno));
+        return;
+    }
+
+    header          = (struct apm_module_param_data_t*)payloadInfo;
+    jitter_buff_cfg   = (param_id_jitter_buf_config_t*)(payloadInfo +
+            sizeof(struct apm_module_param_data_t));
+
+    header->module_instance_id = miid;
+    header->param_id           = PARAM_ID_JITTER_BUF_CONFIG ;
+    header->error_code         = 0x0;
+    header->param_size         = payloadSize - sizeof(struct apm_module_param_data_t);
+    PAL_DBG(LOG_TAG, "header params \n IID:%x param_id:%x error_code:%d param_size:%d",
+            header->module_instance_id, header->param_id,
+            header->error_code, header->param_size);
+
+    jitter_buff_cfg->jitter_allowance_in_ms = bt_enc_payload->jitter_allowance_in_ms;
+
+    *size = (payloadSize + padBytes);
+    *payload = payloadInfo;
+
+    PAL_DBG(LOG_TAG, "customPayload address %pK and size %zu", payloadInfo,
+            *size);
 }

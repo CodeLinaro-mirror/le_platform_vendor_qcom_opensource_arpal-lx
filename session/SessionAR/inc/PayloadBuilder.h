@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -47,6 +47,9 @@
 #include "Stream.h"
 #include "Device.h"
 #include "ResourceManager.h"
+#include "bt_intf.h"
+#include "congestion_buf_api.h"
+#include "jitter_buf_api.h"
 #include "AudioHapticsInterface.h"
 #include "us_tone_renderer_api.h"
 
@@ -298,6 +301,8 @@ public:
     int populateCalKeyVector(Stream *s, std::vector <std::pair<int,int>> &ckv, int tag);
     int populateTagKeyVector(Stream *s, std::vector <std::pair<int,int>> &tkv, int tag, uint32_t* gsltag);
     void payloadTimestamp(std::shared_ptr<std::vector<uint8_t>>& module_payload, size_t *size, uint32_t moduleId);
+    void payloadCABConfig(uint8_t** payload, size_t* size, uint32_t miid, bt_enc_payload_t *bt_enc_payload);
+    void payloadJBMConfig(uint8_t** payload, size_t* size, uint32_t miid, bt_enc_payload_t *bt_enc_payload);
     static int init();
     static void endTag(void *userdata, const XML_Char *tag_name);
     static void startTag(void *userdata, const XML_Char *tag_name, const XML_Char **attr);

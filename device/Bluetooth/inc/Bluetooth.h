@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2023-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -245,10 +245,10 @@ private:
     static audio_sink_open_t                    audio_sink_open;
     static audio_sink_close_t                   audio_sink_close;
 
-    /* member variables */
     uint8_t         a2dpRole;  // source or sink
     enum A2DP_STATE a2dpState;
     bool            isA2dpOffloadSupported;
+    bool            support_bt_audio_pre_init;
     uint32_t        a2dpLatencyMode;
     uint32_t        codecLatency;
 

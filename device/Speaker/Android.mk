@@ -22,7 +22,11 @@ endif
 
 LOCAL_SRC_FILES := \
     src/Speaker.cpp \
-    src/SpeakerProtection.cpp
+    src/SpeakerProtection.cpp \
+    src/SpeakerProtectionwsa883x.cpp \
+    src/SpeakerProtectionwsa884x.cpp \
+    src/SpeakerProtectionwsa885x.cpp \
+    src/SpeakerProtectionwsa885xI2s.cpp
 
 LOCAL_C_INCLUDES += \
     $(LOCAL_PATH)/inc

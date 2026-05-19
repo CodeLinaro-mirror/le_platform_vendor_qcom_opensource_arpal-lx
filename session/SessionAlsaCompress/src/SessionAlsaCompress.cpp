@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
- *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -662,9 +661,26 @@ void SessionAlsaCompress::offloadThreadLoop(SessionAlsaCompress* compressObj)
 
             if (msg && msg->cmd == OFFLOAD_CMD_WAIT_FOR_BUFFER) {
                 if (compressObj->rm->getSoundCardState() == CARD_STATUS_ONLINE) {
-                    PAL_VERBOSE(LOG_TAG, "calling compress_wait");
-                    ret = compress_wait(compressObj->compress, -1);
-                    PAL_VERBOSE(LOG_TAG, "out of compress_wait, ret %d", ret);
+                    unsigned int avail = 0;
+                    struct timespec ts = {0};
+
+                    ret = compress_get_hpointer(compressObj->compress, &avail, &ts);
+                    if (ret == 0) {
+                        PAL_VERBOSE(LOG_TAG,
+                            "pre-compress_wait avail bytes = %llu",
+                            (unsigned long long)avail);
+                    } else {
+                        PAL_INFO(LOG_TAG,
+                            "compress_get_hpointer failed, errno %d", errno);
+                        avail = 0;
+                    }
+
+                    if (avail < compressObj->fragment_size) {
+                        PAL_VERBOSE(LOG_TAG, "calling compress_wait");
+                        ret = compress_wait(compressObj->compress, -1);
+                        PAL_VERBOSE(LOG_TAG, "out of compress_wait, ret %d", ret);
+                    }
+
                     event_id = PAL_STREAM_CBK_EVENT_WRITE_READY;
                     compressObj->command = OFFLOAD_CMD_EXIT;
                 }
@@ -748,6 +764,7 @@ SessionAlsaCompress::SessionAlsaCompress(std::shared_ptr<ResourceManager> Rm)
     streamHandle = NULL;
     ecRefDevId = PAL_DEVICE_OUT_MIN;
     isMixerEventCbRegd = false;
+    fragment_size = 0;
 }
 
 SessionAlsaCompress::~SessionAlsaCompress()
@@ -1390,6 +1407,9 @@ int SessionAlsaCompress::start(Stream * s)
                 PAL_ERR(LOG_TAG, "pluginConfig failed");
                 goto exit;
             }
+
+            fragment_size = compress_config.fragment_size;
+
             break;
         }
         case PAL_AUDIO_INPUT:
@@ -1436,6 +1456,8 @@ int SessionAlsaCompress::start(Stream * s)
                 }
                 capture_started = true;
             }
+
+            fragment_size = compress_config.fragment_size;
 
             break;
         }
