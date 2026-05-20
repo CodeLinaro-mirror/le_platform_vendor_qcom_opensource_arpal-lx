@@ -26,10 +26,10 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
- * SPDX-License-Identifier: BSD-3-Clause-Clear
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause
  */
 
 #define LOG_TAG "PAL: StreamCompress"
@@ -446,6 +446,28 @@ int32_t StreamCompress::start()
     }
 
     if (currentState == STREAM_INIT || currentState == STREAM_STOPPED) {
+        /* Post-start shared-BE convergence for Compress playback:
+        * iterate over active devices and re-run RM device evaluation
+        * after stream start, to resolve routing mismatches caused by
+        * concurrent route decisions and incomplete first-pass convergence.
+        */
+        if (!mDevices.empty()) {
+            for (int32_t i = 0; i < mDevices.size(); ++i) {
+                std::shared_ptr<Device> dev = mDevices[i];
+                struct pal_device devAttr = {};
+                if (dev->getDeviceAttributes(&devAttr, this)) {
+                    PAL_INFO(LOG_TAG, "post-start convergence: failed to get attr for dev %d",
+                             dev->getSndDeviceId());
+                    continue;
+                }
+                mStreamMutex.unlock();
+                if (rm->updateDeviceConfig(&dev, &devAttr, mStreamAttr)) {
+                    PAL_INFO(LOG_TAG, "post-start convergence triggered for dev %d",
+                             dev->getSndDeviceId());
+                }
+                mStreamMutex.lock();
+            }
+        }
         switch (mStreamAttr->direction) {
         case PAL_AUDIO_OUTPUT:
             PAL_VERBOSE(LOG_TAG, "Inside PAL_AUDIO_OUTPUT device count - %zu", mDevices.size());
