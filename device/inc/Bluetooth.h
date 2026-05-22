@@ -128,6 +128,7 @@ class BtA2dp : public Bluetooth
 protected:
     static std::shared_ptr<Device> objRx;
     static std::shared_ptr<Device> objTx;
+    static std::shared_ptr<Device> objBleBroadcastTx;
     BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     pal_param_bta2dp_t param_bt_a2dp;
 
@@ -145,19 +146,19 @@ private:
     static audio_get_enc_config_t               audio_get_enc_config;
     static audio_source_check_a2dp_ready_t      audio_source_check_a2dp_ready;
     static audio_is_tws_mono_mode_enable_t      audio_is_tws_mono_mode_enable;
-    static audio_sink_get_a2dp_latency_t        audio_sink_get_a2dp_latency;
+    audio_sink_get_a2dp_latency_t               audio_sink_get_a2dp_latency;
 
-    static void                                 *bt_lib_sink_handle;
-    static btsink_audio_pre_init_t              btsink_audio_pre_init;
-    static audio_sink_open_t                    audio_sink_open;
-    static audio_sink_close_t                   audio_sink_close;
-    static audio_sink_start_t                   audio_sink_start;
-    static audio_sink_stop_t                    audio_sink_stop;
-    static audio_get_dec_config_t               audio_get_dec_config;
-    static audio_sink_session_setup_complete_t  audio_sink_session_setup_complete;
-    static audio_sink_check_a2dp_ready_t        audio_sink_check_a2dp_ready;
-    static audio_is_scrambling_enabled_t        audio_is_scrambling_enabled;
-    static audio_sink_suspend_t                 audio_sink_suspend;
+    void                                 *bt_lib_sink_handle;
+    btsink_audio_pre_init_t              btsink_audio_pre_init;
+    audio_sink_open_t                    audio_sink_open;
+    audio_sink_close_t                   audio_sink_close;
+    audio_sink_start_t                   audio_sink_start;
+    audio_sink_stop_t                    audio_sink_stop;
+    audio_get_dec_config_t               audio_get_dec_config;
+    audio_sink_session_setup_complete_t  audio_sink_session_setup_complete;
+    audio_sink_check_a2dp_ready_t        audio_sink_check_a2dp_ready;
+    audio_is_scrambling_enabled_t        audio_is_scrambling_enabled;
+    audio_sink_suspend_t                 audio_sink_suspend;
 
     /* member variables */
     uint8_t         a2dpRole;  // source or sink

@@ -196,6 +196,7 @@ static int ble_pack_dec_config(bt_codec_t *codec, void *src, void **dst)
     dec_init->fromAirConfig.num_blocks           = ble_bt_cfg->dec_cfg.fromAirConfig.num_blocks;
     dec_init->fromAirConfig.default_q_level      = ble_bt_cfg->dec_cfg.fromAirConfig.default_q_level;
     dec_init->fromAirConfig.mode                 = ble_bt_cfg->dec_cfg.fromAirConfig.mode;
+
     for (i = 0; i < 16; i++) {
         dec_init->fromAirConfig.vendor_specific[i] =
             ble_bt_cfg->dec_cfg.fromAirConfig.vendor_specific[i];

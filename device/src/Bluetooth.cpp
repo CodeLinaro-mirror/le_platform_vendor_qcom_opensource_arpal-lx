@@ -30,18 +30,21 @@
 #define LOG_TAG "PAL: Bluetooth"
 #include "Bluetooth.h"
 #include "ResourceManager.h"
+#include "cop_v2_packetizer_api.h"
 #include "PayloadBuilder.h"
 #include "Stream.h"
 #include "Session.h"
 #include "SessionAlsaUtils.h"
 #include "Device.h"
 #include "kvh2xml.h"
+#include "SessionGsl.h"
 #include <dlfcn.h>
 #include <unistd.h>
 #include <cutils/properties.h>
 #include <sstream>
 #include <string>
 #include <regex>
+#include <agm/agm_api.h>
 
 #define BT_IPC_SOURCE_LIB "btaudio_offload_if.so"
 #define BT_IPC_SOURCE_LIB_LINUX_EMBEDDED "libbthost_if.so"
@@ -395,6 +398,28 @@ int Bluetooth::configureA2dpEncoderDecoder()
                 goto error;
             } else {
                 builder->payloadRATConfig(&paramData, &paramSize, ratMiid, &codecConfig);
+
+                // --- BLE broadcast RAT channel-map override ---
+                do {
+                    const uint8_t numCh = codecConfig.ch_info.channels;
+                    const size_t hdrSz = sizeof(struct apm_module_param_data_t) +
+                                        sizeof(struct param_id_rat_mf_t);
+                    const size_t needSz = hdrSz + (numCh * sizeof(uint16_t));
+                    if (!paramData || paramSize < needSz) {
+                        break;  // insufficient buffer; skip override
+                    }
+
+                    if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+                        uint16_t* pcmChannel = reinterpret_cast<uint16_t*>(paramData + hdrSz);
+                        if (numCh == 3) {
+                            pcmChannel[2] = PCM_CHANNEL_LS;
+                        } else if (numCh == 4) {
+                            pcmChannel[2] = PCM_CHANNEL_LS;
+                            pcmChannel[3] = PCM_CHANNEL_RS;
+                        }
+                    }
+                } while (0);
+
                 if (paramSize) {
                     dev->updateCustomPayload(paramData, paramSize);
                     free(paramData);
@@ -416,6 +441,29 @@ int Bluetooth::configureA2dpEncoderDecoder()
             }
 
             builder->payloadPcmCnvConfig(&paramData, &paramSize, cnvMiid, &codecConfig, false /* isRx */);
+
+            // --- BLE broadcast PCM CNV channel-map override ---
+            do {
+                const uint8_t numCh = codecConfig.ch_info.channels;
+                const size_t hdrSz = sizeof(struct apm_module_param_data_t) +
+                                    sizeof(struct media_format_t) +
+                                    sizeof(struct payload_pcm_output_format_cfg_t);
+                const size_t needSz = hdrSz + (numCh * sizeof(uint8_t));
+                if (!paramData || paramSize < needSz) {
+                    break;  // insufficient buffer; skip override
+                }
+
+                if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+                    uint8_t* pcmChannel = reinterpret_cast<uint8_t*>(paramData + hdrSz);
+                    if (numCh == 3) {
+                        pcmChannel[2] = PCM_CHANNEL_LS;
+                    } else if (numCh == 4) {
+                        pcmChannel[2] = PCM_CHANNEL_LS;
+                        pcmChannel[3] = PCM_CHANNEL_RS;
+                    }
+                }
+            } while (0);
+
             if (paramSize) {
                 dev->updateCustomPayload(paramData, paramSize);
                 delete [] paramData;
@@ -769,15 +817,22 @@ void Bluetooth::startAbr()
     fbDevice.config.bit_width = BITWIDTH_16;
     fbDevice.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
 
+    if (codecFormat == CODEC_TYPE_LC3) {
+        fbDevice.config.sample_rate = SAMPLINGRATE_96K;
+        ALOGI("Setting Sampling Rate 96k for LC3");
+    } else {
+        fbDevice.config.sample_rate = SAMPLINGRATE_8K;
+    }
+
     if (codecType == DEC) { /* Usecase is TX, feedback device will be RX */
-        fbDevice.id = ((deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ?
+        fbDevice.id = ((deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP || (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST)) ?
             PAL_DEVICE_OUT_BLUETOOTH_A2DP :
             PAL_DEVICE_OUT_BLUETOOTH_SCO);
         dir = RX_HOSTLESS;
         flags = PCM_OUT;
     } else {
         fbDevice.id = ((deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ?
-                       PAL_DEVICE_IN_BLUETOOTH_A2DP :
+                       PAL_DEVICE_IN_BLUETOOTH_BROADCAST :
                        PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET);
         dir = TX_HOSTLESS;
         flags = PCM_IN;
@@ -902,7 +957,7 @@ void Bluetooth::startAbr()
 
         blk = out_buf->blocks[0];
         builder->payloadCustomParam(&paramData, &paramSize,
-                  (uint32_t *)blk->payload, blk->payload_sz, miid, blk->param_id);
+                (uint32_t *)blk->payload, blk->payload_sz, miid, blk->param_id);
 
         codec->close_plugin(codec);
         dlclose(pluginLibHandle);
@@ -914,12 +969,13 @@ void Bluetooth::startAbr()
         }
 
         ret = SessionAlsaUtils::setDeviceCustomPayload(rm, backEndName,
-                paramData, paramSize);
+            paramData, paramSize);
         free(paramData);
         if (ret) {
             PAL_ERR(LOG_TAG, "Error: Dev setParam failed for %d", fbDevice.id);
             goto err_pcm_open;
         }
+
     } else if ((codecFormat == CODEC_TYPE_LC3) && (codecType == ENC)) {
         builder = new PayloadBuilder();
 
@@ -1139,8 +1195,8 @@ int32_t Bluetooth::configureSlimbusClockSrc(void)
 // definition of static BtA2dp member variables
 std::shared_ptr<Device> BtA2dp::objRx = nullptr;
 std::shared_ptr<Device> BtA2dp::objTx = nullptr;
+std::shared_ptr<Device> BtA2dp::objBleBroadcastTx = nullptr;
 void *BtA2dp::bt_lib_source_handle = nullptr;
-void *BtA2dp::bt_lib_sink_handle = nullptr;
 bt_audio_pre_init_t BtA2dp::bt_audio_pre_init = nullptr;
 audio_source_open_t BtA2dp::audio_source_open = nullptr;
 audio_source_close_t BtA2dp::audio_source_close = nullptr;
@@ -1153,25 +1209,24 @@ audio_get_enc_config_t BtA2dp::audio_get_enc_config = nullptr;
 audio_source_check_a2dp_ready_t BtA2dp::audio_source_check_a2dp_ready = nullptr;
 audio_is_tws_mono_mode_enable_t BtA2dp::audio_is_tws_mono_mode_enable = nullptr;
 
-audio_sink_get_a2dp_latency_t BtA2dp::audio_sink_get_a2dp_latency = nullptr;
-audio_sink_start_t BtA2dp::audio_sink_start = nullptr;
-audio_sink_stop_t BtA2dp::audio_sink_stop = nullptr;
-audio_get_dec_config_t BtA2dp::audio_get_dec_config = nullptr;
-audio_sink_session_setup_complete_t BtA2dp::audio_sink_session_setup_complete = nullptr;
-audio_sink_check_a2dp_ready_t BtA2dp::audio_sink_check_a2dp_ready = nullptr;
-audio_is_scrambling_enabled_t BtA2dp::audio_is_scrambling_enabled = nullptr;
-audio_sink_suspend_t BtA2dp::audio_sink_suspend = nullptr;
-btsink_audio_pre_init_t BtA2dp::btsink_audio_pre_init = nullptr;
-audio_sink_open_t BtA2dp::audio_sink_open = nullptr;
-audio_sink_close_t BtA2dp::audio_sink_close = nullptr;
-
-
 BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
       : Bluetooth(device, Rm),
-        a2dpState(A2DP_STATE_DISCONNECTED)
+        a2dpState(A2DP_STATE_DISCONNECTED),
+        bt_lib_sink_handle(nullptr),
+        btsink_audio_pre_init(nullptr),
+        audio_sink_open(nullptr),
+        audio_sink_close(nullptr),
+        audio_sink_start(nullptr),
+        audio_sink_stop(nullptr),
+        audio_get_dec_config(nullptr),
+        audio_sink_session_setup_complete(nullptr),
+        audio_sink_check_a2dp_ready(nullptr),
+        audio_is_scrambling_enabled(nullptr),
+        audio_sink_suspend(nullptr),
+        audio_sink_get_a2dp_latency(nullptr)
 {
-    a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ? SINK : SOURCE;
-    codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ? DEC : ENC;
+    a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? SINK : SOURCE;
+    codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? DEC : ENC;
     pluginHandler = NULL;
     pluginCodec = NULL;
 
@@ -1300,7 +1355,7 @@ void BtA2dp::init_a2dp_sink()
         PAL_DBG(LOG_TAG, "Requesting for BT lib handle");
         bt_lib_sink_handle = dlopen(BT_IPC_SINK_LIB, RTLD_NOW);
 
-        if (bt_lib_sink_handle == nullptr) {
+        if (bt_lib_sink_handle == nullptr || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
 #ifndef LINUX_ENABLED
             // On Mobile LE VoiceBackChannel implemented as A2DPSink Profile.
             // However - All the BT-Host IPC calls are exposed via Source LIB itself.
@@ -1870,6 +1925,38 @@ int32_t BtA2dp::setDeviceParameter(uint32_t param_id, void *param)
         }
         break;
     }
+    case PAL_PARAM_ID_VOICE_ACTIVE_DETECTION:
+    {
+        pal_voice_active_detection_payload *vadPayload =
+            (pal_voice_active_detection_payload *)param;
+
+        bool vad_state = vadPayload->isVadEnabled;
+
+        if (a2dpState == A2DP_STATE_STARTED) {
+            std::shared_ptr<Device> dev = nullptr;
+            Stream *stream = nullptr;
+            Session *session = nullptr;
+            std::vector<Stream*> activeStreams;
+
+            dev = Device::getInstance(&deviceAttr, rm);
+            status = rm->getActiveStream_l(activeStreams, dev);
+            if ((status != 0) || (activeStreams.size() == 0)) {
+                PAL_ERR(LOG_TAG, "No active stream available for COPv2 param");
+                return -EINVAL;
+            }
+
+            stream = static_cast<Stream *>(activeStreams[0]);
+            stream->getAssociatedSession(&session);
+
+            status = session->setParameters(stream, COP_PACKETIZER_V2,
+                                            PAL_PARAM_ID_VOICE_ACTIVE_DETECTION,
+                                            vadPayload);
+            if (status) {
+                PAL_ERR(LOG_TAG, "Failed to set COPv2 acquire stream param, rc=%d", status);
+            }
+        }
+        break;
+    }
     case PAL_PARAM_ID_BT_A2DP_LC3_CONFIG:
     {
         isLC3MonoModeOn = param_a2dp->is_lc3_mono_mode_on;
@@ -1970,8 +2057,10 @@ std::shared_ptr<Device> BtA2dp::getObject(pal_device_id_t id)
 {
     if (id == PAL_DEVICE_OUT_BLUETOOTH_A2DP)
         return objRx;
-    else
+    else if (id == PAL_DEVICE_IN_BLUETOOTH_A2DP)
         return objTx;
+    else
+        return objBleBroadcastTx;
 }
 
 std::shared_ptr<Device>
@@ -1984,6 +2073,13 @@ BtA2dp::getInstance(struct pal_device *device, std::shared_ptr<ResourceManager> 
             objRx = sp;
         }
         return objRx;
+    } else if (device->id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+        if (!objBleBroadcastTx) {
+            PAL_INFO(LOG_TAG, "creating instance for  %d", device->id);
+            std::shared_ptr<Device> sp(new BtA2dp(device, Rm));
+            objBleBroadcastTx = sp;
+        }
+        return objBleBroadcastTx;
     } else {
         if (!objTx) {
             PAL_INFO(LOG_TAG, "creating instance for  %d", device->id);

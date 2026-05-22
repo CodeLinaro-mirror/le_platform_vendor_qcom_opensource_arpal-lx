@@ -254,6 +254,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -300,6 +301,7 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_TELEPHONY_RX,          0},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
+    {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   0},
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -348,6 +350,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -572,6 +575,7 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+    {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   {std::string{ "" }}},
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -1940,6 +1944,7 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             break;
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+        case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
             /*overwride format for a2dp*/
             deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
             break;
@@ -7962,6 +7967,7 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (payload_size == sizeof(pal_param_device_connection_t)) {
                 status = handleDeviceConnectionChange(*device_connection);
                 if (!status && (device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+                    (device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ||
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_A2DP)) {
                     dattr.id = device_connection->id;
                     dev = Device::getInstance(&dattr, rm);
@@ -8381,6 +8387,26 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                         PAL_ERR(LOG_TAG, "set Parameter %d failed\n", param_id);
                         goto exit;
                     }
+                }
+            }
+        }
+        break;
+        case PAL_PARAM_ID_VOICE_ACTIVE_DETECTION:
+        {
+            std::shared_ptr<Device> dev = nullptr;
+            struct pal_device dattr;
+
+            dattr.id = PAL_DEVICE_OUT_BLUETOOTH_A2DP;
+            if (isDeviceAvailable(dattr.id)) {
+                dev = Device::getInstance(&dattr, rm);
+                if (dev) {
+                    status = dev->setDeviceParameter(param_id, param_payload);
+                    if (status) {
+                        PAL_ERR(LOG_TAG, "setParameter for VAD %d failed\n", param_id);
+                        goto exit;
+                    }
+                } else {
+                    PAL_ERR(LOG_TAG, "Device instance not found");
                 }
             }
         }
@@ -8909,6 +8935,7 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
 
         if (device_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
             device_id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
+            device_id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST ||
             isBtScoDevice(device_id)) {
             dAttr.id = device_id;
             /* Stream type is irrelevant here as we need device num channels
@@ -9223,6 +9250,7 @@ bool ResourceManager::isDeviceReady(pal_device_id_t id)
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+        case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
         {
             if (!isDeviceAvailable(id))
                 return is_ready;
@@ -9260,6 +9288,7 @@ bool ResourceManager::isBtDevice(pal_device_id_t id)
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
         case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+        case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
             return true;
         default:
             return false;

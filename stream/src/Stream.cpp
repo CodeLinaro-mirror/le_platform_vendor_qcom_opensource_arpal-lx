@@ -569,9 +569,9 @@ int32_t Stream::getVolumeData(struct pal_volume_data *vData)
     }
 
     if (mVolumeData != NULL) {
-        ar_mem_cpy(vData, sizeof(uint32_t) +
+        ar_mem_cpy(vData, sizeof(struct pal_volume_data) +
                       (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)),
-                      mVolumeData, sizeof(uint32_t) +
+                      mVolumeData, sizeof(struct pal_volume_data) +
                       (sizeof(struct pal_channel_vol_kv) * (mVolumeData->no_of_volpair)));
 
         PAL_DBG(LOG_TAG, "num config %x", (mVolumeData->no_of_volpair));
