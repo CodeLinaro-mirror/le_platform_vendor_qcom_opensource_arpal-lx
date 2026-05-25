@@ -48,8 +48,10 @@
 
 #ifdef __cplusplus
 
+#include <iomanip>
 #include <map>
 #include <string>
+#include <sstream>
 
 extern "C" {
 #endif
@@ -1038,6 +1040,7 @@ typedef enum {
     PAL_PARAM_ID_HAPTICS_MODE = 77,
     PAL_PARAM_ID_WNR_MODE = 90,
     PAL_PARAM_ID_CALL_TRANSLATION_CONFIG = 91,
+    PAL_PARAM_ID_FORCE_RECOGNITION = 100,	
 } pal_param_id_type_t;
 
 /** HDMI/DP */
@@ -1705,7 +1708,14 @@ struct call_translation_config {
     struct pal_asr_config asr_module_config;        /** ASR module config */
 };
 
-enum class PalAddressTag { ID, MAC, IPv4, IPv6, ALSA };
+//enum class PalAddressTag { ID, MAC, IPv4, IPv6, ALSA };
+typedef enum {
+     ID = 0,
+     MAC = 1,
+     IPv4 = 2,
+     IPv6 = 3,
+     ALSA = 4,
+} PalAddressTag;
 
 static PalAddressTag getAddressTag(const pal_device_id_t deviceId) {
     // don't have cases for ipv4/ ipv6 devices, add once have exact usecases.
@@ -1715,7 +1725,8 @@ static PalAddressTag getAddressTag(const pal_device_id_t deviceId) {
         case PAL_DEVICE_IN_USB_ACCESSORY:
         case PAL_DEVICE_IN_USB_DEVICE:
         case PAL_DEVICE_IN_USB_HEADSET:
-            return PalAddressTag::ALSA;
+	    //return PalAddressTag::ALSA;
+            return ALSA;
         case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_OUT_HEARING_AID:
@@ -1724,11 +1735,75 @@ static PalAddressTag getAddressTag(const pal_device_id_t deviceId) {
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_BLE:
-            return PalAddressTag::MAC;
+	    //return PalAddressTag::MAC;
+            return MAC;
         default:
-            return PalAddressTag::ID;
+            //return PalAddressTag::ID;
+	    return ID;
     }
 }
+
+static std::string toString(const pal_device* device) {
+    std::ostringstream oss;
+    auto tag = getAddressTag(device->id);
+    if (deviceNameLUT.find(device->id) != deviceNameLUT.end()) {
+        oss << " " << deviceNameLUT.at(device->id);
+    } else {
+        oss << " Unknown Device";
+        return oss.str();
+    }
+
+    oss << " Address ( ";
+    switch (tag) {
+        case PalAddressTag::ID:
+            oss << "id: " << device->addressV1.id;
+            break;
+        case PalAddressTag::MAC:
+            oss << "mac: ";
+            for (int i = 0; i < 6; ++i) {
+                oss << std::hex << std::setw(2) << std::setfill('0')
+                    << static_cast<int>(device->addressV1.mac[i]);
+                if (i < 5) oss << ":";
+            }
+            oss << std::dec;
+            break;
+        case PalAddressTag::IPv4:
+            oss << " ipv4: ";
+            for (int i = 0; i < 4; ++i) {
+                oss << static_cast<int>(device->addressV1.ipv4[i]);
+                if (i < 3) oss << ".";
+            }
+
+            break;
+        case PalAddressTag::IPv6:
+            oss << " ipv6: ";
+            for (int i = 0; i < 8; ++i) {
+                oss << std::hex << device->addressV1.ipv6[i];
+                if (i < 7) oss << ":";
+            }
+            oss << std::dec;
+            break;
+        case PalAddressTag::ALSA:
+            oss << " alsa: ";
+            for (int i = 0; i < 2; ++i) {
+                oss << device->addressV1.alsa[i];
+                if (i < 1) oss << ":";
+            }
+            break;
+    }
+
+    oss << ")";
+    return oss.str();
+}
+
+typedef struct custom_payload_uc_info_s {
+    pal_stream_type_t pal_stream_type; /**< type of stream to apply the payload param */
+    pal_device_id_t pal_device_id;     /**< type of device to apply the payload param */
+    uint32_t sample_rate;              /**< sample rate of the stream to apply the payload param */
+    uint32_t instance_id;              /**< instance id of the stream */
+    bool streamless;                  /** set to true to create a dummy stream to send command directly to framework */
+}custom_payload_uc_info_t;
+
 
 #define PAL_GENERIC_PLATFORM_DELAY     (29*1000LL)
 #define PAL_DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)
