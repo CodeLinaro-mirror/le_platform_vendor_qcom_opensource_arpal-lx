@@ -3133,7 +3133,7 @@
     </path>
 
     <path name="speaker-mic">
-        <path name="amic3" />
+        <path name="dmic3" />
     </path>
 
     <path name="handset">
@@ -3147,7 +3147,7 @@
     </path>
 
     <path name="handset-mic">
-        <path name="amic1" />
+        <path name="dmic1" />
     </path>
 
     <path name="headphones">
