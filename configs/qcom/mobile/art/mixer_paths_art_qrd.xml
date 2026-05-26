@@ -1067,6 +1067,8 @@
         <ctl name="ADC1_MIXER Switch" value="1" />
         <ctl name="AMIC1_MIXER Switch" value="1" />
         <ctl name="AMIC5_MIXER Switch" value="1" />
+        <ctl name="TX_DEC2 Volume" value="96" />
+        <ctl name="TX_DEC3 Volume" value="96" />
     </path>
 
     <path name="dmic-endfire">
@@ -1226,7 +1228,7 @@
         <ctl name="ADC1_MIXER Switch" value="1" />
         <ctl name="AMIC1_MIXER Switch" value="1" />
         <ctl name="AMIC5_MIXER Switch" value="1" />
-        <!--  AMIC3 top right MIC -->
+        <!--  AMIC4 top left MIC -->
         <ctl name="TX DEC5 MUX" value="SWR_MIC" />
         <ctl name="TX SMIC MUX5" value="SWR_MIC1" />
         <ctl name="TX_AIF1_CAP Mixer DEC5" value="1" />
@@ -1237,6 +1239,9 @@
         <ctl name="ADC2 ChMap" value="SWRM_TX2_CH2" />
         <ctl name="ADC2_MIXER Switch" value="1" />
         <ctl name="AMIC3_MIXER Switch" value="1" />
+        <ctl name="TX_DEC2 Volume" value="96" />
+        <ctl name="TX_DEC3 Volume" value="96" />
+        <ctl name="TX_DEC5 Volume" value="96" />
     </path>
 
     <path name="voice-speaker-tmic">
