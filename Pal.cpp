@@ -43,6 +43,17 @@
 #include "PalCommon.h"
 class Stream;
 
+/**
+ *  Get PAL version in the form of Major and Minor number
+ *  seperated by period.
+ *
+ *  @return the version string in the form of Major and Minor
+ *  e.g '1.0'
+ */
+const char* pal_get_version( ){
+    return PAL_VERSION;
+}
+
 /*
  * enable_gcov - Enable gcov for pal
  *
@@ -1150,7 +1161,7 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id __unused, void *param_payload,
 }
 
 int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
-                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                     void* param_payload, size_t payload_size)
 {
     int32_t status = 0;
@@ -1169,7 +1180,7 @@ int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
 }
 
 int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
-                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
                                     void* param_payload, size_t *payload_size)
 {
     int32_t status = 0;
@@ -1188,14 +1199,14 @@ int32_t pal_stream_get_custom_param(pal_stream_handle_t* handle,
 }
 
 int32_t pal_set_custom_param(custom_payload_uc_info_t* uc_info,
-     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size)
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t payload_size)
 {
     PAL_ERR(LOG_TAG, "error: API: pal_set_custom_param  not implemented");
     return -ENOSYS;
 }
 
 int32_t pal_get_custom_param(custom_payload_uc_info_t* uc_info,
-     char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size)
+    const char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH], void* param_payload, size_t *payload_size)
 {
     PAL_ERR(LOG_TAG, "error: API: pal_get_custom_param  not implemented");
     return -ENOSYS;

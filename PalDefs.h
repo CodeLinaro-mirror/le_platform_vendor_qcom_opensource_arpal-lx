@@ -75,6 +75,8 @@ typedef enum {
     CALL_TRANSLATION_DIR_RX = 2,
 } pal_call_translation_direction;
 
+#define PAL_VERSION "1.0"
+
 /** Audio stream handle */
 typedef uint64_t pal_stream_handle_t;
 

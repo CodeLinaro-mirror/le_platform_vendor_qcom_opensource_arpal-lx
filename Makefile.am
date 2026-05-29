@@ -38,6 +38,7 @@ h_sources = ./stream/inc/Stream.h \
             ./PalAudioRoute.h \
             ./PalCommon.h \
             ./utils/inc/PalRingBuffer.h \
+            ./utils/inc/MetadataParser.h \
             ./utils/inc/SoundTriggerUtils.h
 
 AM_CPPFLAGS := -I ./stream/inc
@@ -75,6 +76,7 @@ pal_sources = ./stream/src/Stream.cpp \
               ./resource_manager/src/ResourceManager.cpp \
               ./Pal.cpp \
               ./utils/src/PalRingBuffer.cpp \
+              ./utils/src/MetadataParser.cpp \
               ./utils/src/SoundTriggerUtils.cpp
 else
 h_sources = ${top_srcdir}/stream/inc/Stream.h \
@@ -119,6 +121,7 @@ h_sources = ${top_srcdir}/stream/inc/Stream.h \
             ${top_srcdir}/utils/inc/SoundTriggerUtils.h \
             ${top_srcdir}/utils/inc/SoundTriggerPlatformInfo.h \
             ${top_srcdir}/utils/inc/ChargerListener.h \
+            ${top_srcdir}/utils/inc/MetadataParser.h \
             ${top_srcdir}/context_manager/inc/ContextManager.h
 
 AM_CPPFLAGS := -I $(top_srcdir)/stream/inc
@@ -177,6 +180,7 @@ pal_sources = ${top_srcdir}/stream/src/Stream.cpp \
               ${top_srcdir}/utils/src/PalRingBuffer.cpp \
               ${top_srcdir}/utils/src/SoundTriggerUtils.cpp \
               ${top_srcdir}/utils/src/SoundTriggerPlatformInfo.cpp \
+              $(top_srcdir)/utils/src/MetadataParser.cpp \
               ${top_srcdir}/context_manager/src/ContextManager.cpp \
               ${top_srcdir}/stream/src/StreamNonTunnel.cpp \
               ${top_srcdir}/stream/src/StreamACD.cpp \
