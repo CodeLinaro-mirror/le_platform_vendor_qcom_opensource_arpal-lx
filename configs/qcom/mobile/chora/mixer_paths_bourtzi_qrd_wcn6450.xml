@@ -326,10 +326,9 @@
         <ctl name="WSA RX0 MUX" value="AIF1_PB" />
         <ctl name="WSA_RX0 INP0" value="RX0" />
         <ctl name="WSA_COMP1 Switch" value="1" />
-        <ctl name="SpkrRight COMP Switch" value="1" />
-        <ctl name="SpkrRight BOOST Switch" value="1" />
-        <ctl name="SpkrRight VISENSE Switch" value="1" />
-        <ctl name="SpkrRight SWR DAC_Port Switch" value="1" />
+        <ctl name="SpkrLeft COMP Switch" value="1" />
+        <ctl name="SpkrLeft VISENSE Switch" value="1" />
+        <ctl name="SpkrLeft SWR DAC_Port Switch" value="1" />
     </path>
 
     <path name="haptics-dev">
@@ -349,16 +348,14 @@
        <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="1" />
     </path>
 
-    <path name="speaker-mono-2-vbat">
-       <path name="speaker-mono-2" />
-       <ctl name="WSA_RX INT1 VBAT WSA RX0 VBAT Enable" value="1" />
-    </path>
+   <path name="speaker-mono-2-vbat">
+        <path name="speaker-mono-vbat" />
+   </path>
 
-    <path name="speaker-vbat">
+   <path name="speaker-vbat">
        <path name="speaker" />
        <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="1" />
-       <ctl name="WSA_RX INT1 VBAT WSA RX1 VBAT Enable" value="1" />
-    </path>
+   </path>
 
     <path name="speaker-hdk">
         <path name="speaker-mono" />
@@ -433,8 +430,17 @@
 
     <path name="speaker-protected">
         <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
         <path name="speaker" />
+    </path>
+
+    <path name="speaker-prot">
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
+        <path name="speaker" />
+    </path>
+
+    <path name="speaker-mono-2-prot">
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
+        <path name="speaker-mono" />
     </path>
 
     <path name="voice-speaker-protected">
@@ -443,8 +449,7 @@
     </path>
 
     <path name="voice-speaker-2-protected">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
-        <path name="speaker-mono-2" />
+        <path name="voice-speaker-protected" />
     </path>
 
     <path name="voice-speaker-stereo-protected">
@@ -454,7 +459,6 @@
     <path name="speaker-protected-vbat">
         <path name="speaker-protected" />
         <ctl name="WSA_RX INT0 VBAT WSA RX0 VBAT Enable" value="1" />
-        <ctl name="WSA_RX INT1 VBAT WSA RX1 VBAT Enable" value="1" />
     </path>
 
     <path name="voice-speaker-protected-vbat">
@@ -464,7 +468,6 @@
 
     <path name="voice-speaker-2-protected-vbat">
         <path name="voice-speaker-2-protected" />
-        <ctl name="WSA_RX INT1 VBAT WSA RX1 VBAT Enable" value="1" />
     </path>
 
     <path name="voice-speaker-stereo-protected-vbat">
@@ -476,11 +479,11 @@
     </path>
 
     <path name="vi-feedback-mono-1">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
+        <path name="vi-feedback" />
     </path>
 
     <path name="vi-feedback-mono-2">
-        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_2" value="1" />
+        <path name="vi-feedback" />
     </path>
 
     <path name="handset">
