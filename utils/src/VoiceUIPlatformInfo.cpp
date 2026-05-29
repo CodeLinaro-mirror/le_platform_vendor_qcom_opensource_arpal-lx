@@ -150,17 +150,6 @@ void VUIFirstStageConfig::HandleStartTag(const char *tag, const char **attribs)
             }
             ++i;
         }
-    } else if (!strcmp(tag, "kvpair")) {
-        uint32_t key = 0, value = 0;
-        if (strcmp(attribs[0], "key") || strcmp(attribs[2], "value")) {
-            PAL_ERR(LOG_TAG, "stream key/value not found");
-            return;
-        }
-        key = strtoul(attribs[1], NULL, 0);
-        value = strtoul(attribs[3], NULL, 0);
-        stream_config_ = std::make_pair(key, value);
-        PAL_DBG(LOG_TAG, "stream_config_, key = %x, value = %x, %x",
-            value, stream_config_.first, stream_config_.second);
     } else {
         PAL_ERR(LOG_TAG, "Invalid tag %s", tag);
     }
@@ -174,7 +163,7 @@ VUIStreamConfig::VUIStreamConfig() :
     client_capture_read_delay_(2000),
     pre_roll_duration_(0),
     supported_first_stage_engine_count_(1),
-    enable_concurrent_event_capture_(false),
+    enable_intra_concurrent_detection_(false),
     curr_child_(nullptr)
 {
     ext_det_prop_list_.clear();
@@ -328,8 +317,8 @@ void VUIStreamConfig::HandleStartTag(const char* tag, const char** attribs)
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "pdk_first_stage_max_engine_count")) {
                 supported_first_stage_engine_count_ = std::stoi(attribs[++i]);
-            } else if (!strcmp(attribs[i], "enable_concurrent_event_capture")) {
-                enable_concurrent_event_capture_ =
+            } else if (!strcmp(attribs[i], "enable_intra_va_engine_concurrent_detection")) {
+                enable_intra_concurrent_detection_ =
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "capture_keyword")) {
                 capture_keyword_ = std::stoi(attribs[++i]);
@@ -406,6 +395,7 @@ VoiceUIPlatformInfo::VoiceUIPlatformInfo() :
     enable_failure_detection_(false),
     transit_to_non_lpi_on_charging_(false),
     notify_second_stage_failure_(false),
+    enable_inter_concurrent_detection_(true),
     mmap_enable_(false),
     mmap_buffer_duration_(0),
     mmap_frame_length_(0),
@@ -482,6 +472,9 @@ void VoiceUIPlatformInfo::HandleStartTag(const char* tag, const char** attribs)
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "notify_second_stage_failure")) {
                 notify_second_stage_failure_ =
+                    !strncasecmp(attribs[++i], "true", 4) ? true : false;
+            } else if (!strcmp(attribs[i], "enable_inter_va_engine_concurrent_detection")) {
+                enable_inter_concurrent_detection_ =
                     !strncasecmp(attribs[++i], "true", 4) ? true : false;
             } else if (!strcmp(attribs[i], "mmap_enable")) {
                 mmap_enable_ =

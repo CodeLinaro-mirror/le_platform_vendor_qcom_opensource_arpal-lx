@@ -150,8 +150,6 @@ public:
     static bool GetConcurrentVoiceCallEnable() { return concurrent_voice_call_; }
     static bool GetConcurrentVoipCallEnable() { return concurrent_voip_call_; }
     static bool GetLowLatencyBargeinEnable() { return low_latency_bargein_enable_; }
-    static bool GetDedicatedSvaPath() { return dedicated_sva_path_; }
-    static bool GetDedicatedHeadsetPath() { return dedicated_headset_path_; }
 
     /* reads capture profile names into member variables */
     void ReadCapProfileNames(StOperatingModes mode, const char **attribs, st_op_modes_t& op_modes);
@@ -167,8 +165,6 @@ private:
     static bool concurrent_voice_call_;
     static bool concurrent_voip_call_;
     static bool low_latency_bargein_enable_;
-    static bool dedicated_sva_path_;
-    static bool dedicated_headset_path_;
     static std::shared_ptr<SoundTriggerPlatformInfo> me_;
     st_cap_profile_map_t capture_profile_map_;
     std::shared_ptr<SoundTriggerXml> curr_child_;

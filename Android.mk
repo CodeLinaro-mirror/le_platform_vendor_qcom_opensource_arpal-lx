@@ -31,6 +31,7 @@ LOCAL_VENDOR_MODULE := true
 LOCAL_CFLAGS        := -D_ANDROID_
 LOCAL_CFLAGS        += -Wno-macro-redefined
 LOCAL_CFLAGS        += -Wall -Werror -Wno-unused-variable -Wno-unused-parameter
+LOCAL_CFLAGS        += -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 LOCAL_CFLAGS        += -DCONFIG_GSL
 LOCAL_CFLAGS        += -D_GNU_SOURCE
 LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR
@@ -165,7 +166,8 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_ext_ec \
         libdev_ec_ref \
         libdev_hfpdownlink \
-        libdev_hfpuplink
+        libdev_hfpuplink \
+        libdev_eavb
 endif #end of static compilation
 
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun), true)
@@ -182,7 +184,7 @@ LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinycompress
-ifneq (,$(filter gen5_gvm gen5_gvm_gy, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)))
+ifneq (,$(filter gen4_gvm_gy gen5_gvm gen5_gvm_gy auto_gen_prime, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
 LOCAL_CFLAGS           += -DUSE_TINYALSA_NEW
 LOCAL_SHARED_LIBRARIES += libtinyalsav2
 else

@@ -19,9 +19,11 @@ std::vector<pm_item_t> PluginManager::registeredStreams = {};
 std::vector<pm_item_t> PluginManager::registeredSessions = {};
 std::vector<pm_item_t> PluginManager::registeredDevices = {};
 std::vector<pm_item_t> PluginManager::registeredControls = {};
+std::vector<pm_item_t> PluginManager::registeredSoundModels = {};
 
 #define XML_PATH_MAX_LENGTH 100
 #define PLUGIN_MANAGER_FILENAME "plugin_manager.xml"
+#define AR_PLUGIN_MANAGER_VENDOR_PATH "/vendor/etc/audio_ar"
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
 char pimngr_xml_file[XML_PATH_MAX_LENGTH] = {0};
 char pimngr_vendor_config_path[VENDOR_CONFIG_PATH_MAX_LENGTH] = {0};
@@ -33,6 +35,7 @@ static const std::map<std::string, pal_plugin_manager_t> PmNameToType
     { "device",  PAL_PLUGIN_MANAGER_DEVICE},
     { "config",  PAL_PLUGIN_MANAGER_CONFIG},
     { "control",  PAL_PLUGIN_MANAGER_CONTROL},
+    { "sound_model",  PAL_PLUGIN_MANAGER_SOUND_MODEL},
 };
 
 struct xml_userdata {
@@ -42,7 +45,14 @@ struct xml_userdata {
 };
 
 PluginManager::PluginManager() {
-        getVendorConfigPath(pimngr_vendor_config_path, sizeof(pimngr_vendor_config_path));
+        char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
+        property_get("ro.boot.audio", audio_boot_prop, "");
+        if (strcmp(audio_boot_prop, "ar") == 0) {
+            strlcpy(pimngr_vendor_config_path, AR_PLUGIN_MANAGER_VENDOR_PATH,
+                sizeof(pimngr_vendor_config_path));
+        } else {
+            getVendorConfigPath(pimngr_vendor_config_path, sizeof(pimngr_vendor_config_path));
+        }
         snprintf(pimngr_xml_file, sizeof(pimngr_xml_file),
             "%s/%s", pimngr_vendor_config_path, PLUGIN_MANAGER_FILENAME);
         XmlParser(pimngr_xml_file);
@@ -85,6 +95,9 @@ int32_t PluginManager::getRegisteredPluginList(pal_plugin_manager_t type, std::v
         case PAL_PLUGIN_MANAGER_CONTROL:
             *pluginList = &registeredControls;
             break;
+        case PAL_PLUGIN_MANAGER_SOUND_MODEL:
+            *pluginList = &registeredSoundModels;
+            break;
         default:
             PAL_ERR(LOG_TAG, "unsupported Plugin type %d", type);
             status = -EINVAL;
@@ -114,6 +127,7 @@ int32_t PluginManager::registeredPlugin(pm_item_t item, pal_plugin_manager_t typ
         }
         if (!foundLib){
             PAL_ERR(LOG_TAG, "%s registered", item.libName.c_str());
+            item.refCount = 0;
             pluginList->push_back(item);
         }
 
@@ -139,7 +153,7 @@ int32_t PluginManager::openPlugin(pal_plugin_manager_t type, std::string keyName
                 if(!item.refCount){
                     try {
                         PAL_DBG(LOG_TAG, "Opening lib %s", item.libName.c_str());
-                        item.handle = dlopen(item.libName.c_str(), RTLD_LAZY);
+                        item.handle = dlopen(item.libName.c_str(),RTLD_NOW | RTLD_GLOBAL);
                         if (item.handle) {
                             item.plugin = (dlsym(item.handle, item.entryFunction.c_str()));
                             if (!item.plugin) {
@@ -219,7 +233,7 @@ int32_t  PluginManager::closePlugin(pal_plugin_manager_t type, std::string keyNa
 
 // Callback function for handling start elements
 void PluginManager::startElement(void* userData, const char* name, const char** attrs) {
-    if (strcmp(name, "stream") == 0 || strcmp(name, "session") == 0 || strcmp(name, "device") == 0) {
+    if (strcmp(name, "stream") == 0 || strcmp(name, "session") == 0 || strcmp(name, "device") == 0 || strcmp(name, "sound_model") == 0) {
         pm_item_t item;
         // std::string stream;
         PAL_DBG(LOG_TAG, "enter");

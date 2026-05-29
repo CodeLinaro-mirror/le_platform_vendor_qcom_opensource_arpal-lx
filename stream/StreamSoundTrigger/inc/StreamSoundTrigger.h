@@ -43,6 +43,9 @@
 #include "VoiceUIPlatformInfo.h"
 #include "detection_cmn_api.h"
 #include "mma_api.h"
+#include "VoiceUIInterface.h"
+
+using InstanceListNode_t = std::vector<std::pair<int32_t, bool>>;
 
 enum {
     ENGINE_IDLE  = 0x0,
@@ -574,6 +577,8 @@ private:
     SoundModelInfo* sm_info_;
     std::vector<std::shared_ptr<EngineCfg>> engines_;
     std::shared_ptr<SoundTriggerEngine> gsl_engine_;
+    int32_t GetVUIInterface(struct vui_intf_t *intf, vui_intf_param_t *model);
+    int32_t ReleaseVUIInterface(struct vui_intf_t *intf);
     std::shared_ptr<VoiceUIInterface> vui_intf_;
     struct vui_intf_t vui_intf_handle_;
 

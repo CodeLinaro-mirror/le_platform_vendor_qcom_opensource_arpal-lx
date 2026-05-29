@@ -309,7 +309,7 @@ struct mixer_ctl *SessionAlsaUtils::getFeMixerControl(struct mixer *am, std::str
     PAL_DBG(LOG_TAG, "mixer control %s", cntrlName.str().data());
     ctl = mixer_get_ctl_by_name(am, cntrlName.str().data());
     if (!ctl)
-        PAL_FATAL(LOG_TAG, "invalid mixer control: %s", cntrlName.str().data());
+        PAL_ERR(LOG_TAG, "invalid mixer control: %s", cntrlName.str().data());
 
     return ctl;
 }
@@ -378,6 +378,13 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         goto exit;
     }
 
+    if(sAttr.type == PAL_STREAM_EAVB_CAPTURE)
+    {
+        PAL_ERR(LOG_TAG, "Skipping payload building for eavb capture");
+        goto skip_kv1;
+
+    }
+
     if (sAttr.type != PAL_STREAM_VOICE_CALL_RECORD && sAttr.type != PAL_STREAM_VOICE_CALL_MUSIC) {
         status = streamHandle->getAssociatedDevices(associatedDevices);
         if (0 != status) {
@@ -433,6 +440,9 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             goto exit;
         }
     }
+
+skip_kv1:
+
     status = rmHandle->getVirtualAudioMixer(&mixerHandle);
     if (mixerHandle == nullptr) {
         PAL_ERR(LOG_TAG, "mixerHandle is null");
@@ -460,6 +470,12 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
 
     for (std::vector<std::pair<int32_t, std::string>>::const_iterator be = BackEnds.begin();
            be != BackEnds.end(); ++be) {
+
+        if (sAttr.type == PAL_STREAM_EAVB_CAPTURE) {
+            PAL_INFO(LOG_TAG, "Stream type is EAVB, Skipping payload building step");
+            goto skip_kv;
+        }
+
         if ((status = builder->populateDeviceKV(streamHandle, be->first, deviceKV)) != 0) {
             PAL_ERR(LOG_TAG, "get device KV failed %d", status);
             goto freeStreamMetaData;
@@ -559,6 +575,7 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
                 goto freeMetaData;
             }
         }
+skip_kv:
         beMetaDataMixerCtrl = SessionAlsaUtils::getBeMixerControl(mixerHandle, be->second, BE_METADATA);
         if (!beMetaDataMixerCtrl) {
             PAL_FATAL(LOG_TAG, "invalid mixer control: %s %s", be->second.data(),
@@ -1461,6 +1478,12 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
             PAL_ERR(LOG_TAG, "get sidetone mode failed");
         }
     }
+
+    if (sAttr.type == PAL_STREAM_EAVB_CAPTURE) {
+        PAL_ERR(LOG_TAG, "skipping kv fetching for eavb usecase");
+        goto skip_kv;
+    }
+
     // get streamKV
     if ((status = builder->populateStreamKV(streamHandle, streamRxKV,
                     streamTxKV, vsidinfo)) != 0) {
@@ -1611,6 +1634,8 @@ int SessionAlsaUtils::open(Stream * streamHandle, std::shared_ptr<ResourceManage
         rxFeName << PCM_SND_DEV_NAME_PREFIX << RxDevIds.at(0);
         txFeName << PCM_SND_DEV_NAME_PREFIX << TxDevIds.at(0);
     }
+
+skip_kv:
 
     for (i = FE_CONTROL; i <= FE_CONNECT; ++i) {
         rxFeMixerCtrls[i] = SessionAlsaUtils::getFeMixerControl(mixerHandle, rxFeName.str(), i);

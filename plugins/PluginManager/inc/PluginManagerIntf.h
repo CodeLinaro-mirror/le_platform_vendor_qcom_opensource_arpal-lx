@@ -23,6 +23,7 @@ typedef enum {
     PAL_PLUGIN_MANAGER_DEVICE,
     PAL_PLUGIN_MANAGER_CONTROL,
     PAL_PLUGIN_MANAGER_CONFIG,
+    PAL_PLUGIN_MANAGER_SOUND_MODEL,
 } pal_plugin_manager_t;
 
 typedef enum {
@@ -39,6 +40,9 @@ typedef enum{
     PLUGIN_CONTROL_KV_PARAM,
     PLUGIN_CONTROL_MAX,
 } plugin_control_name_t;
+
+class StreamSoundTrigger;
+class SoundTriggerEngine;
 
 /*stream plugin entry function typedef*/
 typedef Stream* (*StreamCreate)(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
@@ -68,5 +72,11 @@ typedef int (*pluginGetControl) (Stream* s, plugin_control_name_t control,
 /*config plugin entrypoint*/
 typedef int (*pluginConfig) (Session* s, plugin_config_name_t config,
                              void *payload, size_t payload_size);
+
+typedef SoundTriggerEngine* (*EngineCreate)(
+    StreamSoundTrigger *s,
+    listen_model_indicator_enum type,
+    st_module_type_t module_type,
+    std::shared_ptr<VUIStreamConfig> sm_cfg);
 
 #endif /* _PLUGIN_MANAGER_INTF_H_ */

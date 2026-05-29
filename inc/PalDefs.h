@@ -343,6 +343,7 @@ typedef enum {
     PAL_STREAM_ASR = 30,                  /**< ASR Stream */
     PAL_STREAM_PLAYBACK_BUS = 31,         /**< PLAYBACK BUS type pal streams */
     PAL_STREAM_CAPTURE_BUS = 32,          /**< CAPTURE BUS type pal streams */
+    PAL_STREAM_EAVB_CAPTURE = 33,         /**< EAVB CAPTURE BUS type pal streams */
     PAL_STREAM_MAX,                       /**< max stream types - add new ones above */
 } pal_stream_type_t;
 
@@ -414,8 +415,9 @@ typedef enum {
     PAL_DEVICE_IN_A2B_MIC = PAL_DEVICE_IN_MIN + 29,
     PAL_DEVICE_IN_A2B2_MIC = PAL_DEVICE_IN_MIN + 30,
     PAL_DEVICE_IN_BLUETOOTH_SCO2_HEADSET = PAL_DEVICE_IN_MIN + 31,
+    PAL_DEVICE_IN_EAVB = PAL_DEVICE_IN_MIN + 32,
     // Add new IN devices here, increment MAX and MIN below when you do so
-    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 32,
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 33,
 } pal_device_id_t;
 
 enum A2DP_STATE {
@@ -812,6 +814,8 @@ typedef enum {
     PAL_PARAM_ID_PLUGIN_CLOSE = 89,
     PAL_PARAM_ID_SET_HFP_ZONE = 90,
     PAL_PARAM_ID_ASRC = 91,
+    PAL_PARAM_ID_RENDER_ZONE = 92,
+    PAL_PARAM_ID_CAPTURE_ZONE = 93,
     PAL_PARAM_ID_MAX,
 } pal_param_id_type_t;
 

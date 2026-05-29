@@ -6,6 +6,7 @@ LOCAL_MODULE := libplugin_manager
 LOCAL_MODULE_OWNER := qti
 LOCAL_VENDOR_MODULE := true
 
+LOCAL_CFLAGS   += -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 LOCAL_CPPFLAGS += -fexceptions
 
 ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
@@ -93,13 +94,14 @@ ifeq ($(USE_PAL_STATIC_LINKING_MODULES),true)
         libdev_usb_headers \
         libdev_hfpdownlink_headers \
         libdev_hfpuplink_headers \
+        libdev_eavb_headers \
 
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
 LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libtinycompress
-ifneq (,$(filter gen5_gvm gen5_gvm_gy, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)))
+ifneq (,$(filter gen4_gvm_gy gen5_gvm gen5_gvm_gy auto_gen_prime, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
 LOCAL_SHARED_LIBRARIES += libtinyalsav2
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa

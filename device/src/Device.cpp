@@ -338,6 +338,12 @@ void Device::getCurrentSndDevName(char *name){
 
 std::string Device::getPALDeviceName()
 {
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "rm is NULL");
+        return "";
+    }
+
+    mPALDeviceName = rm->getPALDeviceName(this->deviceAttr.id);
     PAL_VERBOSE(LOG_TAG, "Device name %s acquired", mPALDeviceName.c_str());
     return mPALDeviceName;
 }
