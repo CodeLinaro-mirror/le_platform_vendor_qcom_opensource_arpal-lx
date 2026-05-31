@@ -22,6 +22,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <stream name="PAL_STREAM_NON_TUNNEL" lib="libstream_nontunnel.so" entryFunction="CreateNonTunnelStream"/>
         <stream name="PAL_STREAM_PLAYBACK_BUS" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
         <stream name="PAL_STREAM_CAPTURE_BUS" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
+        <stream name="PAL_STREAM_EAVB_CAPTURE" lib="libstream_pcm.so" entryFunction="CreatePCMStream"/>
     </streams>
     <sessions>
         <session name="PAL_STREAM_DEEP_BUFFER" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
@@ -38,6 +39,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <session name="PAL_STREAM_NON_TUNNEL" lib="libsession_agm.so" entryFunction="CreateAgmSession"/>
         <session name="PAL_STREAM_PLAYBACK_BUS" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
         <session name="PAL_STREAM_CAPTURE_BUS" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
+        <session name="PAL_STREAM_EAVB_CAPTURE" lib="libsession_pcm.so" entryFunction="CreatePcmSession"/>
     </sessions>
     <devices>
         <!--Handset-->
@@ -58,6 +60,8 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!--FM-->
         <device name="PAL_DEVICE_OUT_FM" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
         <device name="PAL_DEVICE_IN_FM_TUNER" lib="libdev_fm.so" entryFunction="CreateFmDevice"/>
+	<!--EAVB-->
+        <device name="PAL_DEVICE_IN_EAVB" lib="libdev_eavb.so" entryFunction="CreateEavbDevice"/>
         <!--Dummy-->
         <device name="PAL_DEVICE_OUT_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
         <device name="PAL_DEVICE_IN_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
