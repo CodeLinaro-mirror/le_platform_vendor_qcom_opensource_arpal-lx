@@ -436,6 +436,8 @@ class StreamASR : public Stream {
     int32_t storeModelToFile(int32_t fd, std::string path, uint32_t size);
     int32_t deleteModelFile(std::string path);
     int32_t writeToFile(std::string path, void *mapAddr, size_t size);
+    int32_t CacheEventData(struct eventPayload event);
+    int32_t HandleSSREvent();
     /* Currently model is not loaded from HLOS, hence using this hardcoded UUID,
      * Later when loading is supported, we need to remove it from here, and
      * get it from model, to check which sm_config it supports to
@@ -456,6 +458,7 @@ class StreamASR : public Stream {
     uint64_t cookie;
     std::map<uint32_t, ASRState*> asrStates;
     struct pal_asr_config *palRecConfig;
+    struct eventPayload *ssrPayload;
     param_id_asr_config_t *recConfig;
     param_id_asr_output_config_t *outputConfig;
     param_id_asr_input_threshold_t *inputConfig;
