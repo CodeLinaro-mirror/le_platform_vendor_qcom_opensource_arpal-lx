@@ -971,6 +971,11 @@ int reconfigureSession(Stream* s, PayloadBuilder* builder, uint32_t vsid, pal_st
         if (0 != status) {
             PAL_ERR(LOG_TAG,"populating channel info for TX Failed..skipping:%d", status);
         }
+        status = populate_rx_mfc_payload(s, TAG_MFC_SIDETONE, builder);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "populating sidetone mfc payload for TX Failed..skipping:%d", status);
+            status = 0;
+        }
     }
 
     builder->getCustomPayload(&payload, &payloadSize);
