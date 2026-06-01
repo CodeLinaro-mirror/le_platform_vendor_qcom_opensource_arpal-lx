@@ -15,7 +15,18 @@
 extern "C" Stream* CreateSensorRendererStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    return new StreamSensorRenderer(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
+    StreamSensorRenderer* stream = new(std::nothrow) StreamSensorRenderer(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream) {
+        if (stream->isInitialized()) {
+            return stream;
+        } else {
+            delete stream;
+        }
+    }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    return nullptr;
 }
 
 StreamSensorRenderer::StreamSensorRenderer(const struct pal_stream_attributes *sattr __unused, struct pal_device *dattr __unused,
@@ -23,11 +34,17 @@ StreamSensorRenderer::StreamSensorRenderer(const struct pal_stream_attributes *s
                     const uint32_t no_of_modifiers __unused, const std::shared_ptr<ResourceManager> rm):
                   StreamCommon(sattr,dattr,no_of_devices,modifiers,no_of_modifiers,rm)
 {
+    if (!isInitialized()) {
+        return;
+    }
     rm->registerStream(this);
 }
 
 StreamSensorRenderer::~StreamSensorRenderer()
 {
+    if (!isInitialized()) {
+        return;
+    }
     rm->resetStreamInstanceID(this);
     rm->deregisterStream(this);
 }
