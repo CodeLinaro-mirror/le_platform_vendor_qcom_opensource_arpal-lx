@@ -33,7 +33,7 @@
 <defs>
 <card>
     <id>100</id>
-    <name>volcanovirtualsndcard</name>
+    <name>volcano6imtpwsa</name>
 
     <pcm-device>
         <id>100</id>
@@ -381,6 +381,19 @@
         <props>
             <playback>1</playback>
             <capture>0</capture>
+            <session_mode>0</session_mode>
+        </props>
+    </pcm-device>
+
+    <pcm-device>
+        <id>127</id>
+        <name>PCM127</name>
+        <pcm_plugin>
+            <so-name>libagm_pcm_plugin.so</so-name>
+        </pcm_plugin>
+        <props>
+            <playback>0</playback>
+            <capture>1</capture>
             <session_mode>0</session_mode>
         </props>
     </pcm-device>
