@@ -44,7 +44,7 @@ libplugin_manager_la_SOURCES   = $(plugin_manager_sources)
 libplugin_manager_la_LIBADD    = @GLIB_LIBS@ -lexpat
 libplugin_manager_la_CPPFLAGS := $(AM_CPPFLAGS)
 libplugin_manager_la_CPPFLAGS += -std=c++14 -fPIC
-libplugin_manager_la_LDFLAGS   = --disable-shared -avoid-version
+libplugin_manager_la_LDFLAGS   = -static -avoid-version
 libplugin_manager_la_CPPFLAGS += @GLIB_CFLAGS@  -include glib.h
 libplugin_manager_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libplugin_manager_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DLINUX_ENABLED
