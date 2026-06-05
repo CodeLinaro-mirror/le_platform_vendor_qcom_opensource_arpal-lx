@@ -367,6 +367,11 @@
         <path name="speaker-mono" />
     </path>
 
+    <path name="speaker-mono-1-prot">
+        <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
+        <path name="speaker-mono" />
+    </path>
+
     <path name="voice-speaker-protected">
         <ctl name="WSA_AIF_VI Mixer WSA_SPKR_VI_1" value="1" />
         <path name="speaker-mono" />
