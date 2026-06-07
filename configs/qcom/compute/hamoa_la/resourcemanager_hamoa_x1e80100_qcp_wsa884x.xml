@@ -1906,6 +1906,11 @@
                 <param vendor_uuid="68ab2d40-e860-11e3-95ef-0002a5d5c51b" />
                 <param interface_plugin_lib="sva_plugin.so" />
                 <param merge_first_stage_sound_models="false" />
+		        <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
+
                 <!-- Property for extended detection payload, disabled by default -->
                 <!-- OEM can enable this by adding properties defined in SoundTriggerUtils.h-->
                 <!-- Example: param detection_property_list="0x10001,0x10002,0x10003,0x10004"-->
@@ -1992,6 +1997,11 @@
                 <param interface_plugin_lib="hotword_plugin.so" />
                 <param get_module_version="false" />
                 <param merge_first_stage_sound_models="false" />
+		        <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
+
                 <param capture_keyword="2000" />
                 <param client_capture_read_delay="2000" />
                 <param kw_start_tolerance="100" />
@@ -2025,6 +2035,11 @@
                 <param vendor_uuid="c51c508a-ee1b-11ec-8ea0-0242ac120002" />
                 <param interface_plugin_lib="customva_plugin.so" />
                 <param merge_first_stage_sound_models="false" />
+		        <param mmap_enable="true" />
+                <param mmap_buffer_duration="5000" />
+                <!-- 5ms duration of data -->
+                <param mmap_frame_length="5" />
+
                 <!-- Profile specific data which the algorithm can support -->
                 <param capture_keyword="2000" /> <!-- Default history buffer length -->
                 <param client_capture_read_delay="2000" /> <!-- reserved buffer duration for rt data -->
