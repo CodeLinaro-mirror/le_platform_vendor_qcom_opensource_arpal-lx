@@ -71,7 +71,7 @@
         <device name="PAL_DEVICE_IN_HANDSET_MIC" lib="libdev_handset_mic.so" entryFunction="CreateHandsetMicDevice"/>
         <device name="PAL_DEVICE_IN_HANDSET_VA_MIC" lib="libdev_handset_va.so" entryFunction="CreateHandsetVaDevice"/>
         <!--Speaker-->
-        <device name="PAL_DEVICE_OUT_SPEAKER" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
+        <device name="PAL_DEVICE_OUT_SPEAKER" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice" exitFunction="ExitSpeakerDevice"/>
         <device name="PAL_DEVICE_IN_SPEAKER_MIC" lib="libdev_speaker_mic.so" entryFunction="CreateSpeakerMicDevice"/>
         <device name="PAL_DEVICE_IN_CPS_FEEDBACK" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
         <device name="PAL_DEVICE_IN_CPS2_FEEDBACK" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
