@@ -643,12 +643,23 @@ int32_t StreamCompress::write(struct pal_buffer *buf)
             currentState);
 
     mStreamMutex.lock();
-    if (rm->cardState == CARD_STATUS_OFFLINE) {
-        status = -ENETRESET;
-        PAL_ERR(LOG_TAG, "Sound Card offline, can not write, status %d",
-                status);
+    // If cached state is not STREAM_IDLE, we are still processing SSR up.
+    if (rm->cardState == CARD_STATUS_OFFLINE || cachedState != STREAM_IDLE) {
+        uint32_t byteWidth = mStreamAttr->out_media_config.bit_width / 8;
+        uint32_t sampleRate = mStreamAttr->out_media_config.sample_rate;
+        uint32_t channelCount = mStreamAttr->out_media_config.ch_info.channels;
+        uint32_t frameSize = byteWidth * channelCount;
+
+        if ((frameSize == 0) || (sampleRate == 0)) {
+            PAL_ERR(LOG_TAG, "frameSize=%d, sampleRate=%d", frameSize, sampleRate);
+            mStreamMutex.unlock();
+            return -EINVAL;
+        }
+        size = buf->size;
+        usleep((uint64_t)size * 1000000 / frameSize / sampleRate);
+        PAL_DBG(LOG_TAG, "Sound card offline or SSR in progress, dropped buffer size - %d", size);
         mStreamMutex.unlock();
-        return status;
+        return size;
     }
 
     // we should allow writes to go through in Open/Start/Pause state as well.
@@ -1165,7 +1176,13 @@ int32_t StreamCompress::ssrDownHandler()
     int32_t status = 0;
 
     mStreamMutex.lock();
-    PAL_DBG(LOG_TAG, "Enter. session handle - %pK state %d", session, currentState);
+    /* Updating cached state here only if it's STREAM_IDLE,
+     * Otherwise we can assume it is updated by hal thread already.
+     */
+    if (cachedState == STREAM_IDLE)
+        cachedState = currentState;
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK state %d cached state %d",
+            session, currentState, cachedState);
 
     if (currentState == STREAM_INIT || currentState == STREAM_STOPPED || currentState == STREAM_OPENED) {
         mStreamMutex.unlock();
@@ -1200,9 +1217,32 @@ exit :
 
 int32_t StreamCompress::ssrUpHandler()
 {
-    /* As Compressed session will be completely closed during SSR down,
-      * during SSR up, a new session either PCM DB or Compressed Session
-      * will be started.
-      */
-    return 0;
+    int32_t status = 0;
+    pal_stream_callback cb = nullptr;
+    uint64_t cbCookie =  0;
+
+    mStreamMutex.lock();
+    PAL_DBG(LOG_TAG, "Enter. session handle - %pK cached state %d",
+            session, cachedState);
+
+    if (cachedState != STREAM_IDLE) {
+        getCallBack(&cb);
+        cbCookie = cookie;
+        cachedState = STREAM_IDLE;
+    }
+    mStreamMutex.unlock();
+
+    /* PAL cannot restore the compress session itself because codec-specific
+     * parameters (e.g. WMA block_align, encode_option) originally configured
+     * by the upper layer are unknown here. Notify the upper layer via error
+     * callback so it can re-open the stream from scratch with correct config.
+     */
+    if (cb) {
+        PAL_DBG(LOG_TAG, "Notifying upper layer to re-open compress stream");
+        cb(reinterpret_cast<pal_stream_handle_t *>(this),
+           PAL_STREAM_CBK_EVENT_ERROR, nullptr, 0, cbCookie);
+    }
+
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
+    return status;
 }

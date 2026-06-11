@@ -197,8 +197,8 @@ protected:
     size_t outBufCount = NO_OF_BUF;
     size_t outMaxMetadataSz;
     size_t inMaxMetadataSz;
-    stream_state_t currentState;
-    stream_state_t cachedState;
+    stream_state_t currentState = STREAM_IDLE;
+    stream_state_t cachedState = STREAM_IDLE;
     uint32_t mInstanceID = 0;
     static std::condition_variable pauseCV;
     static std::mutex pauseMutex;
@@ -209,8 +209,8 @@ protected:
 public:
     virtual ~Stream() {};
     struct pal_volume_data* mVolumeData = NULL;
-    pal_stream_callback streamCb;
-    uint64_t cookie;
+    pal_stream_callback streamCb = nullptr;
+    uint64_t cookie = 0;
     bool isPaused = false;
     bool a2dpMuted = false;
     bool a2dpPaused = false;
