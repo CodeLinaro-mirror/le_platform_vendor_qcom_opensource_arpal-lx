@@ -172,8 +172,24 @@ void Bluetooth::updateDeviceAttributes()
         break;
     case CODEC_TYPE_APTX_AD_SPEECH:
     case CODEC_TYPE_LC3:
-        deviceAttr.config.sample_rate = SAMPLINGRATE_96K;
-        deviceAttr.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
+    {
+        std::string backEndName;
+        rm->getBackendName(deviceAttr.id, backEndName);
+        bool isMI2SBackend = (backEndName.find("MI2S") != std::string::npos);
+        bool isBLEDevice   = (deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+                          deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE);
+        PAL_DBG(LOG_TAG, "%s: isMI2SBackend= %d isBLEDevice = %d",__func__,isMI2SBackend, isBLEDevice);
+        if (isBLEDevice && isMI2SBackend) {
+            // I2S Sink/Source BLE path — MI2S backend needs PCM-compatible config
+            deviceAttr.config.sample_rate = SAMPLINGRATE_48K;
+            deviceAttr.config.aud_fmt_id  = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
+            PAL_ERR(LOG_TAG, "%s DBG: MI2S BLE path, forcing 48K PCM. Backend:%s\n",
+                    __func__, backEndName.c_str());
+        } else {
+            deviceAttr.config.sample_rate = SAMPLINGRATE_96K;
+            deviceAttr.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
+        }
+    }
         break;
     case CODEC_TYPE_APTX_AD_QLEA:
         if (mCodecVersion == V1)
@@ -755,6 +771,7 @@ void Bluetooth::startAbr()
     struct mixer_ctl *btSetFeedbackChannelCtrl = NULL;
     std::ostringstream connectCtrlName;
     std::ostringstream disconnectCtrlName;
+    std::string bEName;
     unsigned int flags;
     uint32_t tagId = 0, miid = 0, streamMapDir = 0;
     void *pluginLibHandle = NULL;
@@ -780,8 +797,19 @@ void Bluetooth::startAbr()
         return;
     }
     /* Configure device attributes */
-    ch_info.channels = CHANNELS_1;
-    ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+    rm->getBackendName(deviceAttr.id, bEName);
+    bool isMI2SBackend = (bEName.find("MI2S") != std::string::npos);
+    bool isBLEDevice   = (deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+                      deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE);
+    PAL_DBG(LOG_TAG, "%s: isMI2SBackend= %d isBLEDevice = %d",__func__,isMI2SBackend, isBLEDevice);
+    if (isBLEDevice && isMI2SBackend) {
+        ch_info.channels = CHANNELS_2;
+        ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+        ch_info.ch_map[1] = PAL_CHMAP_CHANNEL_FR;
+    } else {
+        ch_info.channels = CHANNELS_1;
+        ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FL;
+    }
     fbDevice.config.ch_info = ch_info;
     fbDevice.config.bit_width = BITWIDTH_16;
     fbDevice.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
@@ -888,21 +916,22 @@ void Bluetooth::startAbr()
         goto free_fe;
     }
 
-    // Notify ABR usecase information to BT driver to distinguish
-    // between SCO and feedback usecase
-    btSetFeedbackChannelCtrl = mixer_get_ctl_by_name(hwMixerHandle,
-                                        MIXER_SET_FEEDBACK_CHANNEL);
-    if (!btSetFeedbackChannelCtrl) {
-        PAL_ERR(LOG_TAG, "ERROR %s mixer control not identified",
-                MIXER_SET_FEEDBACK_CHANNEL);
-        goto disconnect_fe;
-    }
+    if (!(isBLEDevice && isMI2SBackend)) {
+        // Notify ABR usecase information to BT driver to distinguish
+        // between SCO and feedback usecase
+        btSetFeedbackChannelCtrl = mixer_get_ctl_by_name(hwMixerHandle,
+                                            MIXER_SET_FEEDBACK_CHANNEL);
+        if (!btSetFeedbackChannelCtrl) {
+            PAL_ERR(LOG_TAG, "ERROR %s mixer control not identified",
+                    MIXER_SET_FEEDBACK_CHANNEL);
+            goto disconnect_fe;
+        }
 
-    if (mixer_ctl_set_value(btSetFeedbackChannelCtrl, 0, 1) != 0) {
-        PAL_ERR(LOG_TAG, "Failed to set BT usecase");
-        goto disconnect_fe;
+        if (mixer_ctl_set_value(btSetFeedbackChannelCtrl, 0, 1) != 0) {
+            PAL_ERR(LOG_TAG, "Failed to set BT usecase");
+            goto disconnect_fe;
+        }
     }
-
     mFBDev->lockDeviceMutex();
     isDeviceLocked = true;
 
