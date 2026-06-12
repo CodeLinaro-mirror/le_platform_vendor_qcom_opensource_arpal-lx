@@ -172,6 +172,10 @@ void ClientInfo::getStreamMediaConfig(int64_t handle, pal_media_config *config) 
                                         return (callback->getStreamHandle() == handle);
                                     });
 
+            if (itr == mCallbackInfo.end()) {
+                ALOGE("%s: no CallbackInfo found for handle %llx", __func__, handle);
+                break;
+            }
             memcpy((int8_t *)config, (int8_t *)&itr->get()->mStreamAttributes.out_media_config,
                    sizeof(pal_media_config));
             break;
