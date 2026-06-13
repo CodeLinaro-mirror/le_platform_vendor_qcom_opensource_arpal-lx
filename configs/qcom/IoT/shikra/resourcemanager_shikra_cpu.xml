@@ -128,6 +128,8 @@
             <back_end_name>PCM_RT_PROXY-TX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
             <snd_device_name>headset-va-mic</snd_device_name>
             <ec_enable>0</ec_enable>
             <usecase>
@@ -228,6 +230,8 @@
             <back_end_name>PCM_RT_PROXY-RX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
             <fractional_sr>1</fractional_sr>
             <snd_device_name>headphones</snd_device_name>
         </out-device>
@@ -236,6 +240,8 @@
             <back_end_name>PCM_RT_PROXY-RX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
+            <samplerate>48000</samplerate>
+            <bit_width>16</bit_width>
             <fractional_sr>1</fractional_sr>
             <snd_device_name>headphones</snd_device_name>
          </out-device>
