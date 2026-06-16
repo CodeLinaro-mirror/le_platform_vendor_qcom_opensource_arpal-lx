@@ -1883,7 +1883,7 @@ void Stream::removemDevice(int palDevId)
     for (dIter = mDevices.begin(); dIter != mDevices.end();) {
         devId = (*dIter)->getSndDeviceId();
         if (devId == palDevId) {
-            mDevices.erase(dIter);
+            dIter = mDevices.erase(dIter);
         } else {
             dIter++;
         }
