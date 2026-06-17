@@ -2405,6 +2405,42 @@
         <path name="dmic3" />
     </path>
 
+    <path name="4dmic">
+        <ctl name="AIF1_CAP Mixer SLIM TX5" value="1" />
+        <ctl name="AIF1_CAP Mixer SLIM TX6" value="1" />
+        <ctl name="AIF1_CAP Mixer SLIM TX7" value="1" />
+        <ctl name="AIF1_CAP Mixer SLIM TX8" value="1" />
+        <ctl name="CDC_IF TX5 MUX" value="DEC5" />
+        <ctl name="ADC MUX5" value="DMIC" />
+        <ctl name="DMIC MUX5" value="DMIC2" />
+        <ctl name="CDC_IF TX6 MUX" value="DEC6" />
+        <ctl name="ADC MUX6" value="DMIC" />
+        <ctl name="DMIC MUX6" value="DMIC3" />
+        <ctl name="CDC_IF TX7 MUX" value="DEC7" />
+        <ctl name="ADC MUX7" alue="DMIC" />
+        <ctl name="DMIC MUX7" value="DMIC4" />
+        <ctl name="CDC_IF TX8 MUX" value="DEC8" />
+        <ctl name="ADC MUX8" value="DMIC" />
+        <ctl name="DMIC MUX8" value="DMIC5" />
+    </path>
+
+    <path name="2amic">
+        <ctl name="AIF1_CAP Mixer SLIM TX0" value="1" />
+        <ctl name="AIF1_CAP Mixer SLIM TX1" value="1" />
+        <ctl name="CDC_IF TX0 MUX" value="DEC0" />
+        <ctl name="ADC MUX0" value="AMIC" />
+        <ctl name="AMIC MUX0" value="ADC3" />
+        <ctl name="CDC_IF TX1 MUX" value="DEC1" />
+        <ctl name="ADC MUX1" value="AMIC" />
+        <ctl name="AMIC MUX1" value="ADC4" />
+    </path>
+
+    <path name="handset-6mic">
+        <ctl name="SLIM_0_TX Channels" value="Six" />
+        <path name="4dmic" />
+        <path name="2amic" />
+    </path>
+
     <path name="handset-mic-db">
     </path>
 
