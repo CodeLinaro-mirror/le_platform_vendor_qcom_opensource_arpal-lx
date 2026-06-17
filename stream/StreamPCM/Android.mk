@@ -9,6 +9,10 @@ LOCAL_VENDOR_MODULE := true
 
 LOCAL_CPPFLAGS  += -fexceptions -frtti
 
+ifeq ($(TARGET_DISABLE_PAL_BT),true)
+LOCAL_CFLAGS        += -DBLUETOOTH_FEATURES_DISABLED
+endif
+
 LOCAL_SRC_FILES := \
     src/StreamPCM.cpp
 

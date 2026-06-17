@@ -122,6 +122,7 @@ typedef enum {
     SIDETONE_MODE_SEL,
     STREAM_ADDRESS_SEL,
     BLE_ABR_SEL,
+    VUI_STREAMPP_TYPE_SEL,
 } selector_type_t;
 
 const std::map<std::string, selector_type_t> selectorstypeLUT {
@@ -143,6 +144,7 @@ const std::map<std::string, selector_type_t> selectorstypeLUT {
     {std::string{ "SidetoneMode" },          SIDETONE_MODE_SEL},
     {std::string{ "StreamAddress" },         STREAM_ADDRESS_SEL},
     {std::string{ "SAOffloadMode" },         BLE_ABR_SEL},
+    {std::string{ "VUIStreamPPType" },       VUI_STREAMPP_TYPE_SEL},
 };
 
 struct kvPairs {
@@ -202,6 +204,8 @@ protected:
 public:
     void payloadWNRModuleEnableDisable(uint8_t** payload, size_t* size,
                             uint32_t miid, bool mode);
+    void payloadAudioZoomConfig(uint8_t** payload, size_t* size,
+                            uint32_t miid, float zoomValue);
     void payloadUsbAudioConfig(uint8_t** payload, size_t* size,
                            uint32_t miid,
                            struct usbAudioConfig *data);
@@ -293,7 +297,10 @@ public:
                     pal_param_dtmf_gen_tone_cfg_t *dtmf_payload);
 
     int payloadSoundDoseInfo(uint8_t **payload, size_t *size, uint32_t moduleId);
-
+#ifndef UVVOICECUE_FEATURES_DISABLED
+    void payloadUvVoiceCueData(uint8_t** payload, size_t* size,
+                          uint32_t miid, void *cueData, uint32_t usecaseMask);
+#endif
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVector);
     int populateStreamKV(Stream* s, std::vector <std::pair<int,int>> &keyVectorRx,
         std::vector <std::pair<int,int>> &keyVectorTx ,struct vsid_info vsidinfo);

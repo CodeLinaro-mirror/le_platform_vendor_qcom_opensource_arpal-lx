@@ -7,7 +7,6 @@
     <version>2.0</version>
     <config_params>
         <param key="logging_level" value ="3" />
-        <param key="dummy_dev_enable" value ="true" />
     </config_params>
     <config_max_sessions>
         <stream name="PAL_STREAM_LOW_LATENCY" max_size="8" />
@@ -128,9 +127,7 @@
             <back_end_name>PCM_RT_PROXY-TX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
-            <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
-            <snd_device_name>headset-va-mic</snd_device_name>
+            <snd_device_name>headset-mic</snd_device_name>
             <ec_enable>0</ec_enable>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -151,18 +148,9 @@
                 <id>PAL_DEVICE_OUT_WIRED_HEADPHONE</id>
             </ec_rx_device>
         </in-device>
-        <in-device>
-            <id>PAL_DEVICE_IN_DUMMY</id>
-            <back_end_name>PCM_DUMMY-TX-1</back_end_name>
-            <max_channels>2</max_channels>
-            <channels>2</channels>
-            <snd_device_name>dummy-dev</snd_device_name>
-            <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
-        </in-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
-            <back_end_name>PCM_RT_PROXY-RX-2</back_end_name>
+            <back_end_name>QAIF-QAIF_AUD-RX-1</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
             <snd_device_name>none</snd_device_name>
@@ -230,8 +218,6 @@
             <back_end_name>PCM_RT_PROXY-RX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
-            <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
             <fractional_sr>1</fractional_sr>
             <snd_device_name>headphones</snd_device_name>
         </out-device>
@@ -240,21 +226,9 @@
             <back_end_name>PCM_RT_PROXY-RX-2</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
-            <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
             <fractional_sr>1</fractional_sr>
             <snd_device_name>headphones</snd_device_name>
          </out-device>
-         <out-device>
-             <id>PAL_DEVICE_OUT_DUMMY</id>
-             <back_end_name>PCM_DUMMY-RX-0</back_end_name>
-             <max_channels>2</max_channels>
-             <channels>2</channels>
-             <snd_device_name>dummy-dev</snd_device_name>
-             <samplerate>48000</samplerate>
-             <bit_width>16</bit_width>
-         </out-device>
-
     </device_profile>
     <in_streams>
         <in_stream>

@@ -44,6 +44,9 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!--Dummy-->
         <device name="PAL_DEVICE_IN_EXT_EC_REF" lib="libdev_ext_ec.so" entryFunction="CreateExtEcDevice"/>
         <device name="PAL_DEVICE_IN_ECHO_REF" lib="libdev_ec_ref.so" entryFunction="CreateECRefDevice"/>
+        <!--Dummy-->
+        <device name="PAL_DEVICE_OUT_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
+        <device name="PAL_DEVICE_IN_DUMMY" lib="libdev_dummy.so" entryFunction="CreateDummyDevice"/>
     </devices>
     <configs>
         <!--pcm_config-->

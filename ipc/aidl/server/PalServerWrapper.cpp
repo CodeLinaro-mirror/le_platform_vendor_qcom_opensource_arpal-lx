@@ -172,6 +172,10 @@ void ClientInfo::getStreamMediaConfig(int64_t handle, pal_media_config *config) 
                                         return (callback->getStreamHandle() == handle);
                                     });
 
+            if (itr == mCallbackInfo.end()) {
+                ALOGE("%s: no CallbackInfo found for handle %llx", __func__, handle);
+                break;
+            }
             memcpy((int8_t *)config, (int8_t *)&itr->get()->mStreamAttributes.out_media_config,
                    sizeof(pal_media_config));
             break;
@@ -622,7 +626,7 @@ std::shared_ptr<ClientInfo> PalServerWrapper::getClient_l() {
     int32_t ret = -EINVAL;
     int8_t *temp = NULL;
     std::shared_ptr<CallbackInfo> callBackInfo;
-    pal_stream_callback callback;
+    pal_stream_callback callback = nullptr;
     auto client = getClient_l();
     PalDevUniquePtrType palDev(nullptr, free);
     PalModifierUniquePtrType modifiers(nullptr, free);

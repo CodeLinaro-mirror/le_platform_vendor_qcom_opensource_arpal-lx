@@ -199,6 +199,8 @@ int32_t ASRStreamConfig::GetIndex(std::string& param_name) {
        index = SDZ_INPUT_BUF_DURATION_V2;
     } else if (param_name == "sdz_force_output_v2_id") {
        index = SDZ_FORCE_OUTPUT_V2;
+    } else if (param_name == "sdz_set_user_cue_id") {
+       index = SDZ_SET_USER_CUE;
     } else {
        PAL_ERR(LOG_TAG, "Invalid attribute %s", param_name.c_str());
     }
@@ -268,8 +270,8 @@ void ASRStreamConfig::HandleEndTag(struct xml_userdata *data, const std::string&
 std::shared_ptr<ASRPlatformInfo> ASRPlatformInfo::me_ = nullptr;
 
 ASRStreamConfig::ASRStreamConfig() :
-    curr_child_(nullptr),
-    lpi_enable_(true)
+    lpi_enable_(true),
+    curr_child_(nullptr)
 {
     for (int i = 0; i < ASR_MAX_PARAM_IDS; i++) {
         module_tag_ids_[i] = 0;
