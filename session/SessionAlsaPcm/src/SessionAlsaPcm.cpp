@@ -1915,8 +1915,13 @@ int SessionAlsaPcm::read(Stream *s, struct pal_buffer *buf, int * size)
         void *data = buf->buffer;
         data = static_cast<char*>(data) + offset;
 
-        if(SessionAlsaUtils::isMmapUsecase(sAttr))
-        {
+
+#ifdef ENABLE_TIMESTAMP
+        PAL_DBG(LOG_TAG, "pal_buff buf:%p, pal_buff->buffer:%p, pal_buff->size:%d\n", buf, buf->buffer, buf->size);
+        PAL_DBG(LOG_TAG, "bytesRead:%d, bytesToRead:%d, pcmReadSize:%d, in_buf_size:%d\n", bytesRead, bytesToRead, pcmReadSize, in_buf_size);
+        PAL_DBG(LOG_TAG, "write data:%p\n", data);
+#endif
+        if (SessionAlsaUtils::isMmapUsecase(sAttr)) {
             long ns = 0;
             if (sAttr.in_media_config.sample_rate)
                 ns = pcm_bytes_to_frames(pcm, pcmReadSize)*1000000000LL/
@@ -1925,7 +1930,15 @@ int SessionAlsaPcm::read(Stream *s, struct pal_buffer *buf, int * size)
             status =  pcm_mmap_read(pcm, data,  pcmReadSize);
             releaseAdmFocus(s);
         } else {
-            status =  pcm_read(pcm, data,  pcmReadSize);
+#ifdef ENABLE_TIMESTAMP
+            struct pal_buffer ts_buf = {};
+            ts_buf.buffer = (uint8_t *)data;
+            ts_buf.ts = buf->ts;
+            status = pcm_read(pcm, &ts_buf, pcmReadSize);
+            PAL_DBG(LOG_TAG, "bytesRead:%d pcmReadSize:%d, timestamp:%ld, buf:%p", bytesRead, pcmReadSize, buf->ts->tv_nsec, buf);
+#else
+            status = pcm_read(pcm, data, pcmReadSize);
+#endif
         }
 
         if ((0 != status) || (pcmReadSize == 0)) {

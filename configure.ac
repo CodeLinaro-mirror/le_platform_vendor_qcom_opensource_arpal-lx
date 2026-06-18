@@ -126,6 +126,20 @@ AC_ARG_WITH([compress],
     [with_compress=no])
 AM_CONDITIONAL([COMPILE_COMPRESS], [test "x${with_compress}" = "xyes"])
 
+AC_ARG_WITH([enable-timestamp],
+    AS_HELP_STRING([--with-enable-timestamp=enable],
+                   [Enable timestamp support]),
+    [with_enable_timestamp=$withval],
+    [with_enable_timestamp=no])
+
+if test "x$with_enable_timestamp" = "xenable"; then
+    AC_DEFINE([ENABLE_TIMESTAMP], [1],
+              [Enable timestamp support])
+fi
+
+AM_CONDITIONAL([ENABLE_TIMESTAMP],
+               [test "x$with_enable_timestamp" = "xenable"])
+
 AC_CONFIG_FILES([ Makefile \
 pal.pc \
 stream/Makefile \
