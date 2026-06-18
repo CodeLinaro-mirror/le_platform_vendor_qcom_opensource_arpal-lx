@@ -1275,8 +1275,10 @@ int SessionAlsaPcm::start(Stream * s)
                 std::lock_guard<std::mutex> lock(pcmLpmRefCntMtx);
                 PAL_DBG(LOG_TAG,"pcmLpmRefCnt %d\n", pcmLpmRefCnt);
                 pcmLpmRefCnt++;
-                if (1 == pcmLpmRefCnt)
+                if (1 == pcmLpmRefCnt) {
                     setPmQosMixerCtl(PM_QOS_VOTE_ENABLE);
+                    setVoteAgainstSleepMixerCtl(VOTE_AGAINST_SLEEP_ENABLE);
+                }
                 else
                     PAL_DBG(LOG_TAG,"pcmLpmRefCnt %d\n", pcmLpmRefCnt);
             }
@@ -1541,8 +1543,10 @@ int SessionAlsaPcm::close(Stream * s)
                     PAL_ERR(LOG_TAG, "pcm_close Unacceptable pcmLpmRefCnt %d, resetting to 0", pcmLpmRefCnt);
                     pcmLpmRefCnt = 0;
                 }
-                if (0 == pcmLpmRefCnt)
+                if (0 == pcmLpmRefCnt) {
                     setPmQosMixerCtl(PM_QOS_VOTE_DISABLE);
+                    setVoteAgainstSleepMixerCtl(VOTE_AGAINST_SLEEP_DISABLE);
+                }
                 PAL_DBG(LOG_TAG, "pcm_close pcmLpmRefCnt %d", pcmLpmRefCnt);
             }
 

@@ -71,6 +71,25 @@ void SessionAR::handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id,
     }
 }
 
+void SessionAR::setVoteAgainstSleepMixerCtl(voteagainstsleep vote)
+{
+    int status = 0;
+    struct audio_route *audioRoute;
+
+    status = rm->getAudioRoute(&audioRoute);
+    if (!status) {
+        if (vote == VOTE_AGAINST_SLEEP_DISABLE) {
+            audio_route_reset_and_update_path(audioRoute, "VOTE Against Sleep");
+            PAL_DBG(LOG_TAG,"mixer control disabled for vote against sleep  \n");
+        } else if (vote == VOTE_AGAINST_SLEEP_ENABLE) {
+            audio_route_apply_and_update_path(audioRoute, "VOTE Against Sleep");
+            PAL_DBG(LOG_TAG,"mixer control enabled for vote against sleep  \n");
+        }
+    } else {
+        PAL_ERR(LOG_TAG,"could not get audioRoute, not setting mixer control for vote against sleep \n");
+    }
+}
+
 void SessionAR::setPmQosMixerCtl(pmQosVote vote)
 {
     int status = 0;
