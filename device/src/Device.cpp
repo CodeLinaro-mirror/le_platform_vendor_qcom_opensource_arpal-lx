@@ -550,3 +550,36 @@ int32_t Device::configureDeviceClockSrc(char const *mixerStrClockSrc, const uint
 exit:
     return ret;
 }
+
+void Device::insertStreamDeviceAttr(struct pal_device *dattr, Stream *stream)
+{
+    if (!dattr || !stream)
+        return;
+    mDeviceMutex.lock();
+    mStreamDeviceAttrMap[stream] = *dattr;
+    mDeviceMutex.unlock();
+}
+
+void Device::removeStreamDeviceAttr(Stream *stream)
+{
+    if (!stream)
+        return;
+    mDeviceMutex.lock();
+    mStreamDeviceAttrMap.erase(stream);
+    mDeviceMutex.unlock();
+}
+
+void Device::getTopPriorityDeviceAttr(struct pal_device *dattr, uint32_t *priority)
+{
+    if (!dattr || !priority)
+        return;
+    mDeviceMutex.lock();
+    *priority = MIN_USECASE_PRIORITY;
+    if (!mStreamDeviceAttrMap.empty()) {
+        auto &entry = mStreamDeviceAttrMap.begin()->second;
+        ar_mem_cpy(dattr, sizeof(struct pal_device), &entry,
+                   sizeof(struct pal_device));
+        *priority = 0;
+    }
+    mDeviceMutex.unlock();
+}

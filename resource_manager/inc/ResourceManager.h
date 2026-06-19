@@ -552,6 +552,7 @@ protected:
     static int ACDConcurrencyDisableCount;
     static int SNSPCMDataConcurrencyEnableCount;
     static int SNSPCMDataConcurrencyDisableCount;
+    static int TxconcurrencyEnableCount;
     static defer_switch_state_t deferredSwitchState;
     static int wake_lock_fd;
     static int wake_unlock_fd;
@@ -751,6 +752,7 @@ public:
     const std::string getPALDeviceName(const pal_device_id_t id) const;
     bool isNonALSACodec(const struct pal_device *device) const;
     bool isNLPISwitchSupported(pal_stream_type_t type);
+    bool isTxConcurrencyActive() { return TxconcurrencyEnableCount > 0; }
     bool IsLPISupported(pal_stream_type_t type);
     bool IsLowLatencyBargeinSupported(pal_stream_type_t type);
     bool IsAudioCaptureConcurrencySupported(pal_stream_type_t type);
