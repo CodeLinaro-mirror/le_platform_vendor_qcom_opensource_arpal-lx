@@ -36,6 +36,7 @@
 #include <bt_intf.h>
 #include <bt_ble.h>
 #include <amdb_api.h>
+#include <cutils/properties.h>
 #include "ResourceManager.h"
 #include "PayloadBuilder.h"
 #include "spr_api.h"
@@ -72,6 +73,8 @@
 #else
 #define USECASE_XML_FILE "/vendor/etc/usecaseKvManager.xml"
 #endif
+
+#define USECASE_XML_FILE_GEN5 "/vendor/etc/usecaseKvManager-gen5.xml"
 
 #define PARAM_ID_MEDIA_FORMAT 0x0800100C
 #define PARAM_ID_VOL_CTRL_MULTICHANNEL_GAIN 0x08001038
@@ -1367,6 +1370,7 @@ int PayloadBuilder::init()
     int bytes_read;
     void *buf = NULL;
     struct user_xml_data tag_data;
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
 
     if (!isInitialized) {
         memset(&tag_data, 0, sizeof(tag_data));
@@ -1375,8 +1379,14 @@ int PayloadBuilder::init()
         all_devices.clear();
         all_devicepps.clear();
 
-        PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_XML_FILE);
-        file = fopen(USECASE_XML_FILE, "r");
+        property_get("ro.boot.audio", audio_boot_prop, "");
+        if (strcmp(audio_boot_prop, "audioreach_gen5") == 0) {
+            PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_XML_FILE_GEN5);
+            file = fopen(USECASE_XML_FILE_GEN5, "r");
+        } else {
+            PAL_INFO(LOG_TAG, "XML parsing started %s", USECASE_XML_FILE);
+            file = fopen(USECASE_XML_FILE, "r");
+        }
         if (!file) {
             PAL_ERR(LOG_TAG, "Failed to open xml");
             ret = -EINVAL;

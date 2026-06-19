@@ -58,6 +58,7 @@
 #include <sys/stat.h>
 #include <sys/klog.h>        /* Definition of SYSLOG_* constants */
 #include <time.h>
+#include <cutils/properties.h>
 
 #ifndef DUMP_OUT_PATH
 #define DUMP_OUT_PATH "/data/vendor/audio/"
@@ -4324,6 +4325,7 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
     struct mixer_ctl *ctl;
     std::ostringstream CntrlName;
     struct agm_buf_info buf_info;
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
 
     status = s->getStreamAttributes(&sAttr);
     if (status != 0) {
@@ -4458,7 +4460,11 @@ int SessionAlsaPcm::createMmapBuffer(Stream *s, int32_t min_size_frames,
             }
             info->flags |= PAL_MMMAP_BUFF_FLAGS_APP_SHAREABLE;
         }
-        memset(info->buffer, 0, pcm_frames_to_bytes(pcm,info->buffer_size_frames));
+
+        property_get("ro.boot.audio", audio_boot_prop, "");
+        if (strcmp(audio_boot_prop, "ar") != 0) {
+            memset(info->buffer, 0, pcm_frames_to_bytes(pcm,info->buffer_size_frames));
+        }
 
         status = pcm_mmap_commit(pcm, 0, SESSION_ALSA_MMAP_PERIOD_SIZE);
         if (status < 0) {
