@@ -30,6 +30,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <!--Handset-->
         <device name="PAL_DEVICE_OUT_HANDSET" lib="libdev_handset.so" entryFunction="CreateHandsetDevice"/>
         <device name="PAL_DEVICE_IN_HANDSET_MIC" lib="libdev_handset_mic.so" entryFunction="CreateHandsetMicDevice"/>
+        <device name="PAL_DEVICE_IN_HANDSET_VA_MIC" lib="libdev_handset_va.so" entryFunction="CreateHandsetVaDevice"/>
         <!--Speaker-->
         <device name="PAL_DEVICE_OUT_SPEAKER" lib="libdev_speaker.so" entryFunction="CreateSpeakerDevice"/>
         <device name="PAL_DEVICE_IN_SPEAKER_MIC" lib="libdev_speaker_mic.so" entryFunction="CreateSpeakerMicDevice"/>
@@ -41,6 +42,7 @@ SPDX-License-Identifier: BSD-3-Clause-Clear
         <device name="PAL_DEVICE_OUT_WIRED_HEADPHONE" lib="libdev_headphone.so" entryFunction="CreateHeadphoneDevice"/>
         <!--Headset-->
         <device name="PAL_DEVICE_IN_WIRED_HEADSET" lib="libdev_headset_mic.so" entryFunction="CreateHeadsetMicDevice"/>
+        <device name="PAL_DEVICE_IN_HEADSET_VA_MIC" lib="libdev_headset_va.so" entryFunction="CreateHeadsetVaDevice"/>
         <!--Dummy-->
         <device name="PAL_DEVICE_IN_EXT_EC_REF" lib="libdev_ext_ec.so" entryFunction="CreateExtEcDevice"/>
         <device name="PAL_DEVICE_IN_ECHO_REF" lib="libdev_ec_ref.so" entryFunction="CreateECRefDevice"/>
