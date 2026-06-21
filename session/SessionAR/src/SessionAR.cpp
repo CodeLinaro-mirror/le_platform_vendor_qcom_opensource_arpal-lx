@@ -49,6 +49,8 @@ int SessionAR::extECRefCnt = 0;
 std::mutex SessionAR::extECMutex;
 std::mutex SessionAR::pauseMutex;
 std::condition_variable SessionAR::pauseCV;
+std::mutex SessionAR::rmCookieRegistryMutex;
+std::vector<SessionAR::SessionArRmCookie*> SessionAR::validRmCookies;
 
 SessionAR::SessionAR() {
     int32_t ret = PayloadBuilder::init();
@@ -1049,6 +1051,206 @@ int32_t SessionAR::getCustomParam(custom_payload_uc_info_t* uc_info, std::string
         }
     } else {
         PAL_ERR(LOG_TAG,"unsupported get param %s", param_str.c_str());
+    }
+    return status;
+}
+
+void SessionAR::combinedCallback(uint64_t hdl, uint32_t event_id, void *data, uint32_t event_size)
+{
+    SessionArRmCookie *rmCookie = (SessionArRmCookie *)hdl;
+    SessionAR *session = nullptr;
+    std::vector<int> triggeringIds;
+
+    {
+        std::lock_guard<std::mutex> regLock(SessionAR::rmCookieRegistryMutex);
+        bool found = false;
+        for (auto *entry : SessionAR::validRmCookies) {
+            if (entry == rmCookie) {
+                found = true;
+                break;
+            }
+        }
+        if (!rmCookie || !found) {
+            PAL_ERR(LOG_TAG, "Stale cookie 0x%p for event 0x%x, ignoring",
+                    (void*)rmCookie, event_id);
+            return;
+        }
+        session = rmCookie->session;
+        triggeringIds = rmCookie->pcmDevIds;
+    }
+
+    if (!session) {
+        PAL_ERR(LOG_TAG, "Invalid session handle received");
+        return;
+    }
+
+    PAL_DBG(LOG_TAG, "Enter: Event 0x%x triggered by PCM IDs size: %zu",
+            event_id, triggeringIds.size());
+
+    std::vector<ArCallbackData> handlersToCall;
+
+    {
+        std::lock_guard<std::mutex> lock(session->cbMapMutex);
+
+        auto it = session->sessionCbMap.find(event_id);
+        if (it != session->sessionCbMap.end()) {
+            for (auto &handlerData : it->second) {
+                bool matchFound = false;
+                for (int tId : triggeringIds) {
+                    for (int hId : handlerData.pcmDevIds) {
+                        if (tId == hId) {
+                            matchFound = true;
+                            break;
+                        }
+                    }
+                    if (matchFound) break;
+                }
+                if (handlerData.cb && matchFound) {
+                    handlersToCall.push_back(handlerData);
+                }
+            }
+        }
+    } // Mutex unlocks here
+
+    // Execute Callbacks outside lock
+    for (auto &h : handlersToCall) {
+        h.cb(h.cookie, event_id, data, event_size);
+    }
+    PAL_DBG(LOG_TAG, "Exit: combinedCallback complete");
+}
+
+int SessionAR::registerArEvent(uint32_t event_id, session_callback cb, uint64_t cookie,
+                               const std::vector<int>& pcmDevIds, bool is_register)
+{
+    int status = 0;
+    std::unique_lock<std::mutex> lock(cbMapMutex);
+
+    if (is_register) {
+        bool duplicate = false;
+        if (sessionCbMap.find(event_id) != sessionCbMap.end()) {
+            for (auto &existing : sessionCbMap[event_id]) {
+                if (existing.cookie == cookie && existing.cb == cb) {
+                    duplicate = true;
+                    break;
+                }
+            }
+        }
+
+        bool idsAlreadyRegistered = false;
+        for (auto *regCookie : registeredCookies) {
+            if (regCookie->pcmDevIds == pcmDevIds) {
+                idsAlreadyRegistered = true;
+                PAL_DBG(LOG_TAG, "PCM ID : %d already registered with RM. Skipping RM registration.", pcmDevIds.at(0));
+                break;
+            }
+        }
+
+        if (!idsAlreadyRegistered && !pcmDevIds.empty()) {
+            SessionArRmCookie* newCookie = new SessionArRmCookie();
+            newCookie->session = this;
+            newCookie->pcmDevIds = pcmDevIds;
+            lock.unlock();
+            status = rm->registerMixerEventCallback(pcmDevIds,
+                                                    SessionAR::combinedCallback,
+                                                    (uint64_t)newCookie,
+                                                    true);
+            lock.lock();
+            if (status == 0) {
+                {
+                    std::lock_guard<std::mutex> regLock(rmCookieRegistryMutex);
+                    validRmCookies.push_back(newCookie);
+                }
+                registeredCookies.push_back(newCookie);
+                PAL_DBG(LOG_TAG, "Registered new PCM ID : %d with RM.", pcmDevIds.at(0));
+            } else {
+                PAL_ERR(LOG_TAG, "RM Registration failed: %d", status);
+                delete newCookie;
+                return status;
+            }
+        }
+
+        if (!duplicate) {
+            ArCallbackData data = {cb, cookie, pcmDevIds};
+            sessionCbMap[event_id].push_back(data);
+            PAL_DBG(LOG_TAG, "Added callback to list: Event 0x%x, Cookie 0x%llx",
+                    event_id, (unsigned long long)cookie);
+        }
+    }
+    else {
+        auto mapIt = sessionCbMap.find(event_id);
+        if (mapIt != sessionCbMap.end()) {
+            auto &list = mapIt->second;
+            for (auto it = list.begin(); it != list.end(); ) {
+                if (it->cookie == cookie && it->cb == cb) {
+                    PAL_DBG(LOG_TAG, "Removed callback from internal list: Event 0x%x, Cookie 0x%llx",
+                            event_id, (unsigned long long)cookie);
+                    it = list.erase(it);
+                } else {
+                    ++it;
+                }
+            }
+            if (list.empty()) {
+                sessionCbMap.erase(mapIt);
+            }
+        }
+
+        bool isStillInUse = false;
+        for (auto &mapEntry : sessionCbMap) {
+            for (auto &handler : mapEntry.second) {
+                if (handler.pcmDevIds == pcmDevIds) {
+                    isStillInUse = true;
+                    break;
+                }
+            }
+            if (isStillInUse) break;
+        }
+
+        if (!isStillInUse) {
+            for (auto it = registeredCookies.begin(); it != registeredCookies.end(); ) {
+                SessionArRmCookie* c = *it;
+                if (!c) {
+                    {
+                        std::lock_guard<std::mutex> regLock(rmCookieRegistryMutex);
+                        for (auto vit = validRmCookies.begin(); vit != validRmCookies.end(); ) {
+                            if (*vit == nullptr) {
+                                vit = validRmCookies.erase(vit);
+                            } else {
+                                ++vit;
+                            }
+                        }
+                    }
+                    it = registeredCookies.erase(it);
+                    continue;
+                }
+                if (c->pcmDevIds == pcmDevIds) {
+                    lock.unlock();
+                    rm->registerMixerEventCallback(pcmDevIds,
+                                                   SessionAR::combinedCallback,
+                                                   (uint64_t)c,
+                                                   false);
+                    lock.lock();
+                    PAL_DBG(LOG_TAG, "Unregistered PCM ID : %d from RM as no callbacks remain.",
+                            pcmDevIds.empty() ? 0 : pcmDevIds.at(0));
+                    {
+                        std::lock_guard<std::mutex> regLock(rmCookieRegistryMutex);
+                        for (auto vit = validRmCookies.begin(); vit != validRmCookies.end(); ++vit) {
+                            if (*vit == c) {
+                                validRmCookies.erase(vit);
+                                break;
+                            }
+                        }
+                    }
+                    delete c;
+                    it = registeredCookies.erase(it);
+                    break;
+                } else {
+                    ++it;
+                }
+            }
+        } else {
+            PAL_DBG(LOG_TAG, "Skipping RM deregister for PCM ID : %d, other callbacks still active.",
+                    pcmDevIds.empty() ? 0 : pcmDevIds.at(0));
+        }
     }
     return status;
 }

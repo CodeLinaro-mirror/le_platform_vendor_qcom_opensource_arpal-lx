@@ -124,24 +124,17 @@ class Stream;
 class ResourceManager;
 class SessionAR : public Session
 {
-protected:
-    std::mutex kvMutex;
-    PayloadBuilder* builder;
-    struct mixer *mixer;
-    static struct pcm *pcmEcTx;
-    static std::vector<int> pcmDevEcTxIds;
-    static int extECRefCnt;
-    static std::mutex extECMutex;
-    static std::mutex pauseMutex;
-    static std::condition_variable pauseCV;
-    pal_device_id_t ecRefDevId;
-    bool isPauseRegistrationDone = false;
-    int32_t setInitialVolume();
-    int rwACDBParamTunnel(custom_payload_uc_info_t* uc_info, void *payload, Stream *s, bool isWrite);
-    int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
-    int setEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
 public:
     SessionAR();
+    struct SessionArRmCookie {
+        SessionAR* session;
+        std::vector<int> pcmDevIds;
+    };
+    struct ArCallbackData {
+        session_callback cb;
+        uint64_t cookie;
+        std::vector<int> pcmDevIds;
+    };
     static void handleSoftPauseCallBack(uint64_t hdl, uint32_t event_id, void *data, uint32_t event_size);
     int HDRConfigKeyToDevOrientation(const char* hdr_custom_key);
     void setPmQosMixerCtl(pmQosVote vote);
@@ -181,10 +174,38 @@ public:
     std::vector<std::pair<int32_t, std::string>>& getTxBEVecRef() { return txAifBackEnds; };
     bool getIsPauseRegistrationDone() { return isPauseRegistrationDone; };
     void setIsPauseRegistrationDone(bool isDone) { isPauseRegistrationDone = isDone; };
+    int registerArEvent(uint32_t event_id, session_callback cb, uint64_t cookie, const std::vector<int>& pcmDevIds, bool is_register);
+    static void combinedCallback(uint64_t hdl, uint32_t event_id, void *data, uint32_t event_size);
+protected:
+    std::mutex kvMutex;
+    PayloadBuilder* builder;
+    struct mixer *mixer;
+    static struct pcm *pcmEcTx;
+    static std::vector<int> pcmDevEcTxIds;
+    static int extECRefCnt;
+    static std::mutex extECMutex;
+    static std::mutex pauseMutex;
+    static std::condition_variable pauseCV;
+    pal_device_id_t ecRefDevId;
+    bool isPauseRegistrationDone = false;
+    int32_t setInitialVolume();
+    int rwACDBParamTunnel(custom_payload_uc_info_t* uc_info, void *payload, Stream *s, bool isWrite);
+    int getEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
+    int setEffectParameters(Stream *s, effect_pal_payload_t *effectPayload);
+    struct EventHandlerData {
+        session_callback cb;
+        uint64_t cookie;
+    };
+    std::map<uint32_t, std::vector<ArCallbackData>> sessionCbMap;
+    std::vector<SessionArRmCookie*> registeredCookies;
+    std::mutex cbMapMutex;
+    static std::mutex rmCookieRegistryMutex;
+    static std::vector<SessionArRmCookie*> validRmCookies;
 private:
     uint32_t getModuleInfo(const char *control, uint32_t tagId, uint32_t *miid, struct mixer_ctl **ctl, int *device);
     int setEffectParametersTKV(Stream *s, effect_pal_payload_t *effectPayload);
     int setEffectParametersNonTKV(Stream *s, effect_pal_payload_t *effectPayload);
+    bool isCallbackRegistered = false;
 
 };
 

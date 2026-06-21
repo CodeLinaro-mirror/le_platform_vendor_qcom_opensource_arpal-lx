@@ -3700,7 +3700,7 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
         PAL_ERR(LOG_TAG, "Invalid callback or pcm ids");
         return -EINVAL;
     }
-
+    PAL_DBG(LOG_TAG, "Enter.");
     mResourceManagerMutex.lock();
     if (mixerEventRegisterCount == 0 && !is_register) {
         PAL_ERR(LOG_TAG, "Cannot deregister unregistered callback");
@@ -3715,6 +3715,8 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
                 PAL_DBG(LOG_TAG, "callback exists for pcm id %d, overwrite",
                     DevIds[i]);
                 mixerEventCallbackMap.erase(it);
+            } else {
+                PAL_INFO(LOG_TAG, "PCM %d: Fresh Registration. Owner Cookie: 0x%llx", DevIds[i], cookie);
             }
             mixerEventCallbackMap.insert(std::make_pair(DevIds[i],
                 std::make_pair(callback, cookie)));
