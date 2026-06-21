@@ -10,6 +10,7 @@ extern "C" int voicePluginConfig(Stream* stream, plugin_config_name_t config,
                  void *pluginPayload, size_t ppldSize);
 
 int populateRatPayload(Stream* s, SessionAlsaVoice *session, PayloadBuilder* builder);
+bool canSkipRatPayloadError(Stream* s, std::shared_ptr<ResourceManager> rm);
 int setPopSuppressorMute(Stream* s);
 int getDeviceData(Stream* s, struct sessionToPayloadParam* deviceData);
 int build_rx_mfc_payload(Stream* s, PayloadBuilder* builder);

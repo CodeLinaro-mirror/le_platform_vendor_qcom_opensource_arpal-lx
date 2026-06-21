@@ -442,6 +442,7 @@
             <channels>1</channels>
             <samplerate>8000</samplerate>
             <bit_width>16</bit_width>
+            <rat_disabled>1</rat_disabled>
             <snd_device_name>bt-sco-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -961,6 +962,7 @@
             <snd_device_name>bt-sco</snd_device_name>
             <samplerate>8000</samplerate>
             <bit_width>16</bit_width>
+            <rat_disabled>1</rat_disabled>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
                 <priority>1</priority>
