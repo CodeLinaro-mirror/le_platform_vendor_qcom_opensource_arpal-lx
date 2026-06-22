@@ -37,6 +37,9 @@ LOCAL_CFLAGS        += -DADSP_SLEEP_MONITOR
 ifeq ($(call is-board-platform-in-list,kalama pineapple sun canoe), true)
 LOCAL_CFLAGS        += -DSOC_PERIPHERAL_PROT
 endif
+ifeq ($(AUDIO_FEATURE_STATS_ENABLED), true)
+LOCAL_CFLAGS += -DAUDIO_FEATURE_STATS_ENABLED
+endif
 LOCAL_CPPFLAGS      += -fexceptions -frtti -Wno-ignored-attributes
 
 LOCAL_C_INCLUDES := \
@@ -98,10 +101,13 @@ LOCAL_HEADER_LIBRARIES := \
     liblisten_headers \
     libarosal_headers \
     libvui_dmgr_headers \
-    libaudiofeaturestats_headers \
     libarvui_intf_headers \
     libarmemlog_headers \
     libarpal_internalheaders
+
+ifeq ($(AUDIO_FEATURE_STATS_ENABLED), true)
+LOCAL_HEADER_LIBRARIES += libaudiofeaturestats_headers
+endif
 
 LOCAL_SHARED_LIBRARIES := \
     libar-gsl\
@@ -259,13 +265,16 @@ LOCAL_HEADER_LIBRARIES := \
     libacdb_headers \
     liblisten_headers \
     libarosal_headers \
-    libaudiofeaturestats_headers \
     libarvui_intf_headers \
     libarmemlog_headers \
     libarpal_internalheaders \
     libagm_headers \
     libsession_agm_headers \
     libsession_ar_headers
+
+ifeq ($(AUDIO_FEATURE_STATS_ENABLED), true)
+LOCAL_HEADER_LIBRARIES += libaudiofeaturestats_headers
+endif
 
 # Use flag based selection to use QTI vs open source tinycompress project
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)

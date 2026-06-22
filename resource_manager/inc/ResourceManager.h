@@ -53,8 +53,10 @@
 #include <queue>
 #include <deque>
 #include <unordered_map>
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 #include <audio_feature_stats_intf.h>
 #include <amdb_api.h>
+#endif
 #include "PalCommon.h"
 #include "PalDefs.h"
 #include "ChargerListener.h"
@@ -103,22 +105,30 @@ typedef enum {
 #if defined(__LP64__)
 #define ADM_LIBRARY_PATH "/usr/lib64/libadm.so"
 #define VUI_DMGR_LIB_PATH "/usr/lib64/libvui_dmgr_client.so"
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 #define AFS_LIB_PATH "/usr/lib64/libaudiofeaturestats.so"
+#endif
 #else
 #define ADM_LIBRARY_PATH "/usr/lib/libadm.so"
 #define VUI_DMGR_MANAGER_LIB_PATH "/usr/lib/libvui_dmgr_client.so"
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 #define AFS_LIB_PATH "/usr/lib/libaudiofeaturestats.so"
+#endif
 #endif
 #else
 #define QVA_VERSION "/data/vendor/audio/adc_qva_version.txt"
 #ifdef __LP64__
 #define ADM_LIBRARY_PATH "/vendor/lib64/libadm.so"
 #define VUI_DMGR_LIB_PATH "/vendor/lib64/libvui_dmgr_client.so"
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 #define AFS_LIB_PATH "/vendor/lib64/libaudiofeaturestats.so"
+#endif
 #else
 #define ADM_LIBRARY_PATH "/vendor/lib/libadm.so"
 #define VUI_DMGR_LIB_PATH "/vendor/lib/libvui_dmgr_client.so"
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 #define AFS_LIB_PATH "/vendor/lib/libaudiofeaturestats.so"
+#endif
 #endif
 #endif
 
@@ -383,6 +393,7 @@ typedef struct group_dev_config
     group_dev_hwep_config_t grp_dev_hwep_cfg;
 } group_dev_config_t;
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 /* AFS parameter data */
 typedef struct afs_param_payload_h {
     char qva_version[50] = {0};
@@ -392,6 +403,7 @@ typedef struct afs_param_payload_h {
     uint32_t module_version_minor;
     amdb_module_build_ts_info_t build_ts;
 } __attribute__ ((packed)) afs_param_payload_t;
+#endif
 
 static const constexpr uint32_t DEFAULT_NT_SESSION_TYPE_COUNT = 2;
 
@@ -607,10 +619,12 @@ private:
     static std::shared_ptr<group_dev_config_t> activeGroupDevConfig;
     static group_dev_config_t currentGroupDevConfig;
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
     pal_stream_handle_t *afs_stream_handle = NULL;
     static void *feature_stats_handle;
     static afs_init_t feature_stats_init;
     static afs_deinit_t feature_stats_deinit;
+#endif
 
     uint64_t cookie;
     pal_global_callback globalCb;
@@ -728,11 +742,13 @@ public:
     int initContextManager();
     int initHapticsInterface();
     void deInitContextManager();
+#ifdef AUDIO_FEATURE_STATS_ENABLED
     static void AudioFeatureStatsInit();
     static void AudioFeatureStatsDeInit();
     static int AudioFeatureStatsGetInfo(void **afs_payload, size_t *afs_payload_size);
     void checkQVAAppPresence(afs_param_payload_t *payload);
     pal_param_payload *AFSWakeUpAlgoDetection();
+#endif
 
     /* checks config for both stream and device */
     bool isStreamSupported(Stream *s,struct pal_device *devices, int no_of_devices);
