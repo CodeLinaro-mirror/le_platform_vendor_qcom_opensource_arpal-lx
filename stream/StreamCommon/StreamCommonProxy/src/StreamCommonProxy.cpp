@@ -41,7 +41,18 @@
 extern "C" Stream* CreateCommonProxyStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    return new StreamCommonProxy(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
+    StreamCommonProxy* stream = new(std::nothrow) StreamCommonProxy(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream) {
+        if (stream->isInitialized()) {
+            return stream;
+        } else {
+            delete stream;
+        }
+    }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    return nullptr;
 }
 
 
@@ -51,11 +62,17 @@ StreamCommonProxy::StreamCommonProxy(const struct pal_stream_attributes *sattr _
                     const std::shared_ptr<ResourceManager> rm) :
                StreamCommon(sattr,dattr,no_of_devices,modifiers,no_of_modifiers,rm)
 {
+    if (!isInitialized()) {
+        return;
+    }
     //registering for a callback
     rm->registerStream(this);
 }
 
 StreamCommonProxy::~StreamCommonProxy() {
+    if (!isInitialized()) {
+        return;
+    }
     rm->deregisterStream(this);
 }
 

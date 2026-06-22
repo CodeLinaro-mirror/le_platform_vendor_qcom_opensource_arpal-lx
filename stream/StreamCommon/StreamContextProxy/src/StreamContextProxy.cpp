@@ -41,7 +41,18 @@
 extern "C" Stream* CreateContextProxyStream(const struct pal_stream_attributes *sattr, struct pal_device *dattr,
                                const uint32_t no_of_devices, const struct modifier_kv *modifiers,
                                const uint32_t no_of_modifiers, const std::shared_ptr<ResourceManager> rm) {
-    return new StreamContextProxy(sattr, dattr, no_of_devices, modifiers, no_of_modifiers, rm);
+    StreamContextProxy* stream = new(std::nothrow) StreamContextProxy(sattr, dattr, no_of_devices,
+                        modifiers, no_of_modifiers, rm);
+    if (stream) {
+        if (stream->isInitialized()) {
+            return stream;
+        } else {
+            delete stream;
+        }
+    }
+    PAL_ERR(LOG_TAG, "Stream create failed for stream type %s:",
+                    streamNameLUT.at(sattr->type).c_str());
+    return nullptr;
 }
 
 StreamContextProxy::StreamContextProxy(const struct pal_stream_attributes *sattr __unused,
@@ -50,12 +61,18 @@ StreamContextProxy::StreamContextProxy(const struct pal_stream_attributes *sattr
                     const std::shared_ptr<ResourceManager> rm) :
                StreamCommon(sattr,dattr,no_of_devices,modifiers,no_of_modifiers,rm)
 {
+    if (!isInitialized()) {
+        return;
+    }
     //registering for a callback
     session->registerCallBack((session_callback)HandleCallBack, (uint64_t) this);
     rm->registerStream(this);
 }
 
 StreamContextProxy::~StreamContextProxy() {
+    if (!isInitialized()) {
+        return;
+    }
     rm->deregisterStream(this);
 }
 
