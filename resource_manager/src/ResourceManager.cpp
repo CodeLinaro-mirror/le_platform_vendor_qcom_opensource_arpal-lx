@@ -8106,14 +8106,25 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     int deviceId = active_devices[i].first->getSndDeviceId();
                     if (deviceId == dattr.id) {
                         dev = Device::getInstance(&dattr, rm);
+                        mResourceManagerMutex.unlock();
+                        lockActiveStream();
                         //Setting deviceRX: Config ICL Tag in AL module.
                         status = rm->getActiveStream_l(activestreams, dev);
                         if ((0 != status) || (activestreams.size() == 0)) {
                             PAL_DBG(LOG_TAG, "no active stream available");
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
                             goto exit;
                         }
                         stream = static_cast<Stream*>(activestreams[0]);
-                        mResourceManagerMutex.unlock();
+                        if (!stream || increaseStreamUserCounter(stream) < 0) {
+                            PAL_ERR(LOG_TAG, "failed to lock active stream");
+                            status = -EINVAL;
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
+                            goto exit;
+                        }
+                        unlockActiveStream();
                         /*
                          When charger is offline, reconfig ICL at normal gain first then
                          handle charger event, Otherwise for charger online case handle
@@ -8123,6 +8134,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             status = setSessionParamConfig(param_id, stream, is_charger_online_);
                         if (0 == status)
                             status = handleChargerEvent(stream, is_charger_online_);
+                        lockActiveStream();
+                        decreaseStreamUserCounter(stream);
+                        unlockActiveStream();
                         mResourceManagerMutex.lock();
                         if (0 != status)
                             PAL_ERR(LOG_TAG, "SetSession Param config failed %d", status);
@@ -8162,27 +8176,59 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 if ((PAL_DEVICE_OUT_SPEAKER == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADSET == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADPHONE == deviceId)) {
+                    mResourceManagerMutex.unlock();
+                    lockActiveStream();
                     status = getActiveStream_l(activestreams, active_devices[i].first);
                     if ((0 != status) || (activestreams.size() == 0)) {
-                       PAL_ERR(LOG_TAG, "no other active streams found");
-                       status = -EINVAL;
-                       goto exit;
+                        PAL_ERR(LOG_TAG, "no other active streams found");
+                        status = -EINVAL;
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
+                        goto exit;
                     }
 
                     stream = static_cast<Stream *>(activestreams[0]);
+                    if (!stream) {
+                        status = -EINVAL;
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
+                        goto exit;
+                    }
                     stream->getStreamAttributes(&sAttr);
                     if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
                         ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
                         (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
                         (sAttr.type == PAL_STREAM_COMPRESSED) ||
                         (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
+                        if (increaseStreamUserCounter(stream) < 0) {
+                            status = -EINVAL;
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
+                            goto exit;
+                        }
+                        unlockActiveStream();
                         stream->setGainLevel(gain_lvl_cal->level);
                         stream->getAssociatedSession(&session);
+                        if (!session) {
+                            status = -EINVAL;
+                            lockActiveStream();
+                            decreaseStreamUserCounter(stream);
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
+                            goto exit;
+                        }
                         status = session->setParameters(stream, param_id, nullptr);
+                        lockActiveStream();
+                        decreaseStreamUserCounter(stream);
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
                         if (0 != status) {
                             PAL_ERR(LOG_TAG, "session setConfig failed with status %d", status);
                             goto exit;
                         }
+                    } else {
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
                     }
                 }
             }
@@ -8265,29 +8311,46 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                    goto exit;
                 }
                 if (PAL_DEVICE_OUT_SPEAKER == deviceId && !strcmp(dattr.custom_config.custom_key, "mspp")) {
+                    mResourceManagerMutex.unlock();
+                    lockActiveStream();
                     status = getActiveStream_l(activestreams, active_devices[i].first);
                     if ((0 != status) || (activestreams.size() == 0)) {
-                       PAL_INFO(LOG_TAG, "no other active streams found");
-                       status = 0;
-                       goto exit;
+                        PAL_INFO(LOG_TAG, "no other active streams found");
+                        status = 0;
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
+                        goto exit;
                     }
 
                     for (int j = 0; j < activestreams.size(); j++) {
-                       stream = static_cast<Stream *>(activestreams[j]);
-                       stream->getStreamAttributes(&sAttr);
-                       if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
-                           ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
-                           (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
-                           (sAttr.type == PAL_STREAM_COMPRESSED) ||
-                           (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
-                           stream->getAssociatedSession(&session);
-                           status = session->setParameters(stream, param_id, param_payload);
-                           if (0 != status) {
-                               PAL_ERR(LOG_TAG, "session setConfig failed. stream: %d, status: %d",
-                                      sAttr.type, status);
-                           }
-                       }
+                        stream = static_cast<Stream *>(activestreams[j]);
+                        if (!stream)
+                            continue;
+                        stream->getStreamAttributes(&sAttr);
+                        if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
+                            ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                            (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                            (sAttr.type == PAL_STREAM_COMPRESSED) ||
+                            (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
+                            if (increaseStreamUserCounter(stream) < 0)
+                                continue;
+                            unlockActiveStream();
+                            stream->getAssociatedSession(&session);
+                            if (!session) {
+                                status = -EINVAL;
+                            } else {
+                                status = session->setParameters(stream, param_id, param_payload);
+                                if (0 != status) {
+                                    PAL_ERR(LOG_TAG, "session setConfig failed. stream: %d, status: %d",
+                                           sAttr.type, status);
+                                }
+                            }
+                            lockActiveStream();
+                            decreaseStreamUserCounter(stream);
+                        }
                     }
+                    unlockActiveStream();
+                    mResourceManagerMutex.lock();
                 }
             }
         }
