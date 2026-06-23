@@ -734,18 +734,17 @@ int plugin_set(Stream* s, plugin_control_name_t control, void *payload,
 
     switch (control) {
     case PLUGIN_CONTROL_VOLUME:
-        voldata = (struct pal_volume_data *)payload;
         if (!playload_size) {
             status = -EINVAL;
             PAL_ERR(LOG_TAG, "Recieved invalid playload size");
             goto exit;
         }
-        if (!voldata) {
+        if (!payload) {
             status = -ENOMEM;
             PAL_ERR(LOG_TAG, "Recieved invalid playload pointer");
             goto exit;
         }
-
+        voldata = (struct pal_volume_data *)payload;
         PAL_INFO(LOG_TAG,"recieved volume: %f", (voldata->volume_pair[0].vol));
         volume = (voldata->volume_pair[0].vol);
 
@@ -783,6 +782,9 @@ int plugin_set(Stream* s, plugin_control_name_t control, void *payload,
         status = -EINVAL;
     }
 exit:
+    if (voldata) {
+        free(voldata);
+    }
     PAL_DBG(LOG_TAG,"Exit with status: %d", status);
     return status;
 }
