@@ -435,7 +435,12 @@
         <ctl name="TX_DEC2 Volume" value="105" />
     </path>
     <path name="ultrasound-mic">
-        <path name="qmp3"/>
+        <ctl name="TX_SWR_DMIC Enable" value="1" />
+        <ctl name="TX DEC7 MUX" value="SWR_MIC" />
+        <ctl name="TX SMIC MUX7" value="SWR_MIC5" />
+        <ctl name="TX_AIF2_CAP Mixer DEC7" value="1" />
+        <ctl name="DEC_GAIN_BYPASS Enable" value="1" />
+        <path name="qmp2-normal" />
     </path>
     <path name="headphones">
         <ctl name="RX_MACRO RX0 MUX" value="AIF1_PB" />
