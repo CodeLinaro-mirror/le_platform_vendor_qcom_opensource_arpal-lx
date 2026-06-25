@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -68,6 +68,9 @@ using PalMessageQueueFlagBits = ::vendor::qti::hardware::pal::V1_0::PalMessageQu
 using PalReadWriteDoneResult = ::vendor::qti::hardware::pal::V1_0::PalReadWriteDoneResult;
 using PalReadWriteDoneCommand = ::vendor::qti::hardware::pal::V1_0::PalReadWriteDoneCommand;
 using PalCallbackBuffer = ::vendor::qti::hardware::pal::V1_0::PalCallbackBuffer;
+using PalCShmInfo = ::vendor::qti::hardware::pal::V1_0::PalCShmInfo;
+using PalCShmType = ::vendor::qti::hardware::pal::V1_0::PalCShmType;
+using PalCShmId = ::vendor::qti::hardware::pal::V1_0::PalCShmId;
 using IPALCallback = ::vendor::qti::hardware::pal::V1_0::IPALCallback;
 using android::hardware::hidl_handle;
 using android::hardware::hidl_memory;
@@ -123,14 +126,21 @@ struct PalCallback : public IPALCallback {
                                     uint64_t cookie,
                                     prepare_mq_for_transfer_cb _hidl_cb) override;
 
+    Return<void> ssr_event(uint8_t state, uint32_t subsystem, uint64_t cookie) override;
+
     PalCallback(pal_stream_callback callBack)
     {
         cb = callBack;
+    }
+    PalCallback(pal_global_callback callback)
+    {
+        gcb = callback;
     }
     ~PalCallback();
 
     protected:
        pal_stream_callback cb;
+       pal_global_callback gcb = nullptr;
        std::unique_ptr<DataMQ> mDataMQ = nullptr;
        std::unique_ptr<CommandMQ> mCommandMQ = nullptr;
        EventFlag* mEfGroup = nullptr;

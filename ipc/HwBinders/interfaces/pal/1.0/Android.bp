@@ -30,6 +30,9 @@ hidl_interface {
         "PalExternAllocBuffInfo",
         "PalParamPayload",
         "PalEventReadWriteDonePayload",
+        "PalCShmId",
+        "PalCShmInfo",
+        "PalCShmType",
     ],
     gen_java: false,
 }

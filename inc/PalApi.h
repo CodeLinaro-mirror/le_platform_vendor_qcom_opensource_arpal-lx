@@ -25,37 +25,10 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
-/* Changes from Qualcomm Innovation Center are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
- *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 /** \file pal_api.h
@@ -610,6 +583,55 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id, void *param_payload,
                       pal_stream_type_t pal_stream_type, uint32_t sample_rate,
                       uint32_t instance_id, uint32_t dir, bool is_play);
 
+/**
+  * \brief Request for shared memory allocation.
+  *
+  * \param[in] size - Size of the shared memeory required
+  *
+  * \param[out] pal_cshm_info_t - Info regarding the allocated shared memory
+  *
+  * \return 0 on success, error code otherwise
+  */
+
+int32_t pal_cshm_alloc(uint32_t size, pal_cshm_info_t *mem_info);
+
+/**
+  * \brief Request for deallocate the shared memory allocated via
+  *        pal_cshm_alloc.
+  *
+  * \param[in] mem_id - mem_id of the shared memory block to be deallocated
+  *
+  * \return 0 on success, error code otherwise
+  */
+
+int32_t pal_cshm_dealloc(pal_cshm_id_t mem_id);
+
+
+/**
+  * \brief Stream set parameters for generic/custom param
+  *
+  * \param[in] handle - stream handle to which the custom param is sent.
+  *
+  * \param[in] param_str - param str that mention the type of setparam.
+  *
+  * \param[in/out] param_payload - param data applicable to the param_str
+  *
+  * \param[in] payload_size - size of payload passed in
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+                            char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                            void* param_payload, size_t payload_size);
+
+/**
+  * \brief registers a callback function to get notification for audio events.
+  *
+  * \param[in] cb_event - Callback function to be called
+  *
+  * \return 0 on success, error code otherwise
+  */
+int32_t pal_register_for_events(pal_audio_event_callback cb_event);
 
 #ifdef __cplusplus
 }  /* extern "C" */

@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1200,4 +1200,23 @@ int32_t StreamCompress::ssrUpHandler()
       * will be started.
       */
     return 0;
+}
+
+
+int32_t StreamCompress::getTagsWithModuleInfo(size_t *size, uint8_t *payload)
+{
+    int32_t status = -EINVAL;
+
+    if (!payload) {
+        PAL_ERR(LOG_TAG, "payload is NULL");
+        goto exit;
+    }
+
+    if (session)
+        status = session->getTagsWithModuleInfo(this, size, payload);
+    else
+        PAL_ERR(LOG_TAG, "session handle is NULL");
+
+exit:
+    return status;
 }

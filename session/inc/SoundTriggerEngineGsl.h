@@ -144,6 +144,9 @@ class SoundTriggerEngineGsl : public SoundTriggerEngine {
     }
     void UpdateState(eng_state_t state);
     void UpdateStateToActive() override;
+    int sendMsg(pal_cshm_id_t mem_id, uint32_t offset, uint32_t length,
+                 uint32_t miid, uint32_t flags) override;
+    int getTagsWithModuleInfo(Stream *s, size_t *size __unused, uint8_t *payload) override;
 
  private:
     int32_t StartBuffering(Stream *s);

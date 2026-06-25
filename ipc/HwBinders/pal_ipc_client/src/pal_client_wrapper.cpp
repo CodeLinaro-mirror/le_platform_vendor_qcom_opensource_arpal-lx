@@ -26,13 +26,16 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "pal_client_wrapper"
 #include <vendor/qti/hardware/pal/1.0/IPAL.h>
+#include <android/hidl/allocator/1.0/IAllocator.h>
+#include <android/hidl/memory/1.0/IMemory.h>
+#include <hidlmemory/mapping.h>
 #include <hidl/MQDescriptor.h>
 #include <hidl/Status.h>
 #include <log/log.h>
@@ -49,11 +52,14 @@ using android::hardware::MessageQueue;
 using android::hardware::EventFlag;
 using android::Thread;
 using android::status_t;
+using ::android::hidl::allocator::V1_0::IAllocator;
+using ::android::hidl::memory::V1_0::IMemory;
+using android::hardware::hidl_memory;
 
 bool pal_server_died = false;
 android::sp<IPAL> pal_client = NULL;
 sp<server_death_notifier> Server_death_notifier = NULL;
-
+sp<IAllocator> ashmemAllocator = NULL;
 
 std::mutex gLock;
 
@@ -177,6 +183,7 @@ android::sp<IPAL> get_pal_server() {
             pal_client->linkToDeath(Server_death_notifier, 0);
             ALOGE("palclient linked to death server death \n", __func__);
         }
+        ashmemAllocator = IAllocator::getService("ashmem");
     }
 exit:
     return pal_client ;
@@ -335,6 +342,18 @@ Return<void> PalCallback::prepare_mq_for_transfer(PalStreamHandle streamHandle,
     mDataTransferThread = tempDataTransferThread;
     mEfGroup = tempElfGroup.release();
     _hidl_cb(PalReadWriteDoneResult::OK, *mDataMQ->getDesc(), *mCommandMQ->getDesc());
+    return Void();
+}
+
+Return<void> PalCallback::ssr_event(uint8_t state, uint32_t subsystem, uint64_t cookie) {
+
+    uint32_t event_data = state;
+    int ret = -EINVAL;
+    if (this->gcb)
+        ret = this->gcb(PAL_SND_CARD_STATE, &event_data, cookie);
+    else
+        ALOGE("%s: callback is null", __func__);
+
     return Void();
 }
 
@@ -700,6 +719,58 @@ ssize_t pal_stream_read(pal_stream_handle_t *stream_handle, struct pal_buffer *b
     return ret;
 }
 
+int32_t mapToHidlMemory(void* inp_data, int32_t size, const hidl_memory& mem)
+{
+    void *data = NULL;
+
+    sp<IMemory> memory = mapMemory(mem);
+    if (memory == NULL) {
+        ALOGE("%s: Could not map HIDL mem to IMemory", __func__);
+        return -EINVAL;
+    }
+    if (memory->getSize() != mem.size()) {
+        ALOGE("%s: Size mismatch in memory mapping", __func__);
+        return -EINVAL;
+    }
+    data = memory->getPointer();
+    if (data == NULL) {
+        ALOGE("%s: Could not get memory pointer", __func__);
+        return -EINVAL;
+    }
+
+    memory->update();
+    memcpy(data, inp_data, size);
+    memory->commit();
+
+    return 0;
+}
+
+int32_t getHidlMemory(void *inp_data, int32_t size, hidl_memory& hidl_mem)
+{
+    int32_t status = 0;
+
+    if (ashmemAllocator == NULL) {
+        ALOGE("%s: Memory allocator is invalid", __func__);
+        return -ENOMEM;
+    }
+
+    ashmemAllocator->allocate(size, [&](bool success, const hidl_memory& mem) {
+        if (!success) {
+            ALOGE("%s: Memory allocation failed", __func__);
+            status = -ENOMEM;
+            return;
+        }
+        hidl_mem = mem;
+        status = mapToHidlMemory(inp_data, size, mem);
+        if (status < 0) {
+            hidl_mem = hidl_memory();
+            return;
+        }
+    });
+
+    return status;
+}
+
 int32_t pal_stream_set_param(pal_stream_handle_t *stream_handle,
                              uint32_t param_id,
                              pal_param_payload *param_payload)
@@ -1029,9 +1100,18 @@ int32_t pal_stream_get_mmap_position(pal_stream_handle_t *stream_handle,
     return ret;
 }
 
-int32_t pal_register_global_callback(pal_global_callback cb, void *cookie)
+int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
 {
-    return 0;
+    int32_t ret = -EINVAL;
+
+    if (!pal_server_died) {
+        android::sp<IPAL> pal_client = get_pal_server();
+        if (pal_client == nullptr)
+            return -EINVAL;
+        sp<IPALCallback> ClbkBinder = new PalCallback(cb);
+        ret = pal_client->ipc_pal_register_global_callback(ClbkBinder, (uint64_t)cookie);
+    }
+    return ret;
 }
 
 int32_t pal_gef_rw_param(uint32_t param_id, void *param_payload,
@@ -1072,6 +1152,75 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
                                     ALOGV("ret %d size_ret %d", ret_, size_ret);
                                     ret = ret_;
                               });
+    }
+    return ret;
+}
+
+int32_t pal_cshm_alloc(uint32_t size, pal_cshm_info_t *mem_info) {
+    int32_t ret = -EINVAL;
+    const native_handle *memFdHandle = nullptr;
+
+    if (!pal_server_died) {
+        ALOGV("%s:%d: size %d", __func__, __LINE__, size);
+        android::sp<IPAL> pal_client = get_pal_server();
+        if (pal_client == nullptr)
+            return ret;
+        hidl_vec<PalCShmInfo> cshmInfo(1);
+        cshmInfo.data()->flags = mem_info->flags;
+        cshmInfo.data()->type = (PalCShmType)(mem_info->type);
+        pal_client->ipc_pal_cshm_alloc(size,cshmInfo,
+                            [&](int32_t ret_, hidl_vec<PalCShmInfo> cshmInfoResult)
+                            {
+                                if (!ret_) {
+                                mem_info->mem_id = cshmInfoResult.data()->mem_id;
+                                memFdHandle = cshmInfoResult.data()->fdMemory.handle();
+                                mem_info->fd = dup(memFdHandle->data[0]);
+                                }
+                                ALOGV("ret %d fd %d", ret_, mem_info->fd);
+                                ret = ret_;
+                            });
+    }
+    return ret;
+}
+
+int32_t pal_cshm_dealloc(pal_cshm_id_t mem_id) {
+
+    int ret = -EINVAL;
+
+    if (!pal_server_died) {
+        ALOGV("%s:%d: mem_id %d", __func__, __LINE__, mem_id);
+        android::sp<IPAL> pal_client = get_pal_server();
+        if (pal_client == nullptr)
+            return ret;
+        ret = pal_client->ipc_pal_cshm_dealloc(mem_id);
+    }
+
+    return ret;
+}
+
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* handle,
+                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    void* param_payload, size_t payload_size) {
+    int ret = -EINVAL;
+    hidl_memory paramPayload;
+    std::string paramString(param_str);
+
+    if (!pal_server_died) {
+        android::sp<IPAL> pal_client = get_pal_server();
+        if (pal_client == nullptr)
+            goto done;
+        ret = getHidlMemory(param_payload, payload_size, paramPayload);
+        if (ret < 0) {
+            ALOGE("%s: Cannot obtain hidl memory: %d", __func__, ret);
+            ret = -ENOMEM;
+            goto done;
+        }
+        ret = pal_client->ipc_pal_stream_set_custom_param((PalStreamHandle)handle,
+                                    paramString, paramPayload, payload_size);
+    }
+done:
+    if (paramPayload.handle() != nullptr) {
+        paramPayload  = {};
     }
     return ret;
 }

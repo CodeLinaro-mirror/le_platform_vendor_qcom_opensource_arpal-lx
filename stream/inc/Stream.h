@@ -59,6 +59,10 @@
  * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
  * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #ifndef STREAM_H_
@@ -250,6 +254,8 @@ public:
     virtual int32_t GetMmapPosition(struct pal_mmap_position *position __unused) {return -EINVAL;}
     virtual int32_t getTagsWithModuleInfo(size_t *size __unused, uint8_t *payload __unused) {return -EINVAL;};
     virtual bool ConfigSupportLPI() {return true;}; //Only LPI streams can update their vote to NLPI
+    virtual int32_t setCustomParam(char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                   void *param_payload, size_t payload_size);
     int32_t getStreamAttributes(struct pal_stream_attributes *sattr);
     int32_t getModifiers(struct modifier_kv *modifiers,uint32_t *noOfModifiers);
     const std::string& getStreamSelector() const;

@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -35,12 +35,16 @@
 #include "inc/pal_server_wrapper.h"
 #include "MetadataParser.h"
 #include <hwbinder/IPCThreadState.h>
+#include <android/hidl/memory/1.0/IMemory.h>
+#include <hidlmemory/mapping.h>
 
 #define MAX_CACHE_SIZE 64
+#define GLB_CB_COOKIE 0x50414C
 
 using vendor::qti::hardware::pal::V1_0::IPAL;
 using android::hardware::hidl_handle;
 using android::hardware::hidl_memory;
+using ::android::hidl::memory::V1_0::IMemory;
 
 // map<FD, map<offset, input_frame_id>>
 std::map<int, std::map<uint32_t, uint64_t>> gInputsPendingAck;
@@ -101,7 +105,7 @@ void PalClientDeathRecipient::serviceDied(uint64_t cookie,
     std::lock_guard<std::mutex> guard(mLock);
     ALOGD("%s : client died pid : %d", __func__, cookie);
     int pid = (int) cookie;
-    std::lock_guard<std::mutex> lock(mPalInstance->mClientLock);
+    std::unique_lock<std::mutex> lock(mPalInstance->mClientLock);
     auto &clients = mPalInstance->mPalClients;
     for (auto itr = clients.begin(); itr != clients.end(); itr++) {
         auto client = *itr;
@@ -128,6 +132,69 @@ void PalClientDeathRecipient::serviceDied(uint64_t cookie,
             break;
         }
     }
+    lock.unlock();
+
+    /* Handle global callback client deaths */
+    mPalInstance->mPalGlobalClientLock.lock();
+    auto &gbCbClients = mPalInstance->mPalGlobalCbClients;
+    for (auto itr = gbCbClients.begin(); itr != gbCbClients.end(); itr++ ) {
+        auto client = *itr;
+        if (client->pid_ == pid) {
+            itr = gbCbClients.erase(itr);
+            break;
+        }
+    }
+    if (mPalInstance->mPalGlobalCbClients.size() == 0) {
+        int ret = pal_register_global_callback(nullptr, GLB_CB_COOKIE);
+        if (ret)
+            ALOGE("%s: Unable to deregister global cb from PAL, ret = %d", __func__, ret);
+    }
+    mPalInstance->mPalGlobalClientLock.unlock();
+
+    /* Handle cshm client deaths */
+    mPalInstance->mPalCShmClientLock.lock();
+    auto &cshmClients = mPalInstance->mPalCShmClients;
+    char param_str[PAL_MAX_CUSTOM_KEY_SIZE] = SEND_MSG_PARAM;
+    pal_stream_handle_t *stream_handle = nullptr;
+    pal_cshm_msg_payload_t payload = {};
+
+    payload.offset = 0x0;
+    payload.length = 0;
+    payload.flags = 0x2;
+    for (auto itr = cshmClients.begin(); itr != cshmClients.end(); itr++ ) {
+        auto client = *itr;
+        if (client->pid == pid) {
+            ALOGI("%s: Client with pid %d died", __func__, pid);
+            auto itr_memid = client->active_mem_ids.begin();
+            int status = -EINVAL;
+            while(itr_memid != client->active_mem_ids.end()) {
+                for(int k = 0; k < itr_memid->second.size(); k++) {
+                    payload.mem_id = itr_memid->first;
+                    payload.miid = std::get<1>(itr_memid->second[k]);
+                    stream_handle = (pal_stream_handle_t *) std::get<0>(itr_memid->second[k]);
+                    status = pal_stream_set_custom_param(stream_handle, param_str, &payload, sizeof(pal_cshm_msg_payload_t));
+                }
+                status = pal_cshm_dealloc(itr_memid->first);
+                if(!status)
+                {
+                    ALOGV("%s: Delloc for mem_id %d success", __func__, itr_memid->first);
+                }
+                else
+                    ALOGE("%s: Dealloc failed", __func__);
+                itr_memid =  client->active_mem_ids.erase(itr_memid);
+            }
+
+            auto itr_fd = client->active_fds.begin();
+            while(itr_fd != client->active_fds.end()) {
+                close(itr_fd->second->data[0]);
+                native_handle_delete(itr_fd->second);
+                itr_fd = client->active_fds.erase(itr_fd);
+            }
+            itr = cshmClients.erase(itr);
+            break;
+        }
+    }
+    mPalInstance->mPalCShmClientLock.unlock();
 }
 
 void PAL::add_input_and_dup_fd(const uint64_t streamHandle, int input_fd, int dup_fd)
@@ -401,6 +468,24 @@ static int32_t pal_callback(pal_stream_handle_t *stream_handle,
             }
         } else
             ALOGE("Client died dropping this event %d", event_id);
+    }
+    return 0;
+}
+
+static int32_t pal_gcallback(uint32_t event_id, uint32_t *event_data,
+                                    uint64_t cookie) {
+
+    switch (event_id) {
+        case PAL_SND_CARD_STATE :
+            for (auto &gCbClient: PAL::getInstance()->mPalGlobalCbClients) {
+                if(gCbClient->clbk_binder) {
+                    gCbClient->clbk_binder->ssr_event(*event_data, 1,gCbClient->client_data_);
+                }
+            }
+            break;
+        default :
+            ALOGE("Invalid event id:%d", event_id);
+            return -EINVAL;
     }
     return 0;
 }
@@ -1224,7 +1309,59 @@ Return<void>PAL::ipc_pal_stream_get_mmap_position(PalStreamHandle streamHandle,
 
 Return<int32_t>PAL::ipc_pal_register_global_callback(const sp<IPALCallback>& cb, uint64_t cookie)
 {
-    return 0;
+    int32_t ret = 0;
+    bool does_client_exist = false;
+    int pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
+    std::lock_guard<std::mutex> lock(mPalGlobalClientLock);
+
+    if (cb == nullptr) {
+        for (auto itr = mPalGlobalCbClients.begin(); itr != mPalGlobalCbClients.end(); itr++) {
+            auto gCbClient = *itr;
+            if(gCbClient->pid_ == pid) {
+                itr = mPalGlobalCbClients.erase(itr);
+                does_client_exist = true;
+                break;
+            }
+        }
+
+        if (!does_client_exist) {
+            ALOGE("%s: Client with pid %d not found and callback is null!", __func__, pid);
+            ret = -EINVAL;
+        }
+
+        /* If no active clients, de-register from PAL */
+        if (mPalGlobalCbClients.size() == 0) {
+            ret = pal_register_global_callback(nullptr, GLB_CB_COOKIE);
+            if (ret)
+                ALOGE("%s: Unable to deregister global cb from PAL, ret = %d", __func__, ret);
+        }
+    } else {
+        auto sr_gclbk_data =  std::make_shared<SrvrClbk>(cb, cookie, pid);
+        mPalGlobalCbClients.push_back(sr_gclbk_data);
+        /* For first client, register with PAL */
+        if (mPalGlobalCbClients.size() == 1) {
+            ret = pal_register_global_callback(pal_gcallback, GLB_CB_COOKIE);
+            if (ret != 0) {
+                ALOGE("%s: Unable to register global cb with PAL, ret = %d", __func__, ret);
+                goto exit;
+            }
+        }
+    }
+
+    if (cb != NULL) {
+        if (this->mDeathRecipient.get() == nullptr) {
+            this->mDeathRecipient = new PalClientDeathRecipient(this);
+            if (this->mDeathRecipient.get() == nullptr) {
+                ALOGE("%s: Failed to allocate memory for death recipient", __func__);
+                ret = -EINVAL;
+                goto exit;
+            }
+        }
+        cb->linkToDeath(this->mDeathRecipient, pid);
+    }
+
+exit:
+    return ret;
 }
 
 Return<void>PAL::ipc_pal_gef_rw_param(uint32_t paramId, const hidl_vec<uint8_t> &param_payload,
@@ -1235,6 +1372,10 @@ Return<void>PAL::ipc_pal_gef_rw_param(uint32_t paramId, const hidl_vec<uint8_t> 
     return Void();
 }
 
+/* We do not check here if stream handle is valid or not,
+   as it's possible the use-case was started by a non-HIDL
+   PAL client. Instead, check for validity in PAL itself
+*/
 Return<void>PAL::ipc_pal_stream_get_tags_with_module_info(PalStreamHandle streamHandle,
                                uint32_t size,
                                ipc_pal_stream_get_tags_with_module_info_cb _hidl_cb)
@@ -1243,11 +1384,6 @@ Return<void>PAL::ipc_pal_stream_get_tags_with_module_info(PalStreamHandle stream
     uint8_t *payload = NULL;
     size_t sz = size;
     hidl_vec<uint8_t> payloadRet;
-
-    if (!isValidstreamHandle(streamHandle)) {
-        ALOGE("%s: Invalid streamHandle: %pK", __func__, streamHandle);
-        return Void();
-    }
 
     if (size > 0) {
         payload = (uint8_t *)calloc(1, size);
@@ -1267,7 +1403,199 @@ Return<void>PAL::ipc_pal_stream_get_tags_with_module_info(PalStreamHandle stream
     return Void();
 }
 
+Return<void> PAL::ipc_pal_cshm_alloc(const uint32_t size, const hidl_vec<PalCShmInfo>& memInfo,
+                                     ipc_pal_cshm_alloc_cb _hidl_cb) {
+    int32_t ret = -EINVAL;
+    int pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
+    bool is_new_client = true;
+    pal_cshm_info_t mem_info;
+    hidl_vec<PalCShmInfo> palMemInfoHidl(1);
+    native_handle_t *memFdHidlHandle = nullptr;
 
+    mem_info.type = (pal_cshm_type)memInfo.data()->type;
+    mem_info.flags = memInfo.data()->flags;
+    ret = pal_cshm_alloc(size, &mem_info);
+    if (ret) {
+        ALOGE("%s: PAL memory alloc failed with %d", __func__, ret);
+        goto exit;
+    }
+    memFdHidlHandle = native_handle_create(1, 0);
+    if (!memFdHidlHandle) {
+        ret = -EINVAL;
+        ALOGE("%s: Create native handle failed", __func__);
+        goto exit;
+    }
+    memFdHidlHandle->data[0] = mem_info.fd;
+
+    palMemInfoHidl.data()->fdMemory = hidl_memory("cshm_fd", hidl_handle(memFdHidlHandle), size);
+    palMemInfoHidl.data()->mem_id = mem_info.mem_id;
+
+    mPalCShmClientLock.lock();
+    for(auto& client: mPalCShmClients) {
+        if (client->pid == pid) {
+            ALOGI("%s: Client with pid %d already registered, add new mem_id", __func__, pid);
+            is_new_client = false;
+            client->active_mem_ids.insert({mem_info.mem_id, std::vector<std::tuple<uint64_t, uint32_t>>()});
+            client->active_fds.insert({mem_info.mem_id, memFdHidlHandle});
+            break;
+        }
+    }
+
+    if (is_new_client) {
+        auto client = std::make_shared<pal_cshm_client_info_t>();
+        client->pid = pid;
+        client->active_mem_ids.insert({mem_info.mem_id, std::vector<std::tuple<uint64_t, uint32_t>>()});
+        client->active_fds.insert({mem_info.mem_id, memFdHidlHandle});
+        mPalCShmClients.push_back(client);
+    }
+
+    mPalCShmClientLock.unlock();
+
+exit:
+    _hidl_cb(ret, palMemInfoHidl);
+    return Void();
+}
+
+
+Return<int32_t> PAL::ipc_pal_cshm_dealloc(PalCShmId mem_id) {
+
+    int ret = 0;
+    std::lock_guard<std::mutex> lock(mPalCShmClientLock);
+
+    ret = pal_cshm_dealloc(mem_id);
+    if (ret) {
+        ALOGE("%s: Dealloc failed, not removing mem_id 0x%x", __func__, mem_id);
+    } else {
+        int pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
+        for(auto itr = mPalCShmClients.begin(); itr != mPalCShmClients.end(); itr++) {
+            auto &client = *itr;
+            if (client->pid == pid) {
+                auto mItr = client->active_mem_ids.find(mem_id);
+                if (mItr != client->active_mem_ids.end()) {
+                    client->active_mem_ids.erase(mItr);
+                }
+                else {
+                    ALOGE("%s: mem_id 0x%x does not belong to client with pid %d", __func__, mem_id, pid);
+                    ret = -EINVAL;
+                }
+                auto itr_fd = client->active_fds.find(mem_id);
+                if (itr_fd != client->active_fds.end()) {
+                    close(itr_fd->second->data[0]);
+                    native_handle_delete(itr_fd->second);
+                    client->active_fds.erase(itr_fd);
+                }
+                else {
+                    ALOGE("%s: mem_id 0x%x not found in active_fds for client with pid %d", __func__, mem_id, pid);
+                }
+                /* If client has no active mem_id's, remove it from list */
+                if (client->active_mem_ids.size() == 0)
+                    itr = mPalCShmClients.erase(itr);
+                break;
+            }
+        }
+    }
+
+    return ret;
+}
+
+/* Debug function to print all info regarding all existing cshm clients:*/
+void PAL::printCShmClientInfo(void) {
+    mPalCShmClientLock.lock();
+    ALOGI("%s: Total active clients: %d", __func__, mPalCShmClients.size());
+    for (auto &client: mPalCShmClients) {
+        ALOGI("%s: Printing info for client with pid: %d", __func__, client->pid);
+        int counter = 1;
+        ALOGI("%s: Total active mem_ids: %d",__func__, client->active_mem_ids.size());
+        for(auto itr = client->active_mem_ids.begin(); itr != client->active_mem_ids.end(); itr++) {
+            ALOGI("%s: %d) mem_id: 0x%x, total active miids: %d",__func__,counter, itr->first, itr->second.size());
+            for(auto &vecMem: itr->second ) {
+                ALOGI("%s: \tStream handle: %pK, miid: 0x%x", __func__,
+                                             (pal_stream_handle_t *)std::get<0>(vecMem), std::get<1>(vecMem));
+            }
+            counter++;
+        }
+    }
+    mPalCShmClientLock.unlock();
+    return;
+}
+
+Return<int32_t> PAL::ipc_pal_stream_set_custom_param(const uint64_t streamHandle, const ::android::hardware::hidl_string &paramStr, const hidl_memory& paramPayload, uint64_t paramPayloadSize) {
+
+    int ret = -EINVAL;
+    char param_str[PAL_MAX_CUSTOM_KEY_SIZE];
+    sp<IMemory> memory;
+    void *payload = nullptr;
+    void *custom_param_payload = nullptr;
+
+    if (paramPayloadSize > paramPayload.size() ) {
+        ALOGE("Invalid param payload size");
+        return -EINVAL;
+    }
+    memory = mapMemory(paramPayload);
+    if (!memory) {
+        ALOGE("Not able to map HIDl memory");
+        return -ENOMEM;
+    }
+
+
+    auto cleanup = [&] {
+        if (custom_param_payload) {
+            free(custom_param_payload);
+            custom_param_payload = nullptr;
+        }
+    };
+
+    // This copy can be avoided if pal_stream_set_custom_param signature can be updated to take const char instead of char
+    strlcpy(param_str, paramStr.c_str(), sizeof(param_str));
+    payload = memory->getPointer();
+    custom_param_payload = calloc(1, paramPayloadSize);
+    if (custom_param_payload  == nullptr) {
+        ALOGE("%s: Failed to allocate memory for custom param payload", __func__);
+        cleanup();
+        return -EINVAL;
+    }
+
+    memcpy(custom_param_payload, payload, paramPayloadSize);
+    ret = pal_stream_set_custom_param((pal_stream_handle_t *)streamHandle, param_str, custom_param_payload, paramPayloadSize);
+    if (ret) {
+        ALOGE("%s: Failed to set custom param", __func__);
+        cleanup();
+        return ret;
+    }
+
+    // Not checking result of msg call for adding miid to list. Possible that call fails but module maintains refconf on memory?
+    if (!strcmp(paramStr.c_str(), SEND_MSG_PARAM)) {
+        pal_cshm_msg_payload_t *palPayload = (pal_cshm_msg_payload_t *)custom_param_payload;
+        pal_cshm_id_t mem_id = palPayload->mem_id;
+        uint32_t miid = palPayload->miid;
+        int pid = ::android::hardware::IPCThreadState::self()->getCallingPid();
+        std::lock_guard<std::mutex> lock(mPalCShmClientLock);
+
+        for(auto& client: mPalCShmClients) {
+            if (client->pid == pid) {
+                auto itr = client->active_mem_ids.find(mem_id);
+                bool skip_update = false;
+                if (itr == client->active_mem_ids.end()) {
+                    ALOGE("%s: mem_id 0x%x not found", __func__, mem_id);
+                    cleanup();
+                    return -EINVAL;
+                }
+                for (int i = 0; i < itr->second.size(); i++) {
+                    if ((std::get<0>(itr->second[i]) == streamHandle) &&
+                        (std::get<1>(itr->second[i]) == miid)) {
+                        skip_update = true;
+                        break;
+                    }
+                }
+                if (!skip_update)
+                    itr->second.push_back(std::make_tuple(streamHandle, miid));
+                break;
+            }
+        }
+    }
+    cleanup();
+    return ret;
+}
 
 IPAL* HIDL_FETCH_IPAL(const char* /* name */) {
     ALOGV("%s");

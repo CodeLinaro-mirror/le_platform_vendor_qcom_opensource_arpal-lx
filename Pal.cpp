@@ -26,39 +26,11 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
- * Redistribution and use in source and binary forms, with or without
- * modification, are permitted (subject to the limitations in the
- * disclaimer below) provided that the following conditions are met:
- *
- *   * Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer.
- *
- *   * Redistributions in binary form must reproduce the above
- *     copyright notice, this list of conditions and the following
- *     disclaimer in the documentation and/or other materials provided
- *     with the distribution.
- *
- *   * Neither the name of Qualcomm Innovation Center, Inc. nor the names of its
- *     contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission.
- *
- * NO EXPRESS OR IMPLIED LICENSES TO ANY PARTY'S PATENT RIGHTS ARE
- * GRANTED BY THIS LICENSE. THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT
- * HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED
- * WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
- * MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
- * IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR
- * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
- * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE
- * GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
- * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER
- * IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
- * OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
- * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #define LOG_TAG "PAL: API"
@@ -72,6 +44,7 @@
 #include "Device.h"
 #include "ResourceManager.h"
 #include "PalCommon.h"
+#include <agm/agm_api.h>
 class Stream;
 
 /**
@@ -189,6 +162,51 @@ exit:
     return;
 }
 
+int32_t pal_register_for_events(pal_audio_event_callback cb_event) {
+
+    std::shared_ptr<ResourceManager> rm = NULL;
+    Stream *stream = NULL;
+    pal_callback_config_t config = {};
+    std::vector <Stream *> streams;
+    struct pal_stream_attributes sAttr;
+    std::vector <std::shared_ptr<Device>> palDevices;
+
+    PAL_DBG(LOG_TAG, "Enter. register callback events");
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG,"Resource manager instance unavailable");
+        return -EINVAL;
+    }
+    rm->callback_event = cb_event;
+    if (cb_event == NULL) {
+        return 0;
+    }
+    if (rm->getActiveStream(streams, NULL) == 0) {
+        for (int i = 0; i < streams.size(); i++) {
+            stream = static_cast<Stream *>(streams[i]);
+            stream->getAssociatedDevices(palDevices);
+            stream->getStreamAttributes(&sAttr);
+            config.streamAttributes = sAttr;
+            if(!palDevices.empty()) {
+                config.currentDevices = (pal_device_id_t *) calloc(palDevices.size(), sizeof(pal_device_id_t));
+                int currentDeviceNumber = 0;
+                for (auto &dev : palDevices) {
+                    config.currentDevices[currentDeviceNumber] = ((pal_device_id_t)dev->getSndDeviceId());
+                    currentDeviceNumber++;
+                }
+                config.noOfCurrentDevices = currentDeviceNumber;
+            }
+            config.streamHandle = (pal_stream_handle_t)stream;
+            rm->callback_event(&config, PAL_NOTIFY_START, true);
+            if (config.currentDevices) {
+                free(config.currentDevices);
+                palDevices.clear();
+            }
+        }
+    }
+    PAL_DBG(LOG_TAG, "Exit");
+    return 0;
+}
 
 int32_t pal_stream_open(struct pal_stream_attributes *attributes,
                         uint32_t no_of_devices, struct pal_device *devices,
@@ -316,7 +334,9 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
     struct pal_stream_attributes sAttr;
+    std::vector <std::shared_ptr<Device>> palDevices;
     std::shared_ptr<ResourceManager> rm = NULL;
+    pal_callback_config_t config = {};
     int status;
     if (!stream_handle) {
         status = -EINVAL;
@@ -356,6 +376,7 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
     rm->unlockValidStreamMutex();
 
     s->getStreamAttributes(&sAttr);
+    s->getAssociatedDevices(palDevices);
     if (sAttr.type == PAL_STREAM_VOICE_UI)
         rm->handleDeferredSwitch();
 
@@ -370,6 +391,26 @@ int32_t pal_stream_start(pal_stream_handle_t *stream_handle)
         goto exit;
     }
 
+    if (rm->callback_event != NULL) {
+        config.streamHandle = (pal_stream_handle_t)stream_handle;
+        config.streamAttributes = sAttr;
+        int32_t currentDeviceNumber = 0;
+        if(!palDevices.empty()) {
+            config.currentDevices = (pal_device_id_t *) calloc(palDevices.size(), sizeof(pal_device_id_t));
+        }
+        if (!config.currentDevices) {
+            PAL_ERR(LOG_TAG, "Memory alloc failed");
+            goto exit;
+        }
+        for (auto &dev : palDevices) {
+            config.currentDevices[currentDeviceNumber] = ((pal_device_id_t)dev->getSndDeviceId());
+            currentDeviceNumber++;
+        }
+        config.noOfCurrentDevices = currentDeviceNumber;
+        rm->callback_event(&config, PAL_NOTIFY_START, false);
+        if (config.currentDevices)
+            free(config.currentDevices);
+    }
 exit:
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
@@ -378,7 +419,10 @@ exit:
 int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
 {
     Stream *s = NULL;
+    struct pal_stream_attributes sAttr;
+    std::vector <std::shared_ptr<Device>> palDevices;
     std::shared_ptr<ResourceManager> rm = NULL;
+    pal_callback_config_t config = {};
     int status;
 
     if (!stream_handle) {
@@ -409,6 +453,8 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
         goto exit;
     }
     rm->unlockValidStreamMutex();
+    s->getStreamAttributes(&sAttr);
+    s->getAssociatedDevices(palDevices);
     s->setCachedState(STREAM_STOPPED);
     status = s->stop();
 
@@ -421,6 +467,25 @@ int32_t pal_stream_stop(pal_stream_handle_t *stream_handle)
         goto exit;
     }
 
+    if (rm->callback_event != NULL) {
+        int32_t currentDeviceNumber = 0;
+        if(!palDevices.empty())
+            config.currentDevices = (pal_device_id_t *) calloc(palDevices.size(), sizeof(pal_device_id_t));
+        if (!config.currentDevices) {
+            PAL_ERR(LOG_TAG, "Memory alloc failed");
+            goto exit;
+        }
+        for (auto &dev : palDevices) {
+            config.currentDevices[currentDeviceNumber] = ((pal_device_id_t)dev->getSndDeviceId());
+            currentDeviceNumber++;
+        }
+        config.noOfCurrentDevices = currentDeviceNumber;
+        config.streamHandle = (pal_stream_handle_t)stream_handle;
+        config.streamAttributes = sAttr;
+        rm->callback_event(&config, PAL_NOTIFY_STOP, false);
+        if (config.currentDevices)
+            free(config.currentDevices);
+    }
 exit:
     PAL_INFO(LOG_TAG, "Exit. status %d", status);
     return status;
@@ -1084,6 +1149,7 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     struct pal_device_info devinfo = {};
     struct pal_device *pDevices = NULL;
     struct pal_device curPalDevAttr;
+    pal_callback_config_t config = {};
     std::vector <std::shared_ptr<Device>> aDevices, palDevices;
 
     if (!stream_handle) {
@@ -1244,6 +1310,40 @@ int32_t pal_stream_set_device(pal_stream_handle_t *stream_handle,
     if (0 != status) {
         PAL_ERR(LOG_TAG, "failed with status %d", status);
         goto exit;
+    } else {
+        if (rm->callback_event != NULL) {
+            config.streamHandle = (pal_stream_handle_t)stream_handle;
+            config.streamAttributes = sattr;
+            int32_t prevDeviceNumber = 0;
+            config.prevDevices = (pal_device_id_t *) calloc(aDevices.size(), sizeof(pal_device_id_t));
+            if (!config.prevDevices) {
+                PAL_ERR(LOG_TAG, "Memory alloc failed");
+                goto exit;
+            }
+            if(!aDevices.empty()){
+                for (auto &dev : aDevices) {
+                    config.prevDevices[prevDeviceNumber] = ((pal_device_id_t)dev->getSndDeviceId());
+                    prevDeviceNumber++;
+                }
+            }
+            config.noOfPrevDevices = prevDeviceNumber;
+            config.currentDevices = (pal_device_id_t *) calloc(no_of_devices, sizeof(pal_device_id_t));
+            if (!config.currentDevices) {
+                PAL_ERR(LOG_TAG, "Memory alloc failed");
+                if (config.prevDevices)
+                    free(config.prevDevices);
+                goto exit;
+            }
+            for (int currentDeviceNumber = 0; currentDeviceNumber < no_of_devices; currentDeviceNumber++) {
+                config.currentDevices[currentDeviceNumber] = devices[currentDeviceNumber].id;
+            }
+            config.noOfCurrentDevices = no_of_devices;
+            rm->callback_event(&config, PAL_NOTIFY_DEVICESWITCH, false);
+            if (config.prevDevices)
+                free(config.prevDevices);
+            if (config.currentDevices)
+                free(config.currentDevices);
+        }
     }
 
 exit:
@@ -1269,6 +1369,15 @@ int32_t pal_stream_get_tags_with_module_info(pal_stream_handle_t *stream_handle,
         PAL_ERR(LOG_TAG, "Invalid resource manager");
         return status;
     }
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        PAL_ERR(LOG_TAG, "Stream handle %pK not active", stream_handle);
+        status = -EINVAL;
+        rm->unlockActiveStream();
+        return status;
+    }
+    rm->unlockActiveStream();
 
     rm->lockValidStreamMutex();
     if (!stream_handle || !rm->isActiveStream(stream_handle)) {
@@ -1435,16 +1544,43 @@ int32_t pal_stream_create_mmap_buffer(pal_stream_handle_t *stream_handle,
 
 int32_t pal_register_global_callback(pal_global_callback cb, uint64_t cookie)
 {
+    int status = 0;
     std::shared_ptr<ResourceManager> rm = NULL;
 
     PAL_DBG(LOG_TAG, "Enter. global callback %pK", cb);
     rm = ResourceManager::getInstance();
 
-    if (cb != NULL) {
-        rm->globalCb = cb;
-        rm->cookie = cookie;
+    if (!rm) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        return status;
     }
-    PAL_DBG(LOG_TAG, "Exit");
+
+    rm->mGlobalClientsMutex.lock();
+    if (cb == NULL) {
+        for (auto itr = rm->globalCbs.begin(); itr != rm->globalCbs.end(); itr++) {
+            if ((*itr)->cookie == cookie) {
+                itr = rm->globalCbs.erase(itr);
+                break;
+            }
+        }
+        goto exit;
+    }
+
+    if (cb != NULL) {
+        auto gcb = std::make_shared<globalCallback_t>();
+        if (gcb == NULL) {
+            PAL_ERR(LOG_TAG, "Failed to alloc memory for callback");
+            status = -ENOMEM;
+            goto exit;
+        }
+        gcb->cb = cb;
+        gcb->cookie = cookie;
+        rm->globalCbs.push_back(gcb);
+    }
+
+exit:
+    rm->mGlobalClientsMutex.unlock();
     return 0;
 }
 
@@ -1508,6 +1644,74 @@ int32_t pal_gef_rw_param_acdb(uint32_t param_id __unused, void *param_payload,
     }
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
+    return status;
+}
+
+int32_t pal_cshm_alloc(uint32_t size, pal_cshm_info_t *mem_info) {
+
+    int ret = -EINVAL;
+    agm_cshm_info agm_info = {};
+
+    PAL_DBG(LOG_TAG, "Enter. Allocating memory of size: 0x%x", size);
+
+    agm_info.flags = mem_info->flags;
+    agm_info.type = (agm_cshm_type) mem_info->type;
+
+    ret = agm_cshm_alloc(size, &agm_info);
+    mem_info->mem_id = agm_info.mem_id;
+    mem_info->fd = agm_info.fd;
+
+    PAL_DBG(LOG_TAG, "Exit. ret: %d, mem_id: 0x%x", ret, mem_info->mem_id);
+
+    return ret;
+}
+
+int32_t pal_cshm_dealloc(pal_cshm_id_t mem_id) {
+
+    int status = -EINVAL;
+
+    PAL_DBG(LOG_TAG, "Enter mem_id: 0x%x", mem_id);
+
+    status = agm_cshm_dealloc(mem_id);
+
+    PAL_DBG(LOG_TAG, "Exit");
+    return status;
+}
+
+int32_t pal_stream_set_custom_param(pal_stream_handle_t* stream_handle,
+                                    char param_str[PAL_CUSTOM_PARAM_MAX_STRING_LENGTH],
+                                    void* param_payload, size_t payload_size) {
+    int32_t status = 0;
+    Stream *s = nullptr;
+    std::shared_ptr<ResourceManager> rm = NULL;
+
+    if (!stream_handle) {
+        status = -EINVAL;
+        PAL_ERR(LOG_TAG, "Invalid stream handle status %d", status);
+        goto exit;
+    }
+
+    rm = ResourceManager::getInstance();
+    if (!rm) {
+        PAL_ERR(LOG_TAG, "Invalid resource manager");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    rm->lockActiveStream();
+    if (!rm->isActiveStream(stream_handle)) {
+        PAL_ERR(LOG_TAG, "Stream handle %pK not active", stream_handle);
+        status = -EINVAL;
+        rm->unlockActiveStream();
+        return status;
+    }
+    rm->unlockActiveStream();
+
+
+    s =  reinterpret_cast<Stream *>(stream_handle);
+    status = s->setCustomParam(param_str, param_payload, payload_size);
+
+exit:
     return status;
 }
 

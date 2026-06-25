@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -57,14 +57,24 @@ extern "C" {
 #define MIXER_PATH_MAX_LENGTH 100
 #define PAL_MAX_CHANNELS_SUPPORTED 64
 #define MAX_KEYWORD_SUPPORTED 8
+#define PAL_CUSTOM_PARAM_MAX_STRING_LENGTH 64
 
 #define PAL_VERSION "1.0"
+#define SEND_MSG_PARAM "sendMsg"
 
 /** Audio stream handle */
 typedef uint64_t pal_stream_handle_t;
 
+/** Client Shared memory ID */
+typedef uint32_t pal_cshm_id_t;
+
 /** Sound Trigger handle */
 typedef uint64_t pal_st_handle_t;
+
+typedef enum {
+    PAL_CSHM_CACHED = 1,
+    PAL_CSHM_UNCACHED,
+} pal_cshm_type;
 
 /** PAL Audio format enumeration */
 typedef enum {
@@ -99,6 +109,13 @@ typedef enum {
     PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_END     = 0xF0000FFF,  /* Reserved for beginning of 3rd party codecs */
     PAL_AUDIO_FMT_COMPRESSED_RANGE_END   = PAL_AUDIO_FMT_COMPRESSED_EXTENDED_RANGE_END /* Reserved for beginning of 3rd party codecs */
 } pal_audio_fmt_t;
+
+
+typedef enum {
+    PAL_NOTIFY_START = 1,
+    PAL_NOTIFY_STOP,
+    PAL_NOTIFY_DEVICESWITCH
+} pal_notification_t;
 
 #define PCM_24_BIT_PACKED (0x6u)
 #define PCM_32_BIT (0x3u)
@@ -767,6 +784,14 @@ struct pal_stream_attributes {
     struct pal_media_config in_media_config;     /**<  media config of the input audio samples */
     struct pal_media_config out_media_config;    /**<  media config of the output audio samples */
 };
+
+
+typedef struct pal_callback_config {
+    int32_t noOfPrevDevices, noOfCurrentDevices;
+    pal_device_id_t *prevDevices, *currentDevices;
+    struct pal_stream_attributes streamAttributes;
+    pal_stream_handle_t streamHandle;
+} pal_callback_config_t;
 
 /**< Key value pair to identify the topology of a usecase from default  */
 struct modifier_kv  {
@@ -1490,6 +1515,17 @@ typedef int32_t (*pal_stream_callback)(pal_stream_handle_t *stream_handle,
                                        uint64_t cookie);
 
 /** @brief Callback function prototype to be given for
+ *         pal_audio_event_callback.
+ *
+ * \param[in] config - configuration data related to
+ *       stream and device.
+ * \param[in] event - event raised on the stream.
+ * \param[in] isregister - specifies if it is called
+ *       during register of callback.
+ */
+typedef int32_t (*pal_audio_event_callback)(pal_callback_config_t *config, uint32_t event, bool isregister);
+
+/** @brief Callback function prototype to be given for
  *         pal_register_callback.
  *
  * \param[in] event_id - event id of the event raised on the
@@ -1513,6 +1549,21 @@ typedef struct pal_buffer_config {
     size_t buf_size; /**< This would be the size of each buffer*/
     size_t max_metadata_size; /** < max metadata size associated with each buffer*/
 } pal_buffer_config_t;
+
+typedef struct pal_cshm_info {
+    pal_cshm_id_t mem_id;
+    pal_cshm_type type;
+    int64_t fd;
+    uint32_t flags;
+} pal_cshm_info_t;
+
+typedef struct pal_cshm_msg_payload {
+    pal_cshm_id_t mem_id;
+    uint32_t offset;
+    uint32_t length;
+    uint32_t miid;
+    uint32_t flags;
+} pal_cshm_msg_payload_t;
 
 #define PAL_GENERIC_PLATFORM_DELAY     (29*1000LL)
 #define PAL_DEEP_BUFFER_PLATFORM_DELAY (29*1000LL)
