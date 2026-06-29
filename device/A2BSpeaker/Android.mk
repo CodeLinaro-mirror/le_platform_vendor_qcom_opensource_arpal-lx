@@ -11,6 +11,7 @@ LOCAL_MODULE        := libdev_a2bspeaker
 LOCAL_MODULE_OWNER  := qti
 LOCAL_VENDOR_MODULE := true
 
+LOCAL_CFLAGS   += -fstack-protector-strong -U_FORTIFY_SOURCE -D_FORTIFY_SOURCE=2
 LOCAL_CPPFLAGS += -fexceptions -frtti
 
 LOCAL_SRC_FILES := \
@@ -49,7 +50,7 @@ LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinycompress
-ifneq (,$(filter gen4_gvm_gy gen5_gvm gen5_gvm_gy, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
+ifneq (,$(filter gen4_gvm_gy gen5_gvm gen5_gvm_gy auto_gen_prime, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
 LOCAL_SHARED_LIBRARIES += libtinyalsav2
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
