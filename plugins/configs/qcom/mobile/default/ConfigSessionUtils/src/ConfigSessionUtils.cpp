@@ -67,6 +67,7 @@
 
 #define BOLERO_PROC_INTF    "/proc/lpass_cdc_reginfo/lpass_cdc_regdump"
 #define WCD939X_PROC_INTF   "/proc/wcd939x_reginfo/wcd939x_regdump"
+#define WCD9378_PROC_INTF   "/proc/wcd9378_reginfo/wcd9378_regdump"
 #define WSA884X_1_PROC_INTF "/proc/wsa884x_reginfo_1/wsa884x_regdump"
 #define WSA884X_2_PROC_INTF "/proc/wsa884x_reginfo_2/wsa884x_regdump"
 #define WSA883X_1_PROC_INTF "/proc/wsa883x_reginfo_1/wsa883x_regdump"
@@ -80,12 +81,14 @@
 #define SILENCE_EVENT_INFO DUMP_OUT_PATH "silence_event_info"
 #define BOLERO_REGDUMP_OUT_FILE          "lpass_cdc_regdump"
 #define WCD939X_REGDUMP_OUT_FILE         "wcd939x_regdump"
+#define WCD9378_REGDUMP_OUT_FILE         "wcd9378_regdump"
 #define VA_SWR_REGDUMP_OUT_FILE          "va_swr_regdump"
 
 #define KMSG_OUT_FILE              DUMP_OUT_PATH KMSG_FILE TIMESTAMP_FORMAT_STRING
 #define SILENCE_EVENT_INFO         DUMP_OUT_PATH "silence_event_info" TIMESTAMP_FORMAT_STRING
 #define BOLERO_REGDUMP_OUT_PATH    DUMP_OUT_PATH BOLERO_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
 #define WCD939X_REGDUMP_OUT_PATH   DUMP_OUT_PATH WCD939X_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
+#define WCD9378_REGDUMP_OUT_PATH   DUMP_OUT_PATH WCD9378_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
 #define VA_SWR_REGDUM_OUT_PATH     DUMP_OUT_PATH VA_SWR_REGDUMP_OUT_FILE TIMESTAMP_FORMAT_STRING
 
 bool silenceEventRegistered = false;
@@ -1319,6 +1322,13 @@ void handleSilenceDetectionCb(uint64_t hdl __unused, uint32_t event_id, void *ev
         strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
                         WCD939X_REGDUMP_OUT_PATH, timenow);
         dump_registers(WCD939X_PROC_INTF, out_file_name);
+
+        /*
+         * Read WCD9378  Registers
+         **/
+        strftime(out_file_name, MAX_DUMP_FILENAME_SIZE,
+                        WCD9378_REGDUMP_OUT_PATH, timenow);
+        dump_registers(WCD9378_PROC_INTF, out_file_name);
 
         /*
          * kernel msg (/dev/kmsg) read
