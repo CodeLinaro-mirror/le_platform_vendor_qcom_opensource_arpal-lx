@@ -141,6 +141,7 @@ void Bluetooth::updateDeviceAttributes()
     std::string backEndName;
     bool isMI2SBackend;
     bool isBLEA2DPDevice;
+    bool isI2SBLEA2DPPath,isStandardRate;
     deviceAttr.config.sample_rate = mCodecConfig.sample_rate;
 
     /* Sample rate calculation is done by kernel proxy driver in
@@ -157,25 +158,49 @@ void Bluetooth::updateDeviceAttributes()
      */
     if (rm->IsCPEnabled() && !rm->isBtScoDevice(deviceAttr.id))
         return;
+    /* If all BT use cases (A2DP, BLE, SCO) route through MI2S.
+     * Detect this via the backend name string. */
+    rm->getBackendName(deviceAttr.id, backEndName);
+    isMI2SBackend = (backEndName.find("MI2S") != std::string::npos);
+    isBLEA2DPDevice = (deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+                        deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST ||
+                        deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+                        deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
+                        deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE);
+    isI2SBLEA2DPPath = isMI2SBackend && isBLEA2DPDevice;
+    /* [MI2S] MI2S backend accepts 44.1kHz and 48kHz natively.
+     * Any other rate (e.g. 96kHz, 192kHz) is invalid on the I2S sink
+     * and must be remapped — fallback to 44.1kHz in that case. */
+    isStandardRate = (mCodecConfig.sample_rate == 44100 ||
+                        mCodecConfig.sample_rate == 48000);
 
     switch (mCodecFormat) {
     case CODEC_TYPE_AAC:
     case CODEC_TYPE_SBC:
-        if (mCodecType == DEC &&
-            (mCodecConfig.sample_rate == 44100 ||
-             mCodecConfig.sample_rate == 48000))
+        if ((!isI2SBLEA2DPPath) && (mCodecType == DEC && isStandardRate)) {
+            /* Non-MI2S path) */
             deviceAttr.config.sample_rate = mCodecConfig.sample_rate * 2;
+        } else if (isI2SBLEA2DPPath && (!isStandardRate)) {
+                deviceAttr.config.sample_rate = 44100;
+        }
         break;
     case CODEC_TYPE_LDAC:
     case CODEC_TYPE_APTX_AD:
-        if (mCodecType == ENC &&
-            (mCodecConfig.sample_rate == 44100 ||
-             mCodecConfig.sample_rate == 48000))
-        deviceAttr.config.sample_rate = mCodecConfig.sample_rate * 2;
+        if ((!isI2SBLEA2DPPath ) &&(mCodecType == ENC && isStandardRate)) {
+            /* Non-MI2S path) */
+            deviceAttr.config.sample_rate = mCodecConfig.sample_rate * 2;
+        } else if (isI2SBLEA2DPPath && (!isStandardRate)) {
+                deviceAttr.config.sample_rate = 44100;
+        }
         break;
     case CODEC_TYPE_APTX_AD_SPEECH:
     case CODEC_TYPE_LC3:
-            deviceAttr.config.sample_rate = SAMPLINGRATE_96K;
+            if (!isI2SBLEA2DPPath) {
+                /* Non-MI2S path) */
+                deviceAttr.config.sample_rate = SAMPLINGRATE_96K;
+            } else if(!isStandardRate) {
+                deviceAttr.config.sample_rate = 44100;
+            }
             deviceAttr.config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
         break;
     case CODEC_TYPE_APTX_AD_QLEA:
@@ -189,20 +214,8 @@ void Bluetooth::updateDeviceAttributes()
         break;
     }
 
-    rm->getBackendName(deviceAttr.id, backEndName);
-    isMI2SBackend = (backEndName.find("MI2S") != std::string::npos);
-    isBLEA2DPDevice = (deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-                        deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST ||
-                        deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-                        deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
-                        deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE);
-    PAL_DBG(LOG_TAG, "%s: isMI2SBackend= %d isBLEA2DPDevice = %d",__func__,isMI2SBackend, isBLEA2DPDevice);
-    if (isBLEA2DPDevice && isMI2SBackend) {
-        // I2S Sink/Source BLE/A2DP path — MI2S backend needs PCM-compatible config
-        deviceAttr.config.sample_rate = SAMPLINGRATE_48K;
-        PAL_ERR(LOG_TAG, "%s DBG: MI2S BLE/A2DP path, forcing 48K PCM. Backend:%s\n",
-                __func__, backEndName.c_str());
-    }
+    PAL_DBG(LOG_TAG, "%s: devid %d, sample_rate= %d, isMI2SBackend= %d, isBLEA2DPDevice = %d, ",__func__,deviceAttr.id,
+            deviceAttr.config.sample_rate, isMI2SBackend, isBLEA2DPDevice);
 }
 
 bool Bluetooth::isPlaceholderEncoder()
@@ -806,8 +819,11 @@ void Bluetooth::startAbr()
                         deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
                         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
                         deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BLE);
+    bool isI2SBLEA2DPPath = isMI2SBackend && isBLEA2DPDevice;
+    bool isStandardRate = (deviceAttr.config.sample_rate == 44100 ||
+                        deviceAttr.config.sample_rate == 48000);
     PAL_DBG(LOG_TAG, "%s: isMI2SBackend= %d isBLEA2DPDevice = %d",__func__,isMI2SBackend, isBLEA2DPDevice);
-    if (isBLEA2DPDevice && isMI2SBackend) {
+    if (isI2SBLEA2DPPath) {
         ch_info.channels = CHANNELS_2;
         ch_info.ch_map[0] = PAL_CHMAP_CHANNEL_FL;
         ch_info.ch_map[1] = PAL_CHMAP_CHANNEL_FR;
@@ -824,9 +840,18 @@ void Bluetooth::startAbr()
             (mCodecFormat == CODEC_TYPE_APTX_AD_QLEA) ||
             (mCodecFormat == CODEC_TYPE_APTX_AD_R4)) {
         fbDevice.config.sample_rate = deviceAttr.config.sample_rate;
-    } else if (isMI2SBackend && ((mCodecFormat == CODEC_TYPE_APTX_AD) ||
+    } else if (isI2SBLEA2DPPath && ((mCodecFormat == CODEC_TYPE_APTX_AD) ||
             (mCodecFormat == CODEC_TYPE_LDAC))) {
-                fbDevice.config.sample_rate = SAMPLINGRATE_48K;
+        /* APTX_AD and LDAC over the MI2S backend do not support
+         * sample rates used on CP paths. Fix feedback device
+         * rate to 44.1kHz — the safe standard rate for the MI2S sink. */
+        if (!isStandardRate) {
+            fbDevice.config.sample_rate = 44100;
+        } else {
+            fbDevice.config.sample_rate = deviceAttr.config.sample_rate;
+        }
+        PAL_DBG(LOG_TAG, "%s: devid %d, sample_rate= %d, ",__func__,deviceAttr.id,
+                fbDevice.config.sample_rate);
     } else {
         fbDevice.config.sample_rate = SAMPLINGRATE_8K;
     }
