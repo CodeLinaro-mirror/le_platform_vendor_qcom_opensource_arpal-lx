@@ -1061,23 +1061,28 @@ void SessionAR::combinedCallback(uint64_t hdl, uint32_t event_id, void *data, ui
     SessionAR *session = nullptr;
     std::vector<int> triggeringIds;
 
-    {
-        std::lock_guard<std::mutex> regLock(SessionAR::rmCookieRegistryMutex);
-        bool found = false;
-        for (auto *entry : SessionAR::validRmCookies) {
-            if (entry == rmCookie) {
-                found = true;
-                break;
-            }
+    // Hold rmCookieRegistryMutex for the entire body of the callback, not just
+    // the cookie lookup. The unregister path in registerArEvent takes this same
+    // lock before removing the cookie from validRmCookies and deleting the
+    // SessionAR object, so holding it here prevents the session from being
+    // destroyed while we are still using it (and its cbMapMutex).
+    // Lock order is always: rmCookieRegistryMutex -> cbMapMutex.
+    std::lock_guard<std::mutex> regLock(SessionAR::rmCookieRegistryMutex);
+
+    bool found = false;
+    for (auto *entry : SessionAR::validRmCookies) {
+        if (entry == rmCookie) {
+            found = true;
+            break;
         }
-        if (!rmCookie || !found) {
-            PAL_ERR(LOG_TAG, "Stale cookie 0x%p for event 0x%x, ignoring",
-                    (void*)rmCookie, event_id);
-            return;
-        }
-        session = rmCookie->session;
-        triggeringIds = rmCookie->pcmDevIds;
     }
+    if (!rmCookie || !found) {
+        PAL_ERR(LOG_TAG, "Stale cookie 0x%p for event 0x%x, ignoring",
+                (void*)rmCookie, event_id);
+        return;
+    }
+    session = rmCookie->session;
+    triggeringIds = rmCookie->pcmDevIds;
 
     if (!session) {
         PAL_ERR(LOG_TAG, "Invalid session handle received");
@@ -1110,9 +1115,10 @@ void SessionAR::combinedCallback(uint64_t hdl, uint32_t event_id, void *data, ui
                 }
             }
         }
-    } // Mutex unlocks here
+    }
 
-    // Execute Callbacks outside lock
+    // Execute Callbacks outside cbMapMutex but still under regLock so the
+    // session object remains valid for the duration of the dispatch.
     for (auto &h : handlersToCall) {
         h.cb(h.cookie, event_id, data, event_size);
     }
@@ -1154,12 +1160,17 @@ int SessionAR::registerArEvent(uint32_t event_id, session_callback cb, uint64_t 
                                                     SessionAR::combinedCallback,
                                                     (uint64_t)newCookie,
                                                     true);
+            // Acquire rmCookieRegistryMutex while cbMapMutex is still
+            // released, then reacquire cbMapMutex only after the
+            // rmCookieRegistryMutex scope exits, to keep the lock order
+            // consistent with combinedCallback (rmCookieRegistryMutex ->
+            // cbMapMutex) and avoid an ABBA deadlock.
+            if (status == 0) {
+                std::lock_guard<std::mutex> regLock(rmCookieRegistryMutex);
+                validRmCookies.push_back(newCookie);
+            }
             lock.lock();
             if (status == 0) {
-                {
-                    std::lock_guard<std::mutex> regLock(rmCookieRegistryMutex);
-                    validRmCookies.push_back(newCookie);
-                }
                 registeredCookies.push_back(newCookie);
                 PAL_DBG(LOG_TAG, "Registered new PCM ID : %d with RM.", pcmDevIds.at(0));
             } else {
@@ -1209,6 +1220,10 @@ int SessionAR::registerArEvent(uint32_t event_id, session_callback cb, uint64_t 
             for (auto it = registeredCookies.begin(); it != registeredCookies.end(); ) {
                 SessionArRmCookie* c = *it;
                 if (!c) {
+                    // Drop cbMapMutex before acquiring rmCookieRegistryMutex to
+                    // maintain lock order (rmCookieRegistryMutex -> cbMapMutex)
+                    // and avoid deadlock with combinedCallback.
+                    lock.unlock();
                     {
                         std::lock_guard<std::mutex> regLock(rmCookieRegistryMutex);
                         for (auto vit = validRmCookies.begin(); vit != validRmCookies.end(); ) {
@@ -1219,16 +1234,19 @@ int SessionAR::registerArEvent(uint32_t event_id, session_callback cb, uint64_t 
                             }
                         }
                     }
+                    lock.lock();
                     it = registeredCookies.erase(it);
                     continue;
                 }
                 if (c->pcmDevIds == pcmDevIds) {
+                    // Drop cbMapMutex before acquiring rmCookieRegistryMutex to
+                    // maintain lock order (rmCookieRegistryMutex -> cbMapMutex)
+                    // and avoid deadlock with combinedCallback.
                     lock.unlock();
                     rm->registerMixerEventCallback(pcmDevIds,
                                                    SessionAR::combinedCallback,
                                                    (uint64_t)c,
                                                    false);
-                    lock.lock();
                     PAL_DBG(LOG_TAG, "Unregistered PCM ID : %d from RM as no callbacks remain.",
                             pcmDevIds.empty() ? 0 : pcmDevIds.at(0));
                     {
@@ -1241,6 +1259,8 @@ int SessionAR::registerArEvent(uint32_t event_id, session_callback cb, uint64_t 
                         }
                     }
                     delete c;
+                    // Reacquire cbMapMutex before modifying registeredCookies.
+                    lock.lock();
                     it = registeredCookies.erase(it);
                     break;
                 } else {
