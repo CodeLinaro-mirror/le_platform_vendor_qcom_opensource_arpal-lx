@@ -2021,8 +2021,11 @@ int SessionAlsaCompress::setParamWithTag(Stream *s, int tagId, uint32_t param_id
                 goto exit;
             }
             if (0 != status) {
-                PAL_ERR(LOG_TAG, "Failed to get tag info %x, dir: %d (%d)", tagId,
-                       sAttr.direction, status);
+                PAL_INFO(LOG_TAG,
+                    "Failed to get module tag info %x, dir: %d (%d). "
+                    "Volume module may not be present in this topology, ignoring as non-fatal.",
+                    tagId, sAttr.direction, status);
+                status = 0;
                 goto exit;
             }
 
