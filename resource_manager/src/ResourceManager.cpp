@@ -92,6 +92,7 @@
 #define MIXER_XML_BASE_STRING_NAME "mixer_paths"
 #define RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager"
 #define AR_RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager_ar"
+#define GEN5_AR_RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager_gen5"
 
 #define MAX_RETRY_CNT 20
 #define LOWLATENCY_PCM_DEVICE 15
@@ -1578,6 +1579,7 @@ int ResourceManager::init_audio()
     char mixer_xml_file_wo_variant[XML_PATH_MAX_LENGTH] = {0};
     char file_name_extn[XML_PATH_EXTN_MAX_SIZE] = {0};
     char file_name_extn_wo_variant[XML_PATH_EXTN_MAX_SIZE] = {0};
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
 
     PAL_DBG(LOG_TAG, "Enter.");
 
@@ -1691,6 +1693,14 @@ int ResourceManager::init_audio()
     strlcat(rmngr_xml_file, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file_wo_variant, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(mixer_xml_file_wo_variant, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
+
+    // Override rmngr_xml_file based on ro.boot.audio property for gen5 AR
+    property_get("ro.boot.audio", audio_boot_prop, "");
+    if (strcmp(audio_boot_prop, "audioreach_gen5") == 0) {
+        snprintf(rmngr_xml_file, sizeof(rmngr_xml_file),
+            "%s/%s%s", vendor_config_path,
+            GEN5_AR_RMNGR_XMLFILE_BASE_STRING_NAME, XML_FILE_EXT);
+    }
 
     audio_route = audio_route_init(snd_hw_card, mixer_xml_file);
     PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file);
