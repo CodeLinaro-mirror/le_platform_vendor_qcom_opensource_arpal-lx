@@ -25,12 +25,18 @@
  * WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
+ * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
 #define LOG_TAG "PAL: Bluetooth"
 #include "Bluetooth.h"
 #include "ResourceManager.h"
 #include "cop_v2_packetizer_api.h"
+#include "apm_api.h"
+#include "rate_adapted_timer_api.h"
 #include "PayloadBuilder.h"
 #include "Stream.h"
 #include "Session.h"
@@ -409,6 +415,7 @@ int Bluetooth::configureA2dpEncoderDecoder()
                         break;  // insufficient buffer; skip override
                     }
 
+#ifndef LINUX_ENABLED
                     if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
                         uint16_t* pcmChannel = reinterpret_cast<uint16_t*>(paramData + hdrSz);
                         if (numCh == 3) {
@@ -418,6 +425,7 @@ int Bluetooth::configureA2dpEncoderDecoder()
                             pcmChannel[3] = PCM_CHANNEL_RS;
                         }
                     }
+#endif
                 } while (0);
 
                 if (paramSize) {
@@ -453,6 +461,7 @@ int Bluetooth::configureA2dpEncoderDecoder()
                     break;  // insufficient buffer; skip override
                 }
 
+#ifndef LINUX_ENABLED
                 if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
                     uint8_t* pcmChannel = reinterpret_cast<uint8_t*>(paramData + hdrSz);
                     if (numCh == 3) {
@@ -462,6 +471,7 @@ int Bluetooth::configureA2dpEncoderDecoder()
                         pcmChannel[3] = PCM_CHANNEL_RS;
                     }
                 }
+#endif
             } while (0);
 
             if (paramSize) {
@@ -825,15 +835,25 @@ void Bluetooth::startAbr()
     }
 
     if (codecType == DEC) { /* Usecase is TX, feedback device will be RX */
+#ifndef LINUX_ENABLED
         fbDevice.id = ((deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP || (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST)) ?
             PAL_DEVICE_OUT_BLUETOOTH_A2DP :
             PAL_DEVICE_OUT_BLUETOOTH_SCO);
+#else
+        fbDevice.id = (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_A2DP ?
+            PAL_DEVICE_OUT_BLUETOOTH_A2DP :
+            PAL_DEVICE_OUT_BLUETOOTH_SCO);
+#endif
         dir = RX_HOSTLESS;
         flags = PCM_OUT;
     } else {
+#ifndef LINUX_ENABLED
         fbDevice.id = ((deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP) ?
                        PAL_DEVICE_IN_BLUETOOTH_BROADCAST :
                        PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET);
+#else
+        fbDevice.id = PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET;
+#endif
         dir = TX_HOSTLESS;
         flags = PCM_IN;
     }
@@ -1225,8 +1245,13 @@ BtA2dp::BtA2dp(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
         audio_sink_suspend(nullptr),
         audio_sink_get_a2dp_latency(nullptr)
 {
+#ifndef LINUX_ENABLED
     a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? SINK : SOURCE;
     codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ? DEC : ENC;
+#else
+    a2dpRole = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ? SINK : SOURCE;
+    codecType = (device->id == PAL_DEVICE_IN_BLUETOOTH_A2DP) ? DEC : ENC;
+#endif
     pluginHandler = NULL;
     pluginCodec = NULL;
 
@@ -1355,8 +1380,8 @@ void BtA2dp::init_a2dp_sink()
         PAL_DBG(LOG_TAG, "Requesting for BT lib handle");
         bt_lib_sink_handle = dlopen(BT_IPC_SINK_LIB, RTLD_NOW);
 
-        if (bt_lib_sink_handle == nullptr || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
 #ifndef LINUX_ENABLED
+        if (bt_lib_sink_handle == nullptr || deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
             // On Mobile LE VoiceBackChannel implemented as A2DPSink Profile.
             // However - All the BT-Host IPC calls are exposed via Source LIB itself.
             PAL_DBG(LOG_TAG, "Requesting for BT lib source handle");
@@ -1379,6 +1404,7 @@ void BtA2dp::init_a2dp_sink()
             audio_sink_suspend = (audio_sink_suspend_t)
                 dlsym(bt_lib_sink_handle, "audio_sink_suspend_stream");
 #else
+        if (bt_lib_sink_handle == nullptr) {
             // On Linux Builds - A2DP Sink Profile is supported via different lib
             PAL_ERR(LOG_TAG, "DLOPEN failed for %s", BT_IPC_SINK_LIB);
 #endif
@@ -2073,13 +2099,15 @@ BtA2dp::getInstance(struct pal_device *device, std::shared_ptr<ResourceManager> 
             objRx = sp;
         }
         return objRx;
+#ifndef LINUX_ENABLED
     } else if (device->id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
         if (!objBleBroadcastTx) {
-            PAL_INFO(LOG_TAG, "creating instance for  %d", device->id);
+            PAL_INFO(LOG_TAG, "creating instance for %d", device->id);
             std::shared_ptr<Device> sp(new BtA2dp(device, Rm));
             objBleBroadcastTx = sp;
         }
         return objBleBroadcastTx;
+#endif
     } else {
         if (!objTx) {
             PAL_INFO(LOG_TAG, "creating instance for  %d", device->id);

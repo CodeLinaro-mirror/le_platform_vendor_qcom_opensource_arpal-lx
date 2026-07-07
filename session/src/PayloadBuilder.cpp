@@ -26,9 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -420,8 +419,12 @@ void PayloadBuilder::payloadVolumeDuckingConfig(uint8_t** payload, size_t* size,
 
     duckingCfg = (volume_ctrl_ducking_cfg_t*)(payloadInfo + sizeof(struct apm_module_param_data_t));
 
+#ifndef LINUX_ENABLED
     // Set ducking mode based on isDucking flag
     duckingCfg->ducking_mode = voldata->isDucking ? DUCKING_ENABLED : DUCKING_DISABLED;
+#else
+    duckingCfg->ducking_mode = DUCKING_ENABLED;
+#endif
 
     // Convert volume to Q13 format (linear gain)
     duckingCfg->ducked_gain = (uint16_t)(voldata->volume_pair[0].vol * 0x2000); // Q13 scale
@@ -1951,7 +1954,11 @@ int PayloadBuilder::getBtDeviceKV(int dev_id, std::vector<std::pair<int,int>>& d
             isAbrEnabled ? "TRUE" : "FALSE"));
         filled_selector_pairs.push_back(std::make_pair(HOSTLESS_SEL,
             isHostless ? "TRUE" : "FALSE"));
+#ifndef LINUX_ENABLED
     } else if (dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP || dev_id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) {
+#else
+    } else if (dev_id == PAL_DEVICE_IN_BLUETOOTH_A2DP) {
+#endif
         filled_selector_pairs.push_back(std::make_pair(HOSTLESS_SEL,
             isHostless ? "TRUE" : "FALSE"));
     }
