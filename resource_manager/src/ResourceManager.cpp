@@ -447,9 +447,11 @@ cl_init_t ResourceManager::cl_init = NULL;
 cl_deinit_t ResourceManager::cl_deinit = NULL;
 cl_set_boost_state_t ResourceManager::cl_set_boost_state = NULL;
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 void* ResourceManager::feature_stats_handle = NULL;
 afs_init_t ResourceManager::feature_stats_init = NULL;
 afs_deinit_t ResourceManager::feature_stats_deinit = NULL;
+#endif
 
 std::mutex ResourceManager::cvMutex;
 std::queue<card_status_t> ResourceManager::msgQ;
@@ -1602,6 +1604,7 @@ exit:
     return status;
 }
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
 void ResourceManager::checkQVAAppPresence(afs_param_payload_t *payload)
 {
     std::ifstream fp;
@@ -1781,6 +1784,7 @@ void ResourceManager::AudioFeatureStatsDeInit()
     feature_stats_init = NULL;
     feature_stats_deinit = NULL;
 }
+#endif
 
 int ResourceManager::initContextManager()
 {
@@ -1856,8 +1860,10 @@ int ResourceManager::init()
     else
         PAL_DBG(LOG_TAG, "Speaker instance not created");
 
+#ifdef AUDIO_FEATURE_STATS_ENABLED
     PAL_INFO(LOG_TAG, "Initialize Audio Feature Stats");
     AudioFeatureStatsInit();
+#endif
 
     return 0;
 }
@@ -3700,7 +3706,7 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
         PAL_ERR(LOG_TAG, "Invalid callback or pcm ids");
         return -EINVAL;
     }
-
+    PAL_DBG(LOG_TAG, "Enter.");
     mResourceManagerMutex.lock();
     if (mixerEventRegisterCount == 0 && !is_register) {
         PAL_ERR(LOG_TAG, "Cannot deregister unregistered callback");
@@ -3715,6 +3721,8 @@ int ResourceManager::registerMixerEventCallback(const std::vector<int> &DevIds,
                 PAL_DBG(LOG_TAG, "callback exists for pcm id %d, overwrite",
                     DevIds[i]);
                 mixerEventCallbackMap.erase(it);
+            } else {
+                PAL_INFO(LOG_TAG, "PCM %d: Fresh Registration. Owner Cookie: 0x%llx", DevIds[i], cookie);
             }
             mixerEventCallbackMap.insert(std::make_pair(DevIds[i],
                 std::make_pair(callback, cookie)));
@@ -5120,7 +5128,9 @@ void ResourceManager::deinit()
 #ifndef SOUND_TRIGGER_FEATURES_DISABLED
     STUtilsDeinit();
 #endif
+#ifdef AUDIO_FEATURE_STATS_ENABLED
     AudioFeatureStatsDeInit();
+#endif
 
     cvMutex.lock();
     msgQ.push(state);
@@ -8104,14 +8114,25 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                     int deviceId = active_devices[i].first->getSndDeviceId();
                     if (deviceId == dattr.id) {
                         dev = Device::getInstance(&dattr, rm);
+                        mResourceManagerMutex.unlock();
+                        lockActiveStream();
                         //Setting deviceRX: Config ICL Tag in AL module.
                         status = rm->getActiveStream_l(activestreams, dev);
                         if ((0 != status) || (activestreams.size() == 0)) {
                             PAL_DBG(LOG_TAG, "no active stream available");
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
                             goto exit;
                         }
                         stream = static_cast<Stream*>(activestreams[0]);
-                        mResourceManagerMutex.unlock();
+                        if (!stream || increaseStreamUserCounter(stream) < 0) {
+                            PAL_ERR(LOG_TAG, "failed to lock active stream");
+                            status = -EINVAL;
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
+                            goto exit;
+                        }
+                        unlockActiveStream();
                         /*
                          When charger is offline, reconfig ICL at normal gain first then
                          handle charger event, Otherwise for charger online case handle
@@ -8121,6 +8142,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                             status = setSessionParamConfig(param_id, stream, is_charger_online_);
                         if (0 == status)
                             status = handleChargerEvent(stream, is_charger_online_);
+                        lockActiveStream();
+                        decreaseStreamUserCounter(stream);
+                        unlockActiveStream();
                         mResourceManagerMutex.lock();
                         if (0 != status)
                             PAL_ERR(LOG_TAG, "SetSession Param config failed %d", status);
@@ -8160,27 +8184,59 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                 if ((PAL_DEVICE_OUT_SPEAKER == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADSET == deviceId) ||
                     (PAL_DEVICE_OUT_WIRED_HEADPHONE == deviceId)) {
+                    mResourceManagerMutex.unlock();
+                    lockActiveStream();
                     status = getActiveStream_l(activestreams, active_devices[i].first);
                     if ((0 != status) || (activestreams.size() == 0)) {
-                       PAL_ERR(LOG_TAG, "no other active streams found");
-                       status = -EINVAL;
-                       goto exit;
+                        PAL_ERR(LOG_TAG, "no other active streams found");
+                        status = -EINVAL;
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
+                        goto exit;
                     }
 
                     stream = static_cast<Stream *>(activestreams[0]);
+                    if (!stream) {
+                        status = -EINVAL;
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
+                        goto exit;
+                    }
                     stream->getStreamAttributes(&sAttr);
                     if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
                         ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
                         (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
                         (sAttr.type == PAL_STREAM_COMPRESSED) ||
                         (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
+                        if (increaseStreamUserCounter(stream) < 0) {
+                            status = -EINVAL;
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
+                            goto exit;
+                        }
+                        unlockActiveStream();
                         stream->setGainLevel(gain_lvl_cal->level);
                         stream->getAssociatedSession(&session);
+                        if (!session) {
+                            status = -EINVAL;
+                            lockActiveStream();
+                            decreaseStreamUserCounter(stream);
+                            unlockActiveStream();
+                            mResourceManagerMutex.lock();
+                            goto exit;
+                        }
                         status = session->setParameters(stream, param_id, nullptr);
+                        lockActiveStream();
+                        decreaseStreamUserCounter(stream);
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
                         if (0 != status) {
                             PAL_ERR(LOG_TAG, "session setConfig failed with status %d", status);
                             goto exit;
                         }
+                    } else {
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
                     }
                 }
             }
@@ -8263,29 +8319,46 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
                    goto exit;
                 }
                 if (PAL_DEVICE_OUT_SPEAKER == deviceId && !strcmp(dattr.custom_config.custom_key, "mspp")) {
+                    mResourceManagerMutex.unlock();
+                    lockActiveStream();
                     status = getActiveStream_l(activestreams, active_devices[i].first);
                     if ((0 != status) || (activestreams.size() == 0)) {
-                       PAL_INFO(LOG_TAG, "no other active streams found");
-                       status = 0;
-                       goto exit;
+                        PAL_INFO(LOG_TAG, "no other active streams found");
+                        status = 0;
+                        unlockActiveStream();
+                        mResourceManagerMutex.lock();
+                        goto exit;
                     }
 
                     for (int j = 0; j < activestreams.size(); j++) {
-                       stream = static_cast<Stream *>(activestreams[j]);
-                       stream->getStreamAttributes(&sAttr);
-                       if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
-                           ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
-                           (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
-                           (sAttr.type == PAL_STREAM_COMPRESSED) ||
-                           (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
-                           stream->getAssociatedSession(&session);
-                           status = session->setParameters(stream, param_id, param_payload);
-                           if (0 != status) {
-                               PAL_ERR(LOG_TAG, "session setConfig failed. stream: %d, status: %d",
-                                      sAttr.type, status);
-                           }
-                       }
+                        stream = static_cast<Stream *>(activestreams[j]);
+                        if (!stream)
+                            continue;
+                        stream->getStreamAttributes(&sAttr);
+                        if ((sAttr.direction == PAL_AUDIO_OUTPUT) &&
+                            ((sAttr.type == PAL_STREAM_LOW_LATENCY) ||
+                            (sAttr.type == PAL_STREAM_DEEP_BUFFER) ||
+                            (sAttr.type == PAL_STREAM_COMPRESSED) ||
+                            (sAttr.type == PAL_STREAM_PCM_OFFLOAD))) {
+                            if (increaseStreamUserCounter(stream) < 0)
+                                continue;
+                            unlockActiveStream();
+                            stream->getAssociatedSession(&session);
+                            if (!session) {
+                                status = -EINVAL;
+                            } else {
+                                status = session->setParameters(stream, param_id, param_payload);
+                                if (0 != status) {
+                                    PAL_ERR(LOG_TAG, "session setConfig failed. stream: %d, status: %d",
+                                           sAttr.type, status);
+                                }
+                            }
+                            lockActiveStream();
+                            decreaseStreamUserCounter(stream);
+                        }
                     }
+                    unlockActiveStream();
+                    mResourceManagerMutex.lock();
                 }
             }
         }
@@ -10446,12 +10519,27 @@ bool ResourceManager::doDevAttrDiffer(struct pal_device *inDevAttr,
                     ResourceManager::currentGroupDevConfig.grp_dev_hwep_cfg.slot_mask);
             ret = true;
         }
-        if (strcmp(ResourceManager::activeGroupDevConfig->snd_dev_name.c_str(),
-                   ResourceManager::currentGroupDevConfig.snd_dev_name.c_str())) {
+
+        const bool useFallbackSndCmp =
+                ResourceManager::activeGroupDevConfig->snd_dev_name.empty() ||
+                ResourceManager::currentGroupDevConfig.snd_dev_name.empty();
+        const char *inSndName = inDevAttr->sndDevName;
+        const char *curSndName = curDevAttr->sndDevName;
+        const char *activeSndName = ResourceManager::activeGroupDevConfig->snd_dev_name.c_str();
+        const char *runningSndName = ResourceManager::currentGroupDevConfig.snd_dev_name.c_str();
+        const int sndCmp = useFallbackSndCmp ? strcmp(inSndName, curSndName) :
+                strcmp(activeSndName, runningSndName);
+        if (useFallbackSndCmp) {
+            PAL_DBG(LOG_TAG,
+                    "UPD group snd name invalid, fallback snd compare in=%s cur=%s sndCmp=%d",
+                    inSndName, curSndName, sndCmp);
+        }
+        if (sndCmp != 0) {
             PAL_DBG(LOG_TAG, "found new snd device %s, device switch needed",
-                    ResourceManager::activeGroupDevConfig->snd_dev_name.c_str());
+                    useFallbackSndCmp ? inSndName : activeSndName);
             ret = true;
         }
+
         /* special case when we are switching with shared BE
          * always switch all to incoming device
          */

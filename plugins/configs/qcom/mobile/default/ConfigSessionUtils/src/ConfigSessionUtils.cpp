@@ -47,6 +47,7 @@
 #include "SessionAlsaPcm.h"
 #include "SessionAlsaUtils.h"
 #include "ConfigSessionUtils.h"
+#include "SessionAR.h"
 #include "apm_api.h"
 #include <fcntl.h>
 #include <sys/stat.h>
@@ -1049,6 +1050,9 @@ int enableSilenceDetection(const std::shared_ptr<ResourceManager> rm,
     struct apm_module_param_data_t* header = NULL;
     param_id_silence_detection_t *silence_detection_cfg = NULL;
     struct agm_event_reg_cfg event_cfg = {};
+    SessionAR *arSession = nullptr;
+
+    PAL_INFO(LOG_TAG, "Enter.");
 
     if (silenceEventRegistered == true)
         goto silence_ev_setup_done;
@@ -1068,26 +1072,47 @@ int enableSilenceDetection(const std::shared_ptr<ResourceManager> rm,
     }
 
     PAL_INFO(LOG_TAG, "Registered for Silence Detection Event\n");
+    arSession = reinterpret_cast<SessionAR *>(cookie);
+    if (arSession) {
+        status = arSession->registerArEvent(EVENT_ID_SILENCE_DETECTION,
+                                        handleSilenceDetectionCb,
+                                        (uint64_t)arSession,
+                                        devIds, true);
+        if (status != 0) {
+            PAL_ERR(LOG_TAG, "Failed to register with SessionAR");
+        }
+    } else {
+        PAL_ERR(LOG_TAG, "Invalid session handle (cookie), cannot register AR event");
+        status = -EINVAL;
+    }
 
-    status = rm->registerMixerEventCallback(devIds, handleSilenceDetectionCb, cookie, true);
     if (status != 0) {
           PAL_ERR(LOG_TAG, "Failed to register DSP cb for silence detection Event");
           goto err_silence_ev_cb_reg;
     }
+
     PAL_INFO(LOG_TAG, "Registered CB for Silence Detection\n");
     silenceEventRegistered = true;
     PAL_INFO(LOG_TAG, "Silence Detection setup sucessfully \n");
 
     goto silence_ev_setup_done;
 
-err_silence_ev_setup:
-                rm->registerMixerEventCallback(devIds, handleSilenceDetectionCb,
-                                cookie, false);
 err_silence_ev_cb_reg:
+                if (arSession) {
+                    status = arSession->registerArEvent(EVENT_ID_SILENCE_DETECTION,
+                                        handleSilenceDetectionCb,
+                                        (uint64_t)arSession,
+                                        devIds, false);
+                    if (status != 0) {
+                        PAL_ERR(LOG_TAG, "Failed to register with SessionAR");
+                    }
+                }
+
                 event_cfg.is_register = 0;
                 status  = SessionAlsaUtils::registerMixerEvent(mixer, devIds.at(0),
                                intf_name, DEVICE_HW_ENDPOINT_TX,
                                 (void *)&event_cfg, sizeof(struct agm_event_reg_cfg));
+                return status;
 silence_ev_setup_done:
                 status = 0;
     return status;
@@ -1100,6 +1125,9 @@ int disableSilenceDetection(const std::shared_ptr<ResourceManager> rm,
 {
     int status = 0;
     struct agm_event_reg_cfg event_cfg = {};
+    SessionAR *arSession = reinterpret_cast<SessionAR *>(cookie);
+
+    PAL_INFO(LOG_TAG, "Enter.");
 
     event_cfg.event_id = EVENT_ID_SILENCE_DETECTION;
     event_cfg.event_config_payload_size = 0;
@@ -1114,10 +1142,15 @@ int disableSilenceDetection(const std::shared_ptr<ResourceManager> rm,
                  (void *)&event_cfg, sizeof(struct agm_event_reg_cfg));
     if (status)
         PAL_ERR(LOG_TAG, "Unable to deregister SILENCE DETECTION EVENT\n");
-
-    status = rm->registerMixerEventCallback(devIds, handleSilenceDetectionCb, cookie, false);
+    if (arSession) {
+        arSession->registerArEvent(EVENT_ID_SILENCE_DETECTION,
+                                        handleSilenceDetectionCb,
+                                        (uint64_t)arSession,
+                                        devIds, false);
+    }
     if (status != 0)
-        PAL_ERR(LOG_TAG, "Failed to deregister  silence detection Callback to rm");
+        PAL_ERR(LOG_TAG, "Failed to deregister silence detection Callback via SessionAR");
+
 
     silenceEventRegistered = false;
 

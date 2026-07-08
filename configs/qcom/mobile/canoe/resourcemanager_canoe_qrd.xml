@@ -185,6 +185,10 @@
             <usecase>
                 <name>PAL_STREAM_DEEP_BUFFER</name>
                 <ec_enable>1</ec_enable>
+                <custom-config key="translate_record">
+                    <channels>2</channels>
+                    <snd_device_name>handset-dmic-endfire</snd_device_name>
+                </custom-config>
                 <custom-config key="unprocessed-hdr-mic-landscape">
                     <channels>4</channels>
                     <snd_device_name>unprocessed-hdr-mic-landscape</snd_device_name>
@@ -213,6 +217,10 @@
             <usecase>
                 <name>PAL_STREAM_COMPRESSED</name>
                 <ec_enable>1</ec_enable>
+                <custom-config key="translate_record">
+                    <channels>2</channels>
+                    <snd_device_name>handset-dmic-endfire</snd_device_name>
+                </custom-config>
                 <custom-config key="unprocessed-hdr-mic-landscape">
                     <channels>4</channels>
                     <snd_device_name>unprocessed-hdr-mic-landscape</snd_device_name>
@@ -312,6 +320,10 @@
             <usecase>
                 <name>PAL_STREAM_DEEP_BUFFER</name>
                 <ec_enable>1</ec_enable>
+                <custom-config key="translate_record">
+                    <channels>2</channels>
+                    <snd_device_name>speaker-dmic-endfire</snd_device_name>
+                </custom-config>
                 <custom-config key="unprocessed-hdr-mic-landscape">
                     <channels>4</channels>
                     <snd_device_name>unprocessed-hdr-mic-landscape</snd_device_name>
@@ -340,6 +352,10 @@
             <usecase>
                 <name>PAL_STREAM_COMPRESSED</name>
                 <ec_enable>1</ec_enable>
+                <custom-config key="translate_record">
+                    <channels>2</channels>
+                    <snd_device_name>speaker-dmic-endfire</snd_device_name>
+                </custom-config>
                 <custom-config key="unprocessed-hdr-mic-landscape">
                     <channels>4</channels>
                     <snd_device_name>unprocessed-hdr-mic-landscape</snd_device_name>

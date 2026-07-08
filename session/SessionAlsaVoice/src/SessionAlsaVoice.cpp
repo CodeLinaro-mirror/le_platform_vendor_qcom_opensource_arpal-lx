@@ -458,26 +458,23 @@ int SessionAlsaVoice::open(Stream * s)
         goto exit;
     }
 
-    if (sAttr.type == PAL_STREAM_VOICE_CALL){
-        PAL_DBG(LOG_TAG, "before registerMixerEventCallback");
-        registerRxCallBack(HandleRxDtmfCallBack, (uint64_t)s);
-
-        status = rm->registerMixerEventCallback(pcmDevRxIds,
-            sessionRxCb, rxCbCookie, true);
+    if (sAttr.type == PAL_STREAM_VOICE_CALL) {
+        status = registerArEvent(EVENT_ID_DTMF_DETECTION,
+                                 SessionAlsaVoice::HandleRxDtmfCallBack,
+                                 (uint64_t)s,
+                                 this->pcmDevRxIds, true);
         if (status != 0) {
-            PAL_ERR(LOG_TAG, "Failed to register callback to rm for RX");
+            PAL_ERR(LOG_TAG, "Failed to register Rx DTMF with SessionAR");
         }
 
-        registerTxCallBack(HandleTxDtmfCallBack, (uint64_t)s);
-
-        status = rm->registerMixerEventCallback(pcmDevTxIds,
-            sessionTxCb, txCbCookie, true);
+        status = registerArEvent(EVENT_ID_DTMF_DETECTION,
+                                 SessionAlsaVoice::HandleTxDtmfCallBack,
+                                 (uint64_t)s,
+                                 this->pcmDevTxIds, true);
         if (status != 0) {
-            PAL_ERR(LOG_TAG, "Failed to register callback to rm for TX");
+            PAL_ERR(LOG_TAG, "Failed to register Tx DTMF with SessionAR");
         }
-        PAL_DBG(LOG_TAG, "after registerMixerEventCallback for DTMF RX/TX");
     }
-
 exit:
     PAL_DBG(LOG_TAG,"Exit ret: %d", status);
     return status;
@@ -678,11 +675,11 @@ int SessionAlsaVoice::start(Stream * s)
         /*call will cache the volume but not apply it as stream has not moved to start state*/
         s->setVolume(volume);
     };
-    /*call to apply volume*/
+    /* call to apply volume CKV along with all other CKVs */
+    setConfig(s, CALIBRATION, TAG_STREAM_VOLUME, RX_HOSTLESS);
+    /* call to apply CRS volume */
     if (rm->IsCRSCallEnabled()) {
         setConfig(s, MODULE, CRS_CALL_VOLUME, RX_HOSTLESS);
-    } else {
-        setConfig(s, CALIBRATION, TAG_STREAM_VOLUME, RX_HOSTLESS);
     }
 
     if (ResourceManager::isLpiLoggingEnabled()) {
