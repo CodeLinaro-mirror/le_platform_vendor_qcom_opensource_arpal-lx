@@ -824,6 +824,9 @@ void Bluetooth::startAbr()
             (mCodecFormat == CODEC_TYPE_APTX_AD_QLEA) ||
             (mCodecFormat == CODEC_TYPE_APTX_AD_R4)) {
         fbDevice.config.sample_rate = deviceAttr.config.sample_rate;
+    } else if (isMI2SBackend && ((mCodecFormat == CODEC_TYPE_APTX_AD) ||
+            (mCodecFormat == CODEC_TYPE_LDAC))) {
+                fbDevice.config.sample_rate = SAMPLINGRATE_48K;
     } else {
         fbDevice.config.sample_rate = SAMPLINGRATE_8K;
     }
