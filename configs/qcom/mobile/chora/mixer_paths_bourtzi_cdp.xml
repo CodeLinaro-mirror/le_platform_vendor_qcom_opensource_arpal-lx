@@ -461,6 +461,11 @@
         <ctl name="TX_DEC2 Volume" value="118" />
     </path>
 
+    <path name="handset-mic-unprocessed">
+        <path name="dmic3" />
+        <ctl name="TX_DEC2 Volume" value="118" />
+    </path>
+
     <!--path name="ultrasound-handset">
         <ctl name="WSA RX_MIX0 MUX" value="AIF_MIX1_PB" />
         <ctl name="WSA_RX0 MIX INP" value="RX_MIX0" />
