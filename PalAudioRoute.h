@@ -62,25 +62,34 @@
 #ifndef AUDIO_HW
 #define AUDIO_HW
 
+#include <mutex>
+
 #ifdef FEATURE_IPQ_OPENWRT
 #include "audio_route.h"
 #else
 #include "audio_route/audio_route.h"
 #endif
 
-static std::mutex audio_route_mutex;
+inline std::mutex& getAudioRouteMutex() {
+    static std::mutex instance;
+    return instance;
+}
 
 inline void enableDevice(struct audio_route *ar, char * device_name)
 {
-    audio_route_mutex.lock();
+    if (!ar || !device_name || !device_name[0]) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(getAudioRouteMutex());
     audio_route_apply_and_update_path(ar, device_name);
-    audio_route_mutex.unlock();
 }
 
 inline void disableDevice(struct audio_route *ar, char * device_name)
 {
-    audio_route_mutex.lock();
+    if (!ar || !device_name || !device_name[0]) {
+        return;
+    }
+    std::lock_guard<std::mutex> lock(getAudioRouteMutex());
     audio_route_reset_and_update_path(ar, device_name);
-    audio_route_mutex.unlock();
 }
 #endif
