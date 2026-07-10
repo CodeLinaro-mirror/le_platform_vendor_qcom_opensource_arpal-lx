@@ -28,8 +28,8 @@
  */
 
 /*
-Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
-Copyright (c) 2022-2024, Qualcomm Innovation Center, Inc. All rights reserved.
+Changes from Qualcomm Technologies, Inc. are provided under the following license:
+Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 */
 
@@ -176,7 +176,7 @@ void SessionAlsaVoice::HandleTxDtmfCallBack(uint64_t hdl, uint32_t event_id,
 int SessionAlsaVoice::registerDtmfEvent(int tagId, int dir) {
     int status = 0;
     int payload_size = 0;
-    struct agm_event_reg_cfg *event_cfg;
+    struct agm_event_reg_cfg *event_cfg = NULL;
 
     PAL_DBG(LOG_TAG, "Enter");
 
@@ -209,6 +209,10 @@ int SessionAlsaVoice::registerDtmfEvent(int tagId, int dir) {
         if (status != 0) {
             PAL_ERR(LOG_TAG,"registerMixerEvent failed");
         }
+    }
+    if (event_cfg) {
+        free(event_cfg);
+        event_cfg = NULL;
     }
     PAL_DBG(LOG_TAG, "Exit");
     return status;
@@ -1610,7 +1614,12 @@ int SessionAlsaVoice::disconnectSessionDevice(Stream *streamHandle,
         /*config mute on pop suppressor*/
         if (streamHandle->getCurState() != STREAM_INIT) {
             //pop suppressor call now in plugin config.
-            pluginConfig(streamHandle, PAL_PLUGIN_CONFIG_STOP, nullptr, 0);
+            if (pluginConfig) {
+                pluginConfig(streamHandle, PAL_PLUGIN_CONFIG_STOP, nullptr, 0);
+            } else {
+                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                        PAL_PLUGIN_CONFIG_STOP);
+            }
         }
 
         /*if HW sidetone is enable disable it */
@@ -1780,8 +1789,13 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
         //if CRSCall enabled, populate rx mfc coeff payload, in plugin.
         if (rm->IsCRSCallEnabled()) {
             ppld.payload = reinterpret_cast<void*>(&deviceToConnect);
-            status = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
+            if (pluginConfig) {
+                status = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
                                     reinterpret_cast<void*>(&ppld), sizeof(ReconfigPluginPayload));
+            } else {
+                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                        PAL_PLUGIN_POST_RECONFIG);
+            }
         }
     } else if (txAifBackEnds.size() > 0) {
         status = SessionAlsaUtils::connectSessionDevice(this, streamHandle,
@@ -1812,8 +1826,13 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
         //if CRSCall enabled, populate rx mfc coeff payload, in plugin.
         if (rm->IsCRSCallEnabled()) {
             ppld.payload = reinterpret_cast<void*>(&rxDevice);
-            status = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
+            if (pluginConfig) {
+                status = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
                                     reinterpret_cast<void*>(&ppld), sizeof(ReconfigPluginPayload));
+            } else {
+                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
+                        PAL_PLUGIN_POST_RECONFIG);
+            }
         }
     }
 exit:

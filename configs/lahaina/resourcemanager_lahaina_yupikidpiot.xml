@@ -131,7 +131,7 @@
             <id>PAL_DEVICE_IN_HANDSET_MIC</id>
             <back_end_name>CODEC_DMA-LPAIF_RXTX-TX-3</back_end_name>
             <max_channels>4</max_channels>
-            <channels>1</channels>
+            <channels>3</channels>
             <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
             <snd_device_name>handset-mic</snd_device_name>
@@ -477,32 +477,6 @@
             </usecase>
         </in-device>
         <in-device>
-            <id>PAL_DEVICE_IN_AUX_DIGITAL</id>
-            <back_end_name>MI2S-LPAIF-TX-PRIMARY</back_end_name>
-            <max_channels>2</max_channels>
-            <channels>2</channels>
-            <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
-            <snd_device_name>dp-in</snd_device_name>
-            <ec_enable>0</ec_enable>
-            <usecase>
-                 <name>PAL_STREAM_RAW</name>
-            </usecase>
-        </in-device>
-        <in-device>
-            <id>PAL_DEVICE_IN_HDMI</id>
-            <back_end_name>MI2S-LPAIF-TX-PRIMARY</back_end_name>
-            <max_channels>2</max_channels>
-            <channels>2</channels>
-            <samplerate>48000</samplerate>
-            <bit_width>16</bit_width>
-            <snd_device_name>hdmi-in</snd_device_name>
-            <ec_enable>0</ec_enable>
-            <usecase>
-                 <name>PAL_STREAM_RAW</name>
-            </usecase>
-        </in-device>
-        <in-device>
             <id>PAL_DEVICE_IN_DUMMY</id>
             <back_end_name>PCM_DUMMY-TX-1</back_end_name>
             <max_channels>2</max_channels>
@@ -524,7 +498,7 @@
             <id>PAL_DEVICE_OUT_SPEAKER</id>
             <back_end_name>CODEC_DMA-LPAIF_WSA-RX-0</back_end_name>
             <max_channels>2</max_channels>
-            <channels>2</channels>
+            <channels>1</channels>
             <samplerate>48000</samplerate>
             <!--bit_width>16</bit_width -->
             <snd_device_name>speaker</snd_device_name>
@@ -551,7 +525,7 @@
                          Right speaker: 1
                          Left speaker : 2
             -->
-            <speaker_mono_right>0</speaker_mono_right>
+            <speaker_mono_right>2</speaker_mono_right>
             <!-- Time in seconds for Quick cal. Set 0 to disable -->
             <quick_cal_time>0</quick_cal_time>
             <usecase>
@@ -740,36 +714,27 @@
             <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>-->
             <!--We support 24 bit for DP as of now, as SPF needs to conform to IEC 60958 packet format -->
             <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
-            <supported_bit_format>PAL_AUDIO_FMT_PCM_S32_LE</supported_bit_format>
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
-                <priority>1</priority>
-            </usecase>
-            <usecase>
-                <name>PAL_STREAM_VOIP_RX</name>
                 <priority>1</priority>
             </usecase>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_HDMI</id>
-            <back_end_name>MI2S-LPAIF-RX-SECONDARY</back_end_name>
+            <back_end_name>DISPLAY_PORT-RX-0</back_end_name>
             <max_channels>32</max_channels>
             <channels>2</channels>
-            <bit_width>32</bit_width>
             <fractional_sr>1</fractional_sr>
             <!--specify the supported bit format on DP end point -->
             <!--this should be in the form of pal_audio_fmt_id-->
             <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>-->
             <!--We support 24 bit for DP as of now, as SPF needs to conform to IEC 60958 packet format -->
             <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
-            <supported_bit_format>PAL_AUDIO_FMT_PCM_S32_LE</supported_bit_format>
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>
             <snd_device_name>display-port</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
-                <priority>1</priority>
-            </usecase>
-            <usecase>
-                <name>PAL_STREAM_VOIP_RX</name>
                 <priority>1</priority>
             </usecase>
         </out-device>
@@ -809,13 +774,9 @@
             <!--e.g <supported_bit_format >PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>-->
             <!--We support 24 bit for DP as of now, as SPF needs to conform to IEC 60958 packet format -->
             <!--This can be changed to PAL_AUDIO_FMT_PCM_S32_LE if 32 bit e2e support is required-->
-            <supported_bit_format>PAL_AUDIO_FMT_PCM_S32_LE</supported_bit_format>
+            <supported_bit_format>PAL_AUDIO_FMT_PCM_S24_3LE</supported_bit_format>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
-                <priority>1</priority>
-            </usecase>
-            <usecase>
-                <name>PAL_STREAM_VOIP_RX</name>
                 <priority>1</priority>
             </usecase>
         </out-device>
