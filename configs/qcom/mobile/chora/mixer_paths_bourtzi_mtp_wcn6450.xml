@@ -363,7 +363,7 @@
 
     <path name="speaker-mic">
         <path name="dmic4" />
-        <ctl name="TX_DEC2 Volume" value="108" />
+        <ctl name="TX_DEC2 Volume" value="118" />
     </path>
 
     <path name="speaker-mic-liquid">
@@ -458,7 +458,12 @@
 
     <path name="handset-mic">
         <path name="dmic3" />
-        <ctl name="TX_DEC2 Volume" value="108" />
+        <ctl name="TX_DEC2 Volume" value="118" />
+    </path>
+
+    <path name="handset-mic-unprocessed">
+        <path name="dmic3" />
+        <ctl name="TX_DEC2 Volume" value="118" />
     </path>
 
     <!--path name="ultrasound-handset">
@@ -530,7 +535,7 @@
     </path>
 
     <path name="headset-mic">
-        <ctl name="TX_DEC0 Volume" value="84" />
+        <ctl name="TX_DEC0 Volume" value="118" />
         <path name="amic2" />
     </path>
 
