@@ -4201,6 +4201,7 @@ int SessionAlsaPcm::getTimestamp(struct pal_session_time *stime)
 int SessionAlsaPcm::drain(pal_drain_type_t type)
 {
     int status = 0;
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
 
     if (!pcm) {
         PAL_ERR(LOG_TAG, "PCM is invalid");
@@ -4208,6 +4209,19 @@ int SessionAlsaPcm::drain(pal_drain_type_t type)
     }
 
     PAL_VERBOSE(LOG_TAG, "Enter drain");
+
+    /*
+     * On the Audio Reach (AR) GVM/virtsnd platform, SNDRV_PCM_IOCTL_DRAIN
+     * always times out and snd_pcm_drain() returns -EIO.
+     * Return success immediately so the AHAL state machine advances
+     * correctly; stream cleanup still happens via the standby/close path.
+     */
+    property_get("ro.boot.audio", audio_boot_prop, "");
+    if (strcmp(audio_boot_prop, "ar") == 0) {
+        PAL_VERBOSE(LOG_TAG, "drain: no-op on AR virtsnd platform");
+        return 0;
+    }
+
     if (pcm && isActive()) {
         //! Short-term solution now.
         //! Once PAL directly runs on top of upstream tinyalsa, call pcm_drain() here.
