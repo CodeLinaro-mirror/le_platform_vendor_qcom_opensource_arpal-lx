@@ -349,10 +349,16 @@
             </keys_and_values>
         </device>
         <!-- AUX Device -->
-        <device id="PAL_DEVICE_OUT_AUX_DIGITAL,PAL_DEVICE_OUT_AUX_DIGITAL_1,PAL_DEVICE_OUT_HDMI">
+        <device id="PAL_DEVICE_OUT_HDMI">
             <keys_and_values>
                 <!-- DEVICERX - HDMI_RX -->
                 <graph_kv key="0xA2000000" value="0xA2000006"/>
+            </keys_and_values>
+        </device>
+        <device id="PAL_DEVICE_OUT_AUX_DIGITAL,PAL_DEVICE_OUT_AUX_DIGITAL_1">
+            <keys_and_values>
+                <!-- DEVICERX - DP_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000013"/>
             </keys_and_values>
         </device>
         <!-- wired USB Device-->
@@ -389,6 +395,13 @@
             <keys_and_values SidetoneMode="SW">
                 <!-- SW_SIDETONE - SW_SIDETONE_ON -->
                 <graph_kv key="0xBA000000" value="0xBA000001"/>
+            </keys_and_values>
+        </device>
+        <!-- In HDMI input Device -->
+        <device id="PAL_DEVICE_IN_HDMI,PAL_DEVICE_IN_AUX_DIGITAL">
+            <keys_and_values StreamType="PAL_STREAM_RAW" >
+                <!-- DEVICETX - HDMI_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000013"/>
             </keys_and_values>
         </device>
         <!-- In wired Headset Device -->
@@ -860,12 +873,32 @@
             </keys_and_values>
         </devicepp>
         <!-- OUT HDMI and AUX Digital DevicePPs -->
-        <devicepp id="PAL_DEVICE_OUT_HDMI,PAL_DEVICE_OUT_AUX_DIGITAL,PAL_DEVICE_OUT_AUX_DIGITAL_1">
+        <devicepp id="PAL_DEVICE_OUT_HDMI">
             <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER,PAL_STREAM_PCM_OFFLOAD,PAL_STREAM_COMPRESSED,PAL_STREAM_LOW_LATENCY">
                 <!-- DEVICERX - HDMI_RX -->
                 <graph_kv key="0xA2000000" value="0xA2000006"/>
                 <!-- DEVICEPP_RX - DEVICEPP_RX_AUDIO_MBDRC -->
                 <graph_kv key="0xAC000000" value="0xAC000002"/>
+            </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_VOIP_RX">
+                <!-- DEVICERX - HDMI_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000006"/>
+                <!-- DEVICEPP_RX - DEVICEPP_RX_VOIP_MBDRC -->
+                <graph_kv key="0xAC000000" value="0xAC000003"/>
+            </keys_and_values>
+        </devicepp>
+        <devicepp id="PAL_DEVICE_OUT_AUX_DIGITAL,PAL_DEVICE_OUT_AUX_DIGITAL_1">
+            <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER,PAL_STREAM_PCM_OFFLOAD,PAL_STREAM_COMPRESSED,PAL_STREAM_LOW_LATENCY">
+                <!-- DEVICERX - DP_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000013"/>
+                <!-- DEVICEPP_RX - DEVICEPP_RX_AUDIO_MBDRC -->
+                <graph_kv key="0xAC000000" value="0xAC000002"/>
+            </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_VOIP_RX">
+                <!-- DEVICERX - DP_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000013"/>
+                <!-- DEVICEPP_RX - DEVICEPP_RX_VOIP_MBDRC -->
+                <graph_kv key="0xAC000000" value="0xAC000003"/>
             </keys_and_values>
         </devicepp>
         <!-- OUT USB device and USB Headset DevicePPs -->
