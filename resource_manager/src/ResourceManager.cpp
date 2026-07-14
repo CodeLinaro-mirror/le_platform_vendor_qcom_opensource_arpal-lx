@@ -445,6 +445,7 @@ std::thread ResourceManager::workerThread;
 std::thread ResourceManager::mixerEventTread;
 bool ResourceManager::mixerClosed = false;
 int ResourceManager::mixerEventRegisterCount = 0;
+int ResourceManager::TxconcurrencyEnableCount = 0;
 int ResourceManager::concurrencyEnableCount = 0;
 int ResourceManager::concurrencyDisableCount = 0;
 int ResourceManager::ACDConcurrencyEnableCount = 0;
@@ -3855,7 +3856,13 @@ std::shared_ptr<CaptureProfile> ResourceManager::GetSVACaptureProfileByPriority(
         if (!cap_prof) {
             PAL_ERR(LOG_TAG, "Failed to get capture profile");
             continue;
-        } else if (cap_prof->ComparePriority(cap_prof_priority) ==
+        } else if ((cap_prof->GetDevId() == PAL_DEVICE_IN_HANDSET_MIC) ||
+            (cap_prof->GetDevId() == PAL_DEVICE_IN_WIRED_HEADSET)) {
+            continue;
+        } else if (cap_prof_priority &&
+            cap_prof->GetSndName().compare(cap_prof_priority->GetSndName()) != 0) {
+            continue;
+        } else if (cap_prof->ComparePriority(cap_prof_priority) >=
                    CAPTURE_PROFILE_PRIORITY_HIGH) {
             cap_prof_priority = cap_prof;
         }
@@ -4598,7 +4605,12 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
             HandleStreamPauseResume(st_stream_type, active);
             continue;
         }
-
+        if (st_stream_tx_conc) {
+            if (active)
+                TxconcurrencyEnableCount++;
+            else if (TxconcurrencyEnableCount > 0)
+                TxconcurrencyEnableCount--;
+        }
         if (st_stream_conc_en && (st_stream_tx_conc || st_stream_rx_conc)) {
             if (!IsLPISupported(st_stream_type) ||
                 !isNLPISwitchSupported(st_stream_type)) {

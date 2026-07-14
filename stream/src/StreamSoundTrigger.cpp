@@ -87,6 +87,8 @@ StreamSoundTrigger::StreamSoundTrigger(struct pal_stream_attributes *sattr,
     mutex_unlocked_after_cb_ = false;
     common_cp_update_disable_ = false;
     second_stage_processing_ = false;
+    is_backend_shared_ = false;
+    dattr_specified_ = nullptr;
     gsl_engine_model_ = nullptr;
     gsl_conf_levels_ = nullptr;
     gsl_engine_ = nullptr;
@@ -635,11 +637,26 @@ int32_t StreamSoundTrigger::DisconnectDevice(pal_device_id_t device_id) {
     mStreamMutex.lock();
     std::shared_ptr<StEventConfig> ev_cfg(
         new StDeviceDisconnectedEventConfig(device_id));
+
+    if (is_backend_shared_) {
+        if (mPalDevices.size()) {
+            for (int i = 0; i < mPalDevices.size(); i++) {
+                mPalDevices[i]->removeStreamDeviceAttr(this);
+            }
+            mPalDevices.clear();
+        }
+        if (rm->isTxConcurrencyActive()) {
+            PAL_DBG(LOG_TAG, "Switch device until concurrent Tx stream switches");
+            goto exit;
+        }
+    }
+
     status = cur_state_->ProcessEvent(ev_cfg);
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to disconnect device %d", device_id);
     }
 
+exit:
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
     return status;
@@ -651,10 +668,18 @@ int32_t StreamSoundTrigger::ConnectDevice(pal_device_id_t device_id) {
     PAL_DBG(LOG_TAG, "Enter");
     std::shared_ptr<StEventConfig> ev_cfg(
         new StDeviceConnectedEventConfig(device_id));
+
+    if (is_backend_shared_ && rm->isTxConcurrencyActive()) {
+        PAL_DBG(LOG_TAG, "Switch device until concurrent Tx stream switches");
+        goto exit;
+    }
+
     status = cur_state_->ProcessEvent(ev_cfg);
     if (status) {
         PAL_ERR(LOG_TAG, "Failed to connect device %d", device_id);
     }
+
+exit:
     mStreamMutex.unlock();
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
 
@@ -701,6 +726,42 @@ int32_t StreamSoundTrigger::HandleChargingStateUpdate(bool state, bool active) {
     }
 
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
+    return status;
+}
+int StreamSoundTrigger::disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t dev_id) {
+    int32_t status = 0;
+
+    PAL_DBG(LOG_TAG, "Enter");
+    std::shared_ptr<StEventConfig> ev_cfg(
+        new StDeviceDisconnectedEventConfig(dev_id));
+    status = cur_state_->ProcessEvent(ev_cfg);
+    if (status) {
+        PAL_ERR(LOG_TAG, "Failed to disconnect device %d", dev_id);
+    }
+
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
+
+    return status;
+}
+
+int StreamSoundTrigger::connectStreamDevice_l(Stream* streamHandle, struct pal_device *dattr) {
+    int32_t status = 0;
+
+    PAL_DBG(LOG_TAG, "Enter");
+    if (!dattr) {
+        PAL_ERR(LOG_TAG, "Invalid device attributes for connection");
+        return -EINVAL;
+    }
+    dattr_specified_ = dattr;
+    std::shared_ptr<StEventConfig> ev_cfg(
+        new StDeviceConnectedEventConfig(dattr->id));
+    status = cur_state_->ProcessEvent(ev_cfg);
+    dattr_specified_ = nullptr;
+    if (status) {
+        PAL_ERR(LOG_TAG, "Failed to connect device %d", dattr->id);
+    }
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
+
     return status;
 }
 
@@ -767,7 +828,9 @@ std::shared_ptr<Device> StreamSoundTrigger::GetPalDevice(
     dev->config.ch_info.channels = cap_prof->GetChannels();
     dev->config.sample_rate = cap_prof->GetSampleRate();
     dev->config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
-
+    if(cap_prof-> GetDevId() != PAL_DEVICE_IN_MIN){
+        dev->id = cap_prof-> GetDevId();
+    }
     device = Device::getInstance(dev, rm);
     if (!device) {
         PAL_ERR(LOG_TAG, "Failed to get device instance");
@@ -1079,6 +1142,68 @@ void StreamSoundTrigger::updateStreamAttributes() {
         mStreamAttr->in_media_config.bit_width =
             sm_cfg_->GetBitWidth();
     }
+}
+
+int32_t StreamSoundTrigger::UpdateDeviceConfig() {
+    std::shared_ptr<Device> dev = nullptr;
+    pal_device_id_t dev_id;
+    struct pal_device dattr;
+    struct pal_device new_dattr;
+    uint32_t dev_prio;
+
+    // is_backend_shared_ will be update here
+    cap_prof_ = GetCurrentCaptureProfile();
+    if (!cap_prof_) {
+        PAL_DBG(LOG_TAG, "Model not loaded, skip device config update");
+        return 0;
+    }
+    dev_id = cap_prof_->GetDevId();
+    is_backend_shared_= (dev_id == PAL_DEVICE_IN_HANDSET_MIC) ||
+        (dev_id == PAL_DEVICE_IN_WIRED_HEADSET);
+    mDevPPSelector = cap_prof_->GetName();
+    PAL_DBG(LOG_TAG, "devicepp selector: %s", mDevPPSelector.c_str());
+
+    if (!mDevices.size()) {
+        if (!is_backend_shared_) {
+            // update best device
+            dev_id = GetAvailCaptureDevice();
+            PAL_DBG(LOG_TAG, "Select available caputre device %d", dev_id);
+
+            dev = GetPalDevice(dev_id, &dattr, false);
+        } else if (dattr_specified_) {
+            dev = Device::getInstance(dattr_specified_, rm);
+            dev->setDeviceAttributes(*dattr_specified_);
+            dev->setSndName(cap_prof_->GetSndName());
+        } else {
+            dattr.id = cap_prof_->GetDevId();
+            dattr.config.sample_rate = cap_prof_->GetSampleRate();
+            dattr.config.bit_width = cap_prof_->GetBitWidth();
+            dattr.config.ch_info.channels = cap_prof_->GetChannels();
+            dattr.config.aud_fmt_id = PAL_AUDIO_FMT_PCM_S16_LE;
+
+            dev = Device::getInstance(&dattr, rm);
+            if (!dev) {
+                PAL_ERR(LOG_TAG, "Device creation is failed");
+                return -EINVAL;
+            }
+            dev->insertStreamDeviceAttr(&dattr, this);
+            mPalDevices.clear();
+            mPalDevices.push_back(dev);
+
+            dev->getTopPriorityDeviceAttr(&new_dattr, &dev_prio);
+            dev = Device::getInstance(&new_dattr, rm);
+            dev->setDeviceAttributes(new_dattr);
+            dev->setSndName(cap_prof_->GetSndName());
+        }
+        if (!dev) {
+            PAL_ERR(LOG_TAG, "Device creation is failed");
+            return -EINVAL;
+        }
+        mDevices.push_back(dev);
+        dev = nullptr;
+    }
+
+    return 0;
 }
 
 void StreamSoundTrigger::UpdateModelId(st_module_type_t type) {
@@ -1419,6 +1544,54 @@ error_exit:
         sm_config_ = nullptr;
     }
 exit:
+    PAL_DBG(LOG_TAG, "Exit, status %d", status);
+    return status;
+}
+
+int32_t StreamSoundTrigger::UnloadSoundModel() {
+    int32_t status = 0;
+
+    PAL_DBG(LOG_TAG, "Enter");
+
+    for (auto& eng: engines_) {
+        PAL_DBG(LOG_TAG, "Unload engine %d", eng->GetEngineId());
+        status = eng->GetEngine()->UnloadSoundModel(this);
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Unload engine %d failed, status %d",
+                eng->GetEngineId(), status);
+        }
+    }
+
+    for (int i = 0; i < mPalDevices.size(); i++) {
+        mPalDevices[i]->removeStreamDeviceAttr(this);
+    }
+    mPalDevices.clear();
+
+    if (device_opened_ && mDevices.size() > 0) {
+        status = mDevices[0]->close();
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "Failed to close device, status %d", status);
+        }
+        device_opened_ = false;
+    }
+    mDevices.clear();
+
+    engines_.clear();
+    if (gsl_engine_) {
+        gsl_engine_->ResetBufferReaders(reader_list_);
+        gsl_engine_ = nullptr;
+    }
+
+
+    if (reader_) {
+        delete reader_;
+        reader_ = nullptr;
+    }
+    reader_list_.clear();
+
+    rm->resetStreamInstanceID(this, mInstanceID);
+    notification_state_ = ENGINE_IDLE;
+
     PAL_DBG(LOG_TAG, "Exit, status %d", status);
     return status;
 }
@@ -2868,10 +3041,19 @@ void StreamSoundTrigger::AddEngine(std::shared_ptr<EngineCfg> engine_cfg) {
 std::shared_ptr<CaptureProfile> StreamSoundTrigger::GetCurrentCaptureProfile() {
     std::shared_ptr<CaptureProfile> cap_prof = nullptr;
     bool is_transit_to_nlpi = false;
+    bool use_headset_profile = false;
+
+    if (dattr_specified_) {
+        use_headset_profile =
+            (dattr_specified_->id == PAL_DEVICE_IN_WIRED_HEADSET);
+    } else {
+        use_headset_profile =
+            (GetAvailCaptureDevice() == PAL_DEVICE_IN_HEADSET_VA_MIC);
+    }
 
     is_transit_to_nlpi = rm->CheckForForcedTransitToNonLPI();
 
-    if (GetAvailCaptureDevice() == PAL_DEVICE_IN_HEADSET_VA_MIC) {
+    if (use_headset_profile) {
         if (is_transit_to_nlpi) {
             cap_prof = sm_cfg_->GetCaptureProfile(
                 std::make_pair(ST_OPERATING_MODE_HIGH_PERF_AND_CHARGING,
@@ -2997,23 +3179,10 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                 goto err_exit;
             }
 
-            if (!st_stream_.mDevices.size()) {
-                struct pal_device* dattr = new (struct pal_device);
-                std::shared_ptr<Device> dev = nullptr;
-
-                // update best device
-                pal_device_id_t dev_id = st_stream_.GetAvailCaptureDevice();
-                PAL_DBG(LOG_TAG, "Select available caputre device %d", dev_id);
-
-                dev = st_stream_.GetPalDevice(dev_id, dattr, false);
-                if (!dev) {
-                    PAL_ERR(LOG_TAG, "Device creation is failed");
-                    status = -EINVAL;
-                    goto err_exit;
-                }
-                st_stream_.mDevices.push_back(dev);
-                dev = nullptr;
-                delete dattr;
+            status = st_stream_.UpdateDeviceConfig();
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to update device config");
+                goto err_exit;
             }
 
             cap_prof = st_stream_.GetCurrentCaptureProfile();
@@ -3101,7 +3270,7 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                 int curr_device_id = st_stream_.mDevices[0]->getSndDeviceId();
                 pal_device_id_t curr_device =
                     static_cast<pal_device_id_t>(curr_device_id);
-                if (curr_device != device_id) {
+                if (!st_stream_.IsSameDeviceType(device_id, curr_device)) {
                     PAL_ERR(LOG_TAG, "Device %d not connected, ignore",
                         device_id);
                     break;
@@ -3124,14 +3293,10 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                 goto connect_err;
             }
 
-            dev = st_stream_.GetPalDevice(dev_id, pal_dev, false);
-            if (!dev) {
-                PAL_ERR(LOG_TAG, "Device creation failed");
-                status = -EINVAL;
-                goto connect_err;
+            status = st_stream_.UpdateDeviceConfig();
+            if (0 != status) {
+                PAL_ERR(LOG_TAG, "Failed to update device config");
             }
-
-            st_stream_.mDevices.push_back(dev);
         connect_err:
             delete pal_dev;
             break;
@@ -3170,29 +3335,12 @@ int32_t StreamSoundTrigger::StIdle::ProcessEvent(
                     new_cap_prof->GetSampleRate(),
                     new_cap_prof->isECRequired());
                 if (active) {
-                    if (!st_stream_.mDevices.size()) {
-                        struct pal_device dattr;
-                        std::shared_ptr<Device> dev = nullptr;
-
-                        // update best device
-                        pal_device_id_t dev_id = st_stream_.GetAvailCaptureDevice();
-                        PAL_DBG(LOG_TAG, "Select available caputre device %d", dev_id);
-
-                        dev = st_stream_.GetPalDevice(dev_id, &dattr, false);
-                        if (!dev) {
-                            PAL_ERR(LOG_TAG, "Device creation is failed");
-                            status = -EINVAL;
-                            goto err_concurrent;
-                        }
-                        st_stream_.mDevices.push_back(dev);
-                        dev = nullptr;
+                    status = st_stream_.UpdateDeviceConfig();
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG, "Failed to update device config");
+                        goto err_concurrent;
                     }
-
-                    st_stream_.cap_prof_ = new_cap_prof;
-                    st_stream_.mDevPPSelector = new_cap_prof->GetName();
-                    PAL_DBG(LOG_TAG, "devicepp selector: %s",
-                        st_stream_.mDevPPSelector.c_str());
-
+                    st_stream_.updateStreamAttributes();
                     status = st_stream_.gsl_engine_->LoadSoundModel(&st_stream_,
                         st_stream_.gsl_engine_model_,
                         st_stream_.gsl_engine_model_size_);
@@ -3357,7 +3505,8 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
              * 1. start recognition excuted
              * 2. resume excuted and current common capture profile is null
              */
-            if (!st_stream_.common_cp_update_disable_ &&
+            if (!st_stream_.is_backend_shared_ &&
+                !st_stream_.common_cp_update_disable_ &&
                 (ev_cfg->id_ == ST_EV_START_RECOGNITION ||
                 (ev_cfg->id_ == ST_EV_RESUME &&
                 !st_stream_.rm->GetSoundTriggerCaptureProfile()))) {
@@ -3378,20 +3527,22 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
 
             if (st_stream_.mDevices.size() > 0) {
                 auto& dev = st_stream_.mDevices[0];
-                dev->getDeviceAttributes(&dattr);
 
-                cap_prof = st_stream_.rm->GetSoundTriggerCaptureProfile();
-                if (!cap_prof) {
-                    PAL_ERR(LOG_TAG, "Invalid capture profile");
-                    goto err_exit;
+                if (!st_stream_.is_backend_shared_) {
+                    dev->getDeviceAttributes(&dattr);
+                    cap_prof = st_stream_.rm->GetSoundTriggerCaptureProfile();
+                    if (!cap_prof) {
+                        PAL_ERR(LOG_TAG, "Invalid capture profile");
+                        goto err_exit;
+                    }
+
+                    dattr.config.bit_width = cap_prof->GetBitWidth();
+                    dattr.config.ch_info.channels = cap_prof->GetChannels();
+                    dattr.config.sample_rate = cap_prof->GetSampleRate();
+                    dev->setSndName(cap_prof->GetSndName());
+                    dev->setDeviceAttributes(dattr);
                 }
 
-                dattr.config.bit_width = cap_prof->GetBitWidth();
-                dattr.config.ch_info.channels = cap_prof->GetChannels();
-                dattr.config.sample_rate = cap_prof->GetSampleRate();
-                dev->setDeviceAttributes(dattr);
-
-                dev->setSndName(cap_prof->GetSndName());
                 if (!st_stream_.device_opened_) {
                     status = dev->open();
                     if (0 != status) {
@@ -3598,6 +3749,13 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
                 if (!active) {
                     st_stream_.mDevices.clear();
 
+                    if (st_stream_.is_backend_shared_ && st_stream_.mPalDevices.size()) {
+                        for (int i = 0; i < st_stream_.mPalDevices.size(); i++) {
+                            st_stream_.mPalDevices[i]->removeStreamDeviceAttr(&st_stream_);
+                        }
+                        st_stream_.mPalDevices.clear();
+                    }
+
                     status = st_stream_.gsl_engine_->ReconfigureDetectionGraph(&st_stream_);
                     if (0 != status) {
                         PAL_ERR(LOG_TAG, "Failed to reconfigure gsl engine, status %d",
@@ -3701,7 +3859,8 @@ int32_t StreamSoundTrigger::StActive::ProcessEvent(
         case ST_EV_STOP_RECOGNITION: {
             // Do not update capture profile when pausing stream
             bool backend_update = false;
-            if (!st_stream_.common_cp_update_disable_ &&
+            if (!st_stream_.is_backend_shared_ &&
+                !st_stream_.common_cp_update_disable_ &&
                 (ev_cfg->id_ == ST_EV_STOP_RECOGNITION ||
                 ev_cfg->id_ == ST_EV_UNLOAD_SOUND_MODEL)) {
                 backend_update = st_stream_.rm->UpdateSoundTriggerCaptureProfile(
@@ -4625,4 +4784,179 @@ int32_t StreamSoundTrigger::ssrUpHandler() {
     common_cp_update_disable_ = false;
 
     return status;
+}
+
+bool StreamSoundTrigger::isStarted() {
+    return (currentState == STREAM_STARTED ||
+            GetCurrentStateId() == ST_STATE_BUFFERING ||
+            GetCurrentStateId() == ST_STATE_DETECTED);
+}
+
+struct st_uuid StreamSoundTrigger::GetVendorUuid()
+{
+    struct st_uuid uuid;
+    if (sm_config_) {
+        return sm_config_->common.vendor_uuid;
+    }
+    memset(&uuid, 0, sizeof(uuid));
+    return uuid;
+}
+
+int32_t StreamSoundTrigger::DisconnectEvent(
+    std::shared_ptr<StEventConfig> ev_cfg,
+    bool device_switch_event) {
+    int32_t status = 0;
+
+    if (mDevices.size() == 0) {
+        PAL_DBG(LOG_TAG, "No device to disconnect");
+        return status;
+    }
+
+    CancelDelayedStop();
+    for (auto& eng: engines_) {
+        PAL_VERBOSE(LOG_TAG, "Stop engine %d", eng->GetEngineId());
+        status = eng->GetEngine()->StopRecognition(this);
+        if (status) {
+            PAL_ERR(LOG_TAG, "Stop engine %d failed, status %d",
+                    eng->GetEngineId(), status);
+            }
+    }
+    for (auto& device: mDevices) {
+        rm->deregisterDevice(device, this);
+        if (ev_cfg->id_ == ST_EV_DEVICE_DISCONNECTED) {
+            gsl_engine_->DisconnectSessionDevice(this,
+                mStreamAttr->type, device);
+        }
+
+        status = device->stop();
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
+        }
+
+        status = device->close();
+        device_opened_ = false;
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "device close failed with status %d", status);
+        }
+    }
+    mDevices.clear();
+    return status;
+}
+
+int32_t StreamSoundTrigger::ConnectEvent(
+    std::shared_ptr<StEventConfig> ev_cfg) {
+    int32_t status = 0;
+
+    std::shared_ptr<Device> dev = nullptr;
+    StDeviceConnectedEventConfigData *data =
+        (StDeviceConnectedEventConfigData *)ev_cfg->data_.get();
+    pal_device_id_t dev_id = data->dev_id_;
+    std::vector<std::shared_ptr<SoundTriggerEngine>> tmp_engines;
+
+    // mDevices should be empty as we have just disconnected device
+    if (mDevices.size() != 0) {
+        PAL_ERR(LOG_TAG, "Invalid operation");
+        status = -EINVAL;
+        return status;
+    }
+
+    status = UpdateDeviceConfig();
+    if (0 != status || mDevices.size() == 0) {
+        PAL_ERR(LOG_TAG, "Failed to update device config, status %d", status);
+        return status;
+    }
+    dev = mDevices[0];
+    updateStreamAttributes();
+
+    status = gsl_engine_->SetupSessionDevice(this,
+        mStreamAttr->type, dev);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG,
+                "setupSessionDevice for %d failed with status %d",
+                dev->getSndDeviceId(), status);
+        mDevices.pop_back();
+        return status;
+    }
+
+    if (!device_opened_) {
+        status = dev->open();
+        if (0 != status) {
+            PAL_ERR(LOG_TAG, "device %d open failed with status %d",
+                    dev->getSndDeviceId(), status);
+            return status;
+        }
+        device_opened_ = true;
+    }
+
+    status = dev->start();
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "device %d start failed with status %d",
+                dev->getSndDeviceId(), status);
+        dev->close();
+        device_opened_ = false;
+        return status;
+    }
+
+    status = gsl_engine_->ConnectSessionDevice(this,
+        mStreamAttr->type, dev);
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "connectSessionDevice for %d failed with status %d",
+                dev->getSndDeviceId(), status);
+        mDevices.pop_back();
+        dev->close();
+        device_opened_ = false;
+    } else {
+        rm->registerDevice(dev, this);
+        if (GetCurrentStateId() == ST_STATE_BUFFERING) {
+            if (second_stage_processing_) {
+                /* Start the engines */
+                for (auto& eng: engines_) {
+                    PAL_VERBOSE(LOG_TAG, "Start st engine %d", eng->GetEngineId());
+                    status = eng->GetEngine()->StartRecognition(this);
+                    if (0 != status) {
+                        PAL_ERR(LOG_TAG, "Start st engine %d failed, status %d",
+                                eng->GetEngineId(), status);
+                        goto err_start;
+                    } else {
+                        tmp_engines.push_back(eng->GetEngine());
+                    }
+                }
+            }
+        } else {
+           second_stage_processing_ = false;
+        }
+        if (reader_)
+            reader_->reset();
+    }
+    return status;
+
+    err_start:
+        for (auto& eng: tmp_engines)
+            eng->StopRecognition(this);
+
+            if (mDevices.size() > 0) {
+                rm->deregisterDevice(mDevices[0], this);
+                mDevices[0]->stop();
+                mDevices[0]->close();
+                device_opened_ = false;
+            }
+    return status;
+}
+
+bool StreamSoundTrigger::IsSameDeviceType(
+    pal_device_id_t dev_id, pal_device_id_t curr_dev_id) {
+
+    if (!is_backend_shared_) {
+        return dev_id == curr_dev_id;
+    } else {
+        return (dev_id == curr_dev_id) ||
+            ((dev_id == PAL_DEVICE_IN_HANDSET_VA_MIC ||
+              dev_id == PAL_DEVICE_IN_HANDSET_MIC) &&
+             (curr_dev_id == PAL_DEVICE_IN_HANDSET_VA_MIC ||
+              curr_dev_id == PAL_DEVICE_IN_HANDSET_MIC)) ||
+            ((dev_id == PAL_DEVICE_IN_HEADSET_VA_MIC ||
+              dev_id == PAL_DEVICE_IN_WIRED_HEADSET) &&
+             (curr_dev_id == PAL_DEVICE_IN_HEADSET_VA_MIC ||
+              curr_dev_id == PAL_DEVICE_IN_WIRED_HEADSET));
+    }
 }

@@ -160,6 +160,8 @@ class StreamSoundTrigger : public Stream {
                                          bool use_rm_profile);
     int32_t DisconnectDevice(pal_device_id_t device_id) override;
     int32_t ConnectDevice(pal_device_id_t device_id) override;
+    int disconnectStreamDevice_l(Stream* streamHandle, pal_device_id_t dev_id);
+    int connectStreamDevice_l(Stream* streamHandle, struct pal_device *dattr);
     int32_t HandleChargingStateUpdate(bool state, bool active) override;
     int32_t Resume() override;
     int32_t Pause() override;
@@ -183,6 +185,9 @@ class StreamSoundTrigger : public Stream {
     bool IsStreamInBuffering() {
        return capture_requested_ && (GetCurrentStateId() == ST_STATE_BUFFERING);
     }
+    bool isStarted();
+    struct st_uuid GetVendorUuid();
+    int32_t UnloadSoundModel();
  private:
     class EngineCfg {
      public:
@@ -218,6 +223,9 @@ class StreamSoundTrigger : public Stream {
         int32_t id_; // event id
         std::shared_ptr<StEventConfigData> data_; // event specific data
     };
+    int32_t DisconnectEvent(std::shared_ptr<StEventConfig> ev_cfg,
+                            bool device_switch_event);
+    int32_t ConnectEvent(std::shared_ptr<StEventConfig> ev_cfg);
 
     class StLoadEventConfigData : public StEventConfigData {
      public:
@@ -566,8 +574,12 @@ class StreamSoundTrigger : public Stream {
     int32_t ProcessInternalEvent(std::shared_ptr<StEventConfig> ev_cfg);
     void GetUUID(class SoundTriggerUUID *uuid, struct pal_st_sound_model
                                                           *sound_model);
+    void UpdateCaptureHandleInfo(bool start);
+    bool IsSameDeviceType(pal_device_id_t dev_id, pal_device_id_t curr_dev_id);
+    int32_t UpdateDeviceConfig();
     std::shared_ptr<SoundTriggerPlatformInfo> st_info_;
     std::shared_ptr<SoundModelConfig> sm_cfg_;
+    std::vector<std::shared_ptr<Device>> mPalDevices;
     SoundModelInfo* sm_info_;
     std::vector<std::shared_ptr<EngineCfg>> engines_;
     std::shared_ptr<SoundTriggerEngine> gsl_engine_;
@@ -616,5 +628,7 @@ class StreamSoundTrigger : public Stream {
     // flag to indicate whether we should update common capture profile in RM
     bool common_cp_update_disable_;
     bool second_stage_processing_;
+    bool is_backend_shared_;
+    struct pal_device *dattr_specified_;
 };
 #endif // STREAMSOUNDTRIGGER_H_
