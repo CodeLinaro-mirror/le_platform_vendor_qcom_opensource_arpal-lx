@@ -26,9 +26,9 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center, Inc. are provided under the following license:
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
  *
- * Copyright (c) 2022-2025 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -1621,7 +1621,7 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     int32_t status = 0;
     int32_t connectCount = 0, disconnectCount = 0;
     bool isNewDeviceA2dp = false;
-    bool isCurDeviceA2dp = false;
+    bool checkNoneDevice = false;
     bool matchFound = false;
     bool voice_call_switch = false;
     bool force_switch_dev_id[PAL_DEVICE_IN_MAX] = {};
@@ -1642,6 +1642,9 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     struct pal_volume_data *volume = NULL;
     pal_device_id_t newBtDevId;
     bool isBtReady = false;
+    std::vector <Stream *> tempMutedStreams;
+    bool hasNoneDevice = false;
+
     rm->lockActiveStream();
     mStreamMutex.lock();
 
@@ -1654,13 +1657,27 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
 
     streamHandle->getStreamAttributes(&strAttr);
 
+    for (int i = 0; i < numDev; i++) {
+         if (newDevices[i].id == PAL_DEVICE_NONE) {
+             hasNoneDevice = true;
+             break;
+         }
+    }
     for (int i = 0; i < mDevices.size(); i++) {
         pal_device_id_t curDevId = (pal_device_id_t)mDevices[i]->getSndDeviceId();
-        if (curDevId == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
-            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
-            curDevId == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) {
-            isCurDeviceA2dp = true;
+        /*
+         * Check the current output device if need to check and handle later
+         * in case the new routing request is PAL_DEVICE_NONE.
+         */
+        if (hasNoneDevice && (curDevId < PAL_DEVICE_OUT_MAX) &&
+            (((rm->isBtA2dpDevice(curDevId) || rm->isBtScoDevice(curDevId))
+            && (!rm->isDeviceReady(curDevId))) ||
+            curDevId == PAL_DEVICE_OUT_PROXY ||
+            rm->isPluginDevice(curDevId) ||
+            rm->isDpDevice(curDevId))) {
+            checkNoneDevice = true;
         }
+
         /*
          * If stream is currently running on same device, then check if
          * it needs device switch. If not needed, then do not add it to
@@ -1730,10 +1747,31 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
         std::shared_ptr<Device> dev = nullptr;
         bool devReadyStatus = false;
         pal_param_bta2dp_t* param_bt_a2dp = nullptr;
-
+        /*
+         * When A2DP, Out Proxy, USB device and DP device is disconnected the
+         * music playback is paused and the policy manager sends routing=0
+         * But the audioflinger continues to write data until standby time
+         * (3sec). As BT is turned off, the write gets blocked.
+         * Avoid this by routing audio to speaker until standby.
+         *
+         * If a stream is active on SCO and playback has ended, APM will send
+         * routing=0. Stream will be closed in PAL after standby time. If SCO
+         * device gets disconnected, this stream will not receive new routing
+         * and stream will remain with SCO for the time being. If SCO device
+         * gets connected again with different config in the meantime and
+         * capture stream tries to start ABR path, it will lead to error due to
+         * config mismatch. Added OUT_SCO device handling to resolve this.
+         */
         // This assumes that PAL_DEVICE_NONE comes as single device
-
-
+        if (checkNoneDevice && newDevices[i].id == PAL_DEVICE_NONE) {
+            if (ResourceManager::isDummyDevEnabled && mDevices.size() == 1)
+                newDevices[i].id = PAL_DEVICE_OUT_DUMMY;
+            else
+                newDevices[i].id = PAL_DEVICE_OUT_SPEAKER;
+            if (rm->getDeviceConfig(&newDevices[i], mStreamAttr)) {
+                continue;
+            }
+        }
         if (newDevices[i].id == PAL_DEVICE_NONE) {
             mStreamMutex.unlock();
             rm->unlockActiveStream();
@@ -1838,8 +1876,25 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                 }
                 /* If prioirty based attr diffs with running dev switch all devices */
                 if (switchStreams || custom_switch) {
+                    pal_stream_attributes sAttr;
                     streamDevDisconnect.push_back(elem);
                     StreamDevConnect.push_back({std::get<0>(elem), &newDevices[newDeviceSlots[i]]});
+                    if (sharedStream != streamHandle) {
+                        /*
+                         * temporarily mute streams for implicit device switch due to BE shared
+                         * with streamHandle.
+                         */
+                        sharedStream->getStreamAttributes(&sAttr);
+                        if (sAttr.type == PAL_STREAM_DEEP_BUFFER ||
+                            sAttr.type == PAL_STREAM_COMPRESSED ||
+                            sAttr.type == PAL_STREAM_PCM_OFFLOAD) {
+                            if (!rm->increaseStreamUserCounter(sharedStream)) {
+                                PAL_DBG(LOG_TAG, "mute stream %pk during switching", sharedStream);
+                                sharedStream->mute(true);
+                                tempMutedStreams.push_back(sharedStream);
+                            }
+                        }
+                    }
                     matchFound = true;
                     custom_switch = false;
                 } else {
@@ -1869,6 +1924,15 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
                 status = rm->getDeviceConfig(&sco_Dattr, NULL);
                 if (status) {
                     PAL_ERR(LOG_TAG, "getDeviceConfig for bt-sco failed");
+                    if (!tempMutedStreams.empty()) {
+                        for(sIter = tempMutedStreams.begin(); sIter != tempMutedStreams.end();
+                            sIter++) {
+                            (*sIter)->mute(false);
+                            rm->decreaseStreamUserCounter(*sIter);
+                            PAL_DBG(LOG_TAG, "unmute stream %pk during switching", *sIter);
+                        }
+                    }
+                    tempMutedStreams.clear();
                     mStreamMutex.unlock();
                     rm->unlockActiveStream();
                     return status;
@@ -2015,6 +2079,16 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
     }
 
 done:
+    if (!tempMutedStreams.empty()) {
+        rm->lockActiveStream();
+        for(sIter = tempMutedStreams.begin(); sIter != tempMutedStreams.end(); sIter++) {
+            (*sIter)->mute(false);
+            rm->decreaseStreamUserCounter(*sIter);
+            PAL_DBG(LOG_TAG, "unmute stream %pk during switching", *sIter);
+        }
+        rm->unlockActiveStream();
+    }
+    tempMutedStreams.clear();
     mStreamMutex.lock();
     if (a2dpMuted) {
         if (mVolumeData) {

@@ -9918,12 +9918,24 @@ int32_t ResourceManager::a2dpCaptureResumeFromDummy(pal_device_id_t dev_id)
         mActiveStreamMutex.unlock();
         goto exit;
     }
+    for (sIter = restoredStreams.begin(); sIter != restoredStreams.end(); sIter++) {
+        if (rm->increaseStreamUserCounter(*sIter)) {
+            PAL_ERR(LOG_TAG, "restoredStreams %pk increaseStreamUserCounter failed", *sIter);
+        }
+    }
     mActiveStreamMutex.unlock();
 
     PAL_DBG(LOG_TAG, "restoring a2dp/ble streams");
     status = streamDevSwitch(streamDevDisconnect, streamDevConnect);
     if (status) {
         PAL_ERR(LOG_TAG, "streamDevSwitch failed %d", status);
+        mActiveStreamMutex.lock();
+        for (sIter = restoredStreams.begin(); sIter != restoredStreams.end(); sIter++) {
+            if (rm->decreaseStreamUserCounter(*sIter)) {
+                PAL_ERR(LOG_TAG, "restoredStreams %pk decreaseStreamUserCounter failed", *sIter);
+            }
+        }
+        mActiveStreamMutex.unlock();
         goto exit;
     }
 
@@ -9939,6 +9951,9 @@ int32_t ResourceManager::a2dpCaptureResumeFromDummy(pal_device_id_t dev_id)
                 (*sIter)->a2dpMuted = false;
             }
             (*sIter)->unlockStreamMutex();
+        }
+        if (rm->decreaseStreamUserCounter(*sIter)) {
+            PAL_ERR(LOG_TAG, "restoredStreams %pk decreaseStreamUserCounter failed", *sIter);
         }
     }
     mActiveStreamMutex.unlock();
@@ -12568,29 +12583,6 @@ bool ResourceManager::isDeviceAvailable(
     }
 
     return isAvailable;
-}
-
-bool ResourceManager::isDisconnectedDeviceStillActive(
-    std::set<pal_device_id_t> &curPalDevices, std::set<pal_device_id_t> &activeDevices,
-    const std::set<pal_device_id_t> &extDeviceList)
-{
-    for (pal_device_id_t id : extDeviceList) {
-        if ((curPalDevices.find(id) != curPalDevices.end() &&
-            activeDevices.find(id) != activeDevices.end()) &&
-            ((isBtDevice(id) && !isDeviceReady(id)) || !isDeviceAvailable(id))) {
-             return true;
-        }
-    }
-    return false;
-}
-
-bool ResourceManager::isDeviceGroupInList(std::set<pal_device_id_t> &devicelist,
-                                          const std::set<pal_device_id_t> &devicegroup) {
-    for (pal_device_id_t id : devicelist) {
-        if (devicegroup.find(id) != devicegroup.end())
-            return true;
-    }
-    return false;
 }
 
 bool ResourceManager::isDeviceReady(pal_device_id_t id)
