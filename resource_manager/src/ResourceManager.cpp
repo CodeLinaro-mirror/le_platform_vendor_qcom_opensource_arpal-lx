@@ -2550,6 +2550,7 @@ void ResourceManager::getDeviceInfo(pal_device_id_t deviceId, pal_stream_type_t 
             devinfo->sndDevName_overwrite = false;
             devinfo->bit_width_overwrite = false;
             devinfo->fractionalSRSupported = deviceInfo[i].fractionalSRSupported;
+            devinfo->bt_i2s_sd_line_idx = deviceInfo[i].bt_i2s_sd_line_idx;
 
             if ((type >= PAL_STREAM_LOW_LATENCY) && (type < PAL_STREAM_MAX))
                 devinfo->priority = streamPriorityLUT.at(type);
@@ -13862,6 +13863,9 @@ void ResourceManager::process_device_info(struct xml_userdata *data, const XML_C
         } else if (!strcmp(tag_name, "ec_enable")) {
             size = deviceInfo.size() - 1;
             deviceInfo[size].ec_enable = atoi(data->data_buf);
+        } else if (!strcmp(tag_name, "bt_i2s_sd_line_idx")) {
+            size = deviceInfo.size() - 1;
+            deviceInfo[size].bt_i2s_sd_line_idx = atoi(data->data_buf);
         }
     } else if (data->tag == TAG_USECASE) {
         if (!strcmp(tag_name, "name")) {

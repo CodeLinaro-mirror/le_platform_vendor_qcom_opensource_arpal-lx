@@ -54,6 +54,8 @@
 #define MIXER_SET_FEEDBACK_CHANNEL        "BT set feedback channel"
 #define MIXER_SET_CODEC_TYPE              "BT codec type"
 #define BT_SLIMBUS_CLK_STR                "BT SLIMBUS CLK SRC"
+#define MIXER_BT_I2S_RX_SD_LINE           "BT I2S RX SD line"
+#define MIXER_BT_I2S_TX_SD_LINE           "BT I2S TX SD line"
 
 Bluetooth::Bluetooth(struct pal_device *device, std::shared_ptr<ResourceManager> Rm)
     : Device(device, Rm),
@@ -1120,6 +1122,39 @@ int32_t Bluetooth::configureSlimbusClockSrc(void)
                 rm->getBtSlimClockSrc(codecFormat));
 }
 
+int32_t Bluetooth::configureI2sSdLine(void)
+{
+    struct pal_device_info devInfo = {};
+    struct mixer_ctl *ctrl = NULL;
+    const char *mixerCtlName = NULL;
+    int32_t ret = 0;
+
+    rm->getDeviceInfo(deviceAttr.id, (pal_stream_type_t)0, "", &devInfo);
+    if (devInfo.bt_i2s_sd_line_idx < 0)
+        return 0;
+
+    if (deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_SCO ||
+        deviceAttr.id == PAL_DEVICE_OUT_BLUETOOTH_A2DP)
+        mixerCtlName = MIXER_BT_I2S_RX_SD_LINE;
+    else if (deviceAttr.id == PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET)
+        mixerCtlName = MIXER_BT_I2S_TX_SD_LINE;
+    else
+        return 0;
+
+    ctrl = mixer_get_ctl_by_name(hwMixerHandle, mixerCtlName);
+    if (!ctrl) {
+        PAL_DBG(LOG_TAG, "%s mixer control not found, skipping", mixerCtlName);
+        return 0;
+    }
+
+    ret = mixer_ctl_set_value(ctrl, 0, devInfo.bt_i2s_sd_line_idx);
+    if (ret)
+        PAL_ERR(LOG_TAG, "Failed to set %s to %d: %d",
+                mixerCtlName, devInfo.bt_i2s_sd_line_idx, ret);
+
+    return 0;
+}
+
 
 /* Scope of BtA2dp class */
 // definition of static BtA2dp member variables
@@ -1516,6 +1551,10 @@ int BtA2dp::start()
 
     if (totalActiveSessionRequests == 1) {
         status = configureSlimbusClockSrc();
+        if (status) {
+            goto exit;
+        }
+        status = configureI2sSdLine();
         if (status) {
             goto exit;
         }
@@ -2677,6 +2716,9 @@ int BtSco::start()
 
     if (deviceStartStopCount == 0) {
         status = configureSlimbusClockSrc();
+        if (status)
+            goto exit;
+        status = configureI2sSdLine();
         if (status)
             goto exit;
     }
