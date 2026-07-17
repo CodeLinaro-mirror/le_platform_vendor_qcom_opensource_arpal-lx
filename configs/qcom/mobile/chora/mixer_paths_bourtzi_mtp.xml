@@ -483,6 +483,7 @@
         <ctl name="DAC1 Switch" value="1" />
         <ctl name="EAR_MIXER Switch" value="1" />
         <ctl name="EAR_MUX" value="RX2" />
+        <ctl name="RX_RX2 Digital Volume" value="70" />
     </path>
 
     <path name="ultrasound-mic">
