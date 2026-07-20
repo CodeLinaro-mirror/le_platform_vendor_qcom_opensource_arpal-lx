@@ -32,7 +32,7 @@ libsession_utils_config_la_SOURCES   = $(session_utils_sources)
 libsession_utils_config_la_LIBADD    = @GLIB_LIBS@ -lexpat -ltinyalsa
 libsession_utils_config_la_CPPFLAGS := $(AM_CPPFLAGS)
 libsession_utils_config_la_CPPFLAGS += -std=c++14
-libsession_utils_config_la_LDFLAGS   = --disable-shared -avoid-version
+libsession_utils_config_la_LDFLAGS   = -static -avoid-version
 libsession_utils_config_la_CPPFLAGS += @GLIB_CFLAGS@ -include glib.h
 libsession_utils_config_la_CPPFLAGS += -DACD_SM_FILEPATH=\"/etc/models/acd/\"
 libsession_utils_config_la_CPPFLAGS += -D__unused=__attribute__\(\(__unused__\)\) -DPAL_USE_SYSLOG -DLINUX_ENABLED -DPAL_MEMLOG_UNSUPPORTED -DATRACE_UNSUPPORTED -DCARD_STATE_UNSUPPORTED -DPAL_SIGNAL_HANDLER_UNSUPPORTED -DA2DP_SINK_SUPPORTED -DVUI_DMGR_AUDIO_UNSUPPORTED -DAUDIO_FEATURE_STATS_UNSUPPORTED
