@@ -182,9 +182,9 @@
     <ctl name="TX_DEC2 Volume" value="102" />
     <ctl name="TX_DEC3 Volume" value="102" />
     <ctl name="TX_DEC4 Volume" value="102" />
-    <ctl name="TX_DEC5 Volume" value="84" />
-    <ctl name="TX_DEC6 Volume" value="84" />
-    <ctl name="TX_DEC7 Volume" value="84" />
+    <ctl name="TX_DEC5 Volume" value="102" />
+    <ctl name="TX_DEC6 Volume" value="102" />
+    <ctl name="TX_DEC7 Volume" value="102" />
 
     <ctl name="ADC1 Volume" value="12" />
     <ctl name="ADC2 Volume" value="12" />
@@ -1146,6 +1146,86 @@
 
     <path name="quad-mic-liquid">
         <path name="speaker-qmic-liquid" />
+    </path>
+
+    <path name="speaker-pen-mic">
+        <ctl name="TX_AIF1_CAP Mixer DEC1" value="1" />
+        <ctl name="TX DMIC MUX1" value="DMIC0" />
+        <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
+        <ctl name="TX DMIC MUX2" value="DMIC1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DMIC MUX3" value="DMIC3" />
+        <ctl name="TX_AIF1_CAP Mixer DEC4" value="1" />
+        <ctl name="TX DMIC MUX4" value="DMIC2" />
+        <ctl name="TX_AIF1_CAP Mixer DEC5" value="1" />
+        <ctl name="TX DMIC MUX5" value="DMIC4" />
+    </path>
+
+    <path name="handset-pen-mic">
+        <path name="speaker-pen-mic" />
+    </path>
+
+    <path name="speaker-hex-mic">
+        <ctl name="TX_AIF1_CAP Mixer DEC1" value="1" />
+        <ctl name="TX DMIC MUX1" value="DMIC0" />
+        <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
+        <ctl name="TX DMIC MUX2" value="DMIC1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DMIC MUX3" value="DMIC3" />
+        <ctl name="TX_AIF1_CAP Mixer DEC4" value="1" />
+        <ctl name="TX DMIC MUX4" value="DMIC2" />
+        <ctl name="TX_AIF1_CAP Mixer DEC5" value="1" />
+        <ctl name="TX DMIC MUX5" value="DMIC4" />
+        <ctl name="TX_AIF1_CAP Mixer DEC6" value="1" />
+        <ctl name="TX DMIC MUX6" value="DMIC5" />
+    </path>
+
+    <path name="handset-hex-mic">
+        <path name="speaker-hex-mic" />
+    </path>
+
+    <path name="speaker-sep-mic">
+        <ctl name="TX_AIF1_CAP Mixer DEC1" value="1" />
+        <ctl name="TX DMIC MUX1" value="DMIC0" />
+        <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
+        <ctl name="TX DMIC MUX2" value="DMIC1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DMIC MUX3" value="DMIC3" />
+        <ctl name="TX_AIF1_CAP Mixer DEC4" value="1" />
+        <ctl name="TX DMIC MUX4" value="DMIC2" />
+        <ctl name="TX_AIF1_CAP Mixer DEC5" value="1" />
+        <ctl name="TX DMIC MUX5" value="DMIC4" />
+        <ctl name="TX_AIF1_CAP Mixer DEC6" value="1" />
+        <ctl name="TX DMIC MUX6" value="DMIC5" />
+        <ctl name="TX_AIF1_CAP Mixer DEC7" value="1" />
+        <ctl name="TX DMIC MUX7" value="DMIC6" />
+    </path>
+
+    <path name="handset-sep-mic">
+        <path name="speaker-sep-mic" />
+    </path>
+
+    <path name="speaker-oct-mic">
+        <ctl name="TX_AIF1_CAP Mixer DEC0" value="1" />
+        <ctl name="TX DMIC MUX0" value="DMIC7" />
+        <ctl name="TX_AIF1_CAP Mixer DEC1" value="1" />
+        <ctl name="TX DMIC MUX1" value="DMIC0" />
+        <ctl name="TX_AIF1_CAP Mixer DEC2" value="1" />
+        <ctl name="TX DMIC MUX2" value="DMIC1" />
+        <ctl name="TX_AIF1_CAP Mixer DEC3" value="1" />
+        <ctl name="TX DMIC MUX3" value="DMIC3" />
+        <ctl name="TX_AIF1_CAP Mixer DEC4" value="1" />
+        <ctl name="TX DMIC MUX4" value="DMIC2" />
+        <ctl name="TX_AIF1_CAP Mixer DEC5" value="1" />
+        <ctl name="TX DMIC MUX5" value="DMIC4" />
+        <ctl name="TX_AIF1_CAP Mixer DEC6" value="1" />
+        <ctl name="TX DMIC MUX6" value="DMIC5" />
+        <ctl name="TX_AIF1_CAP Mixer DEC7" value="1" />
+        <ctl name="TX DMIC MUX7" value="DMIC6" />
+    </path>
+
+    <path name="handset-oct-mic">
+        <path name="speaker-oct-mic" />
     </path>
 
     <path name="handset-dual-dmic-quad-dec">

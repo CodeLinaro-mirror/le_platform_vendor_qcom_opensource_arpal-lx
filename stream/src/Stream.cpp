@@ -1962,7 +1962,18 @@ int32_t Stream::switchDevice(Stream* streamHandle, uint32_t numDev, struct pal_d
             newDeviceSlots[connectCount] = i;
             connectCount++;
         }
-        /* insert current stream-device attr to Device */
+        /* Only register this device when it will actually connect.
+         * Skipping both insertStreamDeviceAttr and mPalDevices for an unready
+         * BT device (e.g. AUDIO_STATE_RECONFIG_SUSPENDED) prevents a stale
+         * mStreamDevAttr entry that causes a duplicate "lowest priority"
+         * insertion when the restore path re-inserts the same stream later,
+         * and prevents a dangling mPalDevices entry that would be visible via
+         * getPalDevices() and would trigger a spurious removeStreamDeviceAttr
+         * on the next switchDevice call.
+         */
+        if (!devReadyStatus) {
+            continue;
+        }
         dev = Device::getInstance(&newDevices[i],rm);
         if (!dev) {
             PAL_ERR(LOG_TAG, "No device instance found");
@@ -2280,7 +2291,18 @@ done:
             free(volume);
         }
     }
-    if ((numDev > 1) && isNewDeviceA2dp && !isBtReady) {
+    /* Count only output devices to detect a true combo-output scenario
+     * (e.g. speaker+BLE).  Voice call passes BLE+Mic (numDev=2) but the
+     * mic is an input device and must not be counted here; treating it as
+     * "combo" causes suspendedOutDevIds.size()==2, which breaks the
+     * a2dpResumeFromDummy disconnect-before-connect check (size()==1).
+     */
+    int numOutDev = 0;
+    for (int i = 0; i < numDev; i++) {
+        if (rm->isOutputDevId(newDevices[i].id))
+            numOutDev++;
+    }
+    if ((numOutDev > 1) && isNewDeviceA2dp && !isBtReady) {
         suspendedOutDevIds.clear();
         suspendedOutDevIds.push_back(newBtDevId);
         if (ResourceManager::isDummyDevEnabled) {
@@ -2288,7 +2310,14 @@ done:
         } else {
             suspendedOutDevIds.push_back(PAL_DEVICE_OUT_SPEAKER);
         }
-    } else {
+    } else if (!isNewDeviceA2dp || isBtReady) {
+        /* Only clear when BT was not involved or was ready.  When BT is not
+         * ready (isNewDeviceA2dp && !isBtReady) the loop already set
+         * suspendedOutDevIds=[BLE] so that a2dpResumeFromDummy can retry.
+         * Clearing here would lose that retry state (e.g. voice call with
+         * BLE+Mic where the mic device has no pending switch and control
+         * reaches done: via "No device to switch").
+         */
         suspendedOutDevIds.clear();
     }
     mStreamMutex.unlock();
@@ -2470,7 +2499,7 @@ void Stream::removemDevice(int palDevId)
     for (dIter = mDevices.begin(); dIter != mDevices.end();) {
         devId = (*dIter)->getSndDeviceId();
         if (devId == palDevId) {
-            mDevices.erase(dIter);
+            dIter = mDevices.erase(dIter);
         } else {
             dIter++;
         }
