@@ -26,8 +26,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- * Copyright (c) 2022-2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  *
  * Redistribution and use in source and binary forms, with or without
@@ -254,7 +254,9 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::deviceLinkName {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+#ifndef LINUX_ENABLED
     {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   {std::string{ "" }}},
+#endif
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -301,7 +303,9 @@ std::vector<std::pair<int32_t, int32_t>> ResourceManager::devicePcmId {
     {PAL_DEVICE_IN_TELEPHONY_RX,          0},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        0},
     {PAL_DEVICE_IN_EXT_EC_REF,            0},
+#ifndef LINUX_ENABLED
     {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   0},
+#endif
     {PAL_DEVICE_IN_MAX,                   0},
 };
 
@@ -350,7 +354,9 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::sndDeviceNameLUT {
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+#ifndef LINUX_ENABLED
     {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   {std::string{ "" }}},
+#endif
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -445,6 +451,7 @@ std::thread ResourceManager::workerThread;
 std::thread ResourceManager::mixerEventTread;
 bool ResourceManager::mixerClosed = false;
 int ResourceManager::mixerEventRegisterCount = 0;
+int ResourceManager::TxconcurrencyEnableCount = 0;
 int ResourceManager::concurrencyEnableCount = 0;
 int ResourceManager::concurrencyDisableCount = 0;
 int ResourceManager::ACDConcurrencyEnableCount = 0;
@@ -575,7 +582,9 @@ std::vector<std::pair<int32_t, std::string>> ResourceManager::listAllBackEndIds 
     {PAL_DEVICE_IN_TELEPHONY_RX,          {std::string{ "" }}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        {std::string{ "none" }}},
     {PAL_DEVICE_IN_EXT_EC_REF,            {std::string{ "none" }}},
+#ifndef LINUX_ENABLED
     {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,   {std::string{ "" }}},
+#endif
     {PAL_DEVICE_IN_MAX,                   {std::string{ "" }}},
 };
 
@@ -1944,7 +1953,9 @@ int32_t ResourceManager::getDeviceConfig(struct pal_device *deviceattr,
             break;
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+#ifndef LINUX_ENABLED
         case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
+#endif
             /*overwride format for a2dp*/
             deviceattr->config.aud_fmt_id = PAL_AUDIO_FMT_DEFAULT_COMPRESSED;
             break;
@@ -3855,7 +3866,13 @@ std::shared_ptr<CaptureProfile> ResourceManager::GetSVACaptureProfileByPriority(
         if (!cap_prof) {
             PAL_ERR(LOG_TAG, "Failed to get capture profile");
             continue;
-        } else if (cap_prof->ComparePriority(cap_prof_priority) ==
+        } else if ((cap_prof->GetDevId() == PAL_DEVICE_IN_HANDSET_MIC) ||
+            (cap_prof->GetDevId() == PAL_DEVICE_IN_WIRED_HEADSET)) {
+            continue;
+        } else if (cap_prof_priority &&
+            cap_prof->GetSndName().compare(cap_prof_priority->GetSndName()) != 0) {
+            continue;
+        } else if (cap_prof->ComparePriority(cap_prof_priority) >=
                    CAPTURE_PROFILE_PRIORITY_HIGH) {
             cap_prof_priority = cap_prof;
         }
@@ -4598,7 +4615,12 @@ void ResourceManager::HandleConcurrencyForSoundTriggerStreams(pal_stream_type_t 
             HandleStreamPauseResume(st_stream_type, active);
             continue;
         }
-
+        if (st_stream_tx_conc) {
+            if (active)
+                TxconcurrencyEnableCount++;
+            else if (TxconcurrencyEnableCount > 0)
+                TxconcurrencyEnableCount--;
+        }
         if (st_stream_conc_en && (st_stream_tx_conc || st_stream_rx_conc)) {
             if (!IsLPISupported(st_stream_type) ||
                 !isNLPISwitchSupported(st_stream_type)) {
@@ -7967,7 +7989,9 @@ int ResourceManager::setParameter(uint32_t param_id, void *param_payload,
             if (payload_size == sizeof(pal_param_device_connection_t)) {
                 status = handleDeviceConnectionChange(*device_connection);
                 if (!status && (device_connection->id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
+#ifndef LINUX_ENABLED
                     (device_connection->id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST) ||
+#endif
                     device_connection->id == PAL_DEVICE_IN_BLUETOOTH_A2DP)) {
                     dattr.id = device_connection->id;
                     dev = Device::getInstance(&dattr, rm);
@@ -8935,7 +8959,9 @@ int ResourceManager::handleDeviceConnectionChange(pal_param_device_connection_t 
 
         if (device_id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
             device_id == PAL_DEVICE_IN_BLUETOOTH_A2DP ||
+#ifndef LINUX_ENABLED
             device_id == PAL_DEVICE_IN_BLUETOOTH_BROADCAST ||
+#endif
             isBtScoDevice(device_id)) {
             dAttr.id = device_id;
             /* Stream type is irrelevant here as we need device num channels
@@ -9250,7 +9276,9 @@ bool ResourceManager::isDeviceReady(pal_device_id_t id)
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
         case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+#ifndef LINUX_ENABLED
         case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
+#endif
         {
             if (!isDeviceAvailable(id))
                 return is_ready;
@@ -9288,7 +9316,9 @@ bool ResourceManager::isBtDevice(pal_device_id_t id)
         case PAL_DEVICE_IN_BLUETOOTH_A2DP:
         case PAL_DEVICE_OUT_BLUETOOTH_SCO:
         case PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET:
+#ifndef LINUX_ENABLED
         case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
+#endif
             return true;
         default:
             return false;

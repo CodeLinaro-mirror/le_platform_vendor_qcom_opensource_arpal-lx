@@ -27,9 +27,8 @@
  * OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN
  * IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
- * Changes from Qualcomm Innovation Center are provided under the following license:
- *
- * Copyright (c) 2023 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Changes from Qualcomm Technologies, Inc. are provided under the following license:
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -2145,11 +2144,15 @@ int SessionAlsaPcm::setParameters(Stream *streamHandle, int tagId, uint32_t para
                 goto exit;
             }
 
+#ifndef LINUX_ENABLED
             if (vdata->isDucking) {
                 builder->payloadVolumeDuckingConfig(&paramData, &paramSize, miid, vdata);
             } else {
+#endif
                 builder->payloadVolumeConfig(&paramData, &paramSize, miid, vdata);
+#ifndef LINUX_ENABLED
             }
+#endif
 
             if (paramSize) {
                 status = SessionAlsaUtils::setMixerParameter(mixer, device,

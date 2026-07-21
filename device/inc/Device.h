@@ -71,6 +71,7 @@
 #include <iostream>
 #include <mutex>
 #include <memory>
+#include <map>
 #include "PalApi.h"
 #include "PalDefs.h"
 #include <string.h>
@@ -81,6 +82,7 @@
 #define DEVICE_NAME_MAX_SIZE 128
 
 class ResourceManager;
+class Stream;
 
 class Device
 {
@@ -99,6 +101,7 @@ protected:
     size_t customPayloadSize;
     std::string UpdatedSndName;
     uint32_t mCurrentPriority;
+    std::map<Stream*, struct pal_device> mStreamDeviceAttrMap;
 
     Device(struct pal_device *device, std::shared_ptr<ResourceManager> Rm);
     Device();
@@ -139,6 +142,9 @@ public:
     void setCurrentPrioirty(uint32_t prio){mCurrentPriority = prio;};
     void lockDeviceMutex() { mDeviceMutex.lock(); };
     void unlockDeviceMutex() { mDeviceMutex.unlock(); };
+    void insertStreamDeviceAttr(struct pal_device *dattr, Stream *stream);
+    void removeStreamDeviceAttr(Stream *stream);
+    void getTopPriorityDeviceAttr(struct pal_device *dattr, uint32_t *priority);
 };
 
 

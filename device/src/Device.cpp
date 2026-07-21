@@ -107,7 +107,9 @@ std::shared_ptr<Device> Device::getInstance(struct pal_device *device,
         return BtSco::getInstance(device, Rm);
     case PAL_DEVICE_IN_BLUETOOTH_A2DP:
     case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
+#ifndef LINUX_ENABLED
     case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
+#endif
         PAL_VERBOSE(LOG_TAG, "BTA2DP device");
         return BtA2dp::getInstance(device, Rm);
     case PAL_DEVICE_OUT_AUX_DIGITAL:
@@ -188,7 +190,9 @@ std::shared_ptr<Device> Device::getObject(pal_device_id_t dev_id)
         return HeadsetMic::getObject();
     case PAL_DEVICE_OUT_BLUETOOTH_A2DP:
     case PAL_DEVICE_IN_BLUETOOTH_A2DP:
+#ifndef LINUX_ENABLED
     case PAL_DEVICE_IN_BLUETOOTH_BROADCAST:
+#endif
         PAL_VERBOSE(LOG_TAG, "BT A2DP device %d", dev_id);
         return BtA2dp::getObject(dev_id);
     case PAL_DEVICE_OUT_BLUETOOTH_SCO:
@@ -549,4 +553,37 @@ int32_t Device::configureDeviceClockSrc(char const *mixerStrClockSrc, const uint
 
 exit:
     return ret;
+}
+
+void Device::insertStreamDeviceAttr(struct pal_device *dattr, Stream *stream)
+{
+    if (!dattr || !stream)
+        return;
+    mDeviceMutex.lock();
+    mStreamDeviceAttrMap[stream] = *dattr;
+    mDeviceMutex.unlock();
+}
+
+void Device::removeStreamDeviceAttr(Stream *stream)
+{
+    if (!stream)
+        return;
+    mDeviceMutex.lock();
+    mStreamDeviceAttrMap.erase(stream);
+    mDeviceMutex.unlock();
+}
+
+void Device::getTopPriorityDeviceAttr(struct pal_device *dattr, uint32_t *priority)
+{
+    if (!dattr || !priority)
+        return;
+    mDeviceMutex.lock();
+    *priority = MIN_USECASE_PRIORITY;
+    if (!mStreamDeviceAttrMap.empty()) {
+        auto &entry = mStreamDeviceAttrMap.begin()->second;
+        ar_mem_cpy(dattr, sizeof(struct pal_device), &entry,
+                   sizeof(struct pal_device));
+        *priority = 0;
+    }
+    mDeviceMutex.unlock();
 }
