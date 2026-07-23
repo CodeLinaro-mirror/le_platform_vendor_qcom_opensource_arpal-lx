@@ -137,7 +137,8 @@ public:
     std::shared_ptr<VUIFirstStageConfig> GetVUIFirstStageConfig();
     std::string GetVUIModuleName();
     std::string GetVUIModuleName(st_module_type_t type) const {
-        return GetVUIFirstStageConfig(type)->GetModuleName();
+        auto sTModuleInfo = GetVUIFirstStageConfig(type);
+        return sTModuleInfo ? sTModuleInfo->GetModuleName() : std::string();
     }
     std::shared_ptr<CaptureProfile> GetCaptureProfile(
         std::pair<StOperatingModes, StInputModes> mode_pair) const {

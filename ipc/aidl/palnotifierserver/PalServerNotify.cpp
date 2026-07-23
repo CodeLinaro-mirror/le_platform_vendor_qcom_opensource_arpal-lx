@@ -202,8 +202,9 @@ void removeClient(int pid) {
             client_handle = node_to_item(node, ClientInfo, list);
             if (client_handle->pid == pid) {
                 list_remove(node);
+                uint32_t saved_pid = client_handle->pid;
                 free(client_handle);
-                ALOGI("removed client with pid: %d", client_handle->pid);
+                ALOGI("removed client with pid: %u", saved_pid);
                 break;
                 }
             }

@@ -712,7 +712,7 @@ int32_t StreamSoundTrigger::HandleConcurrentStream(bool active) {
             std::shared_ptr<StEventConfig> ev_cfg(
                 new StConcurrentStreamEventConfig(active));
             status = cur_state_->ProcessEvent(ev_cfg);
-        } else if (active) {
+        } else if (active && new_cap_prof) {
             std::shared_ptr<StEventConfig> ev_cfg(
                 new StDeviceConnectedEventConfig(new_cap_prof->GetDevId()));
             status = cur_state_->ProcessEvent(ev_cfg);
@@ -1331,6 +1331,10 @@ int32_t StreamSoundTrigger::UpdateDeviceConfig() {
             dev = GetPalDevice(this, dev_id);
         } else if (dattr_specified_) {
             dev = Device::getInstance(dattr_specified_, rm);
+            if (!dev) {
+                PAL_ERR(LOG_TAG, "Device creation is failed");
+                return -EINVAL;
+            }
             dev->setDeviceAttributes(*dattr_specified_);
         } else {
             dattr.id = cap_prof_->GetDevId();
@@ -1352,6 +1356,10 @@ int32_t StreamSoundTrigger::UpdateDeviceConfig() {
 
             dev->getTopPriorityDeviceAttr(&new_dattr, &dev_prio);
             dev = Device::getInstance(&new_dattr, rm);
+            if (!dev) {
+                PAL_ERR(LOG_TAG, "Device creation is failed");
+                return -EINVAL;
+            }
             dev->setDeviceAttributes(new_dattr);
         }
         if (!dev) {
@@ -2565,8 +2573,9 @@ int32_t StreamSoundTrigger::StLoaded::ProcessEvent(
                     dev->setSndName(cap_prof->GetSndName());
                     dev->setDeviceAttributes(dattr);
                 }
-                st_stream_.setVoteType(cap_prof->GetSndName().find("lpi") ==
-                                       std::string::npos ? NLPI_VOTE : LPI_VOTE);
+                if (cap_prof)
+                    st_stream_.setVoteType(cap_prof->GetSndName().find("lpi") ==
+                                           std::string::npos ? NLPI_VOTE : LPI_VOTE);
 
                 if (!st_stream_.device_opened_) {
                     /*

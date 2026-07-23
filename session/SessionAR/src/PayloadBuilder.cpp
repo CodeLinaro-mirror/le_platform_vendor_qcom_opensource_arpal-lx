@@ -3747,7 +3747,7 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                 break;
             case PAL_STREAM_VOIP_RX:
             case PAL_STREAM_VOIP_TX:
-                if ((devInfo.isUSBUUIdBasedTuningEnabledFlag) &&
+                if ((devInfo.isUSBUUIdBasedTuningEnabledFlag) && tempDev &&
                     tempDev->isDeviceConnected(dAttr.address)) {
                     uint32_t *payload;
                     status = tempDev->getParameter(PAL_PARAM_ID_VENDOR_UUID, (void**)&payload);
@@ -3786,7 +3786,7 @@ int PayloadBuilder::populateDevicePPCkv(Stream *s, std::vector <std::pair<int,in
                     keyVector.push_back(std::make_pair(GAIN, GAIN_0));
                 }
 
-                if ((devInfo.isUSBUUIdBasedTuningEnabledFlag) &&
+                if ((devInfo.isUSBUUIdBasedTuningEnabledFlag) && tempDev &&
                     tempDev->isDeviceConnected(dAttr.address)) {
                     uint32_t *payload;
                     status = tempDev->getParameter(PAL_PARAM_ID_VENDOR_UUID, (void**)&payload);

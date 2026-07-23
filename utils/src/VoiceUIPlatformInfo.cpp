@@ -353,8 +353,9 @@ int32_t VUIStreamConfig::GetOperatingMode(std::string tag) {
 }
 
 bool VUIStreamConfig::GetEnableLPILabEC(st_module_type_t type) {
-    if (GetVUIFirstStageConfig(type))
-        return GetVUIFirstStageConfig(type)->GetEnableLPILabEC();
+    std::shared_ptr<VUIFirstStageConfig> sTModuleInfo = GetVUIFirstStageConfig(type);
+    if (sTModuleInfo)
+        return sTModuleInfo->GetEnableLPILabEC();
     else
         return false;
 }
