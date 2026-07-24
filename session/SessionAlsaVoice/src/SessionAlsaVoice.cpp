@@ -1858,17 +1858,6 @@ int SessionAlsaVoice::connectSessionDevice(Stream* streamHandle,
                PAL_ERR(LOG_TAG,"enabling sidetone failed");
            }
         }
-        //if CRSCall enabled, populate rx mfc coeff payload, in plugin.
-        if (rm->IsCRSCallEnabled()) {
-            ppld.payload = reinterpret_cast<void*>(&rxDevice);
-            if (pluginConfig) {
-                status = pluginConfig(streamHandle, PAL_PLUGIN_POST_RECONFIG,
-                                    reinterpret_cast<void*>(&ppld), sizeof(ReconfigPluginPayload));
-            } else {
-                PAL_ERR(LOG_TAG, "pluginConfig is null, skipping plugin %d call",
-                        PAL_PLUGIN_POST_RECONFIG);
-            }
-        }
         //During Voice call device switch populate silence detection payload in plugin.
         if ((dAttr.id == PAL_DEVICE_IN_HANDSET_MIC ||
             dAttr.id == PAL_DEVICE_IN_SPEAKER_MIC) &&
