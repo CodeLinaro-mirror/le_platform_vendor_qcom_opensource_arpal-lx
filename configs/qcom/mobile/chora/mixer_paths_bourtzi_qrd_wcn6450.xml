@@ -505,7 +505,11 @@
         <path name="amic3" />
     </path>
 
-    <path name="handset-ultrasound">
+    <path name="handset-mic-unprocessed">
+        <path name="amic3" />
+    </path>
+
+    <!--path name="handset-ultrasound">
         <ctl name="WSA RX_MIX0 MUX" value="AIF_MIX1_PB" />
         <ctl name="WSA_RX0 MIX INP" value="RX_MIX0" />
         <ctl name="WSA_COMP1 Switch" value="1" />
@@ -513,6 +517,10 @@
         <ctl name="SpkrLeft VISENSE Switch" value="1" />
         <ctl name="SpkrLeft SWR DAC_Port Switch" value="1" />
         <ctl name="EAR SPKR PA Gain" value="G_6_DB" />
+    </path-->
+
+    <path name="handset-ultrasound">
+        <path name="handset" />
     </path>
 
     <path name="ultrasound-mic">

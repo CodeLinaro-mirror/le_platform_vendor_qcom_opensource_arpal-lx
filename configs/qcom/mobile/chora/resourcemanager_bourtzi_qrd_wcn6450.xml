@@ -437,7 +437,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_SCO_HEADSET</id>
-            <back_end_name>SLIM-DEV1-TX-7</back_end_name>
+            <back_end_name>MI2S-LPAIF_AUD-TX-PRIMARY</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
             <samplerate>8000</samplerate>
@@ -608,7 +608,7 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
-            <back_end_name>SLIM-DEV1-TX-7</back_end_name>
+            <back_end_name>MI2S-LPAIF_AUD-TX-PRIMARY</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
             <snd_device_name>bt-a2dp-mic</snd_device_name>
@@ -617,9 +617,9 @@
         </in-device>
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_BLE</id>
-            <back_end_name>SLIM-DEV1-TX-7</back_end_name>
-            <max_channels>1</max_channels>
-            <channels>1</channels>
+            <back_end_name>MI2S-LPAIF_AUD-TX-PRIMARY</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
             <snd_device_name>bt-ble-mic</snd_device_name>
             <samplerate>44100</samplerate>
             <bit_width>16</bit_width>
@@ -920,9 +920,9 @@
          </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_BLUETOOTH_A2DP</id>
-            <back_end_name>SLIM-DEV1-RX-7</back_end_name>
-            <max_channels>1</max_channels>
-            <channels>1</channels>
+            <back_end_name>MI2S-LPAIF_AUD-RX-PRIMARY</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
             <snd_device_name>bt-a2dp</snd_device_name>
             <samplerate>44100</samplerate>
             <bit_width>16</bit_width>
@@ -933,9 +933,9 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_BLUETOOTH_BLE</id>
-            <back_end_name>SLIM-DEV1-RX-7</back_end_name>
-            <max_channels>1</max_channels>
-            <channels>1</channels>
+            <back_end_name>MI2S-LPAIF_AUD-RX-PRIMARY</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
             <snd_device_name>bt-ble</snd_device_name>
             <samplerate>44100</samplerate>
             <bit_width>16</bit_width>
@@ -946,16 +946,16 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST</id>
-            <back_end_name>SLIM-DEV1-RX-7</back_end_name>
-            <max_channels>1</max_channels>
-            <channels>1</channels>
+            <back_end_name>MI2S-LPAIF_AUD-RX-PRIMARY</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
             <snd_device_name>bt-ble</snd_device_name>
             <samplerate>44100</samplerate>
             <bit_width>16</bit_width>
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_BLUETOOTH_SCO</id>
-            <back_end_name>SLIM-DEV1-RX-7</back_end_name>
+            <back_end_name>MI2S-LPAIF_AUD-RX-PRIMARY</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
             <snd_device_name>bt-sco</snd_device_name>
@@ -1103,8 +1103,8 @@
         </out-device>
         <out-device>
             <id>PAL_DEVICE_OUT_ULTRASOUND</id>
-            <back_end_name>CODEC_DMA-LPAIF_WSA-RX-1</back_end_name>
-            <max_channels>2</max_channels>
+            <back_end_name>CODEC_DMA-LPAIF_RXTX-RX-0</back_end_name>
+            <max_channels>1</max_channels>
             <channels>1</channels>
             <snd_device_name>handset-ultrasound</snd_device_name>
             <samplerate>96000</samplerate>
