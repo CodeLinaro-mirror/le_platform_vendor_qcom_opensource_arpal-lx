@@ -6526,7 +6526,7 @@ int32_t ResourceManager::streamDevSwitch(std::vector <std::tuple<Stream *, uint3
                 (((*dIter)->id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST) &&
                 !isDeviceReady(PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST)))) {
             PAL_ERR(LOG_TAG, "a2dp/ble device is not ready for connection, skip device switch");
-            status = -ENODEV;
+            status = -EAGAIN;
             mActiveStreamMutex.unlock();
             goto exit_no_unlock;
         }
@@ -9054,6 +9054,16 @@ bool ResourceManager::isDeviceReady(pal_device_id_t id)
     return dev->isDeviceReady(id);
 }
 
+bool ResourceManager::isBtBLEDevice(pal_device_id_t id)
+{
+    if (id == PAL_DEVICE_OUT_BLUETOOTH_BLE ||
+        id == PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST ||
+        id == PAL_DEVICE_IN_BLUETOOTH_BLE)
+        return true;
+    else
+        return false;
+}
+
 bool ResourceManager::isBtA2dpDevice(pal_device_id_t id)
 {
     if (id == PAL_DEVICE_OUT_BLUETOOTH_A2DP ||
@@ -9064,6 +9074,15 @@ bool ResourceManager::isBtA2dpDevice(pal_device_id_t id)
         return true;
     else
         return false;
+}
+
+bool ResourceManager::hasBtA2dpDevice(std::vector<std::shared_ptr<Device>> devices)
+{
+    for (auto dev : devices) {
+        if (isBtA2dpDevice((pal_device_id_t)dev->getSndDeviceId()))
+            return true;
+    }
+    return false;
 }
 
 bool ResourceManager::isBtScoDevice(pal_device_id_t id)
@@ -10736,21 +10755,14 @@ void ResourceManager::handleDeferredSwitch() {
 #endif
 }
 
-int32_t ResourceManager::handleBTDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend) {
+int32_t ResourceManager::checkAndHandleBTNotReady(Stream *s) {
     int32_t status = 0;
 #ifndef BLUETOOTH_FEATURES_DISABLED
-    status = BTUtilsDeviceNotReadyToDummy(s, a2dpSuspend);
-#else
-    PAL_DBG(LOG_TAG, "Invalid operation, bluetooth not enabled");
-    status = -EINVAL;
-#endif
-    return status;
-}
-
-int32_t ResourceManager::handleBTDeviceNotReady(Stream *s, bool& a2dpSuspend) {
-    int32_t status = 0;
-#ifndef BLUETOOTH_FEATURES_DISABLED
-    status = BTUtilsDeviceNotReady(s, a2dpSuspend);
+    if (IsDummyDevEnabled()) {
+        status = BTUtilsDeviceNotReadyToDummy(s);
+    } else {
+        status = BTUtilsDeviceNotReady(s);
+    }
 #else
     PAL_DBG(LOG_TAG, "Invalid operation, bluetooth not enabled");
     status = -EINVAL;

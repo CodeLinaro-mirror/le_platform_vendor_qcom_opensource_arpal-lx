@@ -969,7 +969,8 @@ public:
     bool isBtScoDevice(pal_device_id_t id);
     bool isBtDevice(pal_device_id_t id);
     bool isBtA2dpDevice(pal_device_id_t id);
-
+    bool isBtBLEDevice(pal_device_id_t id);
+    bool hasBtA2dpDevice(std::vector<std::shared_ptr<Device>> devices);
     /* Separate device reference counts are maintained in PAL device and GSL device SGs.
      * lock graph is to sychronize these reference counts during device and session operations
      */
@@ -1093,8 +1094,7 @@ public:
     std::map<pal_stream_type_t, std::list <Stream*>> getActiveStreamMap();
     std::list <Stream*> getActiveStreamList();
     void handleDeferredSwitch();
-    int32_t handleBTDeviceNotReadyToDummy(Stream *s, bool& a2dpSuspend);
-    int32_t handleBTDeviceNotReady(Stream *s, bool& a2dpSuspend);
+    int32_t checkAndHandleBTNotReady(Stream *s);
 
 };
 
