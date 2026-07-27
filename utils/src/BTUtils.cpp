@@ -125,6 +125,11 @@ int32_t disableSCODeviceForStream(Stream * sIter, std::shared_ptr<Device> dev) {
         PAL_ERR(LOG_TAG, "disconnectSessionDevice failed:%d", status);
         goto exit;
     }
+    status = dev->stop();
+    if (0 != status) {
+        PAL_ERR(LOG_TAG, "device stop failed with status %d", status);
+        goto exit;
+    }
     status = dev->close();
     if (0 != status) {
         PAL_ERR(LOG_TAG, "device close failed with status %d", status);
@@ -2525,7 +2530,7 @@ int setBTParameter(uint32_t param_id, void *param_payload,
                                 continue;
                             }
                             PAL_DBG(LOG_TAG, "checking running SCO device on stream %d", streamType)
-                            if (isVoiceCallMusic(streamType)) {
+                            if (isVoiceCallMusic(streamType) || streamType == PAL_STREAM_LOOPBACK) {
                                 if (!disableSCODeviceForStream((*sIter), sco_rx_dev))
                                     PAL_DBG(LOG_TAG, "closed SCO device for stream %d", streamType);
                             }
