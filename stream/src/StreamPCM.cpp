@@ -762,6 +762,7 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
         goto exit;
     }
 
+#ifndef LINUX_ENABLED
     //Handle ducking-specific volume update
     if (mVolumeData->isDucking) {
 
@@ -779,6 +780,7 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
         delete[] volPayload;
         goto exit; // Skip regular volume path if ducking handled
     }
+#endif
 
     memset(&vol_set_param_info, 0, sizeof(struct volume_set_param_info));
     rm->getVolumeSetParamInfo(&vol_set_param_info);

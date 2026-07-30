@@ -424,9 +424,14 @@ typedef enum {
     PAL_DEVICE_IN_TELEPHONY_RX = PAL_DEVICE_IN_MIN + 18,
     PAL_DEVICE_IN_ULTRASOUND_MIC = PAL_DEVICE_IN_MIN +19,
     PAL_DEVICE_IN_EXT_EC_REF = PAL_DEVICE_IN_MIN + 20,
+#ifndef LINUX_ENABLED
     PAL_DEVICE_IN_BLUETOOTH_BROADCAST = PAL_DEVICE_IN_MIN + 21,
     // Add new IN devices here, increment MAX and MIN below when you do so
     PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 22,
+#else
+    // Add new IN devices here, increment MAX and MIN below when you do so
+    PAL_DEVICE_IN_MAX = PAL_DEVICE_IN_MIN + 21,
+#endif
 } pal_device_id_t;
 
 typedef enum {
@@ -497,7 +502,9 @@ static const std::map<std::string, pal_device_id_t> deviceIdLUT {
     {std::string{ "PAL_DEVICE_IN_TELEPHONY_RX" },          PAL_DEVICE_IN_TELEPHONY_RX},
     {std::string{ "PAL_DEVICE_IN_ULTRASOUND_MIC" },        PAL_DEVICE_IN_ULTRASOUND_MIC},
     {std::string{ "PAL_DEVICE_IN_EXT_EC_REF" },            PAL_DEVICE_IN_EXT_EC_REF},
+#ifndef LINUX_ENABLED
     {std::string{ "PAL_DEVICE_IN_BLUETOOTH_BROADCAST" },PAL_DEVICE_IN_BLUETOOTH_BROADCAST},
+#endif
 };
 
 //reverse mapping
@@ -544,7 +551,9 @@ static const std::map<uint32_t, std::string> deviceNameLUT {
     {PAL_DEVICE_IN_TELEPHONY_RX,          std::string{"PAL_DEVICE_IN_TELEPHONY_RX"}},
     {PAL_DEVICE_IN_ULTRASOUND_MIC,        std::string{"PAL_DEVICE_IN_ULTRASOUND_MIC"}},
     {PAL_DEVICE_IN_EXT_EC_REF,            std::string{"PAL_DEVICE_IN_EXT_EC_REF"}},
+#ifndef LINUX_ENABLED
     {PAL_DEVICE_IN_BLUETOOTH_BROADCAST,std::string{"PAL_DEVICE_IN_BLUETOOTH_BROADCAST"}}
+#endif
 };
 
 const std::map<std::string, uint32_t> usecaseIdLUT {
@@ -806,7 +815,9 @@ struct pal_channel_vol_kv {
 /** Volume data strucutre defintion used as argument for volume command */
 struct pal_volume_data {
     uint32_t no_of_volpair;                       /**< no of volume pairs*/
+#ifndef LINUX_ENABLED
     bool isDucking;                              /**< Indicates if ducking is enabled */
+#endif
     struct pal_channel_vol_kv volume_pair[];     /**< channel mask and volume pair */
 };
 
