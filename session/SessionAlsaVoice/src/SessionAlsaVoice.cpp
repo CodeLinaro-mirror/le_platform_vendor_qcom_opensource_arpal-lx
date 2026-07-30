@@ -668,7 +668,8 @@ int SessionAlsaVoice::start(Stream * s)
     }
 
     volume = (struct pal_volume_data *)malloc(sizeof(uint32_t) +
-                                                (sizeof(struct pal_channel_vol_kv)));
+                                                (sAttr.out_media_config.ch_info.channels *
+                                                 sizeof(struct pal_channel_vol_kv)));
     if (!volume) {
         status = -ENOMEM;
         PAL_ERR(LOG_TAG, "volume malloc failed %s", strerror(errno));
