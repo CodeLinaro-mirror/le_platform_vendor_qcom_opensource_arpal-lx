@@ -47,7 +47,7 @@ else
 LOCAL_C_INCLUDES       += $(TOP)/external/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libtinycompress
 ifneq (,$(filter gen5_gvm gen5_gvm_cmu gen5_gvm_gy gen5_gvm_sgt, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)))
-LOCAL_SHARED_LIBRARIES += libtinyalsav2
+LOCAL_SHARED_LIBRARIES += liboss_tinyalsa
 else
 LOCAL_SHARED_LIBRARIES += libtinyalsa
 endif

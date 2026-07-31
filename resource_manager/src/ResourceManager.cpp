@@ -5122,6 +5122,8 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     struct mixer_ctl *ctl = nullptr;
     char *buf = nullptr;
     unsigned int num_values;
+    unsigned int tlv_header_size = 0;
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
     struct agm_event_cb_params *params = nullptr;
     std::map<int, std::pair<session_callback, uint64_t>>::iterator it;
 
@@ -5149,7 +5151,14 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
         goto exit;
     }
 
-    params = (struct agm_event_cb_params *)buf;
+    // NOTE: Only AWE handles the TLV handle for TLV-type controls
+    property_get("ro.boot.audio", audio_boot_prop, "");
+    if (strcmp(audio_boot_prop, "awe") == 0) {
+        if (mixer_ctl_is_access_tlv_rw(ctl))
+            tlv_header_size = 2 * sizeof(unsigned int);
+    }
+
+    params = (struct agm_event_cb_params *)((char *)buf + tlv_header_size);
     PAL_DBG(LOG_TAG, "source module id %x, event id %d, payload size %d",
             params->source_module_id, params->event_id,
             params->event_payload_size);
