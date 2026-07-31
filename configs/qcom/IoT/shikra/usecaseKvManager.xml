@@ -213,6 +213,27 @@
                 <graph_kv key="0xB1000000" value="0xB100000A"/>
             </keys_and_values>
         </stream>
+                <!-- Proxy stream -->
+        <stream type="PAL_STREAM_PROXY">
+            <keys_and_values Direction="TX">
+                <!-- STREAMTX - PCM_PROXY_RECORD -->
+                <graph_kv key="0xB1000000" value="0xB100000B"/>
+            </keys_and_values>
+            <keys_and_values Direction="TX" SubType="PAL_STREAM_PROXY_TX_WFD">
+                <!-- STREAMTX - PCM_PROXY_RECORD -->
+                <graph_kv key="0xB1000000" value="0xB100000B"/>
+                <!-- PROXY_TX_TYPE - PROXY_TX_WFD -->
+                <graph_kv key="0xD1000000" value="0xD1000002"/>
+            </keys_and_values>
+            <keys_and_values Direction="RX">
+                <!-- STREAMRX - PCM_PROXY_PLAYBACK -->
+                <graph_kv key="0xA1000000" value="0xA1000012"/>
+            </keys_and_values>
+            <keys_and_values Direction="RX" SubType="PAL_STREAM_PROXY_RX_WFD">
+                <!-- STREAMRX - PCM_PROXY_PLAYBACK -->
+                <graph_kv key="0xA1000000" value="0xA1000012"/>
+            </keys_and_values>
+        </stream>
         <!-- Raw stream -->
         <stream type="PAL_STREAM_RAW">
             <keys_and_values Direction="RX">
@@ -315,6 +336,44 @@
                  <graph_kv key="0xA3000000" value="0xA3000007"/>
              </keys_and_values>
         </device>
+                <!-- Proxy IN Device -->
+        <device id="PAL_DEVICE_IN_PROXY">
+            <keys_and_values>
+                <!-- DEVICETX - PROXY_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000008"/>
+            </keys_and_values>
+            <keys_and_values SubType="PAL_STREAM_PROXY_TX_WFD">
+                <!-- DEVICETX - PROXY_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000008"/>
+                <!-- PROXY_TX_TYPE - PROXY_TX_WFD -->
+                <graph_kv key="0xD1000000" value="0xD1000002"/>
+            </keys_and_values>
+        </device>
+        <!-- Proxy Out Device -->
+        <device id="PAL_DEVICE_OUT_PROXY">
+            <keys_and_values>
+                <!-- DEVICERX - PROXY_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000007"/>
+            </keys_and_values>
+            <keys_and_values SubType="PAL_STREAM_PROXY_RX_WFD">
+                <!-- DEVICERX - PROXY_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000007"/>
+                <!-- PROXY_RX_TYPE - PROXY_RX_WFD -->
+                <graph_kv key="0xE7010000" value="0xE7010002"/>
+            </keys_and_values>
+        </device>
+        <device id="PAL_DEVICE_OUT_DUMMY">
+            <keys_and_values>
+                <!-- DEVICERX - DUMMY_RX -->
+                <graph_kv key="0xA2000000" value="0xA200000C"/>
+            </keys_and_values>
+        </device>
+        <device id="PAL_DEVICE_IN_DUMMY">
+            <keys_and_values>
+                <!-- DEVICETX - DUMMY_TX -->
+                <graph_kv key="0xA3000000" value="0xA3000010"/>
+            </keys_and_values>
+        </device>
     </devices>
     <devicepps>
         <!-- OUT Speaker DevicePPs -->
@@ -330,6 +389,21 @@
                 <graph_kv key="0xA2000000" value="0xA2000001"/>
                 <!-- DEVICEPP_RX - DEVICEPP_RX_DEFAULT -->
                 <graph_kv key="0xAC000000" value="0xAC000001"/>
+            </keys_and_values>
+        </devicepp>
+        <!-- OUT Device Proxy DevicePPs -->
+        <devicepp id="PAL_DEVICE_OUT_PROXY">
+            <keys_and_values StreamType="PAL_STREAM_DEEP_BUFFER,PAL_STREAM_PCM_OFFLOAD,PAL_STREAM_COMPRESSED,PAL_STREAM_LOW_LATENCY">
+                <!-- DEVICERX - PROXY_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000007"/>
+                <!-- DEVICEPP_RX - DEVICEPP_RX_DEFAULT -->
+                <graph_kv key="0xAC000000" value="0xAC000001"/>
+            </keys_and_values>
+            <keys_and_values StreamType="PAL_STREAM_VOICE_CALL">
+                <!-- DEVICERX - PROXY_RX -->
+                <graph_kv key="0xA2000000" value="0xA2000007"/>
+                <!-- DEVICEPP_RX - DEVICEPP_RX_VOICE_DEFAULT -->
+                <graph_kv key="0xAC000000" value="0xAC000005"/>
             </keys_and_values>
         </devicepp>
         <!-- OUT Handset DevicePPs -->

@@ -18,6 +18,7 @@
         <stream name="PAL_STREAM_VOICE_UI" max_size="8" />
         <stream name="PAL_STREAM_PCM_OFFLOAD" max_size="2" />
         <stream name="PAL_STREAM_ULTRA_LOW_LATENCY" max_size="8" />
+        <stream name="PAL_STREAM_PROXY" max_size="8" />
     </config_max_sessions>
     <device_profile>
         <in-device>
@@ -248,6 +249,16 @@
                 <id>PAL_DEVICE_OUT_BLUETOOTH_BLE_BROADCAST</id>
             </ec_rx_device>
         </in-device>
+        <in-device>
+            <id>PAL_DEVICE_IN_PROXY</id>
+            <back_end_name>PCM_RT_PROXY-TX-1</back_end_name>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
+            <snd_device_name>afe-proxy</snd_device_name>
+            <usecase>
+                <name>PAL_STREAM_PROXY</name>
+            </usecase>
+        </in-device>
         <out-device>
             <id>PAL_DEVICE_NONE</id>
             <back_end_name>QAIF-QAIF_AUD-RX-1</back_end_name>
@@ -342,6 +353,19 @@
             <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
         </out-device>
+        <out-device>
+            <id>PAL_DEVICE_OUT_PROXY</id>
+            <back_end_name>PCM_RT_PROXY-RX-1</back_end_name>
+            <max_channels>8</max_channels>
+            <channels>2</channels>
+            <snd_device_name>afe-proxy</snd_device_name>
+            <fractional_sr>0</fractional_sr>
+            <samplerate>48000</samplerate>
+            <usecase>
+                <name>PAL_STREAM_VOICE_CALL</name>
+                <priority>1</priority>
+            </usecase>
+        </out-device>
     </device_profile>
     <in_streams>
         <in_stream>
@@ -367,6 +391,17 @@
             <name>PAL_STREAM_VOICE_UI</name>
                 <policies>
                     <ec_ref>
+                        <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
+                        <disabled_stream>PAL_STREAM_GENERIC</disabled_stream>
+                    </ec_ref>
+                </policies>
+        </in_stream>
+        <in_stream>
+            <name>PAL_STREAM_PROXY</name>
+                <policies>
+                    <ec_ref>
+                        <disabled_stream>PAL_STREAM_COMPRESSED</disabled_stream>
+                        <disabled_stream>PAL_STREAM_ULTRA_LOW_LATENCY</disabled_stream>
                         <disabled_stream>PAL_STREAM_LOW_LATENCY</disabled_stream>
                         <disabled_stream>PAL_STREAM_GENERIC</disabled_stream>
                     </ec_ref>
