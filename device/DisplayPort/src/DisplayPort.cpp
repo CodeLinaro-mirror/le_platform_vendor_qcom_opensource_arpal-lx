@@ -856,6 +856,10 @@ int32_t DisplayPort::getDeviceConfig(struct pal_device *deviceattr,
         else
             deviceattr->config.bit_width = BITWIDTH_16;
     }
+
+    rm->getDeviceInfo(deviceattr->id, sAttr->type,
+                      deviceattr->custom_config.custom_key, &devinfo);
+
     if ((deviceattr->config.bit_width == BITWIDTH_32) &&
                 (devinfo.bitFormatSupported != PAL_AUDIO_FMT_PCM_S32_LE)) {
         PAL_DBG(LOG_TAG, "32 bit is not supported; update with supported bit format");
