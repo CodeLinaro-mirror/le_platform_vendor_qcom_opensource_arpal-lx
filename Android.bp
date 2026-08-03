@@ -5,3 +5,32 @@ cc_library_headers {
     vendor: true,
 
 }
+
+// Core internal headers for arpal library components.
+// These headers are exposed for OEM vendor plugin and HAL extension modules
+// (e.g., audio_cust/oempal) that implement PAL plugin controls, stream
+// management, session handling, and VUI/SoundTrigger integrations.
+// WARNING: Changes to these headers may break ABI compatibility with external consumers.
+// Stability: Internal API subject to change — not part of the stable PAL public API
+//(use libarpal_headers for the stable public-facing interface).
+
+cc_library_headers {
+
+    name: "libarpal_core_headers",
+    export_include_dirs: [
+        ".",
+        "api/vui-interface",
+        "stream/inc",
+        "device/inc",
+        "session/inc",
+        "session/SessionAR/inc",
+        "session/SessionAlsaVoice/inc",
+        "resource_manager/inc",
+        "context_manager/inc",
+        "utils/inc",
+        "plugins/codecs",
+        "plugins/controls",
+        "plugins/PluginManager/inc",
+    ],
+    vendor: true,
+}

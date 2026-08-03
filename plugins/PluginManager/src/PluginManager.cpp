@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+ * Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
  * SPDX-License-Identifier: BSD-3-Clause-Clear
  */
 
@@ -23,7 +23,7 @@ std::vector<pm_item_t> PluginManager::registeredSoundModels = {};
 
 #define XML_PATH_MAX_LENGTH 100
 #define PLUGIN_MANAGER_FILENAME "plugin_manager.xml"
-#define AR_PLUGIN_MANAGER_VENDOR_PATH "/vendor/etc/audio_ar"
+#define AR_SUBDIR "/audio_ar"
 #define VENDOR_CONFIG_PATH_MAX_LENGTH 128
 char pimngr_xml_file[XML_PATH_MAX_LENGTH] = {0};
 char pimngr_vendor_config_path[VENDOR_CONFIG_PATH_MAX_LENGTH] = {0};
@@ -47,11 +47,9 @@ struct xml_userdata {
 PluginManager::PluginManager() {
         char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
         property_get("ro.boot.audio", audio_boot_prop, "");
-        if (strcmp(audio_boot_prop, "ar") == 0) {
-            strlcpy(pimngr_vendor_config_path, AR_PLUGIN_MANAGER_VENDOR_PATH,
-                sizeof(pimngr_vendor_config_path));
-        } else {
-            getVendorConfigPath(pimngr_vendor_config_path, sizeof(pimngr_vendor_config_path));
+        getVendorConfigPath(pimngr_vendor_config_path, sizeof(pimngr_vendor_config_path));
+        if (strcmp(audio_boot_prop, "ar") == 0 || strcmp(audio_boot_prop, "audioreach_gen5") == 0) {
+            strlcat(pimngr_vendor_config_path, AR_SUBDIR, sizeof(pimngr_vendor_config_path));
         }
         snprintf(pimngr_xml_file, sizeof(pimngr_xml_file),
             "%s/%s", pimngr_vendor_config_path, PLUGIN_MANAGER_FILENAME);

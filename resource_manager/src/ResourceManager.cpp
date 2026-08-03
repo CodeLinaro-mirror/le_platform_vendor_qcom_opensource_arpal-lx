@@ -92,6 +92,7 @@
 #define MIXER_XML_BASE_STRING_NAME "mixer_paths"
 #define RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager"
 #define AR_RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager_ar"
+#define GEN5_AR_RMNGR_XMLFILE_BASE_STRING_NAME "resourcemanager_gen5"
 
 #define MAX_RETRY_CNT 20
 #define LOWLATENCY_PCM_DEVICE 15
@@ -1578,6 +1579,7 @@ int ResourceManager::init_audio()
     char mixer_xml_file_wo_variant[XML_PATH_MAX_LENGTH] = {0};
     char file_name_extn[XML_PATH_EXTN_MAX_SIZE] = {0};
     char file_name_extn_wo_variant[XML_PATH_EXTN_MAX_SIZE] = {0};
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
 
     PAL_DBG(LOG_TAG, "Enter.");
 
@@ -1691,6 +1693,14 @@ int ResourceManager::init_audio()
     strlcat(rmngr_xml_file, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(rmngr_xml_file_wo_variant, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
     strlcat(mixer_xml_file_wo_variant, XML_FILE_EXT, XML_PATH_MAX_LENGTH);
+
+    // Override rmngr_xml_file based on ro.boot.audio property for gen5 AR
+    property_get("ro.boot.audio", audio_boot_prop, "");
+    if (strcmp(audio_boot_prop, "audioreach_gen5") == 0) {
+        snprintf(rmngr_xml_file, sizeof(rmngr_xml_file),
+            "%s/%s%s", vendor_config_path,
+            GEN5_AR_RMNGR_XMLFILE_BASE_STRING_NAME, XML_FILE_EXT);
+    }
 
     audio_route = audio_route_init(snd_hw_card, mixer_xml_file);
     PAL_INFO(LOG_TAG, "audio route %pK, mixer path %s", audio_route, mixer_xml_file);
@@ -5112,6 +5122,8 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
     struct mixer_ctl *ctl = nullptr;
     char *buf = nullptr;
     unsigned int num_values;
+    unsigned int tlv_header_size = 0;
+    char audio_boot_prop[PROPERTY_VALUE_MAX] = {0};
     struct agm_event_cb_params *params = nullptr;
     std::map<int, std::pair<session_callback, uint64_t>>::iterator it;
 
@@ -5139,7 +5151,14 @@ int ResourceManager::handleMixerEvent(struct mixer *mixer, char *mixer_str) {
         goto exit;
     }
 
-    params = (struct agm_event_cb_params *)buf;
+    // NOTE: Only AWE handles the TLV handle for TLV-type controls
+    property_get("ro.boot.audio", audio_boot_prop, "");
+    if (strcmp(audio_boot_prop, "awe") == 0) {
+        if (mixer_ctl_is_access_tlv_rw(ctl))
+            tlv_header_size = 2 * sizeof(unsigned int);
+    }
+
+    params = (struct agm_event_cb_params *)((char *)buf + tlv_header_size);
     PAL_DBG(LOG_TAG, "source module id %x, event id %d, payload size %d",
             params->source_module_id, params->event_id,
             params->event_payload_size);

@@ -182,9 +182,16 @@ endif
 ifeq ($(TARGET_USES_QTI_TINYCOMPRESS),true)
 LOCAL_SHARED_LIBRARIES += libqti-tinyalsa libqti-tinycompress
 else
+ifneq (,$(filter gen5_gvm gen5_gvm_cmu gen5_gvm_gy gen5_gvm_sgt, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
+LOCAL_SHARED_LIBRARIES += liboss_tinycompress
+else
 LOCAL_C_INCLUDES       += $(TOP)/vendor/qcom/opensource/tinycompress/include
 LOCAL_SHARED_LIBRARIES += libqti-tinycompress
-ifneq (,$(filter gen4_gvm_gy gen5_gvm gen5_gvm_cmu gen5_gvm_gy auto_gen_prime, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
+endif
+ifneq (,$(filter gen5_gvm gen5_gvm_cmu gen5_gvm_gy gen5_gvm_sgt, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
+LOCAL_CFLAGS           += -DUSE_TINYALSA_NEW
+LOCAL_SHARED_LIBRARIES += liboss_tinyalsa
+else ifneq (,$(filter gen4_gvm_gy auto_gen_prime, $(TARGET_BOARD_PLATFORM)$(TARGET_BOARD_SUFFIX)$(TARGET_BOARD_DERIVATIVE_SUFFIX)))
 LOCAL_CFLAGS           += -DUSE_TINYALSA_NEW
 LOCAL_SHARED_LIBRARIES += libtinyalsav2
 else
