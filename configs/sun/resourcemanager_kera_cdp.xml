@@ -425,6 +425,7 @@
             <channels>1</channels>
             <samplerate>8000</samplerate>
             <bit_width>16</bit_width>
+            <bt_i2s_sd_line_idx>1</bt_i2s_sd_line_idx>
             <snd_device_name>bt-sco-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -591,10 +592,10 @@
         <in-device>
             <id>PAL_DEVICE_IN_BLUETOOTH_A2DP</id>
             <back_end_name>BTFM_PROXY-TX-0</back_end_name>
-            <max_channels>1</max_channels>
-            <channels>1</channels>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
             <snd_device_name>bt-a2dp-mic</snd_device_name>
-            <samplerate>44100</samplerate>
+            <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
         </in-device>
         <in-device>
@@ -871,10 +872,11 @@
         <out-device>
             <id>PAL_DEVICE_OUT_BLUETOOTH_A2DP</id>
             <back_end_name>BTFM_PROXY-RX-0</back_end_name>
-            <max_channels>1</max_channels>
-            <channels>1</channels>
+	    <bt_i2s_sd_line_idx>2</bt_i2s_sd_line_idx>
+            <max_channels>2</max_channels>
+            <channels>2</channels>
             <snd_device_name>bt-a2dp</snd_device_name>
-            <samplerate>44100</samplerate>
+            <samplerate>48000</samplerate>
             <bit_width>16</bit_width>
             <usecase>
                 <name>PAL_STREAM_VOICE_CALL</name>
@@ -908,6 +910,7 @@
             <back_end_name>BTFM_PROXY-RX-0</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
+            <bt_i2s_sd_line_idx>2</bt_i2s_sd_line_idx>
             <snd_device_name>bt-sco</snd_device_name>
             <samplerate>8000</samplerate>
             <bit_width>16</bit_width>

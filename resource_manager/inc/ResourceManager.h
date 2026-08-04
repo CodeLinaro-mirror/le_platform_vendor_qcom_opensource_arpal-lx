@@ -312,6 +312,7 @@ struct pal_device_info {
      bool bit_width_overwrite;
      uint32_t bit_width;
      pal_audio_fmt_t bitFormatSupported;
+     int bt_i2s_sd_line_idx;
 };
 
 struct vsid_modepair {
@@ -471,6 +472,7 @@ struct deviceIn {
     uint32_t bit_width;
     pal_audio_fmt_t bitFormatSupported;
     bool ec_enable;
+    int bt_i2s_sd_line_idx = -1;
 };
 
 class ResourceManager

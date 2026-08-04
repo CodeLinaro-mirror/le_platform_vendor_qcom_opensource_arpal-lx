@@ -188,6 +188,7 @@ protected:
     void startAbr();
     void stopAbr();
     int32_t configureSlimbusClockSrc(void);
+    int32_t configureI2sSdLine(void);
 public:
     int getCodecConfig(struct pal_media_config *config) override;
     virtual ~Bluetooth();
