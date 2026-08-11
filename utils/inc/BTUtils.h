@@ -10,8 +10,8 @@
 #include <stdio.h>
 
 void BTUtilsInit();
-int32_t BTUtilsDeviceNotReadyToDummy(Stream* s, bool& a2dpSuspend);
-int32_t BTUtilsDeviceNotReady(Stream* s, bool& a2dpSuspend);
+int32_t BTUtilsDeviceNotReadyToDummy(Stream* s);
+int32_t BTUtilsDeviceNotReady(Stream* s);
 void handleA2dpBleConcurrency(std::shared_ptr<Device> *inDev,
             struct pal_device *inDevAttr, struct pal_device &dummyDevAttr,
             std::vector <std::tuple<Stream *, uint32_t>> &streamDevDisconnect,

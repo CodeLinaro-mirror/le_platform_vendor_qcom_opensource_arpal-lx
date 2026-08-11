@@ -1729,7 +1729,7 @@ int BtA2dp::startPlayback()
     if (mParamBtA2dp.a2dp_suspended) {
         // session will be restarted after suspend completion
         PAL_ERR(LOG_TAG, "a2dp start requested during suspend state");
-        return -ENOSYS;
+        return -EAGAIN;
     } else if (mA2dpState == A2DP_STATE_DISCONNECTED) {
         // update device status, if still disconnected, return error.
         if (!(rm->isDeviceAvailable(deviceAttr.id) &&
@@ -2000,7 +2000,7 @@ int BtA2dp::startCapture()
         if (mParamBtA2dp.a2dp_capture_suspended) {
             // session will be restarted after suspend completion
             PAL_INFO(LOG_TAG, "a2dp start capture requested during suspend state");
-            return -EINVAL;
+            return -EAGAIN;
         }
 
         if (mA2dpState != A2DP_STATE_STARTED  && !mTotalActiveSessionRequests) {
@@ -2468,7 +2468,8 @@ int32_t BtA2dp::getDeviceParameter(uint32_t param_id, void **param)
         uint32_t slatency = 0;
 
         if (mA2dpState == A2DP_STATE_STARTED && mTotalActiveSessionRequests &&
-            ((mParamBtA2dp.latency == 0) || (mCodecFormat == CODEC_TYPE_APTX_AD))) {
+            ((mParamBtA2dp.latency == 0) || (mCodecFormat == CODEC_TYPE_APTX_AD) ||
+             (mCodecFormat == CODEC_TYPE_APTX_AD_R4))) {
             if (audio_sink_get_a2dp_latency_api) {
                 slatency = audio_sink_get_a2dp_latency_api(get_session_type());
             } else if (audio_sink_get_a2dp_latency) {

@@ -1081,6 +1081,7 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
     int device = 0;
     uint8_t* paramData = NULL;
     size_t paramSize = 0;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
 
     PAL_DBG(LOG_TAG,"Enter setConfig called with tag: %d ", tag);
 
@@ -1123,11 +1124,22 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type, int tag)
             break;
         case CRS_CALL_VOLUME:
             if (pcmDevRxIds.size()) {
-               device = pcmDevRxIds.at(0);
-               status = payloadTaged(s, type, tag, device, RX_HOSTLESS);
+                device = pcmDevRxIds.at(0);
+                status = s->getAssociatedDevices(associatedDevices);
+                if(0 != status) {
+                   PAL_ERR(LOG_TAG,"getAssociatedDevices Failed");
+                   goto exit;
+                }
+                for (int i = 0; i < associatedDevices.size(); i++) {
+                     if (associatedDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_HANDSET) {
+                         PAL_DBG(LOG_TAG, "CRS_CALL_VOLUME skipped for handset device");
+                         goto exit;
+                     }
+                }
+                status = payloadTaged(s, type, tag, device, RX_HOSTLESS);
             } else {
-               PAL_ERR(LOG_TAG, "pcmDevRxIds is not available.");
-               status = -EINVAL;
+                PAL_ERR(LOG_TAG, "pcmDevRxIds is not available.");
+                status = -EINVAL;
             }
             break;
         default:
@@ -1158,6 +1170,7 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
     size_t paramSize = 0;
     uint8_t* customPayload = NULL;
     size_t customPayloadSize = 0;
+    std::vector<std::shared_ptr<Device>> associatedDevices;
 
     PAL_DBG(LOG_TAG,"Enter setConfig called with tag: %d ", tag);
 
@@ -1216,11 +1229,22 @@ int SessionAlsaVoice::setConfig(Stream * s, configType type __unused, int tag, i
 
         case CRS_CALL_VOLUME:
             if (pcmDevRxIds.size()) {
-               device = pcmDevRxIds.at(0);
-               status = payloadTaged(s, type, tag, device, RX_HOSTLESS);
+                device = pcmDevRxIds.at(0);
+                status = s->getAssociatedDevices(associatedDevices);
+                if(0 != status) {
+                   PAL_ERR(LOG_TAG,"getAssociatedDevices Failed");
+                   goto exit;
+                }
+                for (int i = 0; i < associatedDevices.size(); i++) {
+                     if (associatedDevices[i]->getSndDeviceId() == PAL_DEVICE_OUT_HANDSET) {
+                         PAL_DBG(LOG_TAG, "CRS_CALL_VOLUME skipped for handset device");
+                         goto exit;
+                     }
+                }
+                status = payloadTaged(s, type, tag, device, RX_HOSTLESS);
             } else {
-               PAL_ERR(LOG_TAG, "pcmDevRxIds is not available.");
-               status = -EINVAL;
+                PAL_ERR(LOG_TAG, "pcmDevRxIds is not available.");
+                status = -EINVAL;
             }
             break;
 

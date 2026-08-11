@@ -138,6 +138,7 @@ protected:
     bool skipSSRHandling = false;
     sem_t mInUse;
     int connectToDefaultDevice(Stream* streamHandle, uint32_t dir);
+    int32_t handleDeviceStartFailure(int32_t devStatus, std::shared_ptr<Device> dev, bool& disconnect);
 public:
     Stream();
     virtual ~Stream();
