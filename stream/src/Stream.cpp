@@ -1704,7 +1704,8 @@ int32_t Stream::getVolume(struct pal_volume_data *volume)
     }
 
     if (mVolumeData) {
-        if (volume->no_of_volpair < mVolumeData->no_of_volpair) {
+        if (volume->no_of_volpair &&
+            volume->no_of_volpair < mVolumeData->no_of_volpair) {
             PAL_ERR(LOG_TAG, "Buffer too small. Client capacity: %d, Required: %d", volume->no_of_volpair, mVolumeData->no_of_volpair);
             volume->no_of_volpair = mVolumeData->no_of_volpair;
             return -ENOMEM;
