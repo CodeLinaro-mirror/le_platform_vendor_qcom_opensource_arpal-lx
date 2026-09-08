@@ -484,6 +484,7 @@ bool ResourceManager::isGaplessEnabled = false;
 bool ResourceManager::isDualMonoEnabled = false;
 bool ResourceManager::isUHQAEnabled = false;
 bool ResourceManager::isContextManagerEnabled = false;
+bool ResourceManager::skipSSRstreamhandling = false;
 bool ResourceManager::isVIRecordStarted;
 bool ResourceManager::lpi_logging_ = false;
 bool ResourceManager::isUpdDedicatedBeEnabled = false;
@@ -1275,6 +1276,9 @@ bool ResourceManager::isSsrDownFeasible(std::shared_ptr<ResourceManager> rm,
             do_ssr = false;
         break;
     case CARD_STATUS_OFFLINE:
+        if (skipSSRstreamhandling)
+            do_ssr = false;
+        break;
     default:
         break;
     }
@@ -6496,6 +6500,8 @@ int ResourceManager::setConfigParams(struct str_parms *parms)
 
     ret = setContextManagerEnableParam(parms, value, len);
 
+    ret = setSkipSSROfflineHandlingParam(parms, value, len);
+
     ret = setUpdDedicatedBeEnableParam(parms, value, len);
     ret = setUpdCustomGainParam(parms, value, len);
     ret = setDualMonoEnableParam(parms, value, len);
@@ -6576,6 +6582,28 @@ int ResourceManager::setContextManagerEnableParam(struct str_parms *parms,
             isContextManagerEnabled = true;
 
         str_parms_del(parms, AUDIO_PARAMETER_KEY_CONTEXT_MANAGER_ENABLE);
+    }
+
+    return ret;
+}
+
+int ResourceManager::setSkipSSROfflineHandlingParam(struct str_parms *parms,
+                                          char *value, int len)
+{
+    int ret = -EINVAL;
+
+    if (!value || !parms)
+        return ret;
+
+    ret = str_parms_get_str(parms, AUDIO_PARAMETER_KEY_SKIP_SSR_OFFLINE_HANDLING,
+                            value, len);
+    PAL_VERBOSE(LOG_TAG," value %s", value);
+
+    if (ret >= 0) {
+        if (value && !strncmp(value, "true", sizeof("true")))
+            skipSSRstreamhandling = true;
+
+        str_parms_del(parms, AUDIO_PARAMETER_KEY_SKIP_SSR_OFFLINE_HANDLING);
     }
 
     return ret;

@@ -34,6 +34,7 @@
         <param key="max_sessions" value="128"/>
         <param key="skip_stream_restart" value="1"/>
 		<param key="logging_level" value ="0xf"/>
+        <param key="skip_ssr_offline_handling" value ="true" />
     </config_params>
     <config_voice>
         <vsid>0xB3000000</vsid>
