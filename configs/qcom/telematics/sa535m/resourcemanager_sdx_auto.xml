@@ -76,13 +76,14 @@
         <stream name="PAL_STREAM_COMMON_PROXY" max_size="8" />
         <stream name="PAL_STREAM_SENSOR_PCM_RENDERER" max_size="1" />
         <stream name="PAL_STREAM_ASR" max_size="1" />
-    </config_max_sessions>						 
+    </config_max_sessions>
     <device_profile>
         <in-device>
             <id>PAL_DEVICE_IN_HANDSET_MIC</id>
             <back_end_name>MI2S-LPAIF-TX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>handset-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -127,6 +128,7 @@
             <back_end_name>MI2S-LPAIF-TX-PRIMARY</back_end_name>
             <max_channels>4</max_channels>
             <channels>2</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>speaker-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -229,6 +231,7 @@
             <back_end_name>MI2S-LPAIF-TX-TERTIARY</back_end_name>
             <max_channels>1</max_channels>
             <channels>1</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>headset-mic</snd_device_name>
             <usecase>
                 <name>PAL_STREAM_LOW_LATENCY</name>
@@ -280,6 +283,7 @@
             <back_end_name>MI2S-LPAIF-RX-PRIMARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>2</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>speaker</snd_device_name>
             <speaker_protection_enabled>0</speaker_protection_enabled>
             <quick_cal_time>0</quick_cal_time> <!-- Time in seconds for Quick cal. Set 0 to disable -->
@@ -290,6 +294,7 @@
             <back_end_name>MI2S-LPAIF-RX-SECONDARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>handset</snd_device_name>
         </out-device>
             <out-device>
@@ -306,6 +311,7 @@
             <back_end_name>MI2S-LPAIF-RX-TERTIARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>headphones</snd_device_name>
         </out-device>
         <out-device>
@@ -313,6 +319,7 @@
             <back_end_name>MI2S-LPAIF-RX-TERTIARY</back_end_name>
             <max_channels>2</max_channels>
             <channels>1</channels>
+            <samplerate>48000</samplerate>
             <snd_device_name>headphones</snd_device_name>
         </out-device>
         <out-device>
