@@ -83,6 +83,7 @@ typedef enum {
 #define AUDIO_PARAMETER_KEY_MAX_NT_SESSIONS "max_nonTunnel_sessions"
 #define AUDIO_PARAMETER_KEY_LOG_LEVEL "logging_level"
 #define AUDIO_PARAMETER_KEY_CONTEXT_MANAGER_ENABLE "context_manager_enable"
+#define AUDIO_PARAMETER_KEY_SKIP_SSR_OFFLINE_HANDLING "skip_ssr_offline_handling"
 #define AUDIO_PARAMETER_KEY_HIFI_FILTER "hifi_filter"
 #define AUDIO_PARAMETER_KEY_LPI_LOGGING "lpi_logging_enable"
 #define AUDIO_PARAMETER_KEY_UPD_DEDICATED_BE "upd_dedicated_be"
@@ -543,6 +544,8 @@ private:
     static bool isRasEnabled;
     static bool isGaplessEnabled;
     static bool isContextManagerEnabled;
+    /* Variable to store whether SSR handling should be skipped when sound card goes offline */
+    static bool skipSSRstreamhandling;
     static bool isDualMonoEnabled;
     static bool isDeviceMuxConfigEnabled;
     static bool isUHQAEnabled;
@@ -916,6 +919,7 @@ public:
     static int setNativeAudioParams(struct str_parms *parms,char *value, int len);
     static int setLoggingLevelParams(struct str_parms *parms,char *value, int len);
     static int setContextManagerEnableParam(struct str_parms *parms,char *value, int len);
+    static int setSkipSSROfflineHandlingParam(struct str_parms *parms,char *value, int len);
     static int setLpiLoggingParams(struct str_parms *parms, char *value, int len);
     static int setUpdDedicatedBeEnableParam(struct str_parms *parms,char *value, int len);
     static int setUpdDutyCycleEnableParam(struct str_parms *parms,char *value, int len);
@@ -1034,6 +1038,7 @@ public:
     bool IsChargeConcurrencyEnabled();
     bool IsRasEnabled();
     bool IsGaplessEnabled();
+    static bool IsSkipSSRStreamHandlingEnabled() { return skipSSRstreamhandling; }
     bool IsDualMonoEnabled();
     bool IsDeviceMuxConfigEnabled();
     bool IsUHQAEnabled();

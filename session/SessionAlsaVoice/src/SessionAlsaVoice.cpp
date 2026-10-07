@@ -562,6 +562,13 @@ int SessionAlsaVoice::start(Stream * s)
         goto exit;
     }
 
+    status = getRXDevice(s, rxDevice);
+    if (status) {
+        PAL_ERR(LOG_TAG, "failed, could not find associated RX device");
+        goto exit;
+    }
+    setExtECRef(s, rxDevice, true);
+
     if (mState == SESSION_IDLE) {
         s->getBufInfo(&in_buf_size,&in_buf_count,&out_buf_size,&out_buf_count);
         memset(&config, 0, sizeof(config));
@@ -579,14 +586,6 @@ int SessionAlsaVoice::start(Stream * s)
         config.start_threshold = 0;
         config.stop_threshold = 0;
         config.silence_threshold = 0;
-
-        /*setup external ec if needed*/
-        status = getRXDevice(s, rxDevice);
-        if (status) {
-            PAL_ERR(LOG_TAG, "failed, could not find associated RX device");
-            goto exit;
-        }
-        setExtECRef(s, rxDevice, true);
 
         pcmRx = pcm_open(rm->getVirtualSndCard(), pcmDevRxIds.at(0), PCM_OUT, &config);
         if (!pcmRx) {
@@ -668,7 +667,8 @@ int SessionAlsaVoice::start(Stream * s)
     }
 
     volume = (struct pal_volume_data *)malloc(sizeof(uint32_t) +
-                                                (sizeof(struct pal_channel_vol_kv)));
+                                                (sAttr.out_media_config.ch_info.channels *
+                                                 sizeof(struct pal_channel_vol_kv)));
     if (!volume) {
         status = -ENOMEM;
         PAL_ERR(LOG_TAG, "volume malloc failed %s", strerror(errno));
@@ -757,6 +757,7 @@ int SessionAlsaVoice::start(Stream * s)
     }
     retries = 0;
     status = 0;
+    mState = SESSION_STARTED;
     goto exit;
 
 err_pcm_open:
@@ -789,8 +790,7 @@ err_pcm_open:
             retries = 0;
         }
     }
-
-    mState = SESSION_STARTED;
+    mState = SESSION_IDLE;
 
 exit:
     builder->freeCustomPayload();

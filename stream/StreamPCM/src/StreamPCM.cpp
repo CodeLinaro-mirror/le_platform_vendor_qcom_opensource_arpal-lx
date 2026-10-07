@@ -56,6 +56,7 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     mStreamMutex.lock();
     uint32_t in_channels = 0, out_channels = 0;
     uint32_t attribute_size = 0;
+    struct pal_channel_info *ch_info = nullptr;
 
     session = NULL;
     mGainLevel = -1;
@@ -82,18 +83,6 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
         throw std::runtime_error("invalid arguments");
     }
 
-    // Setting default volume to unity
-    mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
-                      +sizeof(struct pal_channel_vol_kv));
-    if (!mVolumeData) {
-        PAL_ERR(LOG_TAG, "Failed to allocate memory for volume data");
-        mStreamMutex.unlock();
-        throw std::runtime_error("failed to allocate memory for volume data");
-    }
-    mVolumeData->no_of_volpair = 1;
-    mVolumeData->volume_pair[0].channel_mask = 0x03;
-    mVolumeData->volume_pair[0].vol = 1.0f;
-
     attribute_size = sizeof(struct pal_stream_attributes);
     mStreamAttr = (struct pal_stream_attributes *) calloc(1, attribute_size);
     if (!mStreamAttr) {
@@ -113,6 +102,25 @@ StreamPCM::StreamPCM(const struct pal_stream_attributes *sattr, struct pal_devic
     if (mStreamAttr->out_media_config.ch_info.channels > PAL_MAX_CHANNELS_SUPPORTED) {
         PAL_ERR(LOG_TAG,"out_channels is invalid %d", out_channels);
         mStreamAttr->out_media_config.ch_info.channels = PAL_MAX_CHANNELS_SUPPORTED;
+    }
+
+    ch_info = (mStreamAttr->direction == PAL_AUDIO_INPUT) ?
+        &mStreamAttr->in_media_config.ch_info :
+        &mStreamAttr->out_media_config.ch_info;
+
+    // Setting default volume to unity
+    mVolumeData = (struct pal_volume_data *)malloc(sizeof(struct pal_volume_data)
+                      +(sizeof(struct pal_channel_vol_kv) * ch_info->channels));
+    if (!mVolumeData) {
+        PAL_ERR(LOG_TAG, "Failed to allocate memory for volume data");
+        mStreamMutex.unlock();
+        throw std::runtime_error("failed to allocate memory for volume data");
+    }
+
+    mVolumeData->no_of_volpair = ch_info->channels;
+    for (int i = 0; i < mVolumeData->no_of_volpair; i++) {
+        mVolumeData->volume_pair[i].channel_mask = ch_info->ch_map[i];
+        mVolumeData->volume_pair[i].vol = 1.0f;
     }
 
     //check if its capture, and if it is, look at the address and then pick instance ids.
@@ -795,12 +803,60 @@ int32_t StreamPCM::setVolume(struct pal_volume_data *volume)
     struct volume_set_param_info vol_set_param_info;
     uint8_t volSize = 0;
     bool forceSetParameters = false;
+    struct pal_channel_info *ch_info = nullptr;
 
     PAL_DBG(LOG_TAG, "Enter. session handle - %pK", session);
     if (!volume || (volume->no_of_volpair == 0)) {
        PAL_ERR(LOG_TAG, "Invalid arguments");
        status = -EINVAL;
        goto exit;
+    }
+
+    if (!mStreamAttr) {
+        PAL_ERR(LOG_TAG, "mStreamAttr info is NULL/not populated");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    ch_info = (mStreamAttr->direction == PAL_AUDIO_INPUT) ?
+        &mStreamAttr->in_media_config.ch_info :
+        &mStreamAttr->out_media_config.ch_info;
+
+    if (ch_info->channels != volume->no_of_volpair) {
+        PAL_ERR(LOG_TAG, "no of stream channels are not matching with volume channels");
+        status = -EINVAL;
+        goto exit;
+    }
+
+    for (int32_t i = volume->no_of_volpair - 1; i >= 0; i--) {
+        bool channel_supported = false;
+
+        if (volume->volume_pair[i].vol < 0.0f ||
+            volume->volume_pair[i].vol > 1.0f) {
+            PAL_ERR(LOG_TAG, "volume level is not with in the range");
+            status = -EINVAL;
+            goto exit;
+        }
+
+        if (volume->no_of_volpair > 1 &&
+            volume->volume_pair[0].vol != volume->volume_pair[i].vol) {
+            PAL_ERR(LOG_TAG, "All channel mask values are not equal");
+            status = -EINVAL;
+            goto exit;
+        }
+
+        for (uint32_t j = 0; j < ch_info->channels; j++) {
+            if (volume->volume_pair[i].channel_mask == ch_info->ch_map[j]) {
+                channel_supported = true;
+                break;
+            }
+        }
+        if (!channel_supported) {
+            PAL_ERR(LOG_TAG, "vol_channel_mask %d is not supported",
+                    volume->volume_pair[i].channel_mask);
+            status = -EINVAL;
+            goto exit;
+        }
     }
 
     // if already allocated free and reallocate
